@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "Find",
+      "Grep",
+      "Task",
+      "TaskOutput",
+      "AskUserQuestion",
+      "Skill(update-config)",
+      "WebSearch",
+      "Bash(python:*)",
+      "Bash(jq -e '.hooks.WorktreeCreate[] | .hooks[] | select\\(.type == \"\"command\"\"\\) | .command' \"C:/Users/osman/Desktop/windows_xp/.claude/settings.local.json\")",
+      "Bash(jq -e '.hooks.WorktreeRemove[] | .hooks[] | select\\(.type == \"\"command\"\"\\) | .command' \"C:/Users/osman/Desktop/windows_xp/.claude/settings.local.json\")",
+      "Bash(npm run:*)",
+      "Read(//mnt/c/Users/osman/.claude/worktrees/windows_xp/)",
+      "Read(//mnt/c/Users/osman/Desktop/)"
+    ]
+  },
+  "hooks": {
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import json,sys,os,re,shutil,pathlib; d=json.load(sys.stdin); cwd=pathlib.Path(d.get('cwd') or os.getcwd()).resolve(); project=re.sub(r'[^A-Za-z0-9._-]+','-',cwd.name) or 'project'; raw=d.get('name') or 'worktree'; name=re.sub(r'[^A-Za-z0-9._-]+','-',raw).strip('-') or 'worktree'; base=(pathlib.Path.home()/'.claude'/'worktrees'/project).resolve(); base.mkdir(parents=True,exist_ok=True); candidates=[base/name]+[base/f'{name}-{i}' for i in range(2,1000)]; dest=next(p for p in candidates if not p.exists()); shutil.copytree(cwd,dest,ignore=shutil.ignore_patterns('node_modules','dist','.git')); print(dest)\""
+          }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python -c \"import json,sys,os,re,shutil,pathlib; d=json.load(sys.stdin); cwd=pathlib.Path(d.get('cwd') or os.getcwd()).resolve(); project=re.sub(r'[^A-Za-z0-9._-]+','-',cwd.name) or 'project'; base=(pathlib.Path.home()/'.claude'/'worktrees'/project).resolve(); raw=d.get('worktree_path'); target=pathlib.Path(raw).expanduser().resolve(strict=False) if raw else None; shutil.rmtree(target) if target and target.exists() and target.is_dir() and (not target.is_symlink()) and (base in target.parents) else None\""
+          }
+        ]
+      }
+    ]
+  }
+}

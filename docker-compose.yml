@@ -1,0 +1,88 @@
+services:
+  oracle:
+    image: gvenzl/oracle-free:slim
+    container_name: aykome-v6-oracle
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: aykome123
+      APP_USER: aykome_user
+      APP_USER_PASSWORD: aykome123
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "sqlplus", "-s", "aykome_user/aykome123@FREEPDB1", "SELECT 1 FROM DUAL"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  adminer:
+    build:
+      context: ./docker/adminer
+      dockerfile: Dockerfile
+    container_name: aykome-v6-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      oracle:
+        condition: service_healthy
+
+  php-oci8:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: aykome-v6-php
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      oracle:
+        condition: service_healthy
+    command: ["sleep", "infinity"]
+
+  redis:
+    image: redis:7-alpine
+    container_name: aykome-v6-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
+  serve:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: aykome-v6-serve
+    network_mode: host
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      oracle:
+        condition: service_healthy
+      php-oci8:
+        condition: service_started
+      redis:
+        condition: service_started
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8001"]
+
+  reverb:
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    container_name: aykome-v6-reverb
+    network_mode: host
+    working_dir: /app
+    volumes:
+      - .:/app
+    depends_on:
+      oracle:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8090"]
+
+volumes:
+  oracle_data:
+  redis_data:
