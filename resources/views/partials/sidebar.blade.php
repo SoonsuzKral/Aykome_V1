@@ -59,16 +59,6 @@
     $premiumModules = [
         ['label' => 'E-Tebligat Servisi', 'icon' => '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>'],
     ];
-
-    $cbsModules = [
-        [
-            'label' => 'CBS Entegrasyon',
-            'route' => 'maps.index',
-            'match' => 'maps.*',
-            'perm' => 'applications.view',
-            'icon' => '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>',
-        ],
-    ];
 @endphp
 
 <aside
@@ -145,6 +135,20 @@
             </a>
         @endforeach
 
+        {{-- CBS Entegrasyon — Aykome Maps --}}
+        @php $cbsActive = request()->routeIs('maps.*'); @endphp
+        <div class="my-3 border-t border-slate-700/50"></div>
+        <p class="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">CBS & Harita</p>
+        <a href="{{ route('maps.index') }}"
+           data-sidebar-close
+           class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ $cbsActive ? 'bg-gradient-to-r from-emerald-500/20 to-transparent font-semibold text-white ring-1 ring-emerald-500/30' : 'text-slate-400 hover:bg-slate-800/70 hover:text-white' }}">
+            <span class="{{ $cbsActive ? 'text-emerald-400' : 'opacity-55' }}">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>
+            </span>
+            <span class="flex-1 truncate">Aykome Maps</span>
+            @if($cbsActive)<span class="ms-auto h-1.5 w-1.5 rounded-full bg-emerald-400"></span>@endif
+        </a>
+
         {{-- Saha Personeli — Görevlerim linki (@can tabanlı) --}}
         @can('field.tasks_view')
         <div class="my-3 border-t border-slate-700/50"></div>
@@ -204,20 +208,6 @@
                 <span class="flex-1 truncate">{{ $mod['label'] }}</span>
                 <span class="flex-shrink-0 rounded-full bg-gradient-to-r from-[#FA6001]/30 to-[#02E0FB]/20 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-orange-400">Beta</span>
             </button>
-        @endforeach
-
-        @foreach($cbsModules as $cbs)
-            @if(isset($cbs['perm']) && !auth()->user()->can($cbs['perm']))
-                @continue
-            @endif
-            @php $cbsActive = request()->routeIs($cbs['match']); @endphp
-            <a href="{{ route($cbs['route']) }}"
-               data-sidebar-close
-               class="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition {{ $cbsActive ? 'bg-gradient-to-r from-emerald-500/20 to-transparent font-semibold text-white ring-1 ring-emerald-500/30' : 'text-slate-400 hover:bg-slate-800/70 hover:text-white' }}">
-                <span class="{{ $cbsActive ? 'text-emerald-400' : 'opacity-55' }}">{!! $cbs['icon'] !!}</span>
-                <span class="flex-1 truncate">{{ $cbs['label'] }}</span>
-                @if($cbsActive)<span class="ms-auto h-1.5 w-1.5 rounded-full bg-emerald-400"></span>@endif
-            </a>
         @endforeach
 
         @foreach($premiumModules as $mod)
