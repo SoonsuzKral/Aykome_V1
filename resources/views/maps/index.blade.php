@@ -429,38 +429,59 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span>📐 AKOS (geo4) — Kadastro</span>
+            <span>🏛️ İdari Sınırlar</span>
             <span class="arrow">▼</span>
         </div>
         <div class="accordion-body">
-            <div class="layer-row"><label><input type="checkbox" class="katman-checkbox" data-group="geo4" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL"><span>Parseller</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><input type="checkbox" class="katman-checkbox" data-group="geo4" data-layer="smpns:MISMAP_NUM_BINA"><span>Binalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><input type="checkbox" class="katman-checkbox" data-group="geo4" data-layer="smpns:MISMAP_NUM_ILCE"><span>İlçe Sınırları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><input type="checkbox" class="katman-checkbox" data-group="geo4" data-layer="smpns:MISMAP_NUM_MAHALLE"><span>Mahalleler</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><input type="checkbox" class="katman-checkbox" data-group="geo4" data-layer="smpns:MISMAP_NUM_ADA"><span>Ada</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><input type="checkbox" class="katman-checkbox" data-group="geo4" data-layer="smpns:MISMAP_NUM_CADDESOKAK"><span>Cadde / Sokak</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><input type="checkbox" class="katman-checkbox" data-group="geo4" data-layer="smpns:MISMAP_NUM_ADRES"><span>Adres</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><input type="checkbox" class="katman-checkbox" data-group="geo4" data-layer="smpns:MISMAP_NUM_PAFTA"><span>Pafta</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><input type="checkbox" class="katman-checkbox" data-group="geo4" data-layer="smpns:MISMAP_NUM_BAGIMSIZ"><span>Bağımsız Kullanım</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#f97316;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_MAHALLE_KOYLER" checked><span>Mahalle Sınırları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#a855f7;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_KADASTRO_ADA"><span>Adalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span>🔌 MAKS+ (geo2) — Altyapı Şebekeleri</span>
+            <span>📐 Kadastro & Parseller</span>
             <span class="arrow">▼</span>
         </div>
         <div class="accordion-body">
-            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_DOGALGAZ_LINKS"><span>Doğalgaz Hatları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_DOGALGAZ_NODES"><span>Doğalgaz Noktaları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#eab308;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_ELEKTRIK_LINKS"><span>Elektrik Hatları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#eab308;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_ELEKTRIK_NODES"><span>Elektrik Noktaları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#3b82f6;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_ICMESUYU_LINKS"><span>İçme Suyu Hatları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#3b82f6;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_ICMESUYU_NODES"><span>İçme Suyu Noktaları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#92400e;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_KANALIZASYON_LINKS"><span>Kanalizasyon Hatları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#92400e;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_KANALIZASYON_NODES"><span>Kanalizasyon Noktaları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#67e8f9;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_YAGMURSUYU_LINKS"><span>Yağmur Suyu Hatları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#a855f7;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_TELEKOM_LINKS"><span>Telekom / Fiber Hatları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#475569;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:AYK_KARAYOLU_LINKS"><span>Karayolu Hatları</span></label></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#f97316;"></span><input type="checkbox" class="katman-checkbox" data-group="geo2" data-layer="smpns:METROBUS_CAD"><span>Metrobüs CAD</span></label></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL" checked><span>Parseller (Genel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#22c55e;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:TKGM_PARSEL"><span>Parseller (TKGM Güncel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+        </div>
+
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span>🏗️ Yapı & Adres</span>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+            <div class="layer-row"><label><span class="color-dot" style="background:#94a3b8;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_BINA" checked><span>Binalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#f59e0b;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:m_Numarataj"><span>Kapı Numaraları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#64748b;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_CADDE_SOKAK"><span>Cadde/Sokak Hatları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+        </div>
+
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span>🔌 Altyapı Şebekeleri</span>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+            <div class="layer-row"><label><span class="color-dot" style="background:#3b82f6;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_SU_ICMESUYU_LINKS" checked><span>Aykome İçmesuyu</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#92400e;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_SU_KANALIZASYON_LINKS"><span>Aykome Kanalizasyon</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#67e8f9;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_SU_YAGMURSU_LINKS"><span>Aykome Yağmursuyu</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#eab308;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_ELEKTRIK_LINKS"><span>Aykome Elektrik</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_LINKS" checked><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#3b82f6;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_NODES"><span>Doğalgaz (Noktalar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+        </div>
+
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span>🛣️ Yol Analizi (15m) <span class="badge" style="background:#22c55e;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;">YENİ</span></span>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="accordion-body" id="road-analysis-panel">
+            <div class="layer-row"><label><span class="color-dot" style="background:#22c55e;"></span><input type="checkbox" id="road-15-alti"><span>15 metre ALTINDAKİ yollar</span></label><span style="font-size:9px;color:#64748b;">İlçe Belediyesi</span></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" id="road-15-ustu"><span>15 metre ÜSTÜNDEKİ yollar</span></label><span style="font-size:9px;color:#64748b;">Büyükşehir</span></div>
+            <div style="margin-top:8px;border-top:1px solid #334155;padding-top:8px;">
+                <button id="btn-hat-kimligi" class="draw-btn" style="width:100%;justify-content:center;" onclick="toggleHatKimligi()">
+                    🔍 Hat Kimliği Sorgula
+                </button>
+                <div style="font-size:10px;color:#64748b;margin-top:4px;text-align:center;">Aktifken yola tıkla, detayları gör</div>
+            </div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -642,13 +663,13 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 (function(w){
 'use strict';
 
-var GEO4_WMS='https://geo4.sanliurfa.bel.tr:7171/geoserver/wms';
-var GEO2_WMS='https://geo2.sanliurfa.bel.tr:9191/geoserver/wms';
+var GEO3_WMS='https://geo3.sanliurfa.bel.tr:8091/geoserver/wms';
 var PROXY_URL='/maps/proxy?url=';
 var URFA_CENTER=[37.1598,38.7969];
 var URFA_BOUNDS=[[37.0,38.6],[37.4,39.0]];
 
 var mapsMap=null, basemapLayers={}, wmsLayers={};
+var roadLayerAlti=null, roadLayerUstu=null;
 var basvuruLayer=null, drawnItems=null, currentDrawLayer=null, _isDrawing=!1, _drawJustFinished=!1;
 var statusIcons={
     field_work:       {bg:'#f97316',icon:'⛏',label:'Saha Çalışması',pulse:!0},
@@ -705,39 +726,29 @@ function initMaps(){
     basemapLayers.osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
     basemapLayers.topos=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
 
-    var geo4Layers={
-        'smpns:MISMAP_NUM_KADASTRO_PARSEL':!1,
-        'smpns:MISMAP_NUM_BINA':!1,
-        'smpns:MISMAP_NUM_ILCE':!1,
-        'smpns:MISMAP_NUM_MAHALLE':!1,
-        'smpns:MISMAP_NUM_ADA':!1,
-        'smpns:MISMAP_NUM_CADDESOKAK':!1,
-        'smpns:MISMAP_NUM_ADRES':!1,
-        'smpns:MISMAP_NUM_PAFTA':!1,
-        'smpns:MISMAP_NUM_BAGIMSIZ':!1
-    };
-    var geo2Layers={
-        'smpns:AYK_DOGALGAZ_LINKS':!1,
-        'smpns:AYK_DOGALGAZ_NODES':!1,
-        'smpns:AYK_ELEKTRIK_LINKS':!1,
-        'smpns:AYK_ELEKTRIK_NODES':!1,
-        'smpns:AYK_ICMESUYU_LINKS':!1,
-        'smpns:AYK_ICMESUYU_NODES':!1,
-        'smpns:AYK_KANALIZASYON_LINKS':!1,
-        'smpns:AYK_KANALIZASYON_NODES':!1,
-        'smpns:AYK_YAGMURSUYU_LINKS':!1,
-        'smpns:AYK_TELEKOM_LINKS':!1,
-        'smpns:AYK_KARAYOLU_LINKS':!1,
-        'smpns:METROBUS_CAD':!1
+    var geo3Layers={
+        // İdari Sınırlar
+        'cbs:MISMAP_MAHALLE_KOYLER':       {on:!0, group:'admin'},
+        'cbs:MISMAP_KADASTRO_ADA':         {on:!1, group:'admin'},
+        // Kadastro & Parseller
+        'smpns:MISMAP_NUM_KADASTRO_PARSEL':{on:!0, group:'cadastre'},
+        'smpns:TKGM_PARSEL':               {on:!1, group:'cadastre'},
+        // Yapı & Adres
+        'smpns:MISMAP_NUM_BINA':           {on:!0, group:'building'},
+        'smpns:m_Numarataj':               {on:!1, group:'building'},
+        'cbs:MISMAP_CADDE_SOKAK':          {on:!1, group:'building'},
+        // Altyapı Şebekeleri
+        'aykome:AYK_SU_ICMESUYU_LINKS':    {on:!0, group:'utility'},
+        'aykome:AYK_SU_KANALIZASYON_LINKS':{on:!1, group:'utility'},
+        'aykome:AYK_SU_YAGMURSU_LINKS':    {on:!1, group:'utility'},
+        'aykome:AYK_ELEKTRIK_LINKS':       {on:!1, group:'utility'},
+        'aykome:AYK_DOGALGAZ_LINKS':       {on:!0, group:'utility'},
+        'aykome:AYK_DOGALGAZ_NODES':       {on:!1, group:'utility'}
     };
 
-    Object.keys(geo4Layers).forEach(function(l){
-        wmsLayers[l]=createWmsLayer(GEO4_WMS,l,{layers:l,opacity:0.7,zIndex:100});
-        if(geo4Layers[l]) wmsLayers[l].addTo(mapsMap);
-    });
-    Object.keys(geo2Layers).forEach(function(l){
-        wmsLayers[l]=createWmsLayer(GEO2_WMS,l,{layers:l,opacity:0.7,zIndex:100});
-        if(geo2Layers[l]) wmsLayers[l].addTo(mapsMap);
+    Object.keys(geo3Layers).forEach(function(l){
+        wmsLayers[l]=createWmsLayer(GEO3_WMS,l,{layers:l,opacity:0.7,zIndex:100});
+        if(geo3Layers[l].on) wmsLayers[l].addTo(mapsMap);
     });
 
     drawnItems=new L.FeatureGroup();
@@ -1001,7 +1012,7 @@ function handleDrawCreated(e){
     var bbox;
     if(bounds){
         bbox=bounds.getWest()+','+bounds.getSouth()+','+bounds.getEast()+','+bounds.getNorth();
-        var wfsUrl='https://geo4.sanliurfa.bel.tr:7171/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=smpns:MISMAP_NUM_KADASTRO_PARSEL&outputFormat=application/json&srsName=EPSG:3857&bbox='+bbox;
+        var wfsUrl='https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=smpns:MISMAP_NUM_KADASTRO_PARSEL&outputFormat=application/json&srsName=EPSG:3857&bbox='+bbox;
         fetch(PROXY_URL+encodeURIComponent(wfsUrl)).then(function(r){return r.json()}).then(function(data){
             var features=data.features||[];
             var ilc='',mh='';
@@ -1057,7 +1068,7 @@ function getBbox(lng,lat,m){
 function loadBasvuruMarkers(){
     if(!mapsMap)return;
     if(basvuruLayer){mapsMap.removeLayer(basvuruLayer);basvuruLayer=null}
-    fetch('/maps/basvurular-geojson')
+    fetch('/maps/basvurular/geojson')
     .then(function(r){return r.json()})
     .then(function(data){
         if(!data.features||!data.features.length)return;
@@ -1331,6 +1342,68 @@ w.addEventListener('resize',function(){
         document.getElementById('maps-wrapper').style.left=sidebar.offsetWidth+'px';
     }
 });
+
+w.toggleHatKimligi=function(){
+    // Phase 3'te implement edilecek
+    showToast('🔍 Hat Kimliği sorgulama (Phase 3)');
+};
+
+// 15m yol analizi toggle
+document.addEventListener('DOMContentLoaded',function(){
+    var elAlti=document.getElementById('road-15-alti');
+    var elUstu=document.getElementById('road-15-ustu');
+    if(elAlti) elAlti.addEventListener('change',function(){
+        if(this.checked) loadRoadLayer('alti');
+        else removeRoadLayer('alti');
+    });
+    if(elUstu) elUstu.addEventListener('change',function(){
+        if(this.checked) loadRoadLayer('ustu');
+        else removeRoadLayer('ustu');
+    });
+});
+
+function loadRoadLayer(tip){
+    if(!mapsMap) return;
+    var url=tip==='alti'?'/maps/15m/alti':'/maps/15m/ustu';
+    var color=tip==='alti'?'#22c55e':'#ef4444';
+    var label=tip==='alti'?'15m Altı':'15m Üstü';
+    var existing=tip==='alti'?roadLayerAlti:roadLayerUstu;
+    if(existing) { mapsMap.addLayer(existing); return; }
+    showToast('🔄 '+label+' yollar yükleniyor...');
+    fetch(url).then(function(r){return r.json()}).then(function(data){
+        if(!data.features||!data.features.length){showToast('⚠️ Yol verisi bulunamadı');return;}
+        var layer=L.geoJSON(data,{
+            style:{color:color,weight:4,opacity:0.6},
+            onEachFeature:function(feature,layer){
+                var p=feature.properties||{};
+                layer.bindPopup(
+                    '<div style="min-width:180px;font-size:12px;">'+
+                    '<div style="font-weight:600;margin-bottom:4px;">🛣️ '+(p.CADDE_SO_1||'')+' '+(p.CADDE_SO_2||'')+'</div>'+
+                    '<table style="font-size:11px;width:100%;border-collapse:collapse;">'+
+                    '<tr><td style="color:#64748b;padding:1px 4px;">Hat Kimliği:</td><td style="padding:1px 4px;"><strong>#'+(p.CADDE_SOKA||'')+'</strong></td></tr>'+
+                    '<tr><td style="color:#64748b;padding:1px 4px;">Mahalle:</td><td style="padding:1px 4px;">'+(p.MAHALLE_AD||'')+'</td></tr>'+
+                    '<tr><td style="color:#64748b;padding:1px 4px;">Genişlik:</td><td style="padding:1px 4px;">'+(p.GENISLIGI||'')+' m</td></tr>'+
+                    '<tr><td style="color:#64748b;padding:1px 4px;">Uzunluk:</td><td style="padding:1px 4px;">'+(p.UZUNLUGU||'')+' m</td></tr>'+
+                    '<tr><td style="color:#64748b;padding:1px 4px;">Yetki:</td><td style="padding:1px 4px;">'+(p.SORUMLULUK||'')+'</td></tr>'+
+                    '</table>'+
+                    '<div style="margin-top:4px;display:flex;gap:4px;">'+
+                    '<button onclick="alert(\'🔍 Hat Kimliği detayı Phase 3\'+'\u0027+\'te gelecek\')" style="flex:1;background:#E87722;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">🔍 Tümünü Göster</button>'+
+                    '</div>'+
+                    '</div>'
+                );
+            }
+        });
+        if(tip==='alti') roadLayerAlti=layer; else roadLayerUstu=layer;
+        layer.addTo(mapsMap);
+        showToast('✅ '+label+' yollar yüklendi ('+data.features.length+' adet)');
+    }).catch(function(){showToast('⚠️ Yol verisi yüklenemedi');});
+}
+
+function removeRoadLayer(tip){
+    if(!mapsMap) return;
+    var layer=tip==='alti'?roadLayerAlti:roadLayerUstu;
+    if(layer&&mapsMap.hasLayer(layer)) mapsMap.removeLayer(layer);
+}
 
 })(window);
 </script>

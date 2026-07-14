@@ -38,11 +38,30 @@ Route::get('/dashboard', function () {
 })->middleware(['auth'])->name('dashboard');
 
 Route::middleware(['auth'])->prefix('maps')->name('maps.')->group(function () {
-    Route::get('/',                   [MapsController::class, 'index'])->name('index');
-    Route::get('/proxy',              [MapsController::class, 'proxy'])->name('proxy');
-    Route::post('/nokta-kaydet',      [MapsController::class, 'noktaKaydet'])->name('noktaKaydet');
-    Route::get('/basvurular-geojson', [MapsController::class, 'basvurularGeoJson'])->name('basvurularGeoJson');
-    Route::get('/basvuru-sorgula', [MapsController::class, 'basvuruSorgula'])->name('basvuruSorgula');
+    Route::get('/',                          [MapsController::class, 'index'])->name('index');
+    Route::get('/proxy',                     [MapsController::class, 'proxy'])->name('proxy');
+    Route::post('/nokta-kaydet',             [MapsController::class, 'noktaKaydet'])->name('noktaKaydet');
+    Route::get('/basvurular/geojson',        [MapsController::class, 'basvurularGeoJson'])->name('basvurularGeoJson');
+    Route::get('/basvuru-sorgula',           [MapsController::class, 'basvuruSorgula'])->name('basvuruSorgula');
+
+    // CBS v7 — 15m Yol + Hat Kimliği
+    Route::get('/15m/alti',                  [MapsController::class, 'geoJson15Alti'])->name('15m.alti');
+    Route::get('/15m/ustu',                  [MapsController::class, 'geoJson15Ustu'])->name('15m.ustu');
+    Route::get('/15m/sorgula',               [MapsController::class, 'roadQuery'])->name('15m.roadQuery');
+
+    // CBS v7 — Çizim Yönetimi
+    Route::post('/drawing/save',             [MapsController::class, 'drawingSave'])->name('drawing.save');
+    Route::match(['put', 'patch'],'/drawing/{drawing}', [MapsController::class, 'drawingUpdate'])->name('drawing.update');
+    Route::delete('/drawing/{drawing}',      [MapsController::class, 'drawingDelete'])->name('drawing.delete');
+    Route::get('/drawing/app/{app}',         [MapsController::class, 'drawingGetByApp'])->name('drawing.byApp');
+    Route::get('/drawing/user',              [MapsController::class, 'drawingGetByUser'])->name('drawing.byUser');
+
+    // CBS v7 — Katman Tercihleri
+    Route::post('/katman/kaydet',            [MapsController::class, 'katmanKaydet'])->name('katman.kaydet');
+    Route::get('/katman/yukle',              [MapsController::class, 'katmanYukle'])->name('katman.yukle');
+
+    // CBS v7 — Adres Arama (Nominatim proxy)
+    Route::get('/ara',                       [MapsController::class, 'search'])->name('ara');
 });
 
 Route::prefix('db-switch')->name('db-switch.')->controller(\App\Http\Controllers\DatabaseSwitcherController::class)->group(function () {

@@ -16,6 +16,103 @@ class MapsController extends Controller
         return view('maps.index');
     }
 
+    // ─── CBS v7 — 15m Yol Analizi ───
+
+    public function geoJson15Alti()
+    {
+        $path = storage_path('shp/15_alti.js');
+        if (!file_exists($path)) {
+            return response()->json(['type' => 'FeatureCollection', 'features' => []], 200);
+        }
+        $content = file_get_contents($path);
+        // JS wrapper: var EybAlti = {...}; → pure JSON
+        $json = preg_replace('/^var\s+\w+\s*=\s*/', '', $content);
+        $json = rtrim($json, ";\n\r ");
+        $data = json_decode($json, true);
+        if (!$data || !isset($data['features'])) {
+            return response()->json(['type' => 'FeatureCollection', 'features' => []], 200);
+        }
+        return response()->json($data);
+    }
+
+    public function geoJson15Ustu()
+    {
+        $path = storage_path('shp/15_ustu.js');
+        if (!file_exists($path)) {
+            return response()->json(['type' => 'FeatureCollection', 'features' => []], 200);
+        }
+        $content = file_get_contents($path);
+        $json = preg_replace('/^var\s+\w+\s*=\s*/', '', $content);
+        $json = rtrim($json, ";\n\r ");
+        $data = json_decode($json, true);
+        if (!$data || !isset($data['features'])) {
+            return response()->json(['type' => 'FeatureCollection', 'features' => []], 200);
+        }
+        return response()->json($data);
+    }
+
+    public function roadQuery(Request $request)
+    {
+        // Phase 3'te implement edilecek
+        return response()->json(['error' => 'Henüz implement edilmedi'], 501);
+    }
+
+    // ─── CBS v7 — Çizim Yönetimi ───
+
+    public function drawingSave(Request $request)
+    {
+        // Phase 4'te implement edilecek
+        return response()->json(['success' => false, 'message' => 'Henüz implement edilmedi'], 501);
+    }
+
+    public function drawingUpdate(Request $request, $id)
+    {
+        // Phase 4'te implement edilecek
+        return response()->json(['success' => false, 'message' => 'Henüz implement edilmedi'], 501);
+    }
+
+    public function drawingDelete($id)
+    {
+        // Phase 4'te implement edilecek
+        return response()->json(['success' => false, 'message' => 'Henüz implement edilmedi'], 501);
+    }
+
+    public function drawingGetByApp($appId)
+    {
+        // Phase 4'te implement edilecek
+        return response()->json(['type' => 'FeatureCollection', 'features' => []]);
+    }
+
+    public function drawingGetByUser(Request $request)
+    {
+        // Phase 4'te implement edilecek
+        return response()->json(['type' => 'FeatureCollection', 'features' => []]);
+    }
+
+    // ─── CBS v7 — Katman Tercihleri ───
+
+    public function katmanKaydet(Request $request)
+    {
+        // Phase 9'da implement edilecek
+        return response()->json(['success' => false, 'message' => 'Henüz implement edilmedi'], 501);
+    }
+
+    public function katmanYukle(Request $request)
+    {
+        // Phase 9'da implement edilecek
+        return response()->json([]);
+    }
+
+    // ─── CBS v7 — Adres Arama ───
+
+    public function search(Request $request)
+    {
+        // Phase 5'te implement edilecek
+        $q = $request->input('q');
+        if (!$q) return response()->json([]);
+        return response()->json([]);
+    }
+
     public function proxy(Request $request)
     {
         $url = $request->query('url');
@@ -27,7 +124,8 @@ class MapsController extends Controller
         $decodedUrl = urldecode($url);
 
         if (!str_contains($decodedUrl, 'geo4.sanliurfa.bel.tr') &&
-            !str_contains($decodedUrl, 'geo2.sanliurfa.bel.tr')) {
+            !str_contains($decodedUrl, 'geo2.sanliurfa.bel.tr') &&
+            !str_contains($decodedUrl, 'geo3.sanliurfa.bel.tr')) {
             return response()->json(['error' => 'İzin verilmeyen domain'], 403);
         }
 
