@@ -1,6 +1,7 @@
 # CLAUDE CODE — AYKOME ÇALIŞMA KURALLARI
 
 > Her oturumda bu dosyayı ÖNCE oku, sonra işleme başla.
+> Yeni oturumda SESSION_SUMMARY.md dosyasını oku.
 > Model: claude-sonnet-4-5 (Minimax 2.5)
 
 ---
