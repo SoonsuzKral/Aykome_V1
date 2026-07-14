@@ -105,6 +105,20 @@
                 </dl>
             </div>
 
+            {{-- CBS Referans Haritası --}}
+            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 class="mb-4 text-sm font-semibold text-slate-800">📍 CBS Harita Konumu</h2>
+                @include('maps.partials._harita', [
+                    'mode' => 'embedded',
+                    'drawingEnabled' => false,
+                    'hatKimligiEnabled' => true,
+                    'show15mRoads' => false,
+                    'height' => '350px',
+                    'readOnly' => true,
+                    'application' => $application,
+                ])
+            </div>
+
             {{-- Yüklenen Belgeler --}}
             @if($application->documents->isNotEmpty())
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

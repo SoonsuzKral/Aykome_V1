@@ -175,6 +175,19 @@
             </div>
         </div>
 
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <h3 class="mb-2 text-sm font-semibold text-slate-800">📍 CBS Referans Haritası</h3>
+            <p class="mb-2 text-xs text-slate-500">Parsel, bina, altyapı ve 15m yol katmanlarını görüntülemek için kullanın.</p>
+            @include('maps.partials._harita', [
+                'mode' => 'embedded',
+                'drawingEnabled' => false,
+                'hatKimligiEnabled' => true,
+                'show15mRoads' => false,
+                'height' => '350px',
+                'application' => $application ?? null,
+            ])
+        </div>
+
         <fieldset class="grid gap-4 sm:grid-cols-2">
             <legend class="col-span-full text-sm font-semibold text-slate-800">Yüzey &amp; keşif</legend>
             <div class="sm:col-span-2">
