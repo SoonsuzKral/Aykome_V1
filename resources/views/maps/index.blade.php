@@ -625,6 +625,27 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 </div>
 
 <div id="maps-toast"></div>
+
+<!-- Hat Kimliği Detay Paneli -->
+<div id="hat-kimligi-panel" style="display:none;position:fixed;top:60px;right:20px;width:360px;max-width:90vw;max-height:80vh;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:2000;overflow:hidden;font-size:13px;">
+    <div style="background:linear-gradient(135deg,#1e293b,#334155);color:white;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-weight:600;">📋 HAT KİMLİĞİ DETAY RAPORU</span>
+        <button onclick="kapatHatKimligiPanel()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div id="hat-kimligi-panel-body" style="padding:12px 16px;overflow-y:auto;max-height:calc(80vh - 100px);">
+        <div style="text-align:center;color:#94a3b8;padding:20px;">Yükleniyor...</div>
+    </div>
+    <div style="padding:10px 16px;border-top:1px solid #e2e8f0;display:flex;gap:8px;">
+        <button onclick="hatKimligiBasvuruAc()" class="btn-b btn-b-submit" style="flex:1;">📋 Başvuru Yap</button>
+        <button onclick="kapatHatKimligiPanel()" class="btn-b btn-b-prev">Kapat</button>
+    </div>
+</div>
+
+<!-- Hat Kimliği için hidden state -->
+<input type="hidden" id="hk-last-props" value="">
+<input type="hidden" id="hk-last-lat" value="">
+<input type="hidden" id="hk-last-lng" value="">
+
 @endsection
 
 @push('scripts')
@@ -1343,9 +1364,130 @@ w.addEventListener('resize',function(){
     }
 });
 
+var _hatKimligiActive=!1;
+
 w.toggleHatKimligi=function(){
-    // Phase 3'te implement edilecek
-    showToast('🔍 Hat Kimliği sorgulama (Phase 3)');
+    _hatKimligiActive=!_hatKimligiActive;
+    var btn=document.getElementById('btn-hat-kimligi');
+    if(_hatKimligiActive){
+        if(mapsMap) mapsMap.getContainer().style.cursor='crosshair';
+        btn.style.background='#E87722';
+        btn.style.color='#fff';
+        btn.style.borderColor='#E87722';
+        showToast('🔍 Hat Kimliği aktif. Bir yola tıklayın.');
+    } else {
+        if(mapsMap) mapsMap.getContainer().style.cursor='';
+        btn.style.background='#334155';
+        btn.style.color='#cbd5e1';
+        btn.style.borderColor='#475569';
+        kapatHatKimligiPanel();
+    }
+};
+
+w.showHatKimligiPopup=function(latlng, props){
+    var hatNo=props.CADDE_SOKA||'—';
+    var adi=(props.CADDE_SO_1||'')+' '+(props.CADDE_SO_2||'');
+    var mahalle=props.MAHALLE_AD||'';
+    var ilce=props.ILÇE||'';
+    var genislik=props.GENISLIGI||'';
+    var uzunluk=props.UZUNLUGU||'';
+    var sorumluluk=props.SORUMLULUK||'';
+
+    // Save for later use
+    document.getElementById('hk-last-props').value=JSON.stringify(props);
+    document.getElementById('hk-last-lat').value=latlng.lat;
+    document.getElementById('hk-last-lng').value=latlng.lng;
+
+    var content=
+        '<div style="min-width:250px;font-size:12px;">'+
+        '<div style="font-weight:700;font-size:14px;margin-bottom:6px;color:#1e293b;">🛣️ HAT KİMLİĞİ: #'+hatNo+'</div>'+
+        '<hr style="margin:6px 0;border-color:#e2e8f0;">'+
+        '<table style="width:100%;font-size:12px;border-collapse:collapse;">'+
+        '<tr><td style="color:#64748b;padding:2px 4px;">Cadde/Sokak:</td><td style="padding:2px 4px;font-weight:500;">'+adi+'</td></tr>'+
+        '<tr><td style="color:#64748b;padding:2px 4px;">Mahalle:</td><td style="padding:2px 4px;font-weight:500;">'+mahalle+'</td></tr>'+
+        '<tr><td style="color:#64748b;padding:2px 4px;">İlçe:</td><td style="padding:2px 4px;font-weight:500;">'+ilce+'</td></tr>'+
+        '<tr><td style="color:#64748b;padding:2px 4px;">Genişlik:</td><td style="padding:2px 4px;font-weight:500;">'+genislik+' m</td></tr>'+
+        '<tr><td style="color:#64748b;padding:2px 4px;">Uzunluk:</td><td style="padding:2px 4px;font-weight:500;">'+uzunluk+' m</td></tr>'+
+        '<tr><td style="color:#64748b;padding:2px 4px;">Yetki:</td><td style="padding:2px 4px;font-weight:500;">'+sorumluluk+'</td></tr>'+
+        '</table>'+
+        '<hr style="margin:6px 0;border-color:#e2e8f0;">'+
+        '<div style="display:flex;gap:6px;">'+
+        '<button onclick="showHatKimligiDetail()" style="flex:1;background:#E87722;color:white;border:none;padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:500;">🔍 Tümünü Göster</button>'+
+        '<button onclick="hatKimligiBasvuruAc()" style="flex:1;background:#059669;color:white;border:none;padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:500;">📋 Başvuru Yap</button>'+
+        '</div>'+
+        '</div>';
+    L.popup({maxWidth:320,className:'hatkimligi-popup'}).setLatLng(latlng).setContent(content).openOn(mapsMap);
+};
+
+w.showHatKimligiDetail=function(){
+    var props=document.getElementById('hk-last-props').value;
+    if(!props) return showToast('⚠️ Önce bir yol seçin');
+    try{props=JSON.parse(props)}catch(e){return}
+    if(mapsMap) mapsMap.closePopup();
+
+    var hatNo=props.CADDE_SOKA||'—';
+    var rows=[
+        ['Hat Kimliği', '#'+hatNo],
+        ['Cadde/Sokak Adı', props.CADDE_SO_1||'—'],
+        ['Tür', props.CADDE_SO_2||'—'],
+        ['İlçe', props.ILÇE||'—'],
+        ['Mahalle', props.MAHALLE_AD||'—'],
+        ['Yetki (Sorumluluk)', props.SORUMLULUK||'—'],
+        ['Ana Arter', props.ANA__ARTER||'—'],
+        ['Kaplama Türü', props.KAPLAMA_CI||'—'],
+        ['Eski Cadde Adı', props.ESKI_CADDE||'—'],
+        ['Şerit Sayısı', props.SERIT_SAYI||'0'],
+        ['Yaya Geçidi', props.YAYA_GEÇI||'0'],
+        ['Genişlik', (props.GENISLIGI||'0')+' m'],
+        ['Uzunluk', (props.UZUNLUGU||'0')+' m'],
+        ['Eğim', props.EGIMI||'0'],
+        ['Hız Limiti', (props.HIZ_LIMITI||'0')+' km/s'],
+        ['Kaldırım Türü', props.KALDIRIM_T||'—'],
+        ['Trafik Yönü', props.TRAFIK_YÖ||'—'],
+        ['UAVT Yol Türü', props.UAVT_YOL_T||'—'],
+        ['Kayıt Tarihi', props.KAYIT_TARI||'—'],
+    ];
+
+    var html='<table class="table table-condensed" style="width:100%;font-size:12px;border-collapse:collapse;">';
+    rows.forEach(function(r,i){
+        var bg=i%2===0?'#f8fafc':'#fff';
+        html+='<tr style="background:'+bg+';border-bottom:1px solid #f1f5f9;">'+
+            '<td style="padding:5px 8px;color:#64748b;white-space:nowrap;">'+r[0]+'</td>'+
+            '<td style="padding:5px 8px;font-weight:500;color:#1e293b;">'+r[1]+'</td></tr>';
+    });
+    html+='</table>';
+
+    document.getElementById('hat-kimligi-panel-body').innerHTML=html;
+    document.getElementById('hat-kimligi-panel').style.display='block';
+};
+
+w.kapatHatKimligiPanel=function(){
+    document.getElementById('hat-kimligi-panel').style.display='none';
+};
+
+w.hatKimligiBasvuruAc=function(){
+    if(mapsMap) mapsMap.closePopup();
+    var props=document.getElementById('hk-last-props').value;
+    if(props) try{props=JSON.parse(props)}catch(e){}
+    var lat=document.getElementById('hk-last-lat').value;
+    var lng=document.getElementById('hk-last-lng').value;
+
+    document.getElementById('bs-lat').value=lat;
+    document.getElementById('bs-lng').value=lng;
+    document.getElementById('bs-ilce').value=props?.ILÇE||'';
+    document.getElementById('bs-mahalle').value=props?.MAHALLE_AD||'';
+    document.getElementById('bs-cadde').value=props?.CADDE_SO_1||'';
+
+    document.querySelectorAll('.tip-option').forEach(function(el){el.classList.remove('selected')});
+    document.querySelector('.tip-option').classList.add('selected');
+    document.querySelector('.tip-option input').checked=true;
+    document.getElementById('ortak-kurum-section').style.display='none';
+
+    var adres=[props?.ILÇE, props?.MAHALLE_AD+' Mah.', props?.CADDE_SO_1+' '+props?.CADDE_SO_2].filter(Boolean).join(', ');
+    document.getElementById('basvuru-adres-ozet').innerHTML='🛣️ Hat #'+(props?.CADDE_SOKA||'')+' | '+(adres||'Adres bilgisi alınamadı');
+    document.getElementById('basvuru-coord-display').textContent=lat+', '+lng;
+
+    openPanel();
 };
 
 // 15m yol analizi toggle
@@ -1376,21 +1518,25 @@ function loadRoadLayer(tip){
             style:{color:color,weight:4,opacity:0.6},
             onEachFeature:function(feature,layer){
                 var p=feature.properties||{};
-                layer.bindPopup(
-                    '<div style="min-width:180px;font-size:12px;">'+
-                    '<div style="font-weight:600;margin-bottom:4px;">🛣️ '+(p.CADDE_SO_1||'')+' '+(p.CADDE_SO_2||'')+'</div>'+
-                    '<table style="font-size:11px;width:100%;border-collapse:collapse;">'+
-                    '<tr><td style="color:#64748b;padding:1px 4px;">Hat Kimliği:</td><td style="padding:1px 4px;"><strong>#'+(p.CADDE_SOKA||'')+'</strong></td></tr>'+
-                    '<tr><td style="color:#64748b;padding:1px 4px;">Mahalle:</td><td style="padding:1px 4px;">'+(p.MAHALLE_AD||'')+'</td></tr>'+
-                    '<tr><td style="color:#64748b;padding:1px 4px;">Genişlik:</td><td style="padding:1px 4px;">'+(p.GENISLIGI||'')+' m</td></tr>'+
-                    '<tr><td style="color:#64748b;padding:1px 4px;">Uzunluk:</td><td style="padding:1px 4px;">'+(p.UZUNLUGU||'')+' m</td></tr>'+
-                    '<tr><td style="color:#64748b;padding:1px 4px;">Yetki:</td><td style="padding:1px 4px;">'+(p.SORUMLULUK||'')+'</td></tr>'+
-                    '</table>'+
-                    '<div style="margin-top:4px;display:flex;gap:4px;">'+
-                    '<button onclick="alert(\'🔍 Hat Kimliği detayı Phase 3\'+'\u0027+\'te gelecek\')" style="flex:1;background:#E87722;color:white;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">🔍 Tümünü Göster</button>'+
-                    '</div>'+
-                    '</div>'
-                );
+                layer.on('click',function(e){
+                    if(_hatKimligiActive){
+                        showHatKimligiPopup(e.latlng,p);
+                        L.DomEvent.stopPropagation(e);
+                    } else {
+                        layer.bindPopup(
+                            '<div style="min-width:180px;font-size:12px;">'+
+                            '<div style="font-weight:600;margin-bottom:4px;">🛣️ '+(p.CADDE_SO_1||'')+' '+(p.CADDE_SO_2||'')+'</div>'+
+                            '<table style="font-size:11px;width:100%;border-collapse:collapse;">'+
+                            '<tr><td style="color:#64748b;padding:1px 4px;">Hat Kimliği:</td><td style="padding:1px 4px;"><strong>#'+(p.CADDE_SOKA||'')+'</strong></td></tr>'+
+                            '<tr><td style="color:#64748b;padding:1px 4px;">Mahalle:</td><td style="padding:1px 4px;">'+(p.MAHALLE_AD||'')+'</td></tr>'+
+                            '<tr><td style="color:#64748b;padding:1px 4px;">Genişlik:</td><td style="padding:1px 4px;">'+(p.GENISLIGI||'')+' m</td></tr>'+
+                            '<tr><td style="color:#64748b;padding:1px 4px;">Uzunluk:</td><td style="padding:1px 4px;">'+(p.UZUNLUGU||'')+' m</td></tr>'+
+                            '<tr><td style="color:#64748b;padding:1px 4px;">Yetki:</td><td style="padding:1px 4px;">'+(p.SORUMLULUK||'')+'</td></tr>'+
+                            '</table>'+
+                            '</div>'
+                        ).openPopup(e.latlng);
+                    }
+                });
             }
         });
         if(tip==='alti') roadLayerAlti=layer; else roadLayerUstu=layer;

@@ -53,8 +53,70 @@ class MapsController extends Controller
 
     public function roadQuery(Request $request)
     {
-        // Phase 3'te implement edilecek
-        return response()->json(['error' => 'Henüz implement edilmedi'], 501);
+        $hatKimligi = $request->input('hat_kimligi');
+        $lat = $request->input('lat');
+        $lng = $request->input('lng');
+
+        // Veri dosyalarını tara
+        $files = [
+            storage_path('shp/15_alti.js'),
+            storage_path('shp/15_ustu.js'),
+        ];
+
+        foreach ($files as $path) {
+            if (!file_exists($path)) continue;
+            $content = file_get_contents($path);
+            $json = preg_replace('/^var\s+\w+\s*=\s*/', '', $content);
+            $json = rtrim($json, ";\n\r ");
+            $data = json_decode($json, true);
+            if (!$data || !isset($data['features'])) continue;
+
+            foreach ($data['features'] as $feature) {
+                $props = $feature['properties'] ?? [];
+
+                // Kimlik no ile ara
+                if ($hatKimligi && ($props['CADDE_SOKA'] ?? null) == $hatKimligi) {
+                    return response()->json([
+                        'found' => true,
+                        'source' => basename($path),
+                        'properties' => $props,
+                        'geometry' => $feature['geometry'],
+                    ]);
+                }
+
+                // Koordinat ile ara (noktanın 50m yakınındaki yol)
+                if ($lat && $lng) {
+                    $coords = $feature['geometry']['coordinates'] ?? [];
+                    foreach ($coords as $segment) {
+                        foreach ($segment as $coord) {
+                            if (is_array($coord) && count($coord) >= 2) {
+                                $d = $this->haversineDistance((float)$lat, (float)$lng, (float)$coord[1], (float)$coord[0]);
+                                if ($d < 0.05) { // 50 metre
+                                    return response()->json([
+                                        'found' => true,
+                                        'source' => basename($path),
+                                        'properties' => $props,
+                                        'distance_km' => round($d, 4),
+                                    ]);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return response()->json(['found' => false, 'error' => 'Yol bulunamadı']);
+    }
+
+    private function haversineDistance($lat1, $lon1, $lat2, $lon2)
+    {
+        $R = 6371;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat/2) * sin($dLat/2) + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon/2) * sin($dLon/2);
+        $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+        return $R * $c;
     }
 
     // ─── CBS v7 — Çizim Yönetimi ───
