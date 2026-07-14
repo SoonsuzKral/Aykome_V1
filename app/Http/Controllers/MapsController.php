@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\GisBasvuruNokta;
 use App\Models\Application;
+use App\Models\GisCizim;
+use App\Services\DrawingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -123,32 +125,134 @@ class MapsController extends Controller
 
     public function drawingSave(Request $request)
     {
-        // Phase 4'te implement edilecek
-        return response()->json(['success' => false, 'message' => 'Henüz implement edilmedi'], 501);
+        $data = $request->validate([
+            'tip' => ['required', 'string', 'in:nokta,cizgi,alan'],
+            'geometri' => ['required', 'json'],
+            'basvuru_id' => ['nullable', 'integer', 'exists:applications,id'],
+            'lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'aciklama' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $data['geometri'] = json_decode($data['geometri'], true);
+        $data['user_id'] = auth()->id();
+
+        $service = app(DrawingService::class);
+        $cizim = $service->saveDrawing($data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Çizim kaydedildi.',
+            'data' => [
+                'id' => $cizim->id,
+                'tip' => $cizim->tip,
+                'basvuru_id' => $cizim->basvuru_id,
+                'yol_sayisi' => $cizim->yolIliskileri()->count(),
+                'yollar' => $cizim->yolIliskileri,
+            ],
+        ]);
     }
 
     public function drawingUpdate(Request $request, $id)
     {
-        // Phase 4'te implement edilecek
-        return response()->json(['success' => false, 'message' => 'Henüz implement edilmedi'], 501);
+        $data = $request->validate([
+            'tip' => ['nullable', 'string', 'in:nokta,cizgi,alan'],
+            'geometri' => ['nullable', 'json'],
+            'basvuru_id' => ['nullable', 'integer', 'exists:applications,id'],
+            'lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'aciklama' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        if (isset($data['geometri']) && is_string($data['geometri'])) {
+            $data['geometri'] = json_decode($data['geometri'], true);
+        }
+
+        $service = app(DrawingService::class);
+        $cizim = $service->updateDrawing((int)$id, $data);
+
+        if (!$cizim) {
+            return response()->json(['success' => false, 'message' => 'Çizim bulunamadı'], 404);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Çizim güncellendi.',
+            'data' => $cizim->load('yolIliskileri'),
+        ]);
     }
 
     public function drawingDelete($id)
     {
-        // Phase 4'te implement edilecek
-        return response()->json(['success' => false, 'message' => 'Henüz implement edilmedi'], 501);
+        $service = app(DrawingService::class);
+        $deleted = $service->deleteDrawing((int)$id);
+
+        if (!$deleted) {
+            return response()->json(['success' => false, 'message' => 'Çizim bulunamadı'], 404);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Çizim silindi.']);
     }
 
     public function drawingGetByApp($appId)
     {
-        // Phase 4'te implement edilecek
-        return response()->json(['type' => 'FeatureCollection', 'features' => []]);
+        $service = app(DrawingService::class);
+        $cizimler = $service->getByApplication((int)$appId);
+
+        $features = [];
+        foreach ($cizimler as $cizim) {
+            if (!$cizim->geometri) continue;
+            $features[] = [
+                'type' => 'Feature',
+                'geometry' => $cizim->geometri,
+                'properties' => [
+                    'id' => $cizim->id,
+                    'tip' => $cizim->tip,
+                    'aciklama' => $cizim->aciklama,
+                    'created_at' => $cizim->created_at ? $cizim->created_at->format('d.m.Y H:i') : '',
+                    'yollar' => $cizim->yolIliskileri->map(function ($y) {
+                        return [
+                            'hat_kimligi' => $y->hat_kimligi,
+                            'yol_adi' => $y->yol_adi,
+                            'genislik' => $y->genislik,
+                            'sorumluluk' => $y->sorumluluk,
+                        ];
+                    }),
+                ],
+            ];
+        }
+
+        return response()->json([
+            'type' => 'FeatureCollection',
+            'features' => $features,
+        ]);
     }
 
     public function drawingGetByUser(Request $request)
     {
-        // Phase 4'te implement edilecek
-        return response()->json(['type' => 'FeatureCollection', 'features' => []]);
+        $service = app(DrawingService::class);
+        $cizimler = $service->getByUser(auth()->id());
+
+        $features = [];
+        foreach ($cizimler as $cizim) {
+            if (!$cizim->geometri) continue;
+            $features[] = [
+                'type' => 'Feature',
+                'geometry' => $cizim->geometri,
+                'properties' => [
+                    'id' => $cizim->id,
+                    'tip' => $cizim->tip,
+                    'basvuru_id' => $cizim->basvuru_id,
+                    'aciklama' => $cizim->aciklama,
+                    'created_at' => $cizim->created_at ? $cizim->created_at->format('d.m.Y H:i') : '',
+                ],
+            ];
+        }
+
+        return response()->json([
+            'type' => 'FeatureCollection',
+            'features' => $features,
+        ]);
     }
 
     // ─── CBS v7 — Katman Tercihleri ───
