@@ -140,21 +140,22 @@
             }).catch(function(){});
     }
 
-    // Hat Kimliği
-    if(opts.hatKimligiEnabled){
-        var hkBtn = document.querySelector('[data-hk="'+opts.canvasId+'"]');
-        var hkActive = false;
-        if(hkBtn){
-            hkBtn.addEventListener('click', function(){
-                hkActive = !hkActive;
-                map.getContainer().style.cursor = hkActive ? 'crosshair' : '';
-                hkBtn.style.background = hkActive ? '#E87722' : 'white';
-                hkBtn.style.color = hkActive ? 'white' : '';
-            });
-        }
-        map.on('click', function(e){
-            if(!hkActive) return;
-            var lat = e.latlng.lat, lng = e.latlng.lng;
+    // Harita tıklama — GetFeatureInfo (parsel sorgusu) veya Hat Kimliği
+    var hkBtn = document.querySelector('[data-hk="'+opts.canvasId+'"]');
+    var hkActive = false;
+    if(hkBtn){
+        hkBtn.addEventListener('click', function(){
+            hkActive = !hkActive;
+            map.getContainer().style.cursor = hkActive ? 'crosshair' : '';
+            hkBtn.style.background = hkActive ? '#E87722' : 'white';
+            hkBtn.style.color = hkActive ? 'white' : '';
+        });
+    }
+    map.on('click', function(e){
+        var lat = e.latlng.lat, lng = e.latlng.lng;
+
+        // Hat Kimliği aktifse önce yol sorgula
+        if(hkActive && opts.hatKimligiEnabled){
             fetch('/maps/15m/sorgula?lat='+lat+'&lng='+lng)
                 .then(function(r){ return r.json(); })
                 .then(function(data){
@@ -171,7 +172,52 @@
                         '</table></div>';
                     L.popup({maxWidth:300}).setLatLng(e.latlng).setContent(html).openOn(map);
                 }).catch(function(){});
-        });
+            return;
+        }
+
+        // Normal tıklama — WFS parsel sorgusu (GetFeatureInfo)
+        var bbox = getBboxForPoint(lat, lng, 10);
+        var wfsUrl = GEO3_WMS.replace('/wms','/wfs')+'?service=WFS&version=2.0.0&request=GetFeature'+
+            '&typeNames=smpns:MISMAP_NUM_KADASTRO_PARSEL&outputFormat=application/json&srsName=EPSG:4326'+
+            '&bbox='+bbox;
+        fetch('/maps/proxy?url='+encodeURIComponent(wfsUrl))
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                var feat = data.features && data.features[0];
+                var p = feat ? (feat.properties || {}) : {};
+                var ilce = p.ILCE || p.ilce || '';
+                var mahalle = p.MAHALLE_AD || p.mahalle || '';
+                var ada = p.ADA || p.ada || '';
+                var parsel = p.PARSEL || p.parsel || '';
+                var html = '<div style="min-width:180px;font-size:12px;">'+
+                    '<div style="font-weight:600;margin-bottom:4px;">📌 '+lat.toFixed(6)+', '+lng.toFixed(6)+'</div>'+
+                    (ilce||mahalle ? '<div style="color:#475569;margin-bottom:4px;font-size:11px;">'+ilce+(ilce&&mahalle?' / ':'')+mahalle+'</div>' : '')+
+                    (ada||parsel ? '<div style="margin-bottom:4px;"><span style="background:#f1f5f9;padding:2px 6px;border-radius:3px;font-size:11px;">Ada: '+(ada||'-')+' | Parsel: '+(parsel||'-')+'</span></div>' : '')+
+                    '<div style="margin-top:4px;color:#64748b;font-size:10px;">Parsel sorgusu</div>'+
+                    '</div>';
+                L.popup({maxWidth:300}).setLatLng(e.latlng).setContent(html).openOn(map);
+            })
+            .catch(function(){
+                // Nominatim fallback
+                fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&accept-language=tr')
+                    .then(function(r){return r.json()})
+                    .then(function(d){
+                        var addr = d.address||{};
+                        var ilce = addr.county||'';
+                        var mahalle = addr.suburb||addr.neighbourhood||'';
+                        var html = '<div style="min-width:180px;font-size:12px;">'+
+                            '<div style="font-weight:600;margin-bottom:4px;">📍 '+lat.toFixed(6)+', '+lng.toFixed(6)+'</div>'+
+                            (ilce||mahalle ? '<div style="color:#475569;">'+ilce+(ilce&&mahalle?' / ':'')+mahalle+'</div>' : '<div style="color:#94a3b8;">Adres bilgisi alınamadı</div>')+
+                            '</div>';
+                        L.popup({maxWidth:300}).setLatLng(e.latlng).setContent(html).openOn(map);
+                    }).catch(function(){});
+            });
+    });
+
+    function getBboxForPoint(lat, lng, meters){
+        var dLat = meters / 111320;
+        var dLng = meters / (111320 * Math.cos(lat * Math.PI / 180));
+        return (lng-dLng)+','+(lat-dLat)+','+(lng+dLng)+','+(lat+dLat);
     }
 
     // 15m yolları

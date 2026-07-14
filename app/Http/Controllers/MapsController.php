@@ -259,14 +259,48 @@ class MapsController extends Controller
 
     public function katmanKaydet(Request $request)
     {
-        // Phase 9'da implement edilecek
-        return response()->json(['success' => false, 'message' => 'Henüz implement edilmedi'], 501);
+        $data = $request->validate([
+            'katmanlar' => ['required', 'array'],
+            'katmanlar.*.layer' => ['required', 'string'],
+            'katmanlar.*.visible' => ['required', 'boolean'],
+            'katmanlar.*.opacity' => ['nullable', 'numeric', 'min:0', 'max:1'],
+        ]);
+
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Oturum açmanız gerekli'], 401);
+        }
+
+        // Kullanıcının mevcut tercihlerini sil
+        \DB::table('gis_katman_ayarlari')->where('user_id', $user->id)->delete();
+
+        // Yeni tercihleri kaydet
+        foreach ($data['katmanlar'] as $k) {
+            \DB::table('gis_katman_ayarlari')->insert([
+                'user_id' => $user->id,
+                'katman_adi' => $k['layer'],
+                'gorunur' => $k['visible'],
+                'opacity' => $k['opacity'] ?? 0.7,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Katman tercihleri kaydedildi.']);
     }
 
     public function katmanYukle(Request $request)
     {
-        // Phase 9'da implement edilecek
-        return response()->json([]);
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json([]);
+        }
+
+        $ayarlar = \DB::table('gis_katman_ayarlari')
+            ->where('user_id', $user->id)
+            ->get(['katman_adi', 'gorunur', 'opacity']);
+
+        return response()->json($ayarlar);
     }
 
     // ─── CBS v7 — Adres Arama ───
