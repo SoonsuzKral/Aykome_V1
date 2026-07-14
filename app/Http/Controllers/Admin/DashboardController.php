@@ -49,7 +49,7 @@ class DashboardController extends Controller
             'locked'         => $allLicenses->filter(fn ($l) => ! $l->is_active)->count(),
             'total_users'    => User::query()->count(),
             'applications'   => Application::query()->count(),
-            'revenue'        => round((float) Application::query()->where('payment_status', 'paid')->sum('total_price'), 2),
+            'revenue'        => round((float) Application::query()->where('payment_status', 'paid')->sum('total_price'), 3),
         ];
 
         $criticalLicenses = $allLicenses
@@ -85,18 +85,18 @@ class DashboardController extends Controller
             ->map(fn (int $offset) => $startOfSixMonthWindow->copy()->addMonths($offset));
 
         $applicationBuckets = Application::query()
-            ->selectRaw('YEAR(created_at) as year_no, MONTH(created_at) as month_no, COUNT(*) as total')
+            ->selectRaw("EXTRACT(YEAR FROM \"CREATED_AT\") as year_no, EXTRACT(MONTH FROM \"CREATED_AT\") as month_no, COUNT(*) as total")
             ->whereDate('created_at', '>=', $startOfSixMonthWindow)
-            ->groupBy('year_no', 'month_no')
+            ->groupByRaw('EXTRACT(YEAR FROM "CREATED_AT"), EXTRACT(MONTH FROM "CREATED_AT")')
             ->get()
             ->mapWithKeys(fn ($row) => [sprintf('%04d-%02d', $row->year_no, $row->month_no) => (int) $row->total]);
 
         $revenueBuckets = Application::query()
-            ->selectRaw('YEAR(receipt_approved_at) as year_no, MONTH(receipt_approved_at) as month_no, SUM(total_price) as total')
+            ->selectRaw("EXTRACT(YEAR FROM \"RECEIPT_APPROVED_AT\") as year_no, EXTRACT(MONTH FROM \"RECEIPT_APPROVED_AT\") as month_no, SUM(\"TOTAL_PRICE\") as total")
             ->where('payment_status', 'paid')
             ->whereNotNull('receipt_approved_at')
             ->whereDate('receipt_approved_at', '>=', $startOfSixMonthWindow)
-            ->groupBy('year_no', 'month_no')
+            ->groupByRaw('EXTRACT(YEAR FROM "RECEIPT_APPROVED_AT"), EXTRACT(MONTH FROM "RECEIPT_APPROVED_AT")')
             ->get()
             ->mapWithKeys(fn ($row) => [sprintf('%04d-%02d', $row->year_no, $row->month_no) => (float) $row->total]);
 
@@ -131,7 +131,7 @@ class DashboardController extends Controller
                 'applications_this_month' => Application::query()
                     ->whereBetween('created_at', [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()])
                     ->count(),
-                'paid_revenue_total' => round((float) Application::query()->where('payment_status', 'paid')->sum('total_price'), 2),
+                'paid_revenue_total' => round((float) Application::query()->where('payment_status', 'paid')->sum('total_price'), 3),
                 'awaiting_payment_total' => Application::query()
                     ->whereIn('status', [ApplicationStatus::AwaitingPayment->value, ApplicationStatus::ReceiptPending->value])
                     ->count(),
@@ -151,7 +151,7 @@ class DashboardController extends Controller
         $myTasks = FieldTask::query()
             ->with(['application:id,application_no,address_text,status'])
             ->where('assigned_to', $user->id)
-            ->orderByRaw("FIELD(status,'in_progress','pending','completed')")
+            ->orderByRaw("DECODE(status, 'in_progress', 1, 'pending', 2, 'completed', 3, 4)")
             ->latest()
             ->limit(20)
             ->get();

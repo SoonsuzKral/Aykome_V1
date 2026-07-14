@@ -17,7 +17,7 @@ class SurfaceType extends Model
     protected function casts(): array
     {
         return [
-            'price_per_m2' => 'decimal:2',
+            'price_per_m2' => 'decimal:3',
             'active' => 'boolean',
         ];
     }

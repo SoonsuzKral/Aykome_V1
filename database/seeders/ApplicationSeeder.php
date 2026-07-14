@@ -94,10 +94,10 @@ class ApplicationSeeder extends Seeder
 
                 $totalArea = round(rand(15, 800) + (rand(0, 99) / 100), 2);
                 $totalPrice = $status->value !== ApplicationStatus::Draft->value
-                    ? round($totalArea * rand(80, 150), 2)
+                    ? round($totalArea * rand(80, 150), 3)
                     : null;
 
-                $discoveryAmount = $totalPrice !== null ? round($totalPrice * (1 + rand(-10, 10) / 100), 2) : null;
+                $discoveryAmount = $totalPrice !== null ? round($totalPrice * (1 + rand(-10, 10) / 100), 3) : null;
 
                 $paymentStatus = match ($status) {
                     ApplicationStatus::Licensed, ApplicationStatus::FieldWork, ApplicationStatus::Completed, ApplicationStatus::Approved => 'paid',

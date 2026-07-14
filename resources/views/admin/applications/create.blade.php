@@ -516,7 +516,7 @@
                     return w * h;
                 };
 
-                const updateLineLengthDisplay = (m = 0) => { if (lineLengthDisplay) lineLengthDisplay.textContent = `${m.toFixed(2)} m`; };
+                const updateLineLengthDisplay = (m = 0) => { if (lineLengthDisplay) lineLengthDisplay.textContent = `${m.toFixed(3)} m`; };
 
                 const formatTR = (v) => {
                     if (v == null || isNaN(v)) return '0,00';
@@ -546,7 +546,7 @@
 
                     const total = measured * up * m;
                     if (surfaceTotalDisplay) surfaceTotalDisplay.textContent = `${formatTR(total)} TL`;
-                    if (calculatedAmountInput) calculatedAmountInput.value = total.toFixed(2);
+                    if (calculatedAmountInput) calculatedAmountInput.value = total.toFixed(3);
                     return total;
                 };
 
@@ -818,10 +818,10 @@
                     });
 
                     geojsonInput.value = features.length ? JSON.stringify({ type: 'FeatureCollection', features }) : '';
-                    areaInput.value = Number.isFinite(totalArea) ? Math.round(totalArea).toString() : '0';
+                    areaInput.value = Number.isFinite(totalArea) ? totalArea.toFixed(3) : '0';
                     document.getElementById('total_area_m2')?.dispatchEvent(new Event('input'));
                     updateLineLengthDisplay(Number.isFinite(totalLineLength) ? totalLineLength : 0);
-                    if (totalLineLength > 0 && lengthInput) lengthInput.value = totalLineLength.toFixed(2);
+                    if (totalLineLength > 0 && lengthInput) lengthInput.value = totalLineLength.toFixed(3);
                     if (centerCandidate) setCenter({ lat: centerCandidate.lat, lng: centerCandidate.lng });
                     else setCenter(null);
                     updateSurfaceSummary();
@@ -839,7 +839,7 @@
                     try {
                         const w = distanceMeters({ lat: b.getCenter().lat, lng: b.getWest() }, { lat: b.getCenter().lat, lng: b.getEast() });
                         const h = distanceMeters({ lat: b.getSouth(), lng: b.getCenter().lng }, { lat: b.getNorth(), lng: b.getCenter().lng });
-                        if (w > 0 && h > 0) { widthInput.value = Math.max(w, h).toFixed(2); lengthInput.value = Math.min(w, h).toFixed(2); }
+                        if (w > 0 && h > 0) { widthInput.value = Math.max(w, h).toFixed(3); lengthInput.value = Math.min(w, h).toFixed(3); }
                     } catch(e) {}
                 };
 
@@ -928,7 +928,7 @@
                     try {
                         const w = distanceMeters({lat: b.getCenter().lat, lng: b.getWest()}, {lat: b.getCenter().lat, lng: b.getEast()});
                         const h = distanceMeters({lat: b.getSouth(), lng: b.getCenter().lng}, {lat: b.getNorth(), lng: b.getCenter().lng});
-                        if (w > 0 && h > 0) { widthInput.value = Math.max(w,h).toFixed(2); lengthInput.value = Math.min(w,h).toFixed(2); }
+                        if (w > 0 && h > 0) { widthInput.value = Math.max(w,h).toFixed(3); lengthInput.value = Math.min(w,h).toFixed(3); }
                     } catch(e) {}
                 });
                 drawnItems.on('layerremove', () => {
@@ -1029,21 +1029,18 @@
                     el.addEventListener('blur', function() { formatInput(this); });
                 });
 
-                // Alan (m²) formatı: 3053499 → 3.053.499
+                // Alan (m²) formatı
                 (function() {
                     const areaInput = document.getElementById('total_area_m2');
                     if (!areaInput) return;
 
                     function fmtArea(el) {
-                        let d = String(el.value).replace(/[^0-9]/g, '');
-                        if (!d) { el.value = ''; return; }
-                        d = String(parseInt(d, 10) || 0);
-                        el.value = d.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-                        let pos = el.value.length;
-                        el.setSelectionRange(pos, pos);
+                        let raw = el.value.replace(',', '.');
+                        let n = parseFloat(raw);
+                        if (isNaN(n) || n < 0) { el.value = '0'; return; }
+                        el.value = n.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
                     }
 
-                    areaInput.addEventListener('input', function() { fmtArea(this); });
                     areaInput.addEventListener('blur', function() { fmtArea(this); });
                 })();
 
@@ -1056,10 +1053,12 @@
                             el.value = Number.isFinite(n) ? n.toFixed(2) : '';
                         }
                     });
+                    // Alan (m²) — formatı temizle, decimal koru
                     const areaEl = document.getElementById('total_area_m2');
                     if (areaEl) {
-                        let raw = String(areaEl.value).replace(/[^0-9]/g, '');
-                        areaEl.value = raw || '';
+                        let v = areaEl.value.replace(',', '.').replace(/\s/g, '');
+                        let n = parseFloat(v);
+                        areaEl.value = Number.isFinite(n) && n >= 0 ? n.toString() : '0';
                     }
                 });
             })();

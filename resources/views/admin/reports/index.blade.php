@@ -43,7 +43,7 @@
                 <tbody class="divide-y divide-slate-50">
                     @forelse($byStatus as $status => $count)
                         <tr>
-                            <td class="py-2 capitalize">{{ $status }}</td>
+                            <td class="py-2">{{ \App\Enums\ApplicationStatus::tryFrom($status)?->label() ?? $status }}</td>
                             <td class="py-2 text-right tabular-nums">{{ $count }}</td>
                         </tr>
                     @empty

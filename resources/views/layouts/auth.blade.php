@@ -6,14 +6,23 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Giriş — '.config('app.name'))</title>
     @vite(['resources/css/app.css'])
+    <style>
+        .login-card {
+            border: 3px solid #EAB308;
+            box-shadow: 0 0 30px rgba(234,179,8,0.15), 0 8px 32px rgba(0,0,0,0.15);
+        }
+        body {
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://antalyamimarlik.com.tr/tema/genel/uploads/hizmetler/hafriyat.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }
+    </style>
 </head>
-<body class="min-h-screen bg-slate-100 font-sans text-slate-900 antialiased">
+<body class="min-h-screen font-sans text-slate-900 antialiased">
     <div class="flex min-h-screen flex-col items-center justify-center px-4 py-10">
-        <div class="mb-8 text-center">
-            <span class="text-xl font-bold tracking-tight text-slate-800">{{ config('app.name') }}</span>
-            <p class="mt-1 text-sm text-slate-500">Altyapı kazı izin yönetimi</p>
-        </div>
-        <div class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div class="login-card w-full max-w-[420px] rounded-2xl bg-white/95 p-12 backdrop-blur-sm">
             @include('partials.flash-message')
             @yield('content')
         </div>

@@ -37,7 +37,7 @@
             </article>
             <article class="glass-card group border-indigo-300/35">
                 <p class="metric-label text-indigo-700">Kazanılan gelir</p>
-                <p class="metric-value text-indigo-700">{{ number_format($stats['paid_revenue_total'], 2, ',', '.') }} ₺</p>
+                <p class="metric-value text-indigo-700" style="font-size:1.35rem">{{ number_format($stats['paid_revenue_total'], 2, ',', '.') }} ₺</p>
                 <p class="metric-sub">Tahsil edilen toplam</p>
             </article>
             <article class="glass-card group border-rose-300/35">
@@ -81,25 +81,35 @@
                                     @php
                                         $statusValue = $application->status instanceof \BackedEnum ? $application->status->value : (string) $application->status;
                                         $statusMeta = match ($statusValue) {
-                                            'draft' => ['label' => 'Taslak', 'class' => 'bg-slate-100 text-slate-700'],
-                                            'submitted' => ['label' => 'Gönderildi', 'class' => 'bg-sky-100 text-sky-700'],
-                                            'priced' => ['label' => 'Fiyatlandı', 'class' => 'bg-indigo-100 text-indigo-700'],
-                                            'awaiting_payment' => ['label' => 'Ödeme bekliyor', 'class' => 'bg-amber-100 text-amber-700'],
-                                            'receipt_pending' => ['label' => 'Makbuz bekliyor', 'class' => 'bg-orange-100 text-orange-700'],
-                                            'licensed' => ['label' => 'Ruhsatlı', 'class' => 'bg-emerald-100 text-emerald-700'],
-                                            'completed' => ['label' => 'Tamamlandı', 'class' => 'bg-teal-100 text-teal-700'],
-                                            default => ['label' => str_replace('_', ' ', $statusValue), 'class' => 'bg-slate-100 text-slate-700'],
+                                            'draft' => ['label' => 'Taslak', 'class' => 'bg-slate-100 text-slate-600 ring-slate-300', 'icon' => '<path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />'],
+                                            'submitted' => ['label' => 'Gönderildi', 'class' => 'bg-sky-100 text-sky-700 ring-sky-300', 'icon' => '<path d="M6 12L3.269 3.125A59.769 59.769 0 0121.485 12 59.768 59.768 0 013.27 20.875L5.999 12zm0 0h7.5" />'],
+                                            'pre_excavation_approved' => ['label' => 'Ön Kazı Onaylı', 'class' => 'bg-cyan-100 text-cyan-700 ring-cyan-300', 'icon' => '<path d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />'],
+                                            'priced' => ['label' => 'Fiyatlandı', 'class' => 'bg-indigo-100 text-indigo-700 ring-indigo-300', 'icon' => '<path d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />'],
+                                            'awaiting_payment' => ['label' => 'Ödeme Bekliyor', 'class' => 'bg-amber-100 text-amber-700 ring-amber-300', 'icon' => '<path d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />'],
+                                            'receipt_pending' => ['label' => 'Makbuz Bekliyor', 'class' => 'bg-orange-100 text-orange-700 ring-orange-300', 'icon' => '<path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />'],
+                                            'approved' => ['label' => 'Onaylandı', 'class' => 'bg-emerald-100 text-emerald-700 ring-emerald-300', 'icon' => '<path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />'],
+                                            'rejected' => ['label' => 'Reddedildi', 'class' => 'bg-red-100 text-red-700 ring-red-300', 'icon' => '<path d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />'],
+                                            'licensed' => ['label' => 'Ruhsatlı', 'class' => 'bg-emerald-100 text-emerald-700 ring-emerald-300', 'icon' => '<path d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />'],
+                                            'field_work' => ['label' => 'Saha İşi', 'class' => 'bg-purple-100 text-purple-700 ring-purple-300', 'icon' => '<path d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />'],
+                                            'completed' => ['label' => 'Tamamlandı', 'class' => 'bg-teal-100 text-teal-700 ring-teal-300', 'icon' => '<path d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />'],
+                                            'archived' => ['label' => 'Arşiv', 'class' => 'bg-slate-100 text-slate-600 ring-slate-300', 'icon' => '<path d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 015.25 3.75h9.75A2.25 2.25 0 0117.25 6v3.776" />'],
+                                            default => ['label' => str_replace('_', ' ', $statusValue), 'class' => 'bg-slate-100 text-slate-600 ring-slate-300', 'icon' => '<path d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />'],
                                         };
                                     @endphp
-                                    <tr class="transition hover:bg-cyan-50/50">
-                                        <td class="px-3 py-2 font-medium text-slate-800">
-                                            <a href="{{ route('admin.applications.show', $application) }}" class="hover:text-[#02AFC6]">{{ $application->application_no }}</a>
+                                    <tr class="relative transition hover:bg-gradient-to-r hover:from-cyan-50/70 hover:to-transparent">
+                                        <td class="px-3 py-2.5 font-medium text-slate-800">
+                                            <a href="{{ route('admin.applications.show', $application) }}" class="hover:text-[#02AFC6] transition-colors">{{ $application->application_no }}</a>
                                         </td>
-                                        <td class="px-3 py-2 text-slate-600">{{ $application->institution?->name ?? '—' }}</td>
-                                        <td class="px-3 py-2">
-                                            <span class="rounded-full px-2 py-0.5 text-xs font-medium {{ $statusMeta['class'] }}">{{ $statusMeta['label'] }}</span>
+                                        <td class="px-3 py-2.5 text-slate-600">{{ $application->institution?->name ?? '—' }}</td>
+                                        <td class="px-3 py-2.5">
+                                            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ring-1 {{ $statusMeta['class'] }}">
+                                                <svg class="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                    {!! $statusMeta['icon'] !!}
+                                                </svg>
+                                                {{ $statusMeta['label'] }}
+                                            </span>
                                         </td>
-                                        <td class="px-3 py-2 text-slate-500">{{ $application->created_at?->format('d.m.Y H:i') }}</td>
+                                        <td class="px-3 py-2.5 text-slate-500 whitespace-nowrap">{{ $application->created_at?->format('d.m.Y H:i') }}</td>
                                     </tr>
                                 @empty
                                     <tr>

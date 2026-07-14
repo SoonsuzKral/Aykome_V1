@@ -59,7 +59,7 @@ class WorkOrderController extends Controller
         $total = $query->count();
 
         $rows = $query
-            ->orderByRaw("FIELD(status, 'in_progress', 'pending', 'completed')")
+            ->orderByRaw("DECODE(status, 'in_progress', 1, 'pending', 2, 'completed', 3, 4)")
             ->orderBy('due_date')
             ->offset((int) $request->input('start', 0))
             ->limit((int) $request->input('length', 20))
@@ -99,7 +99,7 @@ class WorkOrderController extends Controller
 
             FieldTask::query()
                 ->with(['application:id,application_no,address_text', 'assignee:id,name'])
-                ->orderByRaw("FIELD(status, 'in_progress', 'pending', 'completed')")
+                ->orderByRaw("DECODE(status, 'in_progress', 1, 'pending', 2, 'completed', 3, 4)")
                 ->orderBy('due_date')
                 ->each(function (FieldTask $task) use ($handle, $statusMap, $stageMap) {
                     fputcsv($handle, [
@@ -125,7 +125,7 @@ class WorkOrderController extends Controller
     {
         $tasks = FieldTask::query()
             ->with(['application:id,application_no,address_text', 'assignee:id,name'])
-            ->orderByRaw("FIELD(status, 'in_progress', 'pending', 'completed')")
+            ->orderByRaw("DECODE(status, 'in_progress', 1, 'pending', 2, 'completed', 3, 4)")
             ->orderBy('due_date')
             ->get();
 

@@ -20,7 +20,7 @@ class PricingService
 
         $patchM2 = ($width > 0 && $length > 0) ? $width * $length * $quantity : $areaM2 * $quantity;
         $unit = (float) $surfaceType->price_per_m2;
-        $amount = round($patchM2 * $unit * $multiplier, 2);
+        $amount = round($patchM2 * $unit * $multiplier, 3);
 
         $application->surfaceLines()->delete();
 
@@ -48,14 +48,14 @@ class PricingService
             $width = (float) ($line->width_m ?? 0);
             $length = (float) ($line->length_m ?? 0);
             $patch = ($width > 0 && $length > 0) ? $width * $length * $qty : $areaM2 * $qty;
-            $lineAmount = round($patch * $unit * $mult, 2);
+            $lineAmount = round($patch * $unit * $mult, 3);
             $line->update(['amount' => $lineAmount]);
             $discovery += $lineAmount;
         }
 
         $application->update([
-            'discovery_amount' => round($discovery, 2),
-            'total_price' => round($discovery, 2),
+            'discovery_amount' => round($discovery, 3),
+            'total_price' => round($discovery, 3),
             'total_area_m2' => $areaM2,
         ]);
     }

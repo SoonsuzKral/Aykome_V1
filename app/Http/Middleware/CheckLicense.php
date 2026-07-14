@@ -69,16 +69,8 @@ class CheckLicense
         if ($request->routeIs([
             'license.blocked',
             'login',
-            'register',
             'logout',
-            'password.request',
-            'password.email',
-            'password.reset',
-            'password.store',
             'password.update',
-            'verification.notice',
-            'verification.verify',
-            'verification.send',
         ])) {
             return true;
         }

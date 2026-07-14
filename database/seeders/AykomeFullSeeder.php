@@ -167,7 +167,7 @@ class AykomeFullSeeder extends Seeder
                     'end_date'                => $endDate,
                     'total_area_m2'           => $area,
                     'total_price'             => $totalPrice,
-                    'discovery_amount'        => round($totalPrice * 1.1, 2),
+                    'discovery_amount'        => round($totalPrice * 1.1, 3),
                     'payment_status'          => $payStatus,
                     'approval_status'         => $approvalStatus,
                     'address_text'            => self::ADDRESSES[$addrIdx],

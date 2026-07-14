@@ -16,7 +16,7 @@ class MyTasksController extends Controller
             ->where('assigned_to', $user->id)
             ->whereIn('status', ['pending', 'in_progress'])
             ->with(['application:id,application_no,address_text,status'])
-            ->orderByRaw("FIELD(status, 'in_progress', 'pending')")
+            ->orderByRaw("DECODE(status, 'in_progress', 1, 'pending', 2, 3)")
             ->orderByDesc('updated_at')
             ->get();
 

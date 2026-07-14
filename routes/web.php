@@ -15,9 +15,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function (Request $request) {
     if ($request->user()) {
-        return $request->user()->hasVerifiedEmail()
-            ? redirect()->route('admin.dashboard')
-            : redirect()->route('verification.notice');
+        return redirect()->route('admin.dashboard');
     }
 
     return view('frontend.aykome_landing');
@@ -37,9 +35,9 @@ Route::get('/docs', function () {
 
 Route::get('/dashboard', function () {
     return redirect()->route('admin.dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth'])->name('dashboard');
 
-Route::middleware(['auth', 'verified'])->prefix('maps')->name('maps.')->group(function () {
+Route::middleware(['auth'])->prefix('maps')->name('maps.')->group(function () {
     Route::get('/',                   [MapsController::class, 'index'])->name('index');
     Route::get('/proxy',              [MapsController::class, 'proxy'])->name('proxy');
     Route::post('/nokta-kaydet',      [MapsController::class, 'noktaKaydet'])->name('noktaKaydet');

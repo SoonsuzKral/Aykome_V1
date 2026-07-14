@@ -128,18 +128,17 @@ table.dataTable.no-footer { border-bottom: 1px solid #f3f4f6 !important; }
         </div>
         <div class="overflow-x-auto px-4 pb-5 pt-4">
             <table id="audit-table"
-                class="min-w-full w-full text-left border-collapse text-sm text-gray-700 bg-white"
-                style="min-width:960px">
+                class="min-w-full w-full text-left border-collapse text-sm text-gray-700 bg-white">
                 <thead>
                     <tr>
-                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-6 py-4 border-b-2 border-gray-200 text-xs" style="width:55px;">#</th>
-                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-6 py-4 border-b-2 border-gray-200 text-xs">Kullanıcı</th>
-                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-6 py-4 border-b-2 border-gray-200 text-xs">Rol</th>
-                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-6 py-4 border-b-2 border-gray-200 text-xs">İşlem</th>
-                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-6 py-4 border-b-2 border-gray-200 text-xs">Açıklama</th>
-                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-6 py-4 border-b-2 border-gray-200 text-xs">Konu</th>
-                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-6 py-4 border-b-2 border-gray-200 text-xs">IP Adresi</th>
-                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-6 py-4 border-b-2 border-gray-200 text-xs">Tarih & Saat</th>
+                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-3 py-3 border-b-2 border-gray-200 text-xs w-12">#</th>
+                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-3 py-3 border-b-2 border-gray-200 text-xs">Kullanıcı</th>
+                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-3 py-3 border-b-2 border-gray-200 text-xs w-24">Rol</th>
+                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-3 py-3 border-b-2 border-gray-200 text-xs w-28">İşlem</th>
+                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-3 py-3 border-b-2 border-gray-200 text-xs">Açıklama</th>
+                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-3 py-3 border-b-2 border-gray-200 text-xs w-28">Konu</th>
+                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-3 py-3 border-b-2 border-gray-200 text-xs w-28">IP Adresi</th>
+                        <th class="bg-gray-100 text-gray-500 font-semibold uppercase tracking-wider px-3 py-3 border-b-2 border-gray-200 text-xs w-36">Tarih & Saat</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -226,7 +225,7 @@ $(function () {
                 data: 'description',
                 render: function (data) {
                     const safe = $('<div>').text(data).html();
-                    return '<span style="display:block;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + safe + '">' + safe + '</span>';
+                    return '<span style="display:block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + safe + '">' + safe + '</span>';
                 }
             },
             {
@@ -252,7 +251,7 @@ $(function () {
         ],
         createdRow: function (row) {
             $(row).addClass('border-b border-gray-100 transition duration-150');
-            $('td', row).addClass('px-6 py-4');
+            $('td', row).addClass('px-3 py-3');
         },
         order:       [[7, 'desc']],
         pageLength:  25,

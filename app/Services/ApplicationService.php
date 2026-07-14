@@ -12,6 +12,7 @@ use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Notifications\NewApplicationCreatedNotification;
 use App\Notifications\ReceiptUploadedNotification;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -26,83 +27,85 @@ class ApplicationService
 
     public function createDraft(User $user, array $data): Application
     {
-        return DB::transaction(function () use ($user, $data) {
-            $institutionId = $data['institution_id'] ?? $user->institution_id;
-            if ($institutionId === null) {
-                throw ValidationException::withMessages([
-                    'institution_id' => 'Kurum seçimi zorunludur.',
-                ]);
+        $maxAttempts = 5;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                return DB::transaction(function () use ($user, $data) {
+                    $institutionId = $data['institution_id'] ?? $user->institution_id;
+                    if ($institutionId === null) {
+                        throw ValidationException::withMessages([
+                            'institution_id' => 'Kurum seçimi zorunludur.',
+                        ]);
+                    }
+
+                    $normalizedNationalId = preg_replace('/\D+/', '', (string) ($data['applicant_national_id'] ?? '')) ?: null;
+
+                    $application = Application::query()->create([
+                        'application_no' => null,
+                        'institution_id' => $institutionId,
+                        'created_by' => $user->id,
+                        'status' => ApplicationStatus::Draft,
+                        'applicant_first_name' => $data['applicant_first_name'],
+                        'applicant_last_name' => $data['applicant_last_name'],
+                        'applicant_national_id' => $normalizedNationalId,
+                        'tc_no' => $data['tc_no'] ?? $normalizedNationalId,
+                        'identity_no' => $data['identity_no'] ?? $normalizedNationalId,
+                        'applicant_phone' => $data['applicant_phone'] ?? null,
+                        'excavation_reason' => $data['excavation_reason'] ?? null,
+                        'work_type' => $data['work_type'] ?? null,
+                        'description' => $data['description'] ?? null,
+                        'start_date' => $data['start_date'],
+                        'end_date' => $data['end_date'],
+                        'address_text' => $data['address_text'] ?? null,
+                        'width_m' => $data['width_m'] ?? null,
+                        'length_m' => $data['length_m'] ?? null,
+                        'deposit_amount' => $data['deposit_amount'] ?? null,
+                        'excavation_amount' => $data['excavation_amount'] ?? null,
+                    ]);
+
+                    $year = now()->year;
+                    $allNums = Application::query()
+                        ->where('application_no', 'like', $year . '-%')
+                        ->whereNotNull('application_no')
+                        ->pluck('application_no');
+                    $maxNo = $allNums->map(fn($v) => (int) substr($v, strrpos($v, '-') + 1))->max();
+                    $nextNo = $maxNo > 0 ? $maxNo + 1 : 1;
+                    $application->update([
+                        'application_no' => sprintf('%s-%03d', $year, $nextNo),
+                    ]);
+
+                    if (! empty($data['polygon_geojson']) || ! empty($data['total_area_m2'])) {
+                        $this->mapDrawingService->syncPrimaryArea($application, [
+                            'polygon_geojson' => $data['polygon_geojson'] ?? null,
+                            'total_area_m2' => $data['total_area_m2'] ?? 0,
+                            'center_lat' => $data['center_lat'] ?? null,
+                            'center_lng' => $data['center_lng'] ?? null,
+                            'address_text' => $data['address_text'] ?? null,
+                        ]);
+                        $application->update([
+                            'total_area_m2' => $data['total_area_m2'] ?? $application->excavationAreas()->first()?->total_area_m2 ?? 0,
+                        ]);
+                    }
+
+                    if (! empty($data['surface_type_id'])) {
+                        $this->pricingService->upsertSurfaceLine($application, $data);
+                        $this->pricingService->recalculateTotals($application);
+                    }
+
+                    $this->log($application, $user, 'application.created', [], 'Başvuru oluşturuldu');
+
+                    $freshApp = $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
+
+                    return $freshApp;
+                });
+            } catch (QueryException $e) {
+                if ($attempt === $maxAttempts || ! str_contains($e->getMessage(), 'APPLICATION_NO')) {
+                    throw $e;
+                }
+                usleep(100_000);
             }
-
-            $normalizedNationalId = preg_replace('/\D+/', '', (string) ($data['applicant_national_id'] ?? '')) ?: null;
-
-            $application = Application::query()->create([
-                'application_no' => null,
-                'institution_id' => $institutionId,
-                'created_by' => $user->id,
-                'status' => ApplicationStatus::Draft,
-                'applicant_first_name' => $data['applicant_first_name'],
-                'applicant_last_name' => $data['applicant_last_name'],
-                'applicant_national_id' => $normalizedNationalId,
-                'tc_no' => $data['tc_no'] ?? $normalizedNationalId,
-                'identity_no' => $data['identity_no'] ?? $normalizedNationalId,
-                'applicant_phone' => $data['applicant_phone'] ?? null,
-                'excavation_reason' => $data['excavation_reason'] ?? null,
-                'work_type' => $data['work_type'] ?? null,
-                'description' => $data['description'] ?? null,
-                'start_date' => $data['start_date'],
-                'end_date' => $data['end_date'],
-                'address_text' => $data['address_text'] ?? null,
-                'width_m' => $data['width_m'] ?? null,
-                'length_m' => $data['length_m'] ?? null,
-                'deposit_amount' => $data['deposit_amount'] ?? null,
-                'excavation_amount' => $data['excavation_amount'] ?? null,
-            ]);
-
-            $year = now()->year;
-            // En yüksek mevcut numarayı bul, bir üstünü ver (MAX + 1, COUNT değil)
-            $lastNo = Application::query()
-                ->whereYear('created_at', $year)
-                ->whereNotNull('application_no')
-                ->orderBy('application_no', 'desc')
-                ->lockForUpdate()
-                ->value('application_no');
-            $nextNo = $lastNo ? ((int) substr($lastNo, strrpos($lastNo, '-') + 1)) + 1 : 1;
-            $application->update([
-                'application_no' => sprintf('%s-%03d', $year, $nextNo),
-            ]);
-
-            if (! empty($data['polygon_geojson']) || ! empty($data['total_area_m2'])) {
-                $this->mapDrawingService->syncPrimaryArea($application, [
-                    'polygon_geojson' => $data['polygon_geojson'] ?? null,
-                    'total_area_m2' => $data['total_area_m2'] ?? 0,
-                    'center_lat' => $data['center_lat'] ?? null,
-                    'center_lng' => $data['center_lng'] ?? null,
-                    'address_text' => $data['address_text'] ?? null,
-                ]);
-                $application->update([
-                    'total_area_m2' => $data['total_area_m2'] ?? $application->excavationAreas()->first()?->total_area_m2 ?? 0,
-                ]);
-            }
-
-            if (! empty($data['surface_type_id'])) {
-                $this->pricingService->upsertSurfaceLine($application, $data);
-                $this->pricingService->recalculateTotals($application);
-            }
-
-            $this->log($application, $user, 'application.created', [], 'Başvuru oluşturuldu');
-
-            $freshApp = $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
-
-            // Notify admins/municipality-admins about new application
-            User::query()
-                ->role(['super-admin', 'municipality-admin', 'municipality-staff'])
-                ->where('id', '!=', $user->id)
-                ->get()
-                ->each(fn (User $admin) => $admin->notify(new NewApplicationCreatedNotification($freshApp)));
-
-            return $freshApp;
-        });
+        }
     }
 
     public function approvePreExcavation(User $user, Application $application): Application
@@ -146,9 +149,19 @@ class ApplicationService
         $this->pricingService->recalculateTotals($application);
         $this->log($application, $user, 'application.submitted', [], 'Başvuru belediyeye gönderildi');
 
-        ApplicationSubmitted::dispatch($application->fresh());
+        $fresh = $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
 
-        return $application->fresh();
+        // Notify municipality users about the submitted application
+        User::query()
+            ->role(['super-admin', 'municipality-admin', 'municipality-staff'])
+            ->where('id', '!=', $user->id)
+            ->get()
+            ->each(fn (User $admin) => $admin->notify(new NewApplicationCreatedNotification($fresh)));
+
+        // Real-time broadcast
+        ApplicationSubmitted::dispatch($fresh);
+
+        return $fresh;
     }
 
     public function approvePrice(User $user, Application $application): Application

@@ -76,6 +76,16 @@ window.Echo.channel('admin-notifications')
         _toast('info', 'Makbuz Yüklendi', text, data.detail_url ?? null);
         _playNotificationSound();
         _bumpNotifBadge();
+    })
+
+    // ── Başvuru gönderildi (alt kurum → belediye) ─────────────────────────
+    .listen('.application.submitted', (data) => {
+        console.log('[Reverb] application.submitted alındı:', data);
+        const text = data.message ?? 'Bir başvuru belediyeye gönderildi.';
+        const inst = data.institution ? ' (' + data.institution + ')' : '';
+        _toast('success', 'Yeni Başvuru' + inst, text, data.detail_url ?? null);
+        _playNotificationSound();
+        _bumpNotifBadge();
     });
 
 function _toast(icon, title, text, actionUrl = null) {
