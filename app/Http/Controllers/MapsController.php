@@ -417,6 +417,10 @@ class MapsController extends Controller
             'description' => ['nullable', 'string'],
             'kazi_derinligi' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'tahmini_sure' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'secili_caddeler' => ['nullable', 'array'],
+            'secili_caddeler.*' => ['nullable', 'string'],
+            'secili_kapilar' => ['nullable', 'array'],
+            'secili_kapilar.*' => ['nullable', 'string'],
         ]);
 
         $nokta = GisBasvuruNokta::create([
@@ -443,8 +447,10 @@ class MapsController extends Controller
                 'applicant_national_id' => $data['applicant_national_id'] ?? '',
                 'applicant_phone' => $data['applicant_phone'] ?? '',
                 'description' => $data['description'] ?? '',
-                'kazi_derinligi' => $data['kazi_derinligi'] ?? null,
-                'tahmini_sure' => $data['tahmini_sure'] ?? null,
+                'kazi_derinligi' => $data['kazi_derinligi'] ?? '',
+                'tahmini_sure' => $data['tahmini_sure'] ?? '',
+                'secili_caddeler' => $data['secili_caddeler'] ?? [],
+                'secili_kapilar' => $data['secili_kapilar'] ?? [],
             ]),
         ]);
 
