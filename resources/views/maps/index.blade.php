@@ -963,55 +963,76 @@ function handleMapsClick(e){
     if(_isDrawing || _drawJustFinished) return;
     updateCoords(e);
     var lat=e.latlng.lat, lng=e.latlng.lng;
+    var wmsLyr='smpns:MISMAP_NUM_KADASTRO_PARSEL,smpns:MISMAP_NUM_BINA,cbs:MISMAP_CADDE_SOKAK,smpns:m_Numarataj,cbs:MISMAP_MAHALLE_KOYLER,cbs:MISMAP_KADASTRO_ADA';
+    var size=mapsMap.getSize();
+    var point=mapsMap.latLngToContainerPoint(e.latlng);
+    var gfiUrl='/maps/proxy?url='+encodeURIComponent(
+        'https://geo3.sanliurfa.bel.tr:8091/geoserver/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo'+
+        '&LAYERS='+wmsLyr+'&QUERY_LAYERS='+wmsLyr+
+        '&BBOX='+mapsMap.getBounds().toBBoxString()+'&WIDTH='+Math.round(size.x)+'&HEIGHT='+Math.round(size.y)+
+        '&X='+Math.round(point.x)+'&Y='+Math.round(point.y)+
+        '&INFO_FORMAT=application/json&SRS=EPSG:4326&FEATURE_COUNT=5&BUFFER=15'
+    );
 
-    if(_nominatimController) _nominatimController.abort();
-    _nominatimController=new AbortController();
-
-    fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&addressdetails=1&accept-language=tr',{signal:_nominatimController.signal})
+    fetch(gfiUrl)
     .then(function(r){return r.json()})
-    .then(function(data){
-        var addr=data.address||{};
-        var ilce=addr.county||addr.town||addr.city_district||'';
-        var mahalle=addr.suburb||addr.neighbourhood||addr.quarter||addr.village||'';
-        var cadde=addr.road||'';
-        var displayName=data.display_name||lat.toFixed(6)+', '+lng.toFixed(6);
-
-        window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,displayName:displayName};
-
-        var streetViewLink='<a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+lat+','+lng+'" target="_blank" style="display:inline-block;background:#4285f4;color:white;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:10px;margin-top:4px;">\uD83D\uDEB6 Street View</a>';
-
-        var popup='<div style="min-width:180px;">'+
-            '<div style="font-weight:600;margin-bottom:4px;font-size:12px;">\uD83D\uDCCD '+lat.toFixed(6)+', '+lng.toFixed(6)+'</div>'+
-            '<div style="font-size:11px;color:#475569;margin-bottom:6px;">'+(ilce ? ilce+' / ' : '')+(mahalle ? mahalle+' / ' : '')+(cadde ? cadde : '')+'</div>'+
-            streetViewLink+
-            '<div style="margin-top:6px;display:flex;gap:4px;">'+
-            '<button onclick="openBasvuruFromClick(\'kazi_ruhsat\')" style="flex:1;background:#E87722;color:#fff;border:none;padding:6px 8px;border-radius:5px;font-size:11px;cursor:pointer;">\uD83D\uDCCB Kaz\u0131 Ruhsat\u0131</button>'+
-            '<button onclick="openBasvuruFromClick(\'ortak_kazi\')" style="flex:1;background:#059669;color:#fff;border:none;padding:6px 8px;border-radius:5px;font-size:11px;cursor:pointer;">\uD83E\uDD1D Ortak Kaz\u0131</button>'+
-            '</div>'+
-        '</div>';
-        L.popup().setLatLng(e.latlng).setContent(popup).openOn(mapsMap);
+    .then(function(gfiData){
+        // WMS'den parsel/bina bilgisi gelirse kullan, yoksa Nominatim fallback
+        if(gfiData&&gfiData.features&&gfiData.features.length){
+            var gfiProps=gfiData.features[0].properties||{};
+            var ilce=gfiProps.ILCE||gfiProps.ilce||'';
+            var mahalle=gfiProps.MAHALLE_AD||gfiProps.MAHALLE||gfiProps.mahalle||'';
+            var cadde=((gfiProps.CADDE_SO_1||'')+' '+(gfiProps.CADDE_SO_2||'')).trim()||gfiProps.CADDE||gfiProps.cadde||'';
+            var ada=gfiProps.ADA||'';
+            var parsel=gfiProps.PARSEL||'';
+            window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,ada:ada,parsel:parsel,displayName:(ilce?ilce+' / ':'')+(mahalle?mahalle:'')};
+            gosterPopup(lat,lng,ilce,mahalle,cadde,ada,parsel);
+            return;
+        }
+        throw new Error('WMS bos');
     })
-    .catch(function(err){
-        if(err&&err.name==='AbortError')return;
-        window._sonTiklama={lat:lat,lng:lng,ilce:'',mahalle:'',cadde:'',displayName:lat.toFixed(6)+', '+lng.toFixed(6)};
-
-        var streetViewLink='<a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+lat+','+lng+'" target="_blank" style="display:inline-block;background:#4285f4;color:white;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:10px;margin-top:4px;">\uD83D\uDEB6 Street View</a>';
-
-        var popup='<div style="min-width:180px;">'+
-            '<div style="font-size:11px;color:#64748b;margin-bottom:4px;">'+lat.toFixed(6)+', '+lng.toFixed(6)+'</div>'+
-            streetViewLink+
-            '<div style="margin-top:6px;display:flex;gap:4px;">'+
-            '<button onclick="openBasvuruFromClick(\'kazi_ruhsat\')" style="flex:1;background:#E87722;color:#fff;border:none;padding:6px 8px;border-radius:5px;font-size:11px;cursor:pointer;">\uD83D\uDCCB Kaz\u0131 Ruhsat\u0131</button>'+
-            '<button onclick="openBasvuruFromClick(\'ortak_kazi\')" style="flex:1;background:#059669;color:#fff;border:none;padding:6px 8px;border-radius:5px;font-size:11px;cursor:pointer;">\uD83E\uDD1D Ortak Kaz\u0131</button>'+
-            '</div>'+
-        '</div>';
-        L.popup().setLatLng(e.latlng).setContent(popup).openOn(mapsMap);
+    .catch(function(){
+        // Nominatim fallback
+        if(_nominatimController) _nominatimController.abort();
+        _nominatimController=new AbortController();
+        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&addressdetails=1&accept-language=tr',{signal:_nominatimController.signal})
+        .then(function(r){return r.json()})
+        .then(function(data){
+            var addr=data.address||{};
+            var ilce=addr.county||addr.town||addr.city_district||'';
+            var mahalle=addr.suburb||addr.neighbourhood||addr.quarter||addr.village||'';
+            var cadde=addr.road||'';
+            window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,ada:'',parsel:'',displayName:data.display_name||lat.toFixed(6)+', '+lng.toFixed(6)};
+            gosterPopup(lat,lng,ilce,mahalle,cadde,'','');
+        })
+        .catch(function(err){
+            if(err&&err.name==='AbortError')return;
+            window._sonTiklama={lat:lat,lng:lng,ilce:'',mahalle:'',cadde:'',ada:'',parsel:'',displayName:lat.toFixed(6)+', '+lng.toFixed(6)};
+            gosterPopup(lat,lng,'','','','','');
+        });
     });
+}
+
+function gosterPopup(lat,lng,ilce,mahalle,cadde,ada,parsel){
+    var locStr=(ilce?ilce+' / ':'')+(mahalle?mahalle:'');
+    var adaParselStr=(ada||parsel)?'<div style="font-size:11px;color:#1e293b;margin-bottom:4px;">📌 Ada '+(ada||'—')+' / Parsel '+(parsel||'—')+'</div>':'';
+    var streetViewLink='<a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+lat+','+lng+'" target="_blank" style="display:inline-block;background:#4285f4;color:white;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:10px;margin-top:4px;">\uD83D\uDEB6 Street View</a>';
+    var popup='<div style="min-width:180px;">'+
+        '<div style="font-weight:600;margin-bottom:4px;font-size:12px;">\uD83D\uDCCD '+lat.toFixed(6)+', '+lng.toFixed(6)+'</div>'+
+        adaParselStr+
+        (locStr?'<div style="font-size:11px;color:#475569;margin-bottom:6px;">'+locStr+(cadde?' / '+cadde:'')+'</div>':'')+
+        streetViewLink+
+        '<div style="margin-top:6px;display:flex;gap:4px;">'+
+        '<button onclick="openBasvuruFromClick(\'kazi_ruhsat\')" style="flex:1;background:#E87722;color:#fff;border:none;padding:6px 8px;border-radius:5px;font-size:11px;cursor:pointer;">\uD83D\uDCCB Kaz\u0131 Ruhsat\u0131</button>'+
+        '<button onclick="openBasvuruFromClick(\'ortak_kazi\')" style="flex:1;background:#059669;color:#fff;border:none;padding:6px 8px;border-radius:5px;font-size:11px;cursor:pointer;">\uD83E\uDD1D Ortak Kaz\u0131</button>'+
+        '</div>'+
+    '</div>';
+    L.popup().setLatLng([lat,lng]).setContent(popup).openOn(mapsMap);
 }
 
 w.openBasvuruFromClick=function(tip){
     mapsMap.closePopup();
-    var t=window._sonTiklama||{lat:0,lng:0,ilce:'',mahalle:'',cadde:'',displayName:''};
+    var t=window._sonTiklama||{lat:0,lng:0,ilce:'',mahalle:'',cadde:'',ada:'',parsel:'',displayName:''};
 
     document.getElementById('bs-lat').value=t.lat;
     document.getElementById('bs-lng').value=t.lng;
@@ -1902,9 +1923,6 @@ function hideLoadingOverlay(){
 }
 
 var _drawReportParsels=[];
-var _drawReportBinas=[];
-var _drawReportNumarataj=[];
-var _drawReportCaddes=[];
 
 function sorguCizimDetayRaporu(latlngs){
     if(!latlngs||latlngs.length<2) return;
@@ -1914,20 +1932,20 @@ function sorguCizimDetayRaporu(latlngs){
     var bbox=sw.x+','+sw.y+','+ne.x+','+ne.y;
     var body=document.getElementById('draw-report-body');
     var panel=document.getElementById('draw-report-panel');
-    body.innerHTML='<div style="text-align:center;color:#94a3b8;padding:30px;">🔍 Çizim alanı taranıyor...<br><span style="font-size:11px;">Parseller, binalar, kapı numaraları sorgulanıyor</span></div>';
+    body.innerHTML='<div style="text-align:center;color:#94a3b8;padding:30px;">🔍 Çizim alanı taranıyor...<br><span style="font-size:11px;">Parseller sorgulanıyor</span></div>';
     panel.style.display='block';
     document.getElementById('draw-report-footer').style.display='none';
 
-    // Sorgular: AKOS katmanları geo4 (7171) üzerinden çekilir
+    // Sadece 2 WFS sorgusu: Kadastro parsel + Bina (geo4)
     var wfsBase='https://geo4.sanliurfa.bel.tr:7171/geoserver/wfs';
-    var typeNames=['smpns:MISMAP_NUM_KADASTRO_PARSEL','smpns:MISMAP_NUM_BINA','smpns:MISMAP_NUM_CADDESOKAK','smpns:MISMAP_NUM_ADRES'];
+    var typeNames=['smpns:MISMAP_NUM_KADASTRO_PARSEL','smpns:MISMAP_NUM_BINA'];
     var results={};
     var done=0;
     typeNames.forEach(function(tn){
         var url='/maps/proxy?url='+encodeURIComponent(
             wfsBase+'?service=WFS&version=2.0.0&request=GetFeature'+
             '&typeNames='+tn+'&bbox='+bbox+',EPSG:3857'+
-            '&outputFormat=application/json&srsName=EPSG:4326&count=200'
+            '&outputFormat=application/json&srsName=EPSG:4326&count=500'
         );
         fetch(url).then(function(r){
             if(!r.ok) throw new Error('HTTP '+r.status);
@@ -1946,10 +1964,8 @@ function sorguCizimDetayRaporu(latlngs){
 function drawReportOlustur(results,bounds){
     var parsels=results['smpns:MISMAP_NUM_KADASTRO_PARSEL']||[];
     var binas=results['smpns:MISMAP_NUM_BINA']||[];
-    var numaratajs=results['smpns:MISMAP_NUM_ADRES']||[];
-    var caddes=results['smpns:MISMAP_NUM_CADDESOKAK']||[];
 
-    // Filtrele - sadece çizim alanına değen parseller
+    // Alan filtrele
     var filteredParsels=parsels.filter(function(f){
         try{var poly=L.geoJSON(f);return bounds.intersects(poly.getBounds())}
         catch(e){return true}
@@ -1957,9 +1973,6 @@ function drawReportOlustur(results,bounds){
     if(!filteredParsels.length) filteredParsels=parsels;
 
     _drawReportParsels=filteredParsels;
-    _drawReportBinas=binas;
-    _drawReportNumarataj=numaratajs;
-    _drawReportCaddes=caddes;
 
     if(!filteredParsels.length){
         document.getElementById('draw-report-body').innerHTML='<div style="text-align:center;color:#64748b;padding:30px;">📭 Bu alanda parsel bulunamadı.</div>';
@@ -1967,46 +1980,33 @@ function drawReportOlustur(results,bounds){
         return;
     }
 
-    // Bina ve numaratajları parsel bazında grupla
+    // Parsel bazında cadde listesi property'lerden çıkar
     var parselMap={};
+    var allCaddeler={};
     filteredParsels.forEach(function(p){
         var pr=p.properties||{};
         var key=(pr.ADA||'')+'|'+(pr.PARSEL||'');
-        parselMap[key]={parsel:p,binas:[],numaratajs:[],caddes:[]};
+        var cadde=((pr.CADDE_SO_1||'')+' '+(pr.CADDE_SO_2||'')).trim()||pr.CADDE||pr.CADDE_SOKAK||'';
+        var mahalle=pr.MAHALLE_AD||pr.MAHALLE||'';
+        if(!parselMap[key]) parselMap[key]={parsel:p, binas:0, caddeler:{}};
+        if(cadde) {
+            var cKey=mahalle+'|'+cadde;
+            parselMap[key].caddeler[cKey]=cadde;
+            allCaddeler[cKey]=cadde;
+        }
     });
 
+    // Bina sayısını ata
     binas.forEach(function(b){
         var bp=b.properties||{};
         var key=(bp.ADA||'')+'|'+(bp.PARSEL||'');
-        if(parselMap[key]) parselMap[key].binas.push(b);
-    });
-    numaratajs.forEach(function(n){
-        var np=n.properties||{};
-        var key=(np.ADA||'')+'|'+(np.PARSEL||'');
-        if(parselMap[key]) parselMap[key].numaratajs.push(n);
+        if(parselMap[key]) parselMap[key].binas++;
     });
 
-    // Cadde/sokakları koordinat bazında ilişkilendir (bounding box kullanarak)
-    caddes.forEach(function(c){
-        try{
-            var cLayer=L.geoJSON(c);
-            var cBounds=cLayer.getBounds();
-            if(bounds.intersects(cBounds)){
-                var cp=c.properties||{};
-                // Tüm parsellerle ilişkilendir
-                Object.keys(parselMap).forEach(function(k){
-                    var pp=parselMap[k].parsel.properties||{};
-                    if(pp.MAHALLE_AD&&cp.MAHALLE_AD&&pp.MAHALLE_AD===cp.MAHALLE_AD){
-                        if(parselMap[k].caddes.indexOf(c)<0) parselMap[k].caddes.push(c);
-                    }
-                });
-            }
-        }catch(e){}
-    });
-
-    // Panel HTML'ini oluştur
+    // Panel HTML
+    var caddeKeys=Object.keys(allCaddeler);
     var html='<div style="margin-bottom:8px;font-size:11px;color:#64748b;">';
-    html+=filteredParsels.length+' parsel, '+binas.length+' bina, '+numaratajs.length+' kapı no, '+caddes.length+' cadde/sokak bulundu.';
+    html+=filteredParsels.length+' parsel, '+binas.length+' bina'+(caddeKeys.length?', '+caddeKeys.length+' cadde/sokak':'')+' bulundu.';
     html+='<hr style="border-color:#e2e8f0;margin:6px 0;"></div>';
 
     var keys=Object.keys(parselMap);
@@ -2014,16 +2014,9 @@ function drawReportOlustur(results,bounds){
     keys.forEach(function(key,i){
         var item=parselMap[key];
         var p=item.parsel.properties||{};
-        var ada=p.ADA||'—';
-        var parsel=p.PARSEL||'—';
-        var mahalle=p.MAHALLE_AD||p.MAHALLE||'—';
-        var ilce=p.ILCE||p.ILÇE||'—';
-        var binaSay=item.binas.length;
-        var kapiSay=item.numaratajs.length;
-        var caddeIsimler=item.caddes.map(function(c){
-            var cp=c.properties||{};
-            return (cp.CADDE_SO_1||'')+' '+(cp.CADDE_SO_2||'')||'';
-        }).filter(function(s){return s}).join(', ')||'—';
+        var ada=p.ADA||'—', parsel=p.PARSEL||'—';
+        var mahalle=p.MAHALLE_AD||p.MAHALLE||'—', ilce=p.ILCE||p.ILÇE||'—';
+        var caddeStr=Object.keys(item.caddeler).map(function(ck){return item.caddeler[ck]}).join(', ')||'—';
 
         var secili=window._drSecili&&window._drSecili[key]?'checked':'';
         var showCadde=secili?'style="display:block"':'style="display:none"';
@@ -2034,36 +2027,21 @@ function drawReportOlustur(results,bounds){
             '</label>'+
             '<div class="dr-parsel-details" style="padding-left:28px;">'+
                 '<span class="dr-detail">🏛️ '+ilce+' | 🏘️ '+mahalle+'</span>'+
-                (binaSay?'<span class="dr-detail">🏠 '+binaSay+' bina</span>':'')+
-                (kapiSay?'<span class="dr-detail">🚪 '+kapiSay+' kapı no</span>':'')+
-                (caddeIsimler!=='—'?'<span class="dr-detail">🛣️ '+caddeIsimler+'</span>':'')+
+                (item.binas?'<span class="dr-detail">🏠 '+item.binas+' bina</span>':'')+
+                (caddeStr!=='—'?'<span class="dr-detail">🛣️ '+caddeStr+'</span>':'')+
                 '<span class="dr-detail" style="font-size:10px;color:#94a3b8;">📍 '+(p.NİTELİK||'')+(p.YÜZÖLÇÜM?' | '+p.YÜZÖLÇÜM+' m²':'')+'</span>'+
             '</div>'+
             '<div class="dr-cadde-section" data-parsel="'+key+'" '+showCadde+'>'+
                 '<div style="font-size:10px;color:#64748b;padding:2px 10px 4px 28px;font-weight:600;">Cadde / Sokak:</div>'+
-                item.caddes.map(function(c,ci){
-                    var cp=c.properties||{};
-                    var caddeAdi=(cp.CADDE_SO_1||'')+' '+(cp.CADDE_SO_2||'')||'İsimsiz Cadde #'+(cp.CADDE_SOKA||'');
+                Object.keys(item.caddeler).map(function(ck,ci){
+                    var caddeAdi=item.caddeler[ck];
                     var cKey=key+'|cadde|'+ci;
                     var caddeSecili=window._drCaddeSecili&&window._drCaddeSecili[cKey]?'checked':'';
-                    var showKapi=caddeSecili?'style="display:block"':'style="display:none"';
                     return '<div class="dr-cadde-item">'+
                         '<label style="display:flex;align-items:center;gap:6px;padding:3px 10px 3px 28px;cursor:pointer;font-size:12px;" onclick="toggleDrCadde(\''+key+'\','+ci+')">'+
                             '<input type="checkbox" '+caddeSecili+' onchange="toggleDrCadde(\''+key+'\','+ci+')">'+
                             '<span>🛣️ '+caddeAdi+'</span>'+
                         '</label>'+
-                        '<div class="dr-kapi-section" '+showKapi+'>'+
-                            '<div style="font-size:10px;color:#64748b;padding:2px 10px 2px 36px;">Kapı Numaraları:</div>'+
-                            item.numaratajs.map(function(n,ni){
-                                var np=n.properties||{};
-                                var nKey=key+'|kapi|'+ci+'|'+ni;
-                                var kapiSecili=window._drKapiSecili&&window._drKapiSecili[nKey]?'checked':'';
-                                return '<label style="display:flex;align-items:center;gap:6px;padding:2px 10px 2px 36px;cursor:pointer;font-size:11px;" onclick="toggleDrKapi(\''+key+'\','+ci+','+ni+')">'+
-                                    '<input type="checkbox" '+kapiSecili+' onchange="toggleDrKapi(\''+key+'\','+ci+','+ni+')">'+
-                                    '<span>🚪 No: '+(np.KAPI_NO||'—')+'</span>'+
-                                '</label>';
-                            }).join('')+
-                        '</div>'+
                     '</div>';
                 }).join('')+
             '</div>'+
@@ -2075,7 +2053,6 @@ function drawReportOlustur(results,bounds){
     document.getElementById('draw-report-footer').style.display='flex';
     guncelleDrSayac();
     haritadaParselListesiGoster(filteredParsels);
-    // Sidebar özet
     document.getElementById('parsel-listesi-icerik').innerHTML=
         '<div style="font-size:11px;color:#94a3b8;">✅ '+filteredParsels.length+' parsel bulundu. Detaylar için sağ paneldeki 📋 Çizim Raporu\'nu kullanın.</div>';
     hideLoadingOverlay();
@@ -2097,11 +2074,6 @@ w.toggleDrParsel=function(key){
         Object.keys(window._drCaddeSecili).forEach(function(k){
             if(k.startsWith(key+'|')) delete window._drCaddeSecili[k];
         });
-        if(window._drKapiSecili){
-            Object.keys(window._drKapiSecili).forEach(function(k){
-                if(k.startsWith(key+'|')) delete window._drKapiSecili[k];
-            });
-        }
     }
     guncelleDrSayac();
 };
@@ -2126,21 +2098,17 @@ w.drawReportileri=function(){
     var lat=seciliParsels[0].geometry&&seciliParsels[0].geometry.coordinates?seciliParsels[0].geometry.coordinates[1]:null;
     var lng=seciliParsels[0].geometry&&seciliParsels[0].geometry.coordinates?seciliParsels[0].geometry.coordinates[0]:null;
 
-    // Seçili cadde/sokak ve kapı no bilgilerini topla
+    // Seçili cadde/sokak bilgilerini topla
     var caddeList=[];
-    var kapiList=[];
     if(window._drCaddeSecili){
         Object.keys(window._drCaddeSecili).forEach(function(ck){
-            // ck format: "ADA|PARSEL|cadde|IDX"
             var parts=ck.split('|');
-            if(parts.length>=4) caddeList.push(parts[0]+'/'+parts[1]+' → Cadde #'+parts[3]);
-        });
-    }
-    if(window._drKapiSecili){
-        Object.keys(window._drKapiSecili).forEach(function(nk){
-            // nk format: "ADA|PARSEL|kapi|CAD_IDX|KAPI_IDX"
-            var parts=nk.split('|');
-            if(parts.length>=5) kapiList.push(parts[0]+'/'+parts[1]+' → K.No #'+parts[4]);
+            if(parts.length>=4){
+                var pIdx=parts[0]+'|'+parts[1];
+                var pObj=seciliParsels.find(function(s){var sp=s.properties||{};return (sp.ADA||'')+'|'+(sp.PARSEL||'')===pIdx});
+                var caddeName=pObj?((pObj.properties||{}).CADDE_SO_1||'')+' '+(pObj.properties||{}).CADDE_SO_2||'Cadde #'+parts[3]:'Cadde #'+parts[3];
+                caddeList.push(caddeName.trim());
+            }
         });
     }
 
@@ -2148,7 +2116,6 @@ w.drawReportileri=function(){
 
     if(lat&&lng) mapsMap.flyTo([lat,lng],18,{animate:true,duration:0.8});
     setTimeout(function(){
-        // Başvuru formunu doldur
         var adres='<div style="font-size:12px;line-height:1.7;">';
         adres+='<b>📍 Seçili Parseller:</b><br>';
         seciliParsels.forEach(function(sp,i){
@@ -2157,17 +2124,14 @@ w.drawReportileri=function(){
         });
         adres+='<b>🏛️ İlçe:</b> '+(ilk.ILCE||ilk.ILÇE||'')+'<br>';
         if(caddeList.length) adres+='<b>🛣️ Cadde/Sokak:</b> '+caddeList.join(', ')+'<br>';
-        if(kapiList.length) adres+='<b>🚪 Kapı No:</b> '+kapiList.join(', ')+'<br>';
         adres+='</div>';
         document.getElementById('basvuru-adres-ozet').innerHTML=adres;
-        // Form alanlarını doldur
         if(ilk.ILCE) document.getElementById('bs-ilce').value=ilk.ILCE;
         if(ilk.ILÇE) document.getElementById('bs-ilce').value=ilk.ILÇE;
         if(ilk.MAHALLE_AD) document.getElementById('bs-mahalle').value=ilk.MAHALLE_AD;
         else if(ilk.MAHALLE) document.getElementById('bs-mahalle').value=ilk.MAHALLE;
         if(lat) document.getElementById('bs-lat').value=lat;
         if(lng) document.getElementById('bs-lng').value=lng;
-        // Seçili cadde/kapı bilgisini açıklamaya ekle
         var aciklamaEl=document.getElementById('bs-aciklama');
         var detayParts=[];
         seciliParsels.forEach(function(sp,i){
@@ -2175,7 +2139,6 @@ w.drawReportileri=function(){
             detayParts.push('Ada '+pr.ADA+' / Parsel '+pr.PARSEL);
         });
         if(caddeList.length) detayParts.push('Cadde/Sokak: '+caddeList.join(', '));
-        if(kapiList.length) detayParts.push('Kapı: '+kapiList.join(', '));
         if(!aciklamaEl.value) aciklamaEl.value=detayParts.join(' | ');
 
         document.getElementById('maps-basvuru-panel').classList.add('open');
