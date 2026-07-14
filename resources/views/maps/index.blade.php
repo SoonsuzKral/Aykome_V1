@@ -239,6 +239,52 @@
 
 #maps-coords { color: #e2e8f0; }
 #maps-active-layers { color: #E87722; }
+.maps-input-sm {
+    background: #334155; border: 1px solid #475569; border-radius: 4px; padding: 5px 8px;
+    color: #e2e8f0; font-size: 11px; outline: none; box-sizing: border-box;
+}
+.maps-input-sm:focus { border-color: #E87722; box-shadow: 0 0 0 2px rgba(232,119,34,0.2); }
+.maps-input-sm::placeholder { color: #64748b; }
+
+#maps-loader {
+    position: fixed; inset: 0; z-index: 99999;
+    background: #0f172a;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+#maps-loader.hidden { opacity: 0; visibility: hidden; }
+.loader-container { text-align: center; }
+.loader-ring {
+    width: 80px; height: 80px; margin: 0 auto 20px;
+    border: 4px solid #1e293b;
+    border-top: 4px solid #E87722;
+    border-right: 4px solid #f97316;
+    border-radius: 50%;
+    animation: loaderSpin 1s cubic-bezier(0.68, -0.55, 0.27, 1.55) infinite;
+    box-shadow: 0 0 30px rgba(232,119,34,0.15);
+}
+@keyframes loaderSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.loader-text {
+    font-size: 28px; font-weight: 800;
+    background: linear-gradient(135deg, #E87722, #f97316, #fb923c);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 4px; margin-bottom: 8px;
+}
+.loader-subtext {
+    font-size: 13px; color: #64748b;
+    animation: loaderPulse 1.5s ease-in-out infinite;
+}
+@keyframes loaderPulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+.maps-loader-mini {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: #E87722;
+}
+.maps-loader-mini::before {
+    content: ''; width: 12px; height: 12px;
+    border: 2px solid #334155; border-top: 2px solid #E87722;
+    border-radius: 50%; animation: loaderSpin 0.8s linear infinite;
+}
 
 .maps-pin {
     width: 32px; height: 32px; border-radius: 50% 50% 50% 0;
@@ -254,8 +300,9 @@
 }
 .maps-pin-pulse { animation: pulse 2s infinite; }
 
-body.maps-fullscreen #maps-wrapper { left: 0 !important; top: 0 !important; }
 body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
+#maps-left-panel .accordion-body { max-height: 200px; overflow-y: auto; }
+
 
 #maps-toast {
     position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(100px);
@@ -433,7 +480,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▼</span>
         </div>
         <div class="accordion-body">
-            <div class="layer-row"><label><span class="color-dot" style="background:#f97316;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_MAHALLE_KOYLER" checked><span>Mahalle Sınırları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#f97316;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_MAHALLE_KOYLER"><span>Mahalle Sınırları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
             <div class="layer-row"><label><span class="color-dot" style="background:#a855f7;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_KADASTRO_ADA"><span>Adalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
@@ -442,7 +489,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▼</span>
         </div>
         <div class="accordion-body">
-            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL" checked><span>Parseller (Genel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL"><span>Parseller (Genel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
             <div class="layer-row"><label><span class="color-dot" style="background:#22c55e;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:TKGM_PARSEL"><span>Parseller (TKGM Güncel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
@@ -451,7 +498,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▼</span>
         </div>
         <div class="accordion-body">
-            <div class="layer-row"><label><span class="color-dot" style="background:#94a3b8;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_BINA" checked><span>Binalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#94a3b8;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_BINA"><span>Binalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
             <div class="layer-row"><label><span class="color-dot" style="background:#f59e0b;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:m_Numarataj"><span>Kapı Numaraları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
             <div class="layer-row"><label><span class="color-dot" style="background:#64748b;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_CADDE_SOKAK"><span>Cadde/Sokak Hatları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
@@ -461,11 +508,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▼</span>
         </div>
         <div class="accordion-body">
-            <div class="layer-row"><label><span class="color-dot" style="background:#3b82f6;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_SU_ICMESUYU_LINKS" checked><span>Aykome İçmesuyu</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#92400e;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_SU_KANALIZASYON_LINKS"><span>Aykome Kanalizasyon</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#67e8f9;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_SU_YAGMURSU_LINKS"><span>Aykome Yağmursuyu</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
             <div class="layer-row"><label><span class="color-dot" style="background:#eab308;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_ELEKTRIK_LINKS"><span>Aykome Elektrik</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_LINKS" checked><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_LINKS"><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
             <div class="layer-row"><label><span class="color-dot" style="background:#3b82f6;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_NODES"><span>Doğalgaz (Noktalar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
@@ -499,6 +543,30 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
                 <button class="draw-btn draw-btn-danger" onclick="clearDrawing()">🗑️ Temizle</button>
             </div>
             <div id="draw-info" style="margin-top:6px;font-size:11px;color:#64748b;display:none;">Çizim aktif. ESC ile çık.</div>
+            <div id="draw-measurement" style="margin-top:6px;font-size:11px;color:#22c55e;display:none;"></div>
+            <div id="draw-utility-warning" style="margin-top:6px;font-size:12px;color:#ef4444;display:none;"></div>
+        </div>
+
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span>🔍 Ada/Parsel/Pafta Sorgula</span>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="accordion-body">
+            <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;">
+                <input type="text" id="parsel-search-ada" placeholder="Ada No" class="maps-input-sm" style="flex:1;min-width:60px;">
+                <input type="text" id="parsel-search-parsel" placeholder="Parsel No" class="maps-input-sm" style="flex:1;min-width:60px;">
+            </div>
+            <input type="text" id="parsel-search-pafta" placeholder="Pafta (opsiyonel)" class="maps-input-sm" style="width:100%;margin-bottom:6px;box-sizing:border-box;">
+            <button class="draw-btn" style="width:100%;justify-content:center;" onclick="parselAra()">🔍 Ada/Parsel Sorgula</button>
+        </div>
+
+        <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span>📋 Parsel Listesi</span>
+            <span class="arrow">▼</span>
+        </div>
+        <div class="accordion-body" id="parsel-listesi-panel">
+            <div style="font-size:11px;color:#64748b;margin-bottom:6px;">Çizim yapınca parseller burada listelenecek.</div>
+            <div id="parsel-listesi-icerik"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -543,6 +611,13 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 <button id="maps-toggle-mobile">☰</button>
 
 <div id="maps-overlay"></div>
+<div id="maps-loader">
+    <div class="loader-container">
+        <div class="loader-ring"></div>
+        <div class="loader-text">AYKOME CBS</div>
+        <div class="loader-subtext">Harita yükleniyor...</div>
+    </div>
+</div>
 
 <div id="maps-basvuru-panel">
     <div class="basvuru-header">
@@ -651,6 +726,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+
 <script>
 (function() {
     try{
@@ -692,6 +768,7 @@ var URFA_BOUNDS=[[37.0,38.6],[37.4,39.0]];
 var mapsMap=null, basemapLayers={}, wmsLayers={};
 var roadLayerAlti=null, roadLayerUstu=null;
 var basvuruLayer=null, drawnItems=null, currentDrawLayer=null, _isDrawing=!1, _drawJustFinished=!1;
+var geo3Layers={};
 var statusIcons={
     field_work:       {bg:'#f97316',icon:'⛏',label:'Saha Çalışması',pulse:!0},
     licensed:         {bg:'#22c55e',icon:'✓',label:'Onaylandı',pulse:!1},
@@ -705,10 +782,14 @@ var statusIcons={
 
 function createWmsLayer(url, layerName, opts){
     var layer=L.tileLayer.wms(url,Object.assign({
-        format:'image/png',transparent:!0,version:'1.3.0',maxZoom:24,
-        errorTileUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+        format:'image/png',transparent:!0,version:'1.3.0',maxZoom:24
     },opts));
-    layer.on('tileerror',function(e){});
+    layer.on('tileerror',function(e){
+        if(e.tile._retryCount>2)return;
+        e.tile._retryCount=(e.tile._retryCount||0)+1;
+        var src=e.tile.src.replace(/&retry=\d+/,'');
+        setTimeout(function(){e.tile.src=src+'&retry='+Date.now()},800);
+    });
     return layer;
 }
 
@@ -747,23 +828,20 @@ function initMaps(){
     basemapLayers.osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19});
     basemapLayers.topos=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17});
 
-    var geo3Layers={
+    geo3Layers={
         // İdari Sınırlar
-        'cbs:MISMAP_MAHALLE_KOYLER':       {on:!0, group:'admin'},
+        'cbs:MISMAP_MAHALLE_KOYLER':       {on:!1, group:'admin'},
         'cbs:MISMAP_KADASTRO_ADA':         {on:!1, group:'admin'},
         // Kadastro & Parseller
-        'smpns:MISMAP_NUM_KADASTRO_PARSEL':{on:!0, group:'cadastre'},
+        'smpns:MISMAP_NUM_KADASTRO_PARSEL':{on:!1, group:'cadastre'},
         'smpns:TKGM_PARSEL':               {on:!1, group:'cadastre'},
         // Yapı & Adres
-        'smpns:MISMAP_NUM_BINA':           {on:!0, group:'building'},
+        'smpns:MISMAP_NUM_BINA':           {on:!1, group:'building'},
         'smpns:m_Numarataj':               {on:!1, group:'building'},
         'cbs:MISMAP_CADDE_SOKAK':          {on:!1, group:'building'},
         // Altyapı Şebekeleri
-        'aykome:AYK_SU_ICMESUYU_LINKS':    {on:!0, group:'utility'},
-        'aykome:AYK_SU_KANALIZASYON_LINKS':{on:!1, group:'utility'},
-        'aykome:AYK_SU_YAGMURSU_LINKS':    {on:!1, group:'utility'},
         'aykome:AYK_ELEKTRIK_LINKS':       {on:!1, group:'utility'},
-        'aykome:AYK_DOGALGAZ_LINKS':       {on:!0, group:'utility'},
+        'aykome:AYK_DOGALGAZ_LINKS':       {on:!1, group:'utility'},
         'aykome:AYK_DOGALGAZ_NODES':       {on:!1, group:'utility'}
     };
 
@@ -790,6 +868,7 @@ function initMaps(){
         ).openOn(mapsMap);
     });
     mapsMap.on('draw:created',handleDrawCreated);
+    mapsMap.on('draw:drawstart',onDrawStart);
     mapsMap.on('layeradd layerremove',updateActiveLayerCount);
 
     loadBasvuruMarkers();
@@ -797,8 +876,13 @@ function initMaps(){
     updateActiveLayerCount();
     initSearchControl();
 
-    setTimeout(function(){mapsMap.invalidateSize()},400);
+    setTimeout(function(){
+        mapsMap.invalidateSize();
+        var loader=document.getElementById('maps-loader');
+        if(loader) loader.classList.add('hidden');
+    },800);
 }
+w.geo3Layers=geo3Layers;
 
 function updateCoords(e){
     if (!e || !e.latlng) { if (mapsMap) updateCoords({latlng:mapsMap.getCenter()}); return; }
@@ -1079,6 +1163,14 @@ function handleDrawCreated(e){
         document.getElementById('basvuru-coord-display').textContent=lat.toFixed(6)+'\u00B0 K, '+lng.toFixed(6)+'\u00B0 D';
         openPanel();
     }
+    // sidebar parsel listesi
+    if(bounds){
+        var latlngs=layer.getLatLngs();
+        if(type==='polygon'||type==='rectangle') latlngs=layer.getLatLngs()[0];
+        else if(type==='circle') latlngs=[layer.getLatLng()];
+        else if(type==='polyline'||type==='line') latlngs=layer.getLatLngs();
+        if(latlngs&&latlngs.length) afterDrawCheck(type,latlngs);
+    }
 }
 
 function getBbox(lng,lat,m){
@@ -1266,8 +1358,25 @@ function setupEventListeners(){
     });
 
     document.getElementById('btn-fullscreen').addEventListener('click',function(){
-        document.body.classList.toggle('maps-fullscreen');
-        setTimeout(function(){mapsMap.invalidateSize()},300);
+        if(!document.fullscreenElement){
+            document.documentElement.requestFullscreen().then(function(){
+                document.body.classList.add('maps-fullscreen');
+                setTimeout(function(){mapsMap.invalidateSize()},300);
+            }).catch(function(){});
+        } else {
+            document.exitFullscreen().then(function(){
+                document.body.classList.remove('maps-fullscreen');
+                setTimeout(function(){mapsMap.invalidateSize()},300);
+            }).catch(function(){});
+        }
+    });
+    document.addEventListener('fullscreenchange',function(){
+        if(!document.fullscreenElement){
+            document.body.classList.remove('maps-fullscreen');
+        } else {
+            document.body.classList.add('maps-fullscreen');
+        }
+        setTimeout(function(){mapsMap.invalidateSize()},400);
     });
 
     document.getElementById('btn-sorgula').addEventListener('click',function(){
@@ -1289,6 +1398,10 @@ function setupEventListeners(){
         if(e.key==='Escape'){
             if(document.getElementById('maps-basvuru-panel').classList.contains('open')){closeBasvuruPanel();return}
             if(currentDrawLayer){try{currentDrawLayer.disable()}catch(e){}currentDrawLayer=null;_isDrawing=!1;document.getElementById('draw-info').style.display='none'}
+        }
+        if(e.key==='F11'){
+            e.preventDefault();
+            document.getElementById('btn-fullscreen').click();
         }
     });
 
@@ -1550,6 +1663,283 @@ function removeRoadLayer(tip){
     var layer=tip==='alti'?roadLayerAlti:roadLayerUstu;
     if(layer&&mapsMap.hasLayer(layer)) mapsMap.removeLayer(layer);
 }
+
+window._parselList=[];
+
+function parselAra(){
+    var ada=document.getElementById('parsel-search-ada').value.trim();
+    var parsel=document.getElementById('parsel-search-parsel').value.trim();
+    var pafta=document.getElementById('parsel-search-pafta').value.trim();
+    if(!ada&&!parsel){showToast('⚠️ En az Ada veya Parsel no girin');return}
+    showToast('🔍 Parsel sorgulanıyor...');
+    var params='&typeNames=smpns:MISMAP_NUM_KADASTRO_PARSEL';
+    if(ada) params+='&cql_filter=ADA='+encodeURIComponent(ada);
+    if(parsel) params+=(params.includes('cql_filter')?' AND ':'&cql_filter=')+'PARSEL='+encodeURIComponent(parsel);
+    if(pafta) params+=(params.includes('cql_filter')?' AND ':'&cql_filter=')+'PAFTA='+encodeURIComponent(pafta);
+    params+='&outputFormat=application/json&srsName=EPSG:4326&count=50';
+    fetch('/maps/proxy?url='+encodeURIComponent('https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature'+params))
+    .then(function(r){return r.json()})
+    .then(function(data){
+        if(!data.features||!data.features.length){showToast('Parcer bulunamadı');return}
+        gosterParselListesi(data.features);
+        if(data.features.length===1) haritadaParselGoster(data.features[0]);
+        else haritadaParselListesiGoster(data.features);
+        showToast('✅ '+data.features.length+' parsel bulundu');
+    })
+    .catch(function(){showToast('⚠️ Parcel sorgusu başarısız')});
+}
+
+function gosterParselListesi(features){
+    var container=document.getElementById('parsel-listesi-icerik');
+    if(!container) return;
+    window._parselList=features;
+    var html='<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">'+features.length+' parsel bulundu. Seçmek için tıklayın:</div>';
+    html+='<table style="width:100%;font-size:11px;border-collapse:collapse;">';
+    html+='<tr style="color:#64748b;border-bottom:1px solid #475569;"><th style="padding:3px 4px;text-align:left;">Parsel</th><th style="padding:3px 4px;text-align:left;">Ada</th><th style="padding:3px 4px;text-align:left;">Mahalle</th><th style="padding:3px 4px;text-align:left;">İlçe</th></tr>';
+    features.forEach(function(f,i){
+        var p=f.properties||{};
+        html+='<tr style="border-bottom:1px solid #334155;cursor:pointer;" onclick="haritadaParselGoster(window._parselList['+i+'])" onmouseover="this.style.background=\'#334155\'" onmouseout="this.style.background=\'\'">'+
+            '<td style="padding:3px 4px;">'+(p.PARSEL||'')+'</td>'+
+            '<td style="padding:3px 4px;">'+(p.ADA||'')+'</td>'+
+            '<td style="padding:3px 4px;">'+(p.MAHALLE_AD||p.MAHALLE||'')+'</td>'+
+            '<td style="padding:3px 4px;">'+(p.ILCE||p.ILÇE||'')+'</td></tr>';
+    });
+    html+='</table>';
+    html+='<div style="margin-top:6px;font-size:10px;color:#64748b;">';
+    if(window._parselList.length===1) html+='<button class="draw-btn" style="width:100%;justify-content:center;padding:4px 8px;font-size:11px;" onclick="seciliParselleBasvuruYap(0)">📋 Bu Parselle Başvuru Yap</button>';
+    else html+='<button class="draw-btn" style="width:100%;justify-content:center;padding:4px 8px;font-size:11px;" onclick="birdenFazlaParsecSec()">📋 Parsel Seçerek Başvuru Yap</button>';
+    html+='</div>';
+    container.innerHTML=html;
+}
+
+function birdenFazlaParsecSec(){
+    var container=document.getElementById('parsel-listesi-icerik');
+    var html='<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Seçmek istediğiniz parseli tıklayın:</div>';
+    html+='<div style="max-height:200px;overflow-y:auto;">';
+    window._parselList.forEach(function(f,i){
+        var p=f.properties||{};
+        var adi=(p.PARSEL||'')+'/'+(p.ADA||'')+' - '+(p.MAHALLE_AD||p.MAHALLE||'');
+        html+='<label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;border-bottom:1px solid #334155;font-size:11px;">'+
+            '<input type="radio" name="parcel_sec" value="'+i+'" onchange="haritadaParselGoster(window._parselList['+i+'])">'+
+            '<span>'+adi+'</span></label>';
+    });
+    html+='</div>';
+    html+='<button class="draw-btn" style="width:100%;justify-content:center;padding:4px 8px;font-size:11px;margin-top:6px;" onclick="seciliParselleBasvuruYapSec()">📋 Başvuru Yap</button>';
+    container.innerHTML=html;
+}
+
+function seciliParselleBasvuruYap(index){
+    var f=window._parselList[index];
+    if(!f) return;
+    var p=f.properties||{};
+    var lat=f.geometry&&f.geometry.coordinates?f.geometry.coordinates[1]:null;
+    var lng=f.geometry&&f.geometry.coordinates?f.geometry.coordinates[0]:null;
+    if(lat&&lng) mapsMap.flyTo([lat,lng],18,{animate:true,duration:1});
+    setTimeout(function(){openBasvuruFromParsel(p,lat,lng)},600);
+}
+
+function seciliParselleBasvuruYapSec(){
+    var sec=document.querySelector('input[name="parcel_sec"]:checked');
+    if(!sec){showToast('⚠️ Lütfen bir parsel seçin');return}
+    seciliParselleBasvuruYap(parseInt(sec.value));
+}
+
+function openBasvuruFromParsel(p,lat,lng){
+    document.getElementById('bs-lat').value=lat;
+    document.getElementById('bs-lng').value=lng;
+    var adres='<div style="font-size:12px;line-height:1.7;">';
+    adres+='<b>📍 Koordinat:</b> '+lat.toFixed(6)+', '+lng.toFixed(6)+'<br>';
+    adres+='<b>🏛️ Ada/Parsel:</b> '+(p.ADA||'')+'/'+(p.PARSEL||'')+'<br>';
+    if(p.PAFTA) adres+='<b>📋 Pafta:</b> '+p.PAFTA+'<br>';
+    adres+='<b>🏘️ Mahalle:</b> '+(p.MAHALLE_AD||p.MAHALLE||'')+'<br>';
+    adres+='<b>🏛️ İlçe:</b> '+(p.ILCE||p.ILÇE||'')+'<br>';
+    if(p.CADDE_SOKAK||p.CADDE) adres+='<b>🛣️ Cadde/Sokak:</b> '+(p.CADDE_SOKAK||p.CADDE||'')+'<br>';
+    adres+='</div>';
+    document.getElementById('basvuru-adres-ozet').innerHTML=adres;
+    document.getElementById('basvuru-coord-display').textContent=lat.toFixed(6)+', '+lng.toFixed(6);
+    document.getElementById('maps-basvuru-panel').classList.add('open');
+    document.getElementById('maps-overlay').style.display='block';
+}
+
+function haritadaParselGoster(feature){
+    var layer=L.geoJSON(feature,{
+        style:{color:'#E87722',weight:3,fillColor:'rgba(232,119,34,0.15)',fillOpacity:0.5},
+        onEachFeature:function(f,l){
+            mapsMap.fitBounds(l.getBounds(),{padding:[50,50],animate:true,duration:0.8});
+            var p=f.properties||{};
+            var html='<div style="font-size:12px;min-width:220px;">';
+            html+='<b>📍 Ada/Parsel:</b> '+(p.ADA||'')+'/'+(p.PARSEL||'')+'<br>';
+            html+='<b>🏘️ Mahalle:</b> '+(p.MAHALLE_AD||p.MAHALLE||'')+'<br>';
+            html+='<b>🏛️ İlçe:</b> '+(p.ILCE||p.ILÇE||'')+'<br>';
+            if(p.NİTELİK) html+='<b>📋 Nitelik:</b> '+p.NİTELİK+'<br>';
+            if(p.YÜZÖLÇÜM) html+='<b>📐 Yüzölçüm:</b> '+p.YÜZÖLÇÜM+' m²<br>';
+            if(p.M2) html+='<b>📐 Alan:</b> '+p.M2+' m²';
+            html+='</div>';
+            l.bindPopup(html).openPopup();
+        }
+    });
+    if(window._parcelHighlight) mapsMap.removeLayer(window._parcelHighlight);
+    window._parcelHighlight=layer;
+    layer.addTo(mapsMap);
+}
+
+function haritadaParselListesiGoster(features){
+    var layer=L.geoJSON(features,{
+        style:{color:'#22c55e',weight:2,fillColor:'rgba(34,197,94,0.1)',fillOpacity:0.3}
+    });
+    if(window._parcelHighlight) mapsMap.removeLayer(window._parcelHighlight);
+    window._parcelHighlight=layer;
+    layer.addTo(mapsMap);
+}
+
+// Çizim mesafe hesaplama & parsel sorgulama
+var _drawMeasurements={};
+
+function showDrawMeasurement(type,latlngs){
+    var el=document.getElementById('draw-measurement');
+    if(!el) return;
+    if(type==='marker'||type==='circlemarker'){el.style.display='none';return}
+    var text='';
+    if(type==='polyline'){
+        if(!latlngs||latlngs.length<2){el.style.display='none';return}
+        var total=0;
+        for(var i=1;i<latlngs.length;i++) total+=latlngs[i-1].distanceTo(latlngs[i]);
+        text='📏 Mesafe: '+total.toFixed(1)+' m';
+        if(total>1000) text+=' ('+(total/1000).toFixed(2)+' km)';
+    } else {
+        if(!latlngs||latlngs.length<3){el.style.display='none';return}
+        var perimeter=0;
+        for(var i=1;i<latlngs.length;i++) perimeter+=latlngs[i-1].distanceTo(latlngs[i]);
+        var centroid=latlngs.reduce(function(a,b){return {lat:a.lat+b.lat/3,lng:a.lng+b.lng/3}},{lat:0,lng:0});
+        var area=0;
+        for(var i=0;i<latlngs.length;i++){
+            var j=(i+1)%latlngs.length;
+            area+=latlngs[i].lat*latlngs[j].lng-latlngs[j].lat*latlngs[i].lng;
+        }
+        area=Math.abs(area)/2*111319*111319*Math.cos(centroid.lat*Math.PI/180);
+        text='📐 Çevre: '+perimeter.toFixed(1)+' m | Alan: '+area.toFixed(1)+' m²';
+        if(area>10000) text+=' ('+(area/10000).toFixed(2)+' ha)';
+        if(area>1000000) text+=' ('+(area/1000000).toFixed(4)+' km²)';
+    }
+    el.innerHTML=text;
+    el.style.display='block';
+}
+
+// Çizim bittiğinde parsel + alt yapı sorgula
+function afterDrawCheck(drawType,latlngs){
+    if(!latlngs||latlngs.length<2) return;
+    showDrawMeasurement(drawType,latlngs);
+    sorguCizimAlanindakiParseller(latlngs);
+    sorguCizimAltyapiKesisimi(latlngs);
+}
+
+function sorguCizimAlanindakiParseller(latlngs){
+    if(!latlngs||latlngs.length<2) return;
+    var bounds=L.latLngBounds(latlngs);
+    var sw=L.CRS.EPSG3857.project(bounds.getSouthWest());
+    var ne=L.CRS.EPSG3857.project(bounds.getNorthEast());
+    var bbox=sw.x+','+sw.y+','+ne.x+','+ne.y;
+    var proxyUrl='/maps/proxy?url='+encodeURIComponent(
+        'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature'+
+        '&typeNames=smpns:MISMAP_NUM_KADASTRO_PARSEL&bbox='+bbox+',EPSG:3857'+
+        '&outputFormat=application/json&srsName=EPSG:4326&count=100'
+    );
+    showToast('🔍 Çizim alanındaki parseller sorgulanıyor...');
+    fetch(proxyUrl)
+    .then(function(r){return r.json()})
+    .then(function(data){
+        if(!data.features||!data.features.length){
+            document.getElementById('parsel-listesi-icerik').innerHTML='<div style="font-size:11px;color:#64748b;">Bu alanda parsel bulunamadı.</div>';
+            return;
+        }
+        showToast('✅ '+data.features.length+' parsel bulundu');
+        // Filtrele - sadece çizim alanına değen parseller
+        var filtered=data.features.filter(function(f){
+            try{
+                var poly=L.geoJSON(f);
+                var fBounds=poly.getBounds();
+                return bounds.intersects(fBounds);
+            }catch(e){return true}
+        });
+        gosterParselListesi(filtered.length?filtered:data.features);
+        haritadaParselListesiGoster(filtered.length?filtered:data.features);
+    })
+    .catch(function(e){
+        document.getElementById('parsel-listesi-icerik').innerHTML='<div style="font-size:11px;color:#ef4444;">Parsel sorgusu başarısız.</div>';
+    });
+}
+
+function sorguCizimAltyapiKesisimi(latlngs){
+    var warnEl=document.getElementById('draw-utility-warning');
+    if(!warnEl||!latlngs||latlngs.length<2){if(warnEl)warnEl.style.display='none';return}
+    var bounds=L.latLngBounds(latlngs);
+    var sw=L.CRS.EPSG3857.project(bounds.getSouthWest());
+    var ne=L.CRS.EPSG3857.project(bounds.getNorthEast());
+    var bbox=sw.x+','+sw.y+','+ne.x+','+ne.y;
+    // Doğalgaz ve elektrik hatlarini sorgula
+    var layers=['aykome:AYK_DOGALGAZ_LINKS','aykome:AYK_ELEKTRIK_LINKS'];
+    var names=['Doğalgaz Hattı','Elektrik Hattı'];
+    var found=[];
+    var done=0;
+    layers.forEach(function(l,i){
+        var url='/maps/proxy?url='+encodeURIComponent(
+            'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature'+
+            '&typeNames='+l+'&bbox='+bbox+',EPSG:3857'+
+            '&outputFormat=application/json&srsName=EPSG:4326&count=50'
+        );
+        fetch(url).then(function(r){return r.json()}).then(function(data){
+            if(data.features&&data.features.length){
+                found.push(names[i]+' ('+data.features.length+' adet)');
+                // Highlight on map
+                var hl=L.geoJSON(data,{
+                    style:{color:'#ef4444',weight:6,opacity:0.8,dashArray:'10,10',fillOpacity:0}
+                });
+                if(window._utilityHighlight) mapsMap.removeLayer(window._utilityHighlight);
+                window._utilityHighlight=hl;
+                hl.addTo(mapsMap);
+            }
+            done++;
+            if(done===layers.length&&found.length){
+                warnEl.innerHTML='⚠️ <b>Uyarı:</b> Çizim alanında ' + found.join(', ')+' bulundu! Kazı öncesi kontrol edin.';
+                warnEl.style.display='block';
+                showToast('⚠️ Uyarı: Çizim alanında ' + found.join(', ')+' tespit edildi!');
+                // Otomatik checkbox aç
+                layers.forEach(function(l){
+                    var cb=document.querySelector('.katman-checkbox[data-layer="'+l+'"]');
+                    if(cb&&!cb.checked) cb.checked=true;
+                });
+            } else if(done===layers.length&&!found.length){
+                warnEl.style.display='none';
+                if(window._utilityHighlight) mapsMap.removeLayer(window._utilityHighlight);
+            }
+        }).catch(function(){done++;});
+    });
+}
+
+function onDrawStart(){
+    document.getElementById('draw-measurement').style.display='none';
+    document.getElementById('draw-utility-warning').style.display='none';
+    if(window._utilityHighlight) mapsMap.removeLayer(window._utilityHighlight);
+}
+
+var _origClearDrawing=clearDrawing;
+clearDrawing=function(){
+    if(_origClearDrawing) _origClearDrawing();
+    document.getElementById('draw-measurement').style.display='none';
+    document.getElementById('draw-utility-warning').style.display='none';
+    document.getElementById('parsel-listesi-icerik').innerHTML='<div style="font-size:11px;color:#64748b;">Çizim yapınca parseller burada listelenecek.</div>';
+    if(window._parcelHighlight) mapsMap.removeLayer(window._parcelHighlight);
+    if(window._utilityHighlight) mapsMap.removeLayer(window._utilityHighlight);
+    window._parselList=[];
+};
+
+// Expose functions for HTML onclick handlers
+w.parselAra=parselAra;
+w.haritadaParselGoster=haritadaParselGoster;
+w.seciliParselleBasvuruYap=seciliParselleBasvuruYap;
+w.birdenFazlaParsecSec=birdenFazlaParsecSec;
+w.seciliParselleBasvuruYapSec=seciliParselleBasvuruYapSec;
+w.showDrawMeasurement=showDrawMeasurement;
 
 })(window);
 </script>
