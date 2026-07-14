@@ -238,7 +238,16 @@
         if(el) el.textContent = '📍 '+e.latlng.lat.toFixed(6)+'° | '+e.latlng.lng.toFixed(6)+'°';
     });
 
+    // Embedded mode'da container resize takibi
+    if(opts.mode === 'embedded' && window.ResizeObserver){
+        var ro = new ResizeObserver(function(){ map.invalidateSize(); });
+        ro.observe(canvas);
+    }
     setTimeout(function(){ map.invalidateSize(); }, 300);
+    // Sayfa görünür olunca da invalidate (tab switch vs)
+    document.addEventListener('visibilitychange', function(){
+        if(!document.hidden) setTimeout(function(){ map.invalidateSize(); }, 200);
+    });
 
     window['cbsMap_' + opts.canvasId] = map;
     window['cbsDrawnItems_' + opts.canvasId] = drawnItems;

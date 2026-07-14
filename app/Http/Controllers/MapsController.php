@@ -27,14 +27,15 @@ class MapsController extends Controller
             return response()->json(['type' => 'FeatureCollection', 'features' => []], 200);
         }
         $content = file_get_contents($path);
-        // JS wrapper: var EybAlti = {...}; → pure JSON
         $json = preg_replace('/^var\s+\w+\s*=\s*/', '', $content);
         $json = rtrim($json, ";\n\r ");
         $data = json_decode($json, true);
         if (!$data || !isset($data['features'])) {
             return response()->json(['type' => 'FeatureCollection', 'features' => []], 200);
         }
-        return response()->json($data);
+        return response()->json($data)
+            ->header('Cache-Control', 'public, max-age=86400')
+            ->header('Expires', gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
     }
 
     public function geoJson15Ustu()
@@ -50,7 +51,9 @@ class MapsController extends Controller
         if (!$data || !isset($data['features'])) {
             return response()->json(['type' => 'FeatureCollection', 'features' => []], 200);
         }
-        return response()->json($data);
+        return response()->json($data)
+            ->header('Cache-Control', 'public, max-age=86400')
+            ->header('Expires', gmdate('D, d M Y H:i:s', time() + 86400) . ' GMT');
     }
 
     public function roadQuery(Request $request)
