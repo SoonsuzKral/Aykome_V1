@@ -27,11 +27,19 @@
 - **Kapı No**: Draw report'ta `🚪 KAPI_NO` gösterilir
 - **Akış**: Çizim → Draw Report (parsel+cadde+kapi+bina) → Kullanıcı onay → Başvuru formu
 
+### v7.5 — Draw Report Yeniden Yapılandırma (Kapı Seçimi + Yol Hat Adımı)
+- **Kapı Numaraları**: Artık seçilebilir checkbox (önceden sadece text idi)
+- **Bina Adı**: `BINA_ADI` kapı no yanında gösterilir
+- **Tümünü Seç**: Her cadde için toplu seçim/kaldırma butonu (`toggleDrKapiAll`)
+- **Yol Hat Sorgula** ayrı adım: cadde/kapı seçimi → [🔍 Yol Hat Sorgula] → [📝 Başvuruya İlerle]
+- **`afterDrawCheck`**: Altyapı sorgusu kaldırıldı (yol hat adımına taşındı)
+- **Başvuru formu**: Kapı no + bina adı bilgileri artık forma aktarılır
+- **`clearDrawing`**: Yeni global state'ler (`_drKapiSecili`, `_yolHatSorgulandi` vs.) sıfırlanır
+
 ## Kalan İşler (Bir Sonraki Oturum)
-1. Başvuru formu tasarımı derinleştirme (draw report'tan gelen verilerle otomatik doldurma)
-2. Migration'lar Docker'da çalıştırılmalı (OCI_DEFAULT hatası)
-3. `GisKatmanAyar` modeli eksik (controller raw DB kullanıyor)
-4. ionCube + custom lisans sistemi kurulumu
+1. Migration'lar Docker'da çalıştırılmalı (OCI_DEFAULT hatası)
+2. `GisKatmanAyar` modeli eksik (controller raw DB kullanıyor)
+3. ionCube + custom lisans sistemi kurulumu
 
 ## Dosya Yapısı
 - `resources/views/maps/index.blade.php` (~2000 satır) — tüm CBS UI + JS

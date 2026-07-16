@@ -785,7 +785,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
         <div style="flex:1;font-size:11px;color:#64748b;" id="draw-report-count">0 parsel seçildi</div>
         <button onclick="kapatDrawReport()" class="btn-b btn-b-prev" style="font-size:12px;padding:6px 14px;">İptal</button>
         <button id="dr-yolhat-btn" onclick="drawReportYolHatSorgula()" class="btn-b" style="font-size:12px;padding:6px 14px;display:none;" disabled>🔍 Yol Hat Sorgula</button>
-        <button id="dr-basvuru-btn" onclick="drawReportBasvuruyaGit()" class="btn-b btn-b-submit" style="font-size:12px;padding:6px 14px;display:none;">📝 Başvuruya İlerle</button>
+        <button id="dr-ileri-btn" onclick="drawReportBasvuruyaGit()" class="btn-b btn-b-submit" style="font-size:12px;padding:6px 14px;" disabled>İleri →</button>
     </div>
 </div>
 <input type="hidden" id="dr-selected" value="">
@@ -1852,14 +1852,15 @@ function showDrawMeasurement(type,latlngs){
 }
 
 // Çizim bittiğinde parsel + alt yapı sorgula
-    function afterDrawCheck(drawType,latlngs){
-        if(!latlngs||latlngs.length<2) return;
-        showDrawMeasurement(drawType,latlngs);
-        showLoadingOverlay('Çizim alanı taranıyor...');
-        setTimeout(function(){
-            sorguCizimDetayRaporu(latlngs);
-        },100);
-    }
+function afterDrawCheck(drawType,latlngs){
+    if(!latlngs||latlngs.length<2) return;
+    showDrawMeasurement(drawType,latlngs);
+    showLoadingOverlay('Çizim alanı taranıyor...');
+    setTimeout(function(){
+        sorguCizimDetayRaporu(latlngs);
+        sorguCizimAltyapiKesisimi(latlngs);
+    },100);
+}
 
 function showLoadingOverlay(msg){
     var el=document.getElementById('maps-loading-overlay');
@@ -2243,8 +2244,8 @@ function yolHatSonucGoster(found){
     html+='</div>';
     document.getElementById('draw-report-body').insertAdjacentHTML('beforeend',html);
     document.getElementById('dr-yolhat-btn').style.display='none';
-    document.getElementById('dr-basvuru-btn').style.display='inline-block';
     window._yolHatSorgulandi=true;
+    guncelleDrSayac();
     showToast(found.length?'⚠️ Yol hat bulundu':'✅ Altyapı temiz');
 }
 
@@ -2451,10 +2452,13 @@ function guncelleDrSayac(){
         caddeler:window._drCaddeSecili,
         kapilar:window._drKapiSecili
     });
-    // Yol hat butonunu kontrol et
+    // İleri butonu (en az 1 parsel seçiliyse aktif)
+    var ileriBtn=document.getElementById('dr-ileri-btn');
+    if(ileriBtn) ileriBtn.disabled=pCount===0;
+    // Yol hat butonu (en az 1 kapı seçiliyse göster)
     var yolBtn=document.getElementById('dr-yolhat-btn');
     if(yolBtn){
-        if(kCount>0){
+        if(kCount>0&&!window._yolHatSorgulandi){
             yolBtn.style.display='inline-block';
             yolBtn.disabled=false;
         } else {
@@ -2471,44 +2475,77 @@ function sorguCizimAltyapiKesisimi(latlngs){
     var sw=L.CRS.EPSG3857.project(bounds.getSouthWest());
     var ne=L.CRS.EPSG3857.project(bounds.getNorthEast());
     var bbox=sw.x+','+sw.y+','+ne.x+','+ne.y;
-    // Doğalgaz ve elektrik hatlarini sorgula
-    var layers=['aykome:AYK_DOGALGAZ_LINKS','aykome:AYK_ELEKTRIK_LINKS'];
-    var names=['Doğalgaz Hattı','Elektrik Hattı'];
+    // Hatlar + noktalar sorgula
+    var layers=['aykome:AYK_DOGALGAZ_LINKS','aykome:AYK_ELEKTRIK_LINKS','aykome:AYK_DOGALGAZ_NODES','aykome:AYK_ELEKTRIK_NODES'];
+    var names=['Doğalgaz Hattı','Elektrik Hattı','Doğalgaz Noktası','Elektrik Noktası'];
     var found=[];
     var done=0;
+    var allFeatures={lines:[],nodes:[]};
     layers.forEach(function(l,i){
         var url='/maps/proxy?url='+encodeURIComponent(
             'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature'+
             '&typeNames='+l+'&bbox='+bbox+',EPSG:3857'+
             '&outputFormat=application/json&srsName=EPSG:4326&count=50'
         );
-        fetch(url).then(function(r){return r.json()}).then(function(data){
+        fetch(url).then(function(r){if(!r.ok)throw new Error();return r.json()}).then(function(data){
             if(data.features&&data.features.length){
                 found.push(names[i]+' ('+data.features.length+' adet)');
-                // Highlight on map
-                var hl=L.geoJSON(data,{
-                    style:{color:'#ef4444',weight:6,opacity:0.8,dashArray:'10,10',fillOpacity:0}
-                });
-                if(window._utilityHighlight) mapsMap.removeLayer(window._utilityHighlight);
-                window._utilityHighlight=hl;
-                hl.addTo(mapsMap);
+                if(i<2) allFeatures.lines=allFeatures.lines.concat(data.features);
+                else allFeatures.nodes=allFeatures.nodes.concat(data.features);
             }
             done++;
-            if(done===layers.length&&found.length){
-                warnEl.innerHTML='⚠️ <b>Uyarı:</b> Çizim alanında ' + found.join(', ')+' bulundu! Kazı öncesi kontrol edin.';
-                warnEl.style.display='block';
-                showToast('⚠️ Uyarı: Çizim alanında ' + found.join(', ')+' tespit edildi!');
-                // Otomatik checkbox aç
-                layers.forEach(function(l){
-                    var cb=document.querySelector('.katman-checkbox[data-layer="'+l+'"]');
-                    if(cb&&!cb.checked) cb.checked=true;
-                });
-            } else if(done===layers.length&&!found.length){
-                warnEl.style.display='none';
-                if(window._utilityHighlight) mapsMap.removeLayer(window._utilityHighlight);
-            }
-        }).catch(function(){done++;});
+            if(done===layers.length) altyapiSonucGoster(found,allFeatures);
+        }).catch(function(){done++;if(done===layers.length) altyapiSonucGoster(found,allFeatures);});
     });
+}
+
+function altyapiSonucGoster(found,allFeatures){
+    var warnEl=document.getElementById('draw-utility-warning');
+    if(!warnEl) return;
+    // Haritada highlight
+    if(window._utilityHighlight) mapsMap.removeLayer(window._utilityHighlight);
+    window._utilityHighlight=null;
+    if(found.length){
+        // Hatları kırmızı kesik çizgi olarak göster
+        if(allFeatures.lines.length){
+            var lineLayer=L.geoJSON(allFeatures.lines,{
+                style:{color:'#ef4444',weight:6,opacity:0.8,dashArray:'10,10',fillOpacity:0}
+            });
+            lineLayer.addTo(mapsMap);
+            window._utilityHighlight=lineLayer;
+        }
+        // Noktaları daire marker olarak göster (checkbox kapalı olsa bile)
+        if(allFeatures.nodes.length){
+            var nodeLayer=L.geoJSON(allFeatures.nodes,{
+                pointToLayer:function(feat,ll){
+                    return L.circleMarker(ll,{
+                        radius:7,color:'#dc2626',fillColor:'#fca5a5',
+                        fillOpacity:0.9,weight:2,opacity:1
+                    });
+                }
+            });
+            nodeLayer.addTo(mapsMap);
+            // Hem hatları hem noktaları tek bir grup olarak yönet
+            if(window._utilityHighlight){
+                var group=L.layerGroup([window._utilityHighlight,nodeLayer]);
+                mapsMap.removeLayer(window._utilityHighlight);
+                window._utilityHighlight=group;
+                group.addTo(mapsMap);
+            } else {
+                window._utilityHighlight=nodeLayer;
+            }
+        }
+        warnEl.innerHTML='⚠️ <b>Uyarı:</b> Çizim alanında ' + found.join(', ')+' bulundu! Kazı öncesi kontrol edin.';
+        warnEl.style.display='block';
+        showToast('⚠️ Uyarı: Çizim alanında ' + found.join(', ')+' tespit edildi!');
+        // Katman checkbox'larını aç (LINKS için)
+        ['aykome:AYK_DOGALGAZ_LINKS','aykome:AYK_ELEKTRIK_LINKS','aykome:AYK_DOGALGAZ_NODES','aykome:AYK_ELEKTRIK_NODES'].forEach(function(l){
+            var cb=document.querySelector('.katman-checkbox[data-layer="'+l+'"]');
+            if(cb&&!cb.checked) cb.checked=true;
+        });
+    } else {
+        warnEl.style.display='none';
+    }
 }
 
 function onDrawStart(){
