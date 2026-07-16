@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="tr" class="scroll-smooth">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="AYKOME — Altyapı Kazı İzin ve Yönetim Sistemi. Harita çizimi, anlık bildirimler, e-ruhsat ve saha denetimi tek platformda.">
+<title>AYKOME — Altyapı Kazı Yönetimini Yeniden Keşfedin | HGB Bilişim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif']},colors:{cyan:{brand:'#02E0FB'},orange:{brand:'#FA6001'}},animation:{'fade-up':'fadeUp 0.6s ease forwards','fade-in':'fadeIn 0.8s ease forwards','pulse-slow':'pulse 3s ease-in-out infinite','float':'float 6s ease-in-out infinite','scroll':'scroll 30s linear infinite'},keyframes:{fadeUp:{'0%':{opacity:'0',transform:'translateY(30px)'},'100%':{opacity:'1',transform:'translateY(0)'}},fadeIn:{'0%':{opacity:'0'},'100%':{opacity:'1'}},float:{'0%,100%':{transform:'translateY(0)'},'50%':{transform:'translateY(-12px)'}},scroll:{'0%':{transform:'translateX(0)'},'100%':{transform:'translateX(-50%)'}}}}}}}
+</script>
+<style>
+body{font-family:'Inter',sans-serif}
+.gradient-text{background:linear-gradient(135deg,#02E0FB 0%,#FA6001 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.gradient-border{background:linear-gradient(135deg,#02E0FB20,#FA600120);border:1px solid rgba(2,224,251,0.2)}
+.glow-cyan{box-shadow:0 0 40px rgba(2,224,251,0.15),0 0 80px rgba(2,224,251,0.05)}
+.glow-orange{box-shadow:0 0 40px rgba(250,96,1,0.15),0 0 80px rgba(250,96,1,0.05)}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);pointer-events:none}
+.orb-cyan{background:radial-gradient(circle,rgba(2,224,251,0.25) 0%,transparent 70%)}
+.orb-orange{background:radial-gradient(circle,rgba(250,96,1,0.2) 0%,transparent 70%)}
+.hero-grid{background-image:linear-gradient(rgba(2,224,251,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(2,224,251,0.04) 1px,transparent 1px);background-size:50px 50px}
+.stat-card:hover{transform:translateY(-4px);transition:all .3s ease}
+.feature-card:hover{border-color:rgba(2,224,251,0.4)!important;transform:translateY(-2px);transition:all .3s ease}
+.logo-track{display:flex;gap:3rem;animation:scroll 30s linear infinite;width:max-content}
+.scroll-hidden::-webkit-scrollbar{display:none}
+[data-aos]{opacity:0;transform:translateY(20px);transition:opacity .6s ease,transform .6s ease}
+[data-aos].aos-animate{opacity:1;transform:translateY(0)}
+.gc{cursor:pointer;transition:all .3s ease;overflow:hidden;border-radius:14px;position:relative;background:rgba(15,23,42,0.8);border:1px solid rgba(51,65,85,0.5)}
+.gc:hover{transform:translateY(-4px);border-color:rgba(2,224,251,0.3);box-shadow:0 12px 40px rgba(2,224,251,0.12)}
+.gci{width:100%;aspect-ratio:4/3;object-fit:cover;transition:transform .5s ease;display:block}
+.gc:hover .gci{transform:scale(1.06)}
+.gcf{padding:10px 12px;border-top:1px solid rgba(51,65,85,0.3);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.gcf h4{font-size:12px;font-weight:600;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+.gcf span{font-size:9px;color:#64748b;font-weight:500;white-space:nowrap;flex-shrink:0}.gc-img-wrap{position:relative;overflow:hidden}
+.gc-img-wrap .gc-badge{position:absolute;top:8px;left:8px;background:rgba(2,224,251,0.2);backdrop-filter:blur(4px);border:1px solid rgba(2,224,251,0.3);color:#02E0FB;font-size:9px;font-weight:700;padding:2px 10px;border-radius:6px;text-transform:uppercase;letter-spacing:.5px}
+.gc-img-wrap .gc-num{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);color:rgba(255,255,255,0.6);font-size:9px;font-weight:600;padding:2px 8px;border-radius:5px}
+.gallery-overlay{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;flex-direction:column}
+.gallery-overlay.open{display:flex}
+.gallery-overlay img{max-width:92vw;max-height:85vh;border-radius:12px;box-shadow:0 20px 80px rgba(0,0,0,0.6);object-fit:contain;animation:galleryIn .3s ease}
+@keyframes galleryIn{0%{opacity:0;transform:scale(0.9)}100%{opacity:1;transform:scale(1)}}
+.gallery-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;cursor:pointer;transition:all .3s;z-index:10000;backdrop-filter:blur(8px)}
+.gallery-nav:hover{background:rgba(2,224,251,0.25);border-color:#02E0FB;box-shadow:0 0 30px rgba(2,224,251,0.3);transform:translateY(-50%) scale(1.08)}
+.gallery-prev{left:20px}.gallery-next{right:20px}
+.gallery-close{position:absolute;top:16px;right:24px;color:#fff;font-size:36px;cursor:pointer;z-index:10000;opacity:.6;transition:opacity .3s}
+.gallery-close:hover{opacity:1;transform:rotate(90deg)}
+.gallery-counter{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.6);font-size:14px;z-index:10000;background:rgba(0,0,0,0.5);padding:6px 18px;border-radius:20px;letter-spacing:.5px}
+.gallery-title{position:absolute;top:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:16px;font-weight:600;z-index:10000;background:rgba(0,0,0,0.5);padding:8px 24px;border-radius:20px;max-width:80%;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:768px){.gallery-nav{width:40px;height:40px;font-size:16px}.gallery-prev{left:8px}.gallery-next{right:8px}.gallery-close{font-size:28px;top:8px;right:12px}.gallery-title{font-size:13px;padding:6px 14px;max-width:90%}}
+@keyframes cbsOrb{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(30px,-20px) scale(1.1)}50%{transform:translate(-10px,30px) scale(0.95)}75%{transform:translate(-30px,-10px) scale(1.05)}}
+.cbs-arch-node{transition:all .3s ease}.cbs-arch-node:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(2,224,251,0.15)}
+.cbs-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:rgba(51,65,85,0.6);border:1.5px solid rgba(51,65,85,0.4);transition:all .4s cubic-bezier(.4,0,.2,1)}
+.cbs-dot.active{background:#02E0FB;border-color:#02E0FB;box-shadow:0 0 14px rgba(2,224,251,0.5);transform:scale(1.2);animation:cbsPulse 1.8s ease-in-out infinite}
+.cbs-dot:not(.active){opacity:0.5}@keyframes cbsPulse{0%,100%{box-shadow:0 0 14px rgba(2,224,251,0.5)}50%{box-shadow:0 0 24px rgba(2,224,251,0.8)}}
+@keyframes shrink{from{width:100%}to{width:0%}}
+</style>
+</head>
+<body class="bg-slate-950 text-slate-200 antialiased overflow-x-hidden">
+
+<nav class="fixed top-0 left-0 right-0 z-50 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-xl">
+<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+<div class="flex h-16 items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-[#02E0FB] to-[#FA6001] text-sm font-black text-white shadow-lg">M</span>
+<div><span class="font-black text-white tracking-tight">AYKOME</span><span class="hidden sm:inline text-slate-500 text-xs ml-2">by HGB Bilişim</span></div>
+</div>
+<div class="hidden md:flex items-center gap-8 text-sm text-slate-400">
+<a href="#ozellikler" class="hover:text-white transition">Özellikler</a>
+<a href="#nasil-calisir" class="hover:text-white transition">Nasıl Çalışır?</a>
+<a href="#moduller" class="hover:text-white transition">Modüller</a>
+<a href="#cbs" class="hover:text-white transition">CBS</a>
+<a href="#pro-moduller" class="hover:text-[#FA6001] transition font-semibold text-[#FA6001]/80">PRO</a>
+<a href="#gallery" class="hover:text-white transition">Görseller</a>
+<a href="#istatistikler" class="hover:text-white transition">Rakamlar</a>
+<a href="#iletisim" class="hover:text-white transition">İletişim</a>
+</div>
+<div class="flex items-center gap-3">
+<a href="#" class="hidden sm:inline-flex text-sm text-slate-400 hover:text-white transition px-3 py-2">Giriş Yap</a>
+</div>
+</div>
+</div>
+</nav>
+
+<section class="relative min-h-screen pt-16 flex items-center bg-slate-950 hero-grid overflow-hidden">
+<div class="orb orb-cyan w-[600px] h-[600px] -top-32 -left-32 opacity-60"></div>
+<div class="orb orb-orange w-[500px] h-[500px] top-1/2 -right-48 opacity-40"></div>
+<div class="orb orb-cyan w-[300px] h-[300px] bottom-0 left-1/3 opacity-30"></div>
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
+<div class="grid lg:grid-cols-2 gap-16 items-center">
+<div class="text-center lg:text-left">
+<div class="inline-flex items-center gap-2 rounded-full border border-[#02E0FB]/30 bg-[#02E0FB]/10 px-4 py-1.5 text-xs font-semibold text-[#02E0FB] mb-6">
+<span class="h-1.5 w-1.5 rounded-full bg-[#02E0FB] animate-pulse"></span>Ultra SaaS v6 — Canlı Sistem
+</div>
+<h1 class="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight text-white mb-6">Altyapı Kazı<br>Yönetimini<br><span class="gradient-text">Yeniden Keşfedin.</span></h1>
+<p class="text-lg text-slate-400 leading-relaxed mb-8 max-w-xl mx-auto lg:mx-0">Harita vektör çizimi, anlık bildirimler, makbuz ve saha denetimi <strong class="text-slate-200">tek bir akıllı bulut platformunda.</strong> Belediyeler ve kurumlar için tasarlandı.</p>
+<div class="flex flex-wrap items-center gap-4 justify-center lg:justify-start mb-10">
+<span class="flex items-center gap-1.5 text-xs text-slate-500"><svg class="h-3.5 w-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>SOC 2 Uyumlu</span>
+<span class="flex items-center gap-1.5 text-xs text-slate-500"><svg class="h-3.5 w-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>KVKK Uyumlu</span>
+<span class="flex items-center gap-1.5 text-xs text-slate-500"><svg class="h-3.5 w-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>%99.9 Uptime SLA</span>
+</div>
+</div>
+<div class="relative flex items-center justify-center animate-float">
+<div class="absolute inset-0 rounded-3xl bg-gradient-to-br from-[#02E0FB]/20 to-[#FA6001]/10 blur-3xl"></div>
+<div class="relative w-full max-w-lg rounded-2xl border border-slate-700/60 bg-slate-900/90 shadow-2xl backdrop-blur-sm overflow-hidden">
+<div class="flex items-center gap-2 border-b border-slate-700/50 px-4 py-3 bg-slate-950/80">
+<div class="h-2.5 w-2.5 rounded-full bg-red-500/70"></div>
+<div class="h-2.5 w-2.5 rounded-full bg-yellow-500/70"></div>
+<div class="h-2.5 w-2.5 rounded-full bg-emerald-500/70"></div>
+<div class="ml-4 flex-1 rounded-md bg-slate-800/60 px-3 py-1 text-xs text-slate-500">aykome.belediye.gov.tr/admin/map</div>
+</div>
+<div class="relative h-72 bg-gradient-to-br from-slate-900 to-slate-800 overflow-hidden">
+<svg class="absolute inset-0 w-full h-full opacity-20" viewBox="0 0 100 100"><defs><pattern id="g" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0L0 0 0 10" fill="none" stroke="#02E0FB" stroke-width="0.3"/></pattern></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>
+<svg class="absolute inset-0 w-full h-full" viewBox="0 0 500 300">
+<line x1="0" y1="80" x2="500" y2="80" stroke="#334155" stroke-width="10"/><line x1="0" y1="160" x2="500" y2="160" stroke="#334155" stroke-width="8"/><line x1="0" y1="230" x2="500" y2="230" stroke="#334155" stroke-width="10"/>
+<line x1="80" y1="0" x2="80" y2="300" stroke="#334155" stroke-width="8"/><line x1="200" y1="0" x2="200" y2="300" stroke="#334155" stroke-width="10"/><line x1="320" y1="0" x2="320" y2="300" stroke="#334155" stroke-width="6"/><line x1="420" y1="0" x2="420" y2="300" stroke="#334155" stroke-width="8"/>
+<line x1="0" y1="80" x2="500" y2="80" stroke="#475569" stroke-width="6"/><line x1="0" y1="160" x2="500" y2="160" stroke="#475569" stroke-width="4"/><line x1="200" y1="0" x2="200" y2="300" stroke="#475569" stroke-width="6"/>
+<rect x="90" y="90" width="100" height="60" fill="#1e293b" rx="2"/><rect x="210" y="90" width="100" height="60" fill="#1e293b" rx="2"/><rect x="330" y="90" width="80" height="60" fill="#1e293b" rx="2"/><rect x="90" y="170" width="100" height="50" fill="#1e293b" rx="2"/><rect x="210" y="170" width="100" height="50" fill="#1e293b" rx="2"/><rect x="90" y="10" width="100" height="60" fill="#1e293b" rx="2"/><rect x="210" y="10" width="100" height="60" fill="#1e293b" rx="2"/>
+<polygon points="120,100 220,95 240,130 210,155 110,148" fill="rgba(2,224,251,0.25)" stroke="#02E0FB" stroke-width="2.5"/>
+<circle cx="120" cy="100" r="5" fill="#02E0FB"/><circle cx="220" cy="95" r="5" fill="#02E0FB"/><circle cx="240" cy="130" r="5" fill="#02E0FB"/><circle cx="210" cy="155" r="5" fill="#02E0FB"/><circle cx="110" cy="148" r="5" fill="#02E0FB"/>
+<polygon points="340,100 415,105 420,150 345,148" fill="rgba(250,96,1,0.2)" stroke="#FA6001" stroke-width="2"/>
+<circle cx="175" cy="127" r="10" fill="#02E0FB"/><text x="175" y="131" text-anchor="middle" fill="white" font-size="9" font-weight="bold">✓</text>
+<circle cx="380" cy="127" r="10" fill="#FA6001"/><text x="380" y="131" text-anchor="middle" fill="white" font-size="9" font-weight="bold">!</text>
+<line x1="120" y1="165" x2="240" y2="165" stroke="#02E0FB" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.7"/>
+<text x="180" y="178" text-anchor="middle" fill="#02E0FB" font-size="9" opacity="0.9">120 m</text>
+</svg>
+<div class="absolute top-3 left-3 rounded-lg bg-slate-950/90 border border-slate-700/60 px-3 py-2 backdrop-blur-sm shadow-xl"><p class="text-[9px] text-slate-400 uppercase tracking-wider mb-1">Aktif Kazı Alanları</p><p class="text-lg font-black text-[#02E0FB]">247</p></div>
+<div class="absolute top-3 right-3 rounded-xl bg-slate-950/95 border border-[#02E0FB]/40 px-3 py-2.5 backdrop-blur-sm shadow-2xl w-52 animate-pulse-slow">
+<div class="flex items-start gap-2"><div class="mt-0.5 h-4 w-4 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0"><svg class="h-2.5 w-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></div>
+<div><p class="text-[10px] font-semibold text-white">Makbuz Yüklendi!</p><p class="text-[9px] text-slate-400">AYK-2024-03847 onay bekleniyor</p></div></div></div>
+<div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 rounded-2xl bg-slate-950/95 border border-slate-700/60 px-4 py-2 backdrop-blur-sm shadow-xl">
+<button class="h-6 w-6 rounded-md bg-[#02E0FB]/20 flex items-center justify-center text-[#02E0FB]"><svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg></button>
+<div class="h-4 w-px bg-slate-700"></div><span class="text-[9px] text-slate-400">Polygon</span><span class="text-[9px] text-slate-400">Çizgi</span><span class="text-[9px] text-slate-400">Nokta</span>
+<div class="h-4 w-px bg-slate-700"></div>
+<button class="h-6 w-6 rounded-md bg-[#FA6001]/20 flex items-center justify-center text-[#FA6001]"><svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button></div></div>
+<div class="grid grid-cols-3 divide-x divide-slate-700/50 bg-slate-950/60 border-t border-slate-700/40">
+<div class="px-4 py-3 text-center"><p class="text-[10px] text-slate-500 uppercase tracking-wide">Aktif İzin</p><p class="text-base font-black text-[#02E0FB]">1.284</p></div>
+<div class="px-4 py-3 text-center"><p class="text-[10px] text-slate-500 uppercase tracking-wide">Bugün</p><p class="text-base font-black text-[#FA6001]">+23</p></div>
+<div class="px-4 py-3 text-center"><p class="text-[10px] text-slate-500 uppercase tracking-wide">Saha Ekibi</p><p class="text-base font-black text-emerald-400">47</p></div></div></div></div></div></div>
+<div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce opacity-40">
+<span class="text-xs text-slate-500">Keşfet</span><svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg></div>
+</section>
+
+<section class="border-y border-slate-800/60 bg-slate-900/40 py-10 overflow-hidden">
+<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mb-6 text-center"><p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">50'den Fazla Kurum ve Belediye Güveniyor</p></div>
+<div class="overflow-hidden"><div class="logo-track" id="logo-track"></div></div>
+</section>
+
+<section id="nasil-calisir" class="bg-white py-24">
+<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+<div class="text-center mb-16">
+<span class="inline-block rounded-full bg-[#02E0FB]/10 border border-[#02E0FB]/30 px-4 py-1.5 text-xs font-semibold text-[#02AFC6] mb-4 uppercase tracking-widest">Süreç</span>
+<h2 class="text-3xl sm:text-4xl font-black text-slate-900 mb-4">4 Adımda Hazırsınız</h2>
+<p class="text-slate-500 max-w-xl mx-auto">Onboarding'den sahaya çıkışa kadar tüm süreç dijital, hızlı ve izlenebilir.</p></div>
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6" id="steps-container"></div></div>
+</section>
+
+<section id="ozellikler" class="bg-slate-950 py-24 relative overflow-hidden">
+<div class="orb orb-cyan w-[500px] h-[500px] -top-32 right-0 opacity-30"></div>
+<div class="orb orb-orange w-[400px] h-[400px] bottom-0 left-0 opacity-20"></div>
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+<div class="text-center mb-16">
+<span class="inline-block rounded-full border border-[#FA6001]/30 bg-[#FA6001]/10 px-4 py-1.5 text-xs font-semibold text-[#FA6001] mb-4 uppercase tracking-widest">Modüller</span>
+<h2 class="text-3xl sm:text-4xl font-black text-white mb-4">Her İhtiyacın İçin Güçlü Araç</h2>
+<p class="text-slate-400 max-w-xl mx-auto">İzin başvurusundan saha denetimine, raporlamadan e-belgeye kadar eksiksiz altyapı.</p></div>
+<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5" id="features-container"></div></div>
+</section>
+
+<section class="relative bg-slate-950 py-24 overflow-hidden">
+<div class="orb orb-orange w-[500px] h-[500px] -top-20 -right-40 opacity-25"></div>
+<div class="orb orb-cyan w-[300px] h-[300px] bottom-10 left-10 opacity-15"></div>
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"><div class="grid lg:grid-cols-2 gap-16 items-center">
+<div class="order-2 lg:order-1">
+<span class="inline-flex items-center gap-2 rounded-full border border-[#FA6001]/30 bg-[#FA6001]/10 px-4 py-1.5 text-xs font-semibold text-[#FA6001] mb-6 uppercase tracking-widest"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/></svg>Saha Yönetimi</span>
+<h2 class="text-3xl sm:text-4xl lg:text-[2.6rem] font-black text-white leading-tight mb-5">Sahayı Asla<br><span class="relative inline-block"><span class="relative z-10" style="color:#FA6001">Gözden Kaçırmayın</span><span class="absolute bottom-1 left-0 w-full h-2 rounded-sm opacity-25" style="background:#FA6001"></span></span></h2>
+<p class="text-slate-400 text-base leading-relaxed mb-8 max-w-lg">Kazı alanlarını yerinde, anlık olarak denetleyin. Sahadan direkt fotoğraf çekin, <strong class="text-slate-200">3 aşamalı iş emri doğrulamasını</strong> mobil tablet üzerinden tık tık yükleyin. Sahacılar karmaşık panelleri değil, kendi <strong class="text-[#FA6001]">GodMode Saha Panelini</strong> kullanır.</p>
+<div class="flex flex-wrap gap-2 mb-8">
+<span class="inline-flex items-center gap-1.5 rounded-xl border border-[#02E0FB]/40 bg-[#02E0FB]/10 px-3 py-1.5 text-xs font-semibold text-[#02E0FB]"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>1. Kazı Öncesi</span>
+<span class="inline-flex items-center gap-1.5 rounded-xl border border-[#FA6001]/40 bg-[#FA6001]/10 px-3 py-1.5 text-xs font-semibold text-[#FA6001]"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>2. Kazı Sonrası</span>
+<span class="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>3. Zemin Onarım</span></div>
+<ul class="space-y-3.5" id="field-checklist"></ul></div>
+<div class="order-1 lg:order-2 flex justify-center"><div class="relative"><div class="absolute -inset-8 rounded-full bg-gradient-to-br from-[#FA6001]/20 to-[#02E0FB]/10 blur-3xl"></div><div class="relative w-64 sm:w-72 rounded-[2.5rem] border-4 border-slate-700/80 bg-slate-950 shadow-2xl overflow-hidden" style="box-shadow:0 0 60px rgba(250,96,1,0.2),0 25px 60px rgba(0,0,0,0.6)"><div class="relative h-8 bg-slate-950 flex items-center justify-center"><div class="w-20 h-5 rounded-b-2xl bg-slate-900 border border-slate-800/50 flex items-center justify-center gap-1"><div class="h-1.5 w-1.5 rounded-full bg-slate-700"></div><div class="h-2 w-8 rounded-full bg-slate-700"></div></div></div><div class="bg-slate-950 min-h-[500px] px-3 py-3"><div class="flex items-center justify-between mb-3 px-1"><div><p class="text-[10px] text-slate-500 uppercase tracking-widest">Görev</p><p class="text-xs font-bold text-white">#GRV-2847 — Çayırova</p></div><span class="rounded-full bg-[#FA6001]/15 border border-[#FA6001]/40 px-2 py-0.5 text-[9px] font-bold text-[#FA6001] uppercase">Devam</span></div><div class="rounded-xl overflow-hidden mb-3 h-28 bg-slate-800 relative"><svg class="w-full h-full" viewBox="0 0 260 112" xmlns="http://www.w3.org/2000/svg"><rect width="260" height="112" fill="#1e293b"/><line x1="0" y1="40" x2="260" y2="40" stroke="#334155" stroke-width="6"/><line x1="0" y1="80" x2="260" y2="80" stroke="#334155" stroke-width="5"/><line x1="70" y1="0" x2="70" y2="112" stroke="#334155" stroke-width="5"/><line x1="160" y1="0" x2="160" y2="112" stroke="#334155" stroke-width="5"/><rect x="80" y="48" width="70" height="24" fill="#0f172a" rx="2"/><rect x="170" y="48" width="60" height="24" fill="#0f172a" rx="2"/><polygon points="85,50 150,47 155,68 82,70" fill="rgba(250,96,1,0.3)" stroke="#FA6001" stroke-width="2"/><circle cx="118" cy="59" r="8" fill="#FA6001" opacity="0.9"/><text x="118" y="63" text-anchor="middle" fill="white" font-size="8" font-weight="bold">★</text><text x="118" y="88" text-anchor="middle" fill="#FA6001" font-size="8">Konum Aktif</text></svg><div class="absolute top-2 right-2 rounded-md bg-slate-950/80 px-1.5 py-0.5 text-[8px] text-emerald-400 font-semibold flex items-center gap-0.5"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>GPS</div></div><div class="space-y-2 mb-3"><div class="flex items-center gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2"><span class="flex-shrink-0 text-xs font-bold text-emerald-400">✓</span><div class="flex-1 min-w-0"><p class="text-[11px] font-semibold text-white truncate">Kazı Öncesi Denetim</p><p class="text-[9px] text-emerald-400">Tamamlandı</p></div><svg class="h-4 w-4 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></div><div class="flex items-center gap-2.5 rounded-xl border border-[#FA6001]/30 bg-[#FA6001]/10 px-3 py-2"><span class="flex-shrink-0 text-xs font-bold text-[#FA6001]">●</span><div class="flex-1 min-w-0"><p class="text-[11px] font-semibold text-white truncate">Kazı Sonrası Denetim</p><p class="text-[9px] text-[#FA6001]">Devam Ediyor</p></div><div class="h-4 w-4 rounded-full border-2 border-[#FA6001] border-t-transparent animate-spin flex-shrink-0"></div></div><div class="flex items-center gap-2.5 rounded-xl border border-slate-700/40 bg-slate-800/30 px-3 py-2"><span class="flex-shrink-0 text-xs font-bold text-slate-600">○</span><div class="flex-1 min-w-0"><p class="text-[11px] font-semibold text-slate-600 truncate">Zemin Onarım Onayı</p><p class="text-[9px] text-slate-600">Bekliyor</p></div></div></div><button class="w-full rounded-2xl bg-gradient-to-r from-[#FA6001] to-[#e55500] py-3 text-xs font-bold text-white shadow-lg flex items-center justify-center gap-2"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z"/><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/></svg>Fotoğraf Çek &amp; Yükle</button><div class="mt-3 flex justify-around"><button class="flex flex-col items-center gap-0.5 text-[9px] text-slate-600"><div class="h-4 w-4 rounded bg-current opacity-50"></div>Ana Sayfa</button><button class="flex flex-col items-center gap-0.5 text-[9px] text-[#FA6001]"><div class="h-4 w-4 rounded bg-current opacity-50"></div>Görevler</button><button class="flex flex-col items-center gap-0.5 text-[9px] text-slate-600"><div class="h-4 w-4 rounded bg-current opacity-50"></div>Profil</button></div></div><div class="h-6 bg-slate-950 flex items-center justify-center"><div class="w-24 h-1 rounded-full bg-slate-700"></div></div></div><div class="absolute -bottom-4 -left-4 rounded-xl border border-emerald-500/30 bg-slate-900 px-3 py-2 shadow-xl"><p class="text-[10px] text-slate-500 uppercase tracking-wide">Aktif Sahacı</p><p class="text-sm font-black text-emerald-400">47 Personel</p></div><div class="absolute -top-4 -right-4 rounded-xl border border-[#FA6001]/30 bg-slate-900 px-3 py-2 shadow-xl"><p class="text-[10px] text-slate-500 uppercase tracking-wide">Bugün Tamamlanan</p><p class="text-sm font-black text-[#FA6001]">12 Aşama</p></div></div></div></div></div>
+</section>
+
+<section class="relative py-24 overflow-hidden" style="background:linear-gradient(180deg,#0f172a 0%,#030712 100%)">
+<div class="orb orb-cyan w-[600px] h-[600px] top-0 left-1/2 -translate-x-1/2 opacity-15"></div>
+<div class="absolute inset-0 pointer-events-none" style="background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(2,224,251,0.015) 2px,rgba(2,224,251,0.015) 4px)"></div>
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"><div class="grid lg:grid-cols-2 gap-16 items-center">
+<div class="flex justify-center order-1"><div class="relative w-full max-w-md"><div class="absolute -inset-6 rounded-3xl bg-gradient-to-br from-[#02E0FB]/15 to-transparent blur-2xl"></div><div class="relative rounded-2xl border border-slate-700/60 bg-slate-900 overflow-hidden shadow-2xl" style="box-shadow:0 0 60px rgba(2,224,251,0.12)"><div class="flex items-center gap-2 border-b border-slate-700/50 px-4 py-3 bg-slate-950"><div class="h-2.5 w-2.5 rounded-full bg-red-500/60"></div><div class="h-2.5 w-2.5 rounded-full bg-yellow-500/60"></div><div class="h-2.5 w-2.5 rounded-full bg-emerald-500/60"></div><div class="ml-3 flex-1 rounded-md bg-slate-800/70 px-3 py-1 text-xs text-slate-500 flex items-center gap-1.5"><svg class="h-3 w-3 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>aykome.belediye.gov.tr/admin/dashboard</div><div class="relative ml-2"><svg class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg><span class="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-red-500 text-[8px] font-black text-white flex items-center justify-center">3</span></div></div><div class="relative h-64 bg-slate-900/80 p-4 overflow-hidden"><div class="opacity-20 space-y-2"><div class="h-3 rounded bg-slate-700 w-3/4"></div><div class="h-3 rounded bg-slate-700 w-1/2"></div><div class="grid grid-cols-3 gap-2 mt-4"><div class="h-12 rounded-lg bg-slate-800"></div><div class="h-12 rounded-lg bg-slate-800"></div><div class="h-12 rounded-lg bg-slate-800"></div><div class="h-12 rounded-lg bg-slate-800"></div><div class="h-12 rounded-lg bg-slate-800"></div><div class="h-12 rounded-lg bg-slate-800"></div></div><div class="h-24 rounded-lg bg-slate-800 mt-2"></div></div><div class="absolute top-3 right-3 w-64 rounded-xl border border-emerald-500/40 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-sm" style="box-shadow:0 0 20px rgba(16,185,129,0.2)"><div class="flex items-start gap-2.5"><div class="mt-0.5 flex-shrink-0 h-7 w-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center"><svg class="h-4 w-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><div class="flex-1 min-w-0"><p class="text-xs font-bold text-white">Makbuz Onaylandı!</p><p class="text-[10px] text-slate-400 mt-0.5">AYK-2024-03847 · TEDAŞ başvurusu ödeme aşamasına geçti.</p><p class="text-[9px] text-emerald-400 mt-1 font-medium">● Az önce · WebSocket</p></div></div><div class="mt-2 h-0.5 w-full rounded-full bg-slate-800 overflow-hidden"><div class="h-full rounded-full bg-emerald-500" style="width:75%;animation:shrink 4s linear infinite"></div></div></div><div class="absolute top-28 right-3 w-64 rounded-xl border border-[#02E0FB]/30 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-sm"><div class="flex items-start gap-2.5"><div class="mt-0.5 flex-shrink-0 h-7 w-7 rounded-lg bg-[#02E0FB]/15 border border-[#02E0FB]/30 flex items-center justify-center"><svg class="h-4 w-4 text-[#02E0FB]" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg></div><div class="flex-1 min-w-0"><p class="text-xs font-bold text-white">Saha 2. Aşama Yüklendi</p><p class="text-[10px] text-slate-400 mt-0.5">Mehmet K. — Kazı Sonrası fotoğraflar eklendi. Onay bekliyor.</p><p class="text-[9px] text-[#02E0FB] mt-1 font-medium">● 2 dk önce · Reverb</p></div></div></div><div class="absolute bottom-3 right-3 w-64 rounded-xl border border-[#FA6001]/30 bg-slate-950/95 p-3 shadow-xl backdrop-blur-sm"><div class="flex items-start gap-2.5"><div class="mt-0.5 flex-shrink-0 h-7 w-7 rounded-lg bg-[#FA6001]/15 border border-[#FA6001]/30 flex items-center justify-center"><svg class="h-4 w-4 text-[#FA6001]" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12"/></svg></div><div class="flex-1 min-w-0"><p class="text-xs font-bold text-white">Yeni Başvuru Geldi</p><p class="text-[10px] text-slate-400 mt-0.5">ŞUSKİ — Doğalgaz Hattı · Kocaeli/Gebze. İnceleme bekliyor.</p><p class="text-[9px] text-[#FA6001] mt-1 font-medium">● 5 dk önce · DB Notification</p></div></div></div></div></div><div class="absolute -bottom-5 left-4 flex items-center gap-2 rounded-xl border border-[#02E0FB]/30 bg-slate-900 px-3 py-2 shadow-xl"><span class="h-2 w-2 rounded-full bg-[#02E0FB] animate-pulse"></span><span class="text-xs font-semibold text-[#02E0FB]">WebSocket Aktif</span><span class="text-[10px] text-slate-500">Laravel Reverb</span></div></div></div>
+<div class="order-2">
+<span class="inline-flex items-center gap-2 rounded-full border border-[#02E0FB]/30 bg-[#02E0FB]/10 px-4 py-1.5 text-xs font-semibold text-[#02E0FB] mb-6 uppercase tracking-widest"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/></svg>Gerçek Zamanlı</span>
+<h2 class="text-3xl sm:text-4xl lg:text-[2.6rem] font-black text-white leading-tight mb-5">Ekran Yenileme Derdine Son:<br><span style="color:#02E0FB;text-shadow:0 0 30px rgba(2,224,251,0.5)">Real-Time</span> <span class="text-white">İletişim</span></h2>
+<p class="text-slate-400 text-base leading-relaxed mb-8 max-w-lg">Sistemde her şey <strong class="text-slate-200">saniye saniye canlıdır.</strong> Alt kurum ödemeyi yatırdığı veya sahacı tutanağı girdiği an, <strong class="text-[#02E0FB]">WebSocket ve Reverb teknolojimiz</strong> admin yöneticilerine canlı ses ve popup bildirimi düşürür.</p>
+<ul class="space-y-3.5 mb-8" id="notification-checklist"></ul>
+<div class="flex flex-wrap gap-2" id="notification-tags"></div></div></div></div>
+<style>@keyframes shrink{from{width:100%}to{width:0%}}</style>
+</section>
+
+<section class="relative bg-slate-950 py-24 overflow-hidden" id="cbs">
+<div class="orb orb-cyan w-[400px] h-[400px] top-10 -left-20 opacity-20"></div>
+<div class="orb orb-orange w-[350px] h-[350px] bottom-10 right-0 opacity-15"></div>
+<div class="absolute inset-0 hero-grid opacity-20"></div>
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"><div class="grid lg:grid-cols-2 gap-16 items-center">
+<div class="order-2 lg:order-1">
+<span class="inline-flex items-center gap-2 rounded-full border border-[#02E0FB]/30 bg-[#02E0FB]/10 px-4 py-1.5 text-xs font-semibold text-[#02E0FB] mb-6 uppercase tracking-widest"><svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/></svg>Harita & Güvenlik</span>
+<h2 class="text-3xl sm:text-4xl lg:text-[2.6rem] font-black text-white leading-tight mb-5">Harita Kontrolü ve<br>Yüksek Veri Güvenliği<br><span class="gradient-text">(İzolasyon)</span></h2>
+<p class="text-slate-400 text-base leading-relaxed mb-8 max-w-lg">Sistemdeki binlerce başvuru, cadde sokak koordinatları <strong class="text-slate-200">Google Maps Drawing Manager</strong> algoritması ile işlenir. <strong class="text-[#02E0FB]">Multi-tenant yapımız</strong> ile ŞUSKİ'nin başvurusunu TEDAŞ izleyemez.</p>
+<ul class="space-y-3.5 mb-8" id="security-checklist"></ul>
+<div class="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-4"><p class="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-3">Kurum Veri İzolasyonu</p><div class="grid grid-cols-3 gap-2"><div class="rounded-xl border p-2.5 text-center" style="border-color:#02E0FB25;background:#02E0FB08"><div class="h-7 w-7 rounded-lg mx-auto mb-1.5 flex items-center justify-center" style="background:#02E0FB20"><svg class="h-3.5 w-3.5 text-[#02E0FB]" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></div><p class="text-[10px] font-bold text-white">ŞUSKİ</p><p class="text-[9px] text-[#02E0FB]">23 Başvuru</p></div><div class="rounded-xl border p-2.5 text-center" style="border-color:#FA600125;background:#FA600108"><div class="h-7 w-7 rounded-lg mx-auto mb-1.5 flex items-center justify-center" style="background:#FA600120"><svg class="h-3.5 w-3.5 text-[#FA6001]" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></div><p class="text-[10px] font-bold text-white">TEDAŞ</p><p class="text-[9px] text-[#FA6001]">41 Başvuru</p></div><div class="rounded-xl border p-2.5 text-center" style="border-color:#a855f725;background:#a855f708"><div class="h-7 w-7 rounded-lg mx-auto mb-1.5 flex items-center justify-center" style="background:#a855f720"><svg class="h-3.5 w-3.5 text-[#a855f7]" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg></div><p class="text-[10px] font-bold text-white">Türk Telekom</p><p class="text-[9px] text-[#a855f7]">18 Başvuru</p></div></div><p class="mt-2.5 text-center text-[10px] text-slate-600 flex items-center justify-center gap-1"><svg class="h-3 w-3 text-slate-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>Her kurum yalnızca kendi şifreli adasını görür</p></div>
+</div>
+<div class="order-1 lg:order-2 flex justify-center"><div class="relative w-full max-w-lg"><div class="absolute -inset-8 rounded-3xl bg-gradient-to-br from-[#02E0FB]/15 to-[#FA6001]/10 blur-3xl"></div><div class="relative rounded-2xl border border-slate-700/60 overflow-hidden shadow-2xl" style="box-shadow:0 0 80px rgba(2,224,251,0.1)"><div class="flex items-center justify-between border-b border-slate-700/50 px-4 py-3 bg-slate-950"><div class="flex items-center gap-2"><div class="h-2.5 w-2.5 rounded-full bg-red-500/60"></div><div class="h-2.5 w-2.5 rounded-full bg-yellow-500/60"></div><div class="h-2.5 w-2.5 rounded-full bg-emerald-500/60"></div><span class="ml-2 text-[10px] text-slate-500">Harita İzleme — Tüm Kurumlar</span></div><div class="flex items-center gap-1.5 text-[10px] text-emerald-400 font-semibold"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>Canlı</div></div><div class="flex items-center gap-2 bg-slate-900/80 border-b border-slate-700/30 px-4 py-2"><span class="flex items-center gap-1 rounded-lg border border-[#02E0FB]/40 bg-[#02E0FB]/15 text-[#02E0FB] px-2 py-0.5 text-[10px] font-semibold"><span class="h-1.5 w-1.5 rounded-full bg-[#02E0FB]"></span>ŞUSKİ</span><span class="flex items-center gap-1 rounded-lg border border-[#FA6001]/40 bg-[#FA6001]/15 text-[#FA6001] px-2 py-0.5 text-[10px] font-semibold"><span class="h-1.5 w-1.5 rounded-full bg-[#FA6001]"></span>TEDAŞ</span><span class="flex items-center gap-1 rounded-lg opacity-40 px-2 py-0.5 text-[10px] font-semibold text-slate-500"><span class="h-1.5 w-1.5 rounded-full bg-[#a855f7]"></span>Türk Telekom</span><span class="ml-auto text-[9px] text-slate-600">Drawing Manager Aktif</span></div><div class="relative bg-slate-900 overflow-hidden" style="height:320px"><svg class="absolute inset-0 w-full h-full opacity-15" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="mapgrid2" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#02E0FB" stroke-width="0.4"/></pattern></defs><rect width="100%" height="100%" fill="url(#mapgrid2)"/></svg><svg class="absolute inset-0 w-full h-full" viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg"><line x1="0" y1="70" x2="480" y2="70" stroke="#334155" stroke-width="10"/><line x1="0" y1="150" x2="480" y2="150" stroke="#334155" stroke-width="8"/><line x1="0" y1="240" x2="480" y2="240" stroke="#334155" stroke-width="10"/><line x1="80" y1="0" x2="80" y2="320" stroke="#334155" stroke-width="8"/><line x1="190" y1="0" x2="190" y2="320" stroke="#334155" stroke-width="10"/><line x1="310" y1="0" x2="310" y2="320" stroke="#334155" stroke-width="8"/><line x1="410" y1="0" x2="410" y2="320" stroke="#334155" stroke-width="6"/><line x1="0" y1="70" x2="480" y2="70" stroke="#475569" stroke-width="7"/><line x1="0" y1="150" x2="480" y2="150" stroke="#475569" stroke-width="6"/><line x1="190" y1="0" x2="190" y2="320" stroke="#475569" stroke-width="7"/><rect x="90" y="80" width="90" height="60" fill="#1e293b" rx="3"/><rect x="200" y="80" width="100" height="60" fill="#1e293b" rx="3"/><rect x="320" y="80" width="80" height="60" fill="#1e293b" rx="3"/><rect x="90" y="160" width="90" height="70" fill="#1e293b" rx="3"/><rect x="200" y="160" width="100" height="70" fill="#1e293b" rx="3"/><rect x="420" y="80" width="50" height="60" fill="#1e293b" rx="3"/><rect x="90" y="10" width="90" height="50" fill="#1e293b" rx="3"/><rect x="200" y="10" width="100" height="50" fill="#1e293b" rx="3"/><rect x="320" y="250" width="80" height="60" fill="#1e293b" rx="3"/><polygon points="95,85 180,82 185,108 175,135 90,138" fill="rgba(2,224,251,0.2)" stroke="#02E0FB" stroke-width="2.5" stroke-linejoin="round"/><circle cx="96" cy="85" r="4.5" fill="#02E0FB"/><circle cx="180" cy="82" r="4.5" fill="#02E0FB"/><circle cx="185" cy="108" r="4.5" fill="#02E0FB"/><circle cx="175" cy="135" r="4.5" fill="#02E0FB"/><circle cx="90" cy="138" r="4.5" fill="#02E0FB"/><rect x="95" y="100" width="44" height="14" rx="3" fill="#02E0FB" opacity="0.9"/><text x="117" y="111" text-anchor="middle" fill="#0f172a" font-size="8" font-weight="bold">ŞUSKİ</text><polygon points="325,85 395,82 400,135 330,138" fill="rgba(250,96,1,0.18)" stroke="#FA6001" stroke-width="2.5" stroke-linejoin="round"/><circle cx="325" cy="85" r="4.5" fill="#FA6001"/><circle cx="395" cy="82" r="4.5" fill="#FA6001"/><circle cx="400" cy="135" r="4.5" fill="#FA6001"/><circle cx="330" cy="138" r="4.5" fill="#FA6001"/><rect x="338" y="100" width="40" height="14" rx="3" fill="#FA6001" opacity="0.9"/><text x="358" y="111" text-anchor="middle" fill="white" font-size="8" font-weight="bold">TEDAŞ</text><polygon points="205,165 295,162 300,220 210,222" fill="rgba(168,85,247,0.15)" stroke="#a855f7" stroke-width="2" stroke-linejoin="round" stroke-dasharray="6 3"/><circle cx="205" cy="165" r="4" fill="#a855f7"/><circle cx="295" cy="162" r="4" fill="#a855f7"/><circle cx="300" cy="220" r="4" fill="#a855f7"/><circle cx="210" cy="222" r="4" fill="#a855f7"/><line x1="95" y1="148" x2="185" y2="148" stroke="#02E0FB" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.7"/><text x="140" y="163" text-anchor="middle" fill="#02E0FB" font-size="9" opacity="0.9">~90m</text><circle cx="375" cy="195" r="5" fill="none" stroke="#02E0FB" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.8"/><line x1="368" y1="195" x2="382" y2="195" stroke="#02E0FB" stroke-width="1" opacity="0.8"/><line x1="375" y1="188" x2="375" y2="202" stroke="#02E0FB" stroke-width="1" opacity="0.8"/><rect x="310" y="248" width="130" height="38" rx="6" fill="#0f172a" stroke="#02E0FB" stroke-width="1" stroke-opacity="0.4"/><text x="318" y="262" fill="#94a3b8" font-size="8">Lat: 40.7828° N</text><text x="318" y="278" fill="#94a3b8" font-size="8">Lng: 29.9144° E</text></svg><div class="absolute top-3 right-3 flex flex-col rounded-xl border border-slate-700/60 bg-slate-950/90 overflow-hidden shadow-xl"><button class="px-3 py-2 text-slate-400 hover:text-white border-b border-slate-700/40 text-sm">+</button><button class="px-3 py-2 text-slate-400 hover:text-white text-sm">−</button></div><div class="absolute bottom-3 left-3 rounded-xl border border-slate-700/60 bg-slate-950/95 px-3 py-2.5 backdrop-blur-sm shadow-xl"><p class="text-[9px] uppercase tracking-wider text-slate-500 mb-1.5">Kurum Renk Kodu</p><div class="flex items-center gap-1.5 mb-1"><span class="h-2.5 w-2.5 rounded-sm flex-shrink-0" style="background:#02E0FB60;border:1.5px solid #02E0FB"></span><span class="text-[10px] text-slate-400">ŞUSKİ</span></div><div class="flex items-center gap-1.5 mb-1"><span class="h-2.5 w-2.5 rounded-sm flex-shrink-0" style="background:#FA600160;border:1.5px solid #FA6001"></span><span class="text-[10px] text-slate-400">TEDAŞ</span></div><div class="flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm flex-shrink-0" style="background:#a855f760;border:1.5px solid #a855f7"></span><span class="text-[10px] text-slate-400">Türk Telekom</span></div></div></div><div class="grid grid-cols-4 divide-x divide-slate-700/40 bg-slate-950/80 border-t border-slate-700/30"><div class="px-3 py-2.5 text-center"><p class="text-sm font-black text-[#02E0FB]">82</p><p class="text-[9px] text-slate-600 uppercase tracking-wide">Aktif Alan</p></div><div class="px-3 py-2.5 text-center"><p class="text-sm font-black text-[#FA6001]">247</p><p class="text-[9px] text-slate-600 uppercase tracking-wide">Toplam Kayıt</p></div><div class="px-3 py-2.5 text-center"><p class="text-sm font-black text-[#a855f7]">3</p><p class="text-[9px] text-slate-600 uppercase tracking-wide">Kurum</p></div><div class="px-3 py-2.5 text-center"><p class="text-sm font-black text-[#10b981]">12</p><p class="text-[9px] text-slate-600 uppercase tracking-wide">Çiziliyor</p></div></div></div><div class="absolute -bottom-4 -right-4 flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-slate-900 px-3 py-2 shadow-xl"><svg class="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg><div><p class="text-[10px] font-bold text-white">KVKK Uyumlu</p><p class="text-[9px] text-slate-500">Veri izolasyonu aktif</p></div></div></div></div></div></div>
+</section>
+
+<section class="relative bg-slate-950 py-28 overflow-hidden" style="background:linear-gradient(180deg,#030712 0%,#0f172a 100%)">
+<div class="orb orb-cyan w-[500px] h-[500px] -top-32 -right-32 opacity-20"></div>
+<div class="orb orb-orange w-[400px] h-[400px] -bottom-20 -left-20 opacity-15"></div>
+<div class="absolute inset-0" style="background:repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(2,224,251,0.02) 40px,rgba(2,224,251,0.02) 41px)"></div>
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+<div class="text-center mb-16" data-aos>
+<span class="inline-flex items-center gap-2 rounded-full border border-[#02E0FB]/40 bg-[#02E0FB]/10 px-5 py-2 text-xs font-bold text-[#02E0FB] mb-6 uppercase tracking-widest">
+<span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full rounded-full bg-[#02E0FB] opacity-75 animate-ping"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-[#02E0FB]"></span></span>CBS Entegrasyon — Yeni</span>
+<h2 class="text-4xl sm:text-5xl lg:text-5xl font-black text-white leading-tight mb-5">Aykome Maps ile<br><span class="gradient-text">Coğrafi Keşif</span></h2>
+<p class="mx-auto max-w-2xl text-lg text-slate-400 leading-relaxed">WMS/WFS tabanlı profesyonel CBS harita altyapısı. Kadastro parselleri, altyapı şebekeleri, ada/parsel sorgulama ve akıllı çizim araçları <span class="text-[#02E0FB] font-semibold">tek haritada</span> birleşiyor.</p></div>
+<div class="grid lg:grid-cols-3 gap-6 mb-16" id="cbs-features"></div>
+<div class="mt-20 grid lg:grid-cols-2 gap-6" id="cbs-architecture" data-aos></div>
+<div class="grid lg:grid-cols-2 gap-8 items-center mt-20" data-aos>
+<div class="order-2 lg:order-1 space-y-5" id="cbs-steps"></div>
+<div class="order-1 lg:order-2 flex justify-center"><div class="relative w-full max-w-lg" id="cbs-mockup"></div></div></div>
+<div class="mt-16 grid sm:grid-cols-2 gap-6" id="cbs-layers" data-aos></div>
+</section>
+
+<section id="pro-moduller" class="relative bg-slate-950 py-28 overflow-hidden">
+<div class="orb orb-cyan w-[700px] h-[700px] -top-40 -left-40 opacity-25"></div>
+<div class="orb orb-orange w-[500px] h-[500px] bottom-0 -right-32 opacity-20"></div>
+<div class="orb orb-cyan w-[400px] h-[400px] top-1/2 right-1/4 opacity-10"></div>
+<div class="absolute inset-0 hero-grid opacity-20"></div>
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+<div class="text-center mb-20" data-aos>
+<div class="inline-flex items-center gap-2 rounded-full border border-[#FA6001]/40 bg-[#FA6001]/10 px-5 py-2 text-xs font-bold text-[#FA6001] mb-6 uppercase tracking-widest">
+<span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full rounded-full bg-[#FA6001] opacity-75 animate-ping"></span><span class="relative inline-flex h-2 w-2 rounded-full bg-[#FA6001]"></span></span>Ultra SaaS Pro — Operasyonel Güç</div>
+<h2 class="text-4xl sm:text-5xl lg:text-6xl font-black text-white leading-tight mb-5">Geleceğin Altyapı Yönetimi:<br><span class="gradient-text">HGB</span><span style="-webkit-text-fill-color:#FA6001;background:none;color:#FA6001" class="font-black"> PRO</span></h2>
+<p class="mx-auto max-w-2xl text-lg text-slate-400 leading-relaxed">Sıradan bir yönetimden fazlası. Operasyonel gücünüzü 3 yeni Pro modülü ile <span class="text-[#02E0FB] font-semibold">Tanrı Moduna</span> taşıyın.</p></div>
+<div class="grid gap-8 lg:grid-cols-3" id="pro-cards"></div>
+</div>
+</section>
+
+<section id="gallery" class="relative bg-gradient-to-b from-slate-950 to-slate-900 py-28 overflow-hidden">
+<div class="orb orb-cyan w-[500px] h-[500px] top-0 right-0 opacity-20"></div>
+<div class="orb orb-orange w-[400px] h-[400px] bottom-0 left-0 opacity-15"></div>
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+<div class="text-center mb-16" data-aos>
+<span class="inline-block rounded-full border border-[#02E0FB]/30 bg-[#02E0FB]/10 px-4 py-1.5 text-xs font-semibold text-[#02E0FB] mb-4 uppercase tracking-widest">Galeri</span>
+<h2 class="text-3xl sm:text-4xl font-black text-white mb-4">Sistem Ekran Görüntüleri</h2>
+<p class="text-slate-400 max-w-2xl mx-auto">AYKOME platformunun tüm modüllerini görsel olarak keşfedin. Resimlere tıklayarak büyük boyutta inceleyebilir, ok tuşları ile gezinebilirsiniz.</p></div>
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="gallery-grid" data-aos></div></div>
+</section>
+
+<div class="gallery-overlay" id="gallery-overlay">
+<span class="gallery-close" onclick="closeGallery()">×</span>
+<div class="gallery-title" id="gallery-title"></div>
+<div class="gallery-nav gallery-prev" onclick="prevGallery()">‹</div>
+<div class="gallery-nav gallery-next" onclick="nextGallery()">›</div>
+<img id="gallery-img" src="" alt="">
+<div class="gallery-counter" id="gallery-counter"></div>
+</div>
+
+<section id="istatistikler" class="relative bg-slate-900 py-20 overflow-hidden">
+<div class="absolute inset-0 hero-grid opacity-30"></div>
+<div class="orb orb-cyan w-[600px] h-[600px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-20"></div>
+<div class="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+<div class="text-center mb-14">
+<span class="inline-block rounded-full border border-[#02E0FB]/30 bg-[#02E0FB]/10 px-4 py-1.5 text-xs font-semibold text-[#02E0FB] mb-4 uppercase tracking-widest">Rakamlar</span>
+<h2 class="text-3xl sm:text-4xl font-black text-white mb-4">Güven Rakamlarla Ölçülür</h2>
+<p class="text-slate-400 max-w-xl mx-auto">Türkiye'nin en kapsamlı altyapı kazı yönetim platformunda neler döndüğünü görün.</p></div>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-5" id="stats-container"></div>
+</div>
+</section>
+
+<section class="relative bg-slate-950 py-24 overflow-hidden">
+<div class="absolute inset-0 bg-gradient-to-br from-[#02E0FB]/10 via-transparent to-[#FA6001]/10"></div>
+<div class="orb orb-cyan w-[400px] h-[400px] top-0 left-1/4 opacity-25"></div>
+<div class="orb orb-orange w-[400px] h-[400px] bottom-0 right-1/4 opacity-20"></div>
+<div class="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 text-center">
+<div class="rounded-3xl border border-slate-700/60 bg-slate-900/80 p-10 sm:p-14 backdrop-blur-sm shadow-2xl">
+<span class="inline-block rounded-full border border-[#02E0FB]/30 bg-[#02E0FB]/10 px-4 py-1.5 text-xs font-semibold text-[#02E0FB] mb-6 uppercase tracking-widest">Hemen Başlayın</span>
+<h2 class="text-3xl sm:text-4xl lg:text-5xl font-black text-white mb-5 leading-tight">Kazı Yönetiminizi<br><span class="gradient-text">Dijitalleştirmeye</span><br>Bugün Başlayın</h2>
+<p class="text-slate-400 text-lg mb-8 max-w-xl mx-auto">30 dakikada kurulum. Teknik ekip desteği. Türkiye geneli referans belediyeler.</p>
+<div class="flex flex-col sm:flex-row gap-4 justify-center">
+<a href="#" class="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#02E0FB] to-[#02AFC6] px-8 py-4 text-base font-bold text-slate-900 shadow-2xl hover:shadow-[0_0_40px_rgba(2,224,251,0.5)] transition-all duration-300 hover:-translate-y-0.5">
+<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Sisteme Giriş Yap</a>
+<a href="mailto:destek@hgbilisim.com" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#FA6001]/40 bg-[#FA6001]/10 px-8 py-4 text-base font-semibold text-[#FA6001] hover:bg-[#FA6001]/20 transition-all duration-300">
+<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>İletişime Geç</a></div>
+<div class="mt-8 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
+<span class="flex items-center gap-1.5"><svg class="h-3.5 w-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>Kredi kartı gerekmez</span>
+<span class="flex items-center gap-1.5"><svg class="h-3.5 w-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>30 dk kurulum</span>
+<span class="flex items-center gap-1.5"><svg class="h-3.5 w-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>Teknik destek dahil</span>
+<span class="flex items-center gap-1.5"><svg class="h-3.5 w-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>KVKK uyumlu</span></div></div></div>
+</section>
+
+<footer id="iletisim" class="bg-slate-950 border-t border-slate-800/60">
+<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-14">
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
+<div class="lg:col-span-2">
+<div class="flex items-center gap-3 mb-4">
+<span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#02E0FB] to-[#FA6001] text-sm font-black text-white shadow-lg">M</span>
+<div><span class="font-black text-white text-lg">AYKOME</span><span class="text-slate-500 text-xs ml-2">by HGB Bilişim</span></div></div>
+<p class="text-slate-400 text-sm leading-relaxed max-w-xs mb-5">Türkiye'nin belediyelerine ve altyapı kurumlarına özel akıllı kazı izin ve yönetim platformu.</p>
+<span class="inline-block rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-400">Ultra SaaS v6 — Canlı</span></div>
+<div><h4 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">Platform</h4>
+<ul class="space-y-2.5">
+<li><a href="#" class="text-sm text-slate-500 hover:text-[#02E0FB] transition">Harita İzleme</a></li>
+<li><a href="#" class="text-sm text-slate-500 hover:text-[#02E0FB] transition">Başvuru Yönetimi</a></li>
+<li><a href="#" class="text-sm text-slate-500 hover:text-[#02E0FB] transition">E-Ruhsat</a></li>
+<li><a href="#" class="text-sm text-slate-500 hover:text-[#02E0FB] transition">Saha Uygulaması</a></li>
+<li><a href="#" class="text-sm text-slate-500 hover:text-[#02E0FB] transition">Raporlama</a></li>
+<li><a href="#" class="text-sm text-slate-500 hover:text-[#02E0FB] transition">Bildirimler</a></li></ul></div>
+<div><h4 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">İletişim</h4>
+<ul class="space-y-3">
+<li class="flex items-start gap-2.5"><svg class="h-4 w-4 text-[#02E0FB] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+<a href="mailto:destek@hgbilisim.com" class="text-sm text-slate-400 hover:text-white transition">destek@hgbilisim.com</a></li>
+<li class="flex items-start gap-2.5"><svg class="h-4 w-4 text-[#FA6001] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253"/></svg>
+<a href="https://hgbilisim.com" target="_blank" class="text-sm text-slate-400 hover:text-white transition">hgbilisim.com</a></li>
+<li class="flex items-start gap-2.5"><svg class="h-4 w-4 text-[#02E0FB] mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+<span class="text-sm text-slate-500">Türkiye Geneli SaaS</span></li></ul></div></div>
+<div class="border-t border-slate-800/50 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+<p class="text-xs text-slate-600">© 2026 HGB Bilişim Sistemleri Tic. Ltd. Şti. Tüm hakları saklıdır. AYKOME — Altyapı Kazı Yönetim Sistemi</p>
+<div class="flex items-center gap-4 text-xs text-slate-600">
+<span>KVKK Uyumlu</span><span class="h-3 w-px bg-slate-700"></span><span>v6 Ultra SaaS</span><span class="h-3 w-px bg-slate-700"></span>
+<a href="#" class="text-[#02E0FB] hover:text-white transition">Yönetim Paneli →</a></div></div></div>
+</footer>
+
+<script>
+const galleryImages = [
+{src:'01_Dashboard.png',title:'Dashboard — Genel Görünüm'},
+{src:'02_Basvurular.png',title:'Başvuru Yönetimi'},
+{src:'03_Basvurular_icerik.png',title:'Başvuru İçerik Detayı'},
+{src:'04_Harita_İzleme.png',title:'Harita İzleme Modülü'},
+{src:'05_Raporlar.png',title:'Raporlar ve Analitikler'},
+{src:'06_ZeminTipleri.png',title:'Zemin Tipleri Yönetimi'},
+{src:'07_Kurumlar.png',title:'Kurum Yönetimi'},
+{src:'08_Kullanicilar.png',title:'Kullanıcı Yönetimi'},
+{src:'09_Aykome_maps.png',title:'Aykome Maps — CBS Entegrasyon'},
+{src:'10_Gorev_Emri_Yonetimi.png',title:'Görev Emri Yönetimi'},
+{src:'11_Gelismis_Saha_Raporlama.png',title:'Gelişmiş Saha Raporlama'}
+];
+let galIdx=0;
+
+const logos=[
+{name:'Büyükşehir Bel.',color:'#02E0FB'},{name:'TEDAŞ',color:'#FA6001'},{name:'Türk Telekom',color:'#02E0FB'},
+{name:'ŞUSKİ',color:'#FA6001'},{name:'İGDAŞ',color:'#02E0FB'},{name:'Çayırova Bel.',color:'#FA6001'},
+{name:'Gebze Bel.',color:'#02E0FB'},{name:'Kartepe Bel.',color:'#FA6001'},{name:'Dilovası Bel.',color:'#02E0FB'},
+{name:'Kandıra Bel.',color:'#FA6001'},{name:'Körfez Bel.',color:'#02E0FB'},{name:'İzmit Bel.',color:'#FA6001'},
+{name:'Türkiye Finans',color:'#02E0FB'},{name:'Boru Hattı A.Ş.',color:'#FA6001'},{name:'Fiber İnternet',color:'#02E0FB'},
+{name:'DoğalGaz Dağ.',color:'#FA6001'}
+];
+
+const steps=[
+{step:'01',title:'Kurumunu Tanımla',desc:'Belediyeni veya kurumunu sisteme ekle. Kullanıcı rolleri, izinler ve kurum profili dakikalar içinde hazır.',color:'#02E0FB',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z"/></svg>'},
+{step:'02',title:'Haritada Çiz & Keşif',desc:'Harita üzerinde polygon çiz, kazı alanını belirle. Sistem otomatik olarak metraj hesaplar ve keşif çıkarır.',color:'#FA6001',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/></svg>'},
+{step:'03',title:'Ödeme & Makbuz Yükle',desc:'Hesaplanan bedeli öde, tahsilat makbuzunu sisteme yükle. Otomatik doğrulama ve anlık bildirimler devreye girer.',color:'#02E0FB',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 01-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/></svg>'},
+{step:'04',title:'E-Ruhsat Üret, Çık',desc:'Dijital kazı ruhsatını PDF olarak indir. Saha ekibine görev ata, aşama takibini başlat ve denetimi tamamla.',color:'#FA6001',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>'}
+];
+
+const features=[
+{title:'Harita Yönetimi',desc:'Google Maps tabanlı gerçek zamanlı kazı alan takibi. Polygon çizim, GeoJSON ihracat, kurum renk kodlaması ve canlı durum göstergeleri.',color:'#02E0FB',badge:'Core',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/></svg>',tags:['Google Maps','GeoJSON','Polygon']},
+{title:'Saha Ekipleri Uygulaması',desc:'Mobil-first saha kontrol paneli. 3 aşamalı denetim (Kazı Öncesi / Sonrası / Zemin Onarım), fotoğraf yükleme ve anlık durum güncellemeleri.',color:'#FA6001',badge:'Mobil',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"/></svg>',tags:['3 Aşama','Fotoğraf','GPS']},
+{title:'E-Belge & Ruhsat',desc:'DomPDF ile resmi T.C. formatında kazı ruhsatı üretimi. Logo, imza, mühür, koordinat tablosu ve alan cinsi hesaplamaları dahil.',color:'#02E0FB',badge:'PDF',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>',tags:['DomPDF','E-İmza','Resmi Format']},
+{title:'Dinamik Raporlama',desc:'Gerçek zamanlı dashboard KPI\'ları, DataTables server-side, PDF/CSV export, gelişmiş filtreler ve Chart.js görselleştirmeleri.',color:'#FA6001',badge:'PRO',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg>',tags:['Chart.js','PDF Export','CSV']},
+{title:'WebSocket Bildirimler',desc:'Laravel Reverb ile gerçek zamanlı push bildirimleri. Makbuz yükleme, görev tamamlama, durum değişimleri — sıfır gecikme.',color:'#02E0FB',badge:'Realtime',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>',tags:['Reverb','Laravel Echo','Push']},
+{title:'Kurum İzolasyonu',desc:'Multi-tenant mimarisi. Her kurum yalnızca kendi verilerini görür. Rol bazlı erişim kontrolü, audit log ve KVKK uyumlu veri yönetimi.',color:'#FA6001',badge:'Güvenlik',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>',tags:['KVKK','Rol Bazlı','Audit Log']}
+];
+
+const stats=[
+{value:'100+',label:'Aktif Belediye',sub:'ve kurum ortağı',color:'#02E0FB',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z"/></svg>'},
+{value:'50.000+',label:'Kazı İzni',sub:'başarıyla onaylandı',color:'#FA6001',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M11.35 3.836c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m8.9-4.414c.376.023.75.05 1.124.08 1.131.094 1.976 1.057 1.976 2.192V16.5A2.25 2.25 0 0118 18.75h-2.25m-7.5-10.5H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V18.75m-7.5-10.5h6.375c.621 0 1.125.504 1.125 1.125v9.375m-8.25-3l1.5 1.5 3-3.75"/></svg>'},
+{value:'<1sn',label:'Bildirim Hızı',sub:'WebSocket ile anlık',color:'#02E0FB',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>'},
+{value:'%99.9',label:'Uptime SLA',sub:'kurumsal güvence',color:'#FA6001',icon:'<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>'}
+];
+
+const proCards=[
+{mod:'01',title:'Canlı Saha<br>İzleme',desc:'Personellerinizi harita üzerinde canlı izleyin. 30 saniyede bir GPS pingi ile kimin hangi kazıda olduğunu takip edin.',color:'#02E0FB',border:'rgba(2,224,251,0.2)',tags:['30sn GPS Ping','Zombi Tespiti','Canlı Harita'],statVal:'≤30',statUnit:'sn',statLabel:'Konum güncelleme',badge:'GOD MODE'},
+{mod:'02',title:'Görev Emri<br>Yönetimi',desc:'Saha görevlerini profesyonel Kanban panosuyla yönetin. Görev atama, termin süreleri ve gecikme uyarıları tek ekranda.',color:'#FA6001',border:'rgba(250,96,1,0.2)',tags:['Kanban Board','Gecikme Alarmı','Drag & Drop'],statVal:'4',statUnit:'Sütun',statLabel:'Bekleyen → Tamamlandı',badge:'PRO'},
+{mod:'03',title:'Gelişmiş Saha<br>Raporlama',desc:'Aylık performans trendleri, personel başarı karneleri ve pivot veriler. Tüm saha operasyonlarınızı tek tıkla PDF/Excel olarak dökün.',color:'#a855f7',border:'rgba(168,85,247,0.2)',tags:['Pivot Tablo','PDF / Excel','Personel Karnesi'],statVal:'1',statUnit:'Tık',statLabel:'Rapor dışa aktarma',badge:'ANALİTİK'}
+];
+
+document.addEventListener('DOMContentLoaded',function(){
+renderLogos();renderSteps();renderFeatures();renderStats();renderProCards();renderGallery();
+renderFieldChecklist();renderNotificationChecklist();
+renderNotificationTags();renderSecurityChecklist();
+renderCbsFeatures();renderCbsArchitecture();renderCbsSteps();renderCbsMockup();renderCbsLayers();startCbsAnimation();
+const observer=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting)e.target.classList.add('aos-animate')})},{threshold:0.1});
+document.querySelectorAll('[data-aos]').forEach(function(el){observer.observe(el)});
+document.querySelectorAll('a[href^="#"]').forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();var t=document.querySelector(this.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth',block:'start'})});});
+});
+
+function renderLogos(){
+var h='';function r(){logos.concat(logos).forEach(function(l){h+='<div class="flex items-center gap-3 rounded-xl border border-slate-700/40 bg-slate-900/60 px-5 py-3 min-w-max"><div class="h-6 w-6 rounded-md flex items-center justify-center" style="background:'+l.color+'20"><span class="text-xs font-black" style="color:'+l.color+'">'+l.name[0]+'</span></div><span class="text-sm text-slate-400 whitespace-nowrap">'+l.name+'</span></div>'});}r();
+document.getElementById('logo-track').innerHTML=h;
+}
+
+function renderSteps(){
+var h='';
+steps.forEach(function(s,i){
+h+='<div class="relative group"><div class="relative rounded-2xl border border-slate-100 bg-white p-6 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300">'+
+'<div class="absolute -top-3 -right-3 h-8 w-8 rounded-full border-2 flex items-center justify-center text-xs font-black text-white" style="background:'+s.color+';border-color:white">'+s.step+'</div>'+
+'<div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl" style="background:'+s.color+'15;color:'+s.color+'">'+s.icon+'</div>'+
+'<h3 class="text-base font-bold text-slate-900 mb-2">'+s.title+'</h3><p class="text-sm text-slate-500 leading-relaxed">'+s.desc+'</p></div></div>';
+});
+document.getElementById('steps-container').innerHTML=h;
+}
+
+function renderFeatures(){
+var h='';
+features.forEach(function(f){
+h+='<div class="feature-card group relative rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 backdrop-blur-sm cursor-default">'+
+'<div class="relative"><div class="flex items-start justify-between mb-4"><div class="inline-flex h-11 w-11 items-center justify-center rounded-xl" style="background:'+f.color+'15;color:'+f.color+'">'+f.icon+'</div>'+
+'<span class="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide" style="background:'+f.color+'20;color:'+f.color+'">'+f.badge+'</span></div>'+
+'<h3 class="text-base font-bold text-white mb-2">'+f.title+'</h3><p class="text-sm text-slate-400 leading-relaxed mb-4">'+f.desc+'</p>'+
+'<div class="flex flex-wrap gap-2">'+f.tags.map(function(t){return '<span class="rounded-lg border border-slate-700/60 bg-slate-800/50 px-2.5 py-1 text-[11px] text-slate-500">'+t+'</span>'}).join('')+'</div></div></div>';
+});
+document.getElementById('features-container').innerHTML=h;
+}
+
+function renderStats(){
+var h='';
+stats.forEach(function(s){
+h+='<div class="stat-card group rounded-2xl border bg-slate-900/80 p-6 text-center backdrop-blur-sm glow-cyan cursor-default" style="border-color:'+s.color+'20"><div class="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl" style="background:'+s.color+'15;color:'+s.color+'">'+s.icon+'</div>'+
+'<div class="text-3xl sm:text-4xl font-black mb-1" style="color:'+s.color+'">'+s.value+'</div><div class="text-sm font-semibold text-white mb-1">'+s.label+'</div><div class="text-xs text-slate-500">'+s.sub+'</div></div>';
+});
+document.getElementById('stats-container').innerHTML=h;
+}
+
+function renderProCards(){
+var h='';
+proCards.forEach(function(p,i){
+h+='<div class="pro-card group relative rounded-3xl border bg-slate-900/60 backdrop-blur-xl p-8 flex flex-col hover:-translate-y-2 transition-all duration-500 shadow-[0_0_0_1px_rgba(0,0,0,0.05)]" style="border-color:'+p.color+'40">'+
+'<div class="absolute top-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-['+p.color+']/60 to-transparent rounded-full"></div>'+
+'<div class="absolute -top-3 right-6 flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[10px] font-black text-slate-900 shadow-lg" style="background:linear-gradient(135deg,'+p.color+',#02AFC6);box-shadow:0 0 20px '+p.color+'40">'+
+'<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>'+p.badge+'</div>'+
+'<div class="mb-7 flex h-16 w-16 items-center justify-center rounded-2xl border" style="background:'+p.color+'10;border-color:'+p.color+'20">'+
+'<svg class="h-8 w-8" style="color:'+p.color+'" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="currentColor" opacity=".4"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z" opacity=".25"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 6a6 6 0 016 6M6 12a6 6 0 016-6" opacity=".5"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 8a4 4 0 014 4M8 12a4 4 0 014-4"/></svg></div>'+
+'<div class="mb-4"><span class="text-xs font-bold uppercase tracking-widest" style="color:'+p.color+'70">Modül '+p.mod+'</span><h3 class="mt-1.5 text-2xl font-black text-white leading-tight">'+p.title+'</h3></div>'+
+'<p class="text-sm text-slate-400 leading-relaxed flex-1">'+p.desc+'</p>'+
+'<div class="mt-6 flex flex-wrap gap-2">'+p.tags.map(function(t){return '<span class="rounded-full px-3 py-1 text-[11px] font-semibold" style="background:'+p.color+'10;border:1px solid '+p.color+'20;color:'+p.color+'">'+t+'</span>'}).join('')+'</div>'+
+'<div class="mt-7 pt-5 border-t border-slate-800/80 flex items-center justify-between"><div><p class="text-2xl font-black text-white tabular-nums">'+p.statVal+'<span class="text-sm font-semibold text-slate-400 ml-1">'+p.statUnit+'</span></p><p class="text-xs text-slate-500 mt-0.5">'+p.statLabel+'</p></div>'+
+'<div class="flex items-center gap-1.5 text-xs font-semibold" style="color:'+p.color+'"><span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping" style="background:'+p.color+'"></span><span class="relative inline-flex h-2 w-2 rounded-full" style="background:'+p.color+'"></span></span>Aktif</div></div></div>';
+});
+document.getElementById('pro-cards').innerHTML=h;
+}
+
+function renderGallery(){
+var h='';
+var cats=['Yönetim','Başvuru','İçerik','Harita','Rapor','Zemin','Kurum','Kullanıcı','CBS','Görev','Saha'];
+galleryImages.forEach(function(img,i){
+var badgeClr=i<2?'#02E0FB':i<6?'#FA6001':'#a855f7';
+h+='<div class="gc" onclick="openGallery('+i+')">'+
+'<div class="gc-img-wrap">'+
+'<img src="'+img.src+'" alt="'+img.title+'" loading="lazy" class="gci">'+
+'<span class="gc-badge" style="background:'+badgeClr+'20;border-color:'+badgeClr+'40;color:'+badgeClr+'">'+cats[i]+'</span>'+
+'<span class="gc-num">'+(i<9?'0':'')+(i+1)+' / '+galleryImages.length+'</span></div>'+
+'<div class="gcf"><h4>'+img.title+'</h4><span style="color:#02E0FB;font-size:10px">✦</span></div></div>';
+});
+document.getElementById('gallery-grid').innerHTML=h;
+}
+
+function openGallery(i){
+galIdx=i;updateGallery();document.getElementById('gallery-overlay').classList.add('open');
+document.addEventListener('keydown',galleryKeyHandler);
+}
+function closeGallery(){
+document.getElementById('gallery-overlay').classList.remove('open');
+document.removeEventListener('keydown',galleryKeyHandler);
+}
+function prevGallery(){
+galIdx=(galIdx-1+galleryImages.length)%galleryImages.length;updateGallery();
+}
+function nextGallery(){
+galIdx=(galIdx+1)%galleryImages.length;updateGallery();
+}
+function galleryKeyHandler(e){
+if(e.key==='Escape')closeGallery();
+if(e.key==='ArrowLeft')prevGallery();
+if(e.key==='ArrowRight')nextGallery();
+}
+function updateGallery(){
+var img=galleryImages[galIdx];
+document.getElementById('gallery-img').src=img.src;
+document.getElementById('gallery-img').alt=img.title;
+document.getElementById('gallery-title').textContent=img.title;
+document.getElementById('gallery-counter').textContent=(galIdx+1)+' / '+galleryImages.length;
+}
+
+function renderFieldChecklist(){
+document.getElementById('field-checklist').innerHTML=
+'<li class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center" style="background:#02E0FB20;color:#02E0FB"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span><div><span class="text-sm font-semibold text-white">Anlık Konum Alma</span><span class="text-sm text-slate-500 ml-1.5">GPS koordinatları otomatik kaydedilir, alan dışına çıkılamaz.</span></div></li>'+
+'<li class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center" style="background:#FA600120;color:#FA6001"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span><div><span class="text-sm font-semibold text-white">Sahadan Fotoğraf Yükleme</span><span class="text-sm text-slate-500 ml-1.5">Kamera + her aşamaya bağımlı medya akışı, belgeler otomatik arşivlenir.</span></div></li>'+
+'<li class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center" style="background:#10b98120;color:#10b981"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span><div><span class="text-sm font-semibold text-white">Süreç Onayı & Kilitleme</span><span class="text-sm text-slate-500 ml-1.5">Aşama tamamlanmadan bir sonrakine geçilemez. Hiyerarşik onay zinciri.</span></div></li>';
+}
+function renderNotificationChecklist(){
+document.getElementById('notification-checklist').innerHTML=
+'<li class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center" style="background:#02E0FB20;color:#02E0FB"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span><div><span class="text-sm font-semibold text-white">Sıfır Gecikme Push Bildirimi</span><span class="text-sm text-slate-500 ml-1.5">Laravel Reverb (WebSocket) altyapısı ile anlık event broadcasting.</span></div></li>'+
+'<li class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center" style="background:#FA600120;color:#FA6001"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span><div><span class="text-sm font-semibold text-white">Sesli Uyarı Sistemi</span><span class="text-sm text-slate-500 ml-1.5">Kritik olaylarda tarayıcı ses bildirimi; AudioContext ile çalışır.</span></div></li>'+
+'<li class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center" style="background:#10b98120;color:#10b981"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span><div><span class="text-sm font-semibold text-white">DB + Broadcast Çift Katman</span><span class="text-sm text-slate-500 ml-1.5">Bildirimler hem DB hem WebSocket kanalına düşer. Kaçırmak imkânsız.</span></div></li>';
+}
+function renderNotificationTags(){
+document.getElementById('notification-tags').innerHTML='Laravel Reverb|Laravel Echo|Pusher Protocol|SweetAlert2 Toast|AudioContext API'.split('|').map(function(t){return '<span class="rounded-lg border border-slate-700/60 bg-slate-800/50 px-3 py-1.5 text-xs font-medium text-slate-400">'+t+'</span>'}).join('');
+}
+function renderSecurityChecklist(){
+document.getElementById('security-checklist').innerHTML=
+'<li class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center" style="background:#02E0FB20;color:#02E0FB"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg></span><div><span class="text-sm font-semibold text-white">Kurum İzolasyonu (Multi-Tenant)</span><p class="text-sm text-slate-500 mt-0.5">Her kurum kendi veri adasında. WHERE institution_id filtresi zorunlu.</p></div></li>'+
+'<li class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center" style="background:#FA600120;color:#FA6001"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg></span><div><span class="text-sm font-semibold text-white">Rol Bazlı Erişim Kontrolü</span><p class="text-sm text-slate-500 mt-0.5">4 farklı yetki seviyesi: Super Admin / Yönetici / Personel / Saha Ekibi.</p></div></li>'+
+'<li class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-5 w-5 rounded-full flex items-center justify-center" style="background:#10b98120;color:#10b981"><svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/></svg></span><div><span class="text-sm font-semibold text-white">Tanrı Gözü Audit Log</span><p class="text-sm text-slate-500 mt-0.5">Her kritik işlem zaman damgalı kayıt altına alınır. Kim ne yaptı izlenir.</p></div></li>';
+}
+
+function renderCbsFeatures(){
+document.getElementById('cbs-features').innerHTML=
+'<div class="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-6 hover:border-[#02E0FB]/40 transition-all duration-300 group"><div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#02E0FB]/10 text-[#02E0FB] mb-4 group-hover:scale-110 transition-transform"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/></svg></div><h3 class="text-base font-bold text-white mb-2">WMS/WFS Katmanları</h3><p class="text-sm text-slate-400 leading-relaxed mb-4">Gerçek belediye CBS sunucularından kadastro, bina, mahalle, ilçe ve altyapı katmanları. WMS 1.3.0 & WFS 2.0 protokolleri.</p><div class="flex flex-wrap gap-1.5"><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#02E0FB15;color:#02E0FB">WMS 1.3.0</span><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#02E0FB15;color:#02E0FB">WFS 2.0</span><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#02E0FB15;color:#02E0FB">EPSG:3857</span></div></div>'+
+'<div class="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-6 hover:border-[#FA6001]/40 transition-all duration-300 group"><div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#FA6001]/10 text-[#FA6001] mb-4 group-hover:scale-110 transition-transform"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg></div><h3 class="text-base font-bold text-white mb-2">Akıllı Çizim Araçları</h3><p class="text-sm text-slate-400 leading-relaxed mb-4">Nokta, çizgi, polygon, dikdörtgen ve daire çizimi. Alan/metraj hesaplama, parsel listesi çıkarma ve GeoJSON dışa aktarım.</p><div class="flex flex-wrap gap-1.5"><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#FA600115;color:#FA6001">Polygon</span><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#FA600115;color:#FA6001">GeoJSON</span><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#FA600115;color:#FA6001">Metraj</span></div></div>'+
+'<div class="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-6 hover:border-purple-400/40 transition-all duration-300 group"><div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 mb-4 group-hover:scale-110 transition-transform"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg></div><h3 class="text-base font-bold text-white mb-2">Hat Kimliği Sorgulama</h3><p class="text-sm text-slate-400 leading-relaxed mb-4">15m altı/üstü yol analizi, cadde/sokak detayları, sorumlu kurum bilgisi ve altyapı çakışma uyarıları.</p><div class="flex flex-wrap gap-1.5"><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#a855f715;color:#a855f7">Çakışma</span><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#a855f715;color:#a855f7">Kurum Sorgu</span></div></div>'+
+'<div class="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-6 hover:border-emerald-400/40 transition-all duration-300 group"><div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 mb-4 group-hover:scale-110 transition-transform"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg></div><h3 class="text-base font-bold text-white mb-2">Çift Sunucu Mimarisi</h3><p class="text-sm text-slate-400 leading-relaxed mb-4">geo4 (AKOS) kadastro/bina sunucusu + geo2 (MAKS+) altyapı şebeke sunucusu. Tüm veriler tek haritada birleşir.</p><div class="flex flex-wrap gap-1.5"><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#10b98115;color:#10b981">geo4:7171</span><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#10b98115;color:#10b981">geo2:9191</span></div></div>'+
+'<div class="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-6 hover:border-[#02E0FB]/40 transition-all duration-300 group"><div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#02E0FB]/10 text-[#02E0FB] mb-4 group-hover:scale-110 transition-transform"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg></div><h3 class="text-base font-bold text-white mb-2">WFS Proxy & CORS</h3><p class="text-sm text-slate-400 leading-relaxed mb-4">Laravel proxy ile WFS istekleri. CORS sorunsuz feature sorgulama. GetFeature, GetCapabilities, DescribeFeatureType.</p><div class="flex flex-wrap gap-1.5"><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#02E0FB15;color:#02E0FB">Laravel Proxy</span><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#02E0FB15;color:#02E0FB">GetFeature</span></div></div>'+
+'<div class="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-6 hover:border-[#FA6001]/40 transition-all duration-300 group"><div class="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#FA6001]/10 text-[#FA6001] mb-4 group-hover:scale-110 transition-transform"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg></div><h3 class="text-base font-bold text-white mb-2">Kesişim Tespiti & Uyarı</h3><p class="text-sm text-slate-400 leading-relaxed mb-4">Kazı alanının doğalgaz/elektrik hatlarıyla kesişimini otomatik analiz et. Renk kodlu uyarı sistemi ile anında bildirim.</p><div class="flex flex-wrap gap-1.5"><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#FA600115;color:#FA6001">Kesişim</span><span class="text-[10px] rounded-md px-2 py-0.5 font-medium" style="background:#FA600115;color:#FA6001">Renk Kod</span></div></div>';
+}
+function renderCbsArchitecture(){
+document.getElementById('cbs-architecture').innerHTML=
+'<div class="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-6 lg:col-span-2"><h3 class="text-sm font-bold text-white mb-5 flex items-center gap-2"><svg class="h-4 w-4 text-[#02E0FB]" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>Sistem Mimarisi — Çift Sunucu Topolojisi</h3>'+
+'<div class="flex flex-col lg:flex-row items-center justify-center gap-6 lg:gap-10">'+
+'<div class="cbs-arch-node relative rounded-xl border border-slate-700/50 bg-slate-900/80 p-5 text-center w-full max-w-[220px]"><div class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#02E0FB]/20 border border-[#02E0FB]/40 px-3 py-0.5 text-[9px] font-bold text-[#02E0FB]">geo4:7171</div>'+
+'<div class="mt-4 mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#02E0FB]/10 text-[#02E0FB]"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0022.5 18.75V5.25A2.25 2.25 0 0020.25 3H3.75A2.25 2.25 0 001.5 5.25v13.5A2.25 2.25 0 003.75 21z"/></svg></div>'+
+'<h4 class="text-xs font-bold text-white mb-2">AKOS Grubu</h4><p class="text-[10px] text-slate-400 leading-relaxed">Kadastro parselleri, binalar, ilçe/mahalle sınırları, ada pafta ve adres verileri.</p>'+
+'<div class="mt-3 flex flex-wrap justify-center gap-1"><span class="text-[8px] rounded px-1.5 py-0.5 bg-slate-800 text-slate-400">WMS</span><span class="text-[8px] rounded px-1.5 py-0.5 bg-slate-800 text-slate-400">WFS</span></div></div>'+
+'<div class="flex items-center gap-2 text-slate-600"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg><span class="text-[10px] font-mono">Geoserver</span><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg></div>'+
+'<div class="cbs-arch-node relative rounded-xl border border-slate-700/50 bg-slate-900/80 p-5 text-center w-full max-w-[220px]"><div class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#FA6001]/20 border border-[#FA6001]/40 px-3 py-0.5 text-[9px] font-bold text-[#FA6001]">geo2:9191</div>'+
+'<div class="mt-4 mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#FA6001]/10 text-[#FA6001]"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12"/></svg></div>'+
+'<h4 class="text-xs font-bold text-white mb-2">MAKS+ Grubu</h4><p class="text-[10px] text-slate-400 leading-relaxed">Doğalgaz hatları/noktaları, elektrik şebekesi, metrobüs CAD ve altyapı verileri.</p>'+
+'<div class="mt-3 flex flex-wrap justify-center gap-1"><span class="text-[8px] rounded px-1.5 py-0.5 bg-slate-800 text-slate-400">WMS</span><span class="text-[8px] rounded px-1.5 py-0.5 bg-slate-800 text-slate-400">WFS</span></div></div></div>'+
+'<div class="flex items-center justify-center gap-2 mt-4 text-slate-600"><span class="h-px w-12 bg-slate-700"></span><svg class="h-4 w-4 text-[#02E0FB]" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"/></svg><span class="h-px w-12 bg-slate-700"></span></div>'+
+'<div class="cbs-arch-node mx-auto rounded-xl border border-[#02E0FB]/30 bg-gradient-to-r from-[#02E0FB]/10 to-[#FA6001]/10 p-4 text-center w-full max-w-[320px]"><div class="flex items-center justify-center gap-2 mb-2"><span class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-800 text-[10px] font-bold text-[#02E0FB]"><svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.572 2.382a.75.75 0 01.856 0l9 6.5a.75.75 0 01-.856 1.236L12 4.118l-8.572 6.25a.75.75 0 01-.856-1.236l9-6.5z"/></svg></span><span class="text-xs font-bold text-white">Laravel WFS Proxy</span></div>'+
+'<p class="text-[10px] text-slate-400 font-mono">GET /maps/proxy?url=...</p><p class="text-[9px] text-slate-500 mt-1">CORS çözümü · GetFeature · GetCapabilities · DescribeFeatureType</p></div>'+
+'<div class="flex items-center justify-center mt-4 text-slate-600"><span class="h-px w-16 bg-slate-700"></span><span class="mx-2 text-[10px] text-slate-500">Leaflet.js 1.9.4</span><span class="h-px w-16 bg-slate-700"></span></div>'+
+'<div class="mx-auto mt-4 rounded-xl border border-slate-700/50 bg-slate-800/60 px-6 py-3 text-center w-full max-w-[260px]"><div class="flex items-center justify-center gap-2"><span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span><span class="text-[11px] font-semibold text-white">EPSG:3857 → WGS84</span><span class="text-[10px] text-slate-500">Otomatik Dönüşüm</span></div></div></div>';
+}
+function renderCbsSteps(){
+document.getElementById('cbs-steps').innerHTML=
+'<div class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-xs font-black" style="background:#02E0FB20;color:#02E0FB">1</span><div><span class="text-sm font-semibold text-white">Çift Sunucu Mimarisi</span><p class="text-sm text-slate-400">geo4 (AKOS) + geo2 (MAKS+) — tüm CBS verileri tek haritada birleşir.</p></div></div>'+
+'<div class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-xs font-black" style="background:#FA600120;color:#FA6001">2</span><div><span class="text-sm font-semibold text-white">Leaflet 1.9 + Çoklu Altlık</span><p class="text-sm text-slate-400">Google Uydu, OSM ve Topoğrafya altlıkları arasında geçiş. EPSG:3857/WGS84 otomatik dönüşüm.</p></div></div>'+
+'<div class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-xs font-black" style="background:#10b98120;color:#10b981">3</span><div><span class="text-sm font-semibold text-white">Akıllı Tıklama & Başvuru</span><p class="text-sm text-slate-400">Tıkla → WFS sorgu → parsel/ada/mahalle bilgisi → popup → tek tıkla başvuru.</p></div></div>'+
+'<div class="flex items-start gap-3"><span class="mt-0.5 flex-shrink-0 h-7 w-7 rounded-lg flex items-center justify-center text-xs font-black" style="background:#a855f720;color:#a855f7">4</span><div><span class="text-sm font-semibold text-white">Kesişim Tespiti & Uyarı</span><p class="text-sm text-slate-400">Doğalgaz/elektrik hattı kesişimlerini otomatik tespit et, renk kodlu uyarı göster.</p></div></div>';
+}
+function renderCbsMockup(){
+document.getElementById('cbs-mockup').innerHTML=
+'<div class="absolute -inset-8 rounded-3xl bg-gradient-to-br from-[#02E0FB]/15 to-[#FA6001]/10 blur-3xl"></div>'+
+'<div class="relative rounded-2xl border border-slate-700/60 overflow-hidden shadow-2xl" style="box-shadow:0 0 60px rgba(2,224,251,0.1)">'+
+'<div class="flex items-center gap-2 border-b border-slate-700/50 px-4 py-2.5 bg-slate-950"><div class="flex items-center gap-1.5"><div class="h-2.5 w-2.5 rounded-full bg-red-500/60"></div><div class="h-2.5 w-2.5 rounded-full bg-yellow-500/60"></div><div class="h-2.5 w-2.5 rounded-full bg-emerald-500/60"></div></div><span class="ml-2 text-[9px] text-slate-500 font-mono">maps/index — Aykome CBS · Leaflet 1.9.4</span><span class="ml-auto flex items-center gap-1 text-[9px] text-emerald-400 font-semibold"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>WMS Bağlı</span></div>'+
+'<div class="flex" style="min-height:380px">'+
+'<div class="w-2/5 border-r border-slate-700/40 bg-slate-900/80 p-3"><div class="flex items-center justify-between mb-3"><span class="text-[10px] font-bold text-white uppercase tracking-wider">Katmanlar</span><span class="text-[8px] text-slate-500">9 katman</span></div>'+
+'<div class="space-y-1.5"><div class="flex items-center gap-2 bg-slate-800/60 rounded-lg px-2.5 py-2 border border-[#02E0FB]/30"><input type="checkbox" checked class="accent-[#02E0FB] w-3 h-3"><span class="text-[10px] text-slate-200 flex-1">Parseller</span><span class="text-[8px] text-[#02E0FB] bg-[#02E0FB]/10 px-1.5 py-0.5 rounded">AKOS</span></div>'+
+'<div class="flex items-center gap-2 bg-slate-800/60 rounded-lg px-2.5 py-2 border border-slate-700/40"><input type="checkbox" checked class="accent-[#02E0FB] w-3 h-3"><span class="text-[10px] text-slate-200 flex-1">Binalar</span><span class="text-[8px] text-[#02E0FB] bg-[#02E0FB]/10 px-1.5 py-0.5 rounded">AKOS</span></div>'+
+'<div class="flex items-center gap-2 bg-slate-800/60 rounded-lg px-2.5 py-2 border border-slate-700/40"><input type="checkbox" checked class="accent-[#02E0FB] w-3 h-3"><span class="text-[10px] text-slate-200 flex-1">Mahalle</span><span class="text-[8px] text-[#02E0FB] bg-[#02E0FB]/10 px-1.5 py-0.5 rounded">AKOS</span></div>'+
+'<div class="flex items-center gap-2 bg-slate-800/60 rounded-lg px-2.5 py-2 border border-[#FA6001]/30"><input type="checkbox" checked class="accent-[#FA6001] w-3 h-3"><span class="text-[10px] text-slate-200 flex-1">Doğalgaz Hattı</span><span class="text-[8px] text-[#FA6001] bg-[#FA6001]/10 px-1.5 py-0.5 rounded">MAKS+</span></div>'+
+'<div class="flex items-center gap-2 bg-slate-800/60 rounded-lg px-2.5 py-2 border border-slate-700/40 opacity-60"><input type="checkbox" class="accent-purple-500 w-3 h-3"><span class="text-[10px] text-slate-400 flex-1">Elektrik Nok.</span><span class="text-[8px] text-slate-500 bg-slate-700/30 px-1.5 py-0.5 rounded">MAKS+</span></div></div>'+
+'<div class="mt-3 pt-3 border-t border-slate-700/40"><div class="flex items-center gap-2 mb-2"><span class="text-[9px] text-slate-500 uppercase tracking-wider">Altlık</span></div>'+
+'<div class="flex flex-wrap gap-1.5"><span class="rounded-md bg-[#02E0FB]/15 border border-[#02E0FB]/30 text-[#02E0FB] text-[9px] px-2 py-1 font-semibold">OSM</span>'+
+'<span class="rounded-md bg-slate-800 border border-slate-700/50 text-slate-400 text-[9px] px-2 py-1">Uydu</span>'+
+'<span class="rounded-md bg-slate-800 border border-slate-700/50 text-slate-400 text-[9px] px-2 py-1">Topo</span></div></div></div>'+
+'<div class="flex-1 relative bg-slate-900 overflow-hidden">'+
+'<svg class="absolute inset-0 w-full h-full opacity-10" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="leaflet-grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M 50 0 L 0 0 0 50" fill="none" stroke="#02E0FB" stroke-width="0.4"/></pattern></defs><rect width="100%" height="100%" fill="url(#leaflet-grid)"/></svg>'+
+'<svg class="absolute inset-0 w-full h-full" viewBox="0 0 500 380" preserveAspectRatio="xMidYMid meet">'+
+'<line x1="0" y1="60" x2="500" y2="60" stroke="#334155" stroke-width="12"/><line x1="0" y1="60" x2="500" y2="60" stroke="#475569" stroke-width="8"/>'+
+'<line x1="0" y1="140" x2="500" y2="140" stroke="#334155" stroke-width="10"/><line x1="0" y1="140" x2="500" y2="140" stroke="#475569" stroke-width="6"/>'+
+'<line x1="0" y1="250" x2="500" y2="250" stroke="#334155" stroke-width="12"/><line x1="0" y1="250" x2="500" y2="250" stroke="#475569" stroke-width="8"/>'+
+'<line x1="0" y1="330" x2="500" y2="330" stroke="#334155" stroke-width="8"/><line x1="0" y1="330" x2="500" y2="330" stroke="#475569" stroke-width="5"/>'+
+'<line x1="70" y1="0" x2="70" y2="380" stroke="#334155" stroke-width="8"/><line x1="70" y1="0" x2="70" y2="380" stroke="#475569" stroke-width="5"/>'+
+'<line x1="180" y1="0" x2="180" y2="380" stroke="#334155" stroke-width="10"/><line x1="180" y1="0" x2="180" y2="380" stroke="#475569" stroke-width="6"/>'+
+'<line x1="310" y1="0" x2="310" y2="380" stroke="#334155" stroke-width="10"/><line x1="310" y1="0" x2="310" y2="380" stroke="#475569" stroke-width="6"/>'+
+'<line x1="420" y1="0" x2="420" y2="380" stroke="#334155" stroke-width="8"/><line x1="420" y1="0" x2="420" y2="380" stroke="#475569" stroke-width="5"/>'+
+'<rect x="80" y="70" width="90" height="60" fill="#1e293b" rx="3"/><rect x="190" y="70" width="110" height="60" fill="#1e293b" rx="3"/>'+
+'<rect x="320" y="70" width="90" height="60" fill="#1e293b" rx="3"/><rect x="80" y="150" width="90" height="90" fill="#1e293b" rx="3"/>'+
+'<rect x="190" y="150" width="110" height="90" fill="#1e293b" rx="3"/><rect x="320" y="150" width="90" height="90" fill="#1e293b" rx="3"/>'+
+'<rect x="80" y="10" width="90" height="40" fill="#1e293b" rx="3"/><rect x="190" y="10" width="110" height="40" fill="#1e293b" rx="3"/>'+
+'<rect x="320" y="260" width="90" height="60" fill="#1e293b" rx="3"/>'+
+'<polygon points="85,75 168,72 172,105 162,128 82,130" fill="rgba(2,224,251,0.2)" stroke="#02E0FB" stroke-width="2.5" stroke-linejoin="round"/>'+
+'<circle cx="85" cy="75" r="4" fill="#02E0FB"/><circle cx="168" cy="72" r="4" fill="#02E0FB"/>'+
+'<circle cx="172" cy="105" r="4" fill="#02E0FB"/><circle cx="162" cy="128" r="4" fill="#02E0FB"/><circle cx="82" cy="130" r="4" fill="#02E0FB"/>'+
+'<rect x="88" y="92" width="38" height="14" rx="3" fill="#02E0FB" opacity="0.9"/><text x="107" y="103" text-anchor="middle" fill="#0f172a" font-size="7" font-weight="bold">ŞUSKİ</text>'+
+'<polygon points="325,80 400,78 405,125 330,128" fill="rgba(250,96,1,0.18)" stroke="#FA6001" stroke-width="2.5" stroke-linejoin="round"/>'+
+'<circle cx="325" cy="80" r="4" fill="#FA6001"/><circle cx="400" cy="78" r="4" fill="#FA6001"/>'+
+'<circle cx="405" cy="125" r="4" fill="#FA6001"/><circle cx="330" cy="128" r="4" fill="#FA6001"/>'+
+'<rect x="340" y="94" width="38" height="14" rx="3" fill="#FA6001" opacity="0.9"/><text x="359" y="105" text-anchor="middle" fill="white" font-size="7" font-weight="bold">TEDAŞ</text>'+
+'<line x1="80" y1="142" x2="172" y2="142" stroke="#02E0FB" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.7"/>'+
+'<text x="126" y="156" text-anchor="middle" fill="#02E0FB" font-size="8" opacity="0.9">~85m²</text>'+
+'<path d="M330 200 Q370 180 400 210 Q420 240 380 260 L340 240 Z" fill="rgba(250,96,1,0.15)" stroke="#FA6001" stroke-width="1.5" stroke-dasharray="5 3"/>'+
+'<circle cx="330" cy="200" r="3" fill="#FA6001" opacity="0.7"/><circle cx="380" cy="260" r="3" fill="#FA6001" opacity="0.7"/>'+
+'<text x="355" y="235" text-anchor="middle" fill="#FA6001" font-size="7">Doğalgaz Hattı</text>'+
+'<circle cx="375" cy="180" r="5" fill="none" stroke="#02E0FB" stroke-width="1.5" stroke-dasharray="3 2" opacity="0.8"/>'+
+'<line x1="368" y1="180" x2="382" y2="180" stroke="#02E0FB" stroke-width="1" opacity="0.8"/>'+
+'<line x1="375" y1="173" x2="375" y2="187" stroke="#02E0FB" stroke-width="1" opacity="0.8"/>'+
+'<rect x="300" y="280" width="120" height="34" rx="5" fill="#0f172a" stroke="#02E0FB" stroke-width="0.8" stroke-opacity="0.3"/>'+
+'<text x="308" y="296" fill="#94a3b8" font-size="7">Parsel: 245/12 · Ada: 1023</text>'+
+'<text x="308" y="308" fill="#64748b" font-size="6">Mahalle: Yenişehir · İlçe: Eyyübiye</text></svg>'+
+'<div class="absolute top-2 right-2 flex flex-col rounded-lg border border-slate-700/60 bg-slate-950/90 overflow-hidden shadow-xl"><button class="px-2.5 py-1.5 text-slate-400 hover:text-white border-b border-slate-700/40 text-xs font-bold leading-none hover:bg-[#02E0FB]/10">+</button><button class="px-2.5 py-1.5 text-slate-400 hover:text-white text-xs font-bold leading-none hover:bg-[#02E0FB]/10">−</button></div>'+
+'<div class="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-lg border border-slate-700/60 bg-slate-950/90 px-2 py-1.5 text-[8px] text-slate-500"><span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>Scale: 1:2,500 · Zoom: 16</div>'+
+'<div class="absolute bottom-2 right-2 rounded-lg bg-slate-950/90 border border-slate-700/60 px-2.5 py-1.5"><div class="flex items-center gap-2 text-[8px]"><span class="text-[#02E0FB] font-semibold">37.1598° K</span><span class="text-slate-600">|</span><span class="text-[#FA6001] font-semibold">38.7969° D</span></div></div></div></div>'+
+'<div class="border-t border-slate-700/40"><div class="flex items-center gap-4 bg-slate-950/90 px-4 py-2.5"><div class="flex items-center gap-1.5" id="cbs-step-dots"><span class="cbs-dot active" data-s="0"></span><span class="cbs-dot" data-s="1"></span><span class="cbs-dot" data-s="2"></span><span class="cbs-dot" data-s="3"></span></div><div class="flex-1 min-w-0"><p class="text-[10px] font-semibold text-white truncate" id="cbs-step-text">✏️ Haritada kazı alanı çiziliyor...</p><p class="text-[8px] text-slate-500 truncate" id="cbs-step-desc">Polygon aracı ile kazı yapılacak bölge işaretleniyor</p></div><span class="text-[8px] text-[#02E0FB] font-mono flex-shrink-0" id="cbs-step-num">1/4</span></div></div></div>'+
+'<div class="absolute -bottom-5 -right-4 flex items-center gap-2 rounded-xl border border-[#02E0FB]/30 bg-slate-900 px-3 py-2 shadow-xl"><svg class="h-4 w-4 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg><div><p class="text-[10px] font-bold text-white">WMS/WFS Bağlı</p><p class="text-[8px] text-slate-500">geo4:7171 · geo2:9191</p></div></div>';
+}
+function startCbsAnimation(){
+var steps=[
+{text:'✏️ Haritada kazı alanı çiziliyor...',desc:'Polygon aracı ile kazı yapılacak bölge işaretleniyor'},
+{text:'🔍 Parsel / Ada sorgulanıyor...',desc:'WFS sorgusu ile parsel:245/12 · Ada:1023 bilgisi alınıyor'},
+{text:'⚡ Doğalgaz hattı kontrol ediliyor...',desc:'Kesişim tespiti: bölgede doğalgaz hattı mevcut, renk kodlu uyarı gösteriliyor'},
+{text:'📋 Başvuru ekranı hazırlanıyor...',desc:'Ada/parsel bilgileri otomatik dolduruluyor, tek tıkla başvuru'}
+];
+var i=0,timer;
+function updateStep(){
+var dots=document.querySelectorAll('#cbs-step-dots .cbs-dot');
+dots.forEach(function(d,j){d.classList.toggle('active',j===i)});
+var st=document.getElementById('cbs-step-text');if(st)st.textContent=steps[i].text;
+var sd=document.getElementById('cbs-step-desc');if(sd)sd.textContent=steps[i].desc;
+var sn=document.getElementById('cbs-step-num');if(sn)sn.textContent=(i+1)+'/4';
+}
+function nextStep(){i=(i+1)%steps.length;updateStep()}
+var checkExist=setInterval(function(){
+if(document.getElementById('cbs-step-dots')){
+clearInterval(checkExist);
+updateStep();
+if(timer)clearInterval(timer);
+timer=setInterval(nextStep,4200);
+}
+},100);
+}
+function renderCbsLayers(){
+document.getElementById('cbs-layers').innerHTML=
+'<div class="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-5"><div class="flex items-center gap-2 mb-4"><span class="h-2.5 w-2.5 rounded-full bg-[#02E0FB]"></span><h3 class="text-xs font-bold uppercase tracking-widest text-[#02E0FB]">AKOS Grubu (geo4:7171)</h3><span class="ml-auto text-[8px] text-slate-500">uID: 45</span></div>'+
+'<div class="space-y-2"><div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2"><span class="h-1.5 w-1.5 rounded-full bg-[#02E0FB]"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-white block truncate">Parseller</span><span class="text-[9px] text-slate-500 font-mono block truncate">MISMAP_NUM_KADASTRO_PARSEL</span></div><span class="text-[8px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">Aktif</span></div>'+
+'<div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2"><span class="h-1.5 w-1.5 rounded-full bg-[#02E0FB]"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-white block truncate">Binalar</span><span class="text-[9px] text-slate-500 font-mono block truncate">MISMAP_NUM_BINA</span></div><span class="text-[8px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">Aktif</span></div>'+
+'<div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2"><span class="h-1.5 w-1.5 rounded-full bg-[#02E0FB]"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-white block truncate">İlçe Sınırları</span><span class="text-[9px] text-slate-500 font-mono block truncate">MISMAP_NUM_ILCE</span></div><span class="text-[8px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">Aktif</span></div>'+
+'<div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2"><span class="h-1.5 w-1.5 rounded-full bg-[#02E0FB]"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-white block truncate">Mahalle</span><span class="text-[9px] text-slate-500 font-mono block truncate">MISMAP_NUM_MAHALLE</span></div><span class="text-[8px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">Aktif</span></div>'+
+'<div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2"><span class="h-1.5 w-1.5 rounded-full bg-[#02E0FB]"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-white block truncate">Cadde/Sokak</span><span class="text-[9px] text-slate-500 font-mono block truncate">MISMAP_NUM_CADDESOKAK</span></div><span class="text-[8px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">Aktif</span></div>'+
+'<div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2 opacity-60"><span class="h-1.5 w-1.5 rounded-full bg-slate-600"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-slate-400 block truncate">Ada</span><span class="text-[9px] text-slate-600 font-mono block truncate">MISMAP_NUM_ADA</span></div><span class="text-[8px] text-slate-500 bg-slate-700/20 px-1.5 py-0.5 rounded flex-shrink-0">Pasif</span></div>'+
+'<div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2 opacity-60"><span class="h-1.5 w-1.5 rounded-full bg-slate-600"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-slate-400 block truncate">Pafta</span><span class="text-[9px] text-slate-600 font-mono block truncate">MISMAP_NUM_PAFTA</span></div><span class="text-[8px] text-slate-500 bg-slate-700/20 px-1.5 py-0.5 rounded flex-shrink-0">Pasif</span></div></div>'+
+'<div class="mt-3 pt-3 border-t border-slate-700/40 flex items-center justify-between text-[9px] text-slate-500"><span>WMS 1.3.0 · EPSG:3857</span><span>8 katman</span></div></div>'+
+'<div class="rounded-2xl border border-slate-700/50 bg-slate-900/60 p-5"><div class="flex items-center gap-2 mb-4"><span class="h-2.5 w-2.5 rounded-full bg-[#FA6001]"></span><h3 class="text-xs font-bold uppercase tracking-widest text-[#FA6001]">MAKS+ Grubu (geo2:9191)</h3><span class="ml-auto text-[8px] text-slate-500">uID: 404</span></div>'+
+'<div class="space-y-2"><div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2"><span class="h-1.5 w-1.5 rounded-full bg-[#FA6001]"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-white block truncate">Doğalgaz Hatları</span><span class="text-[9px] text-slate-500 font-mono block truncate">AYK_DOGALGAZ_LINKS</span></div><span class="text-[8px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-semibold flex-shrink-0">Aktif</span></div>'+
+'<div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2 opacity-60"><span class="h-1.5 w-1.5 rounded-full bg-slate-600"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-slate-400 block truncate">Doğalgaz Noktaları</span><span class="text-[9px] text-slate-600 font-mono block truncate">AYK_DOGALGAZ_NODES</span></div><span class="text-[8px] text-slate-500 bg-slate-700/20 px-1.5 py-0.5 rounded flex-shrink-0">Pasif</span></div>'+
+'<div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2 opacity-60"><span class="h-1.5 w-1.5 rounded-full bg-slate-600"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-slate-400 block truncate">Elektrik Hatları</span><span class="text-[9px] text-slate-600 font-mono block truncate">AYK_ELEKTRIK_LINKS</span></div><span class="text-[8px] text-slate-500 bg-slate-700/20 px-1.5 py-0.5 rounded flex-shrink-0">Pasif</span></div>'+
+'<div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2 opacity-60"><span class="h-1.5 w-1.5 rounded-full bg-slate-600"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-slate-400 block truncate">Elektrik Noktaları</span><span class="text-[9px] text-slate-600 font-mono block truncate">AYK_ELEKTRIK_NODES</span></div><span class="text-[8px] text-slate-500 bg-slate-700/20 px-1.5 py-0.5 rounded flex-shrink-0">Pasif</span></div>'+
+'<div class="flex items-center gap-3 bg-slate-800/30 rounded-lg px-3 py-2 opacity-60"><span class="h-1.5 w-1.5 rounded-full bg-slate-600"></span><div class="flex-1 min-w-0"><span class="text-[12px] font-medium text-slate-400 block truncate">Metrobüs CAD</span><span class="text-[9px] text-slate-600 font-mono block truncate">METROBUS_CAD</span></div><span class="text-[8px] text-slate-500 bg-slate-700/20 px-1.5 py-0.5 rounded flex-shrink-0">Pasif</span></div></div>'+
+'<div class="mt-3 pt-3 border-t border-slate-700/40 flex items-center justify-between text-[9px] text-slate-500"><span>WFS 2.0 · EPSG:3857</span><span>5 katman</span></div></div>';
+}
+
+</script>
+</body>
+</html>
