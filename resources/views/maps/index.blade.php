@@ -1934,158 +1934,157 @@ function drawReportAsama2(results,bounds){
         return;
     }
 
-    // AŞAMA 2: WMS GetFeatureInfo ile numarataj + cadde + bina bilgisi çek
-    var wmsBase='https://geo3.sanliurfa.bel.tr:8091/geoserver/wms';
-    var wmsLayers='smpns:m_Numarataj,cbs:MISMAP_CADDE_SOKAK,smpns:MISMAP_NUM_BINA';
-    var parselCenters=[];
-    filteredParsels.forEach(function(p,idx){
-        try{
-            var center=L.geoJSON(p).getBounds().getCenter();
-            parselCenters.push({lat:center.lat,lng:center.lng,parsel:p,idx:idx});
-        }catch(e){}
-    });
-    var sample=parselCenters.slice(0,50); // 50 parsel sorgula
+    // AŞAMA 2: WFS ile geo3 üzerinden cadde/sokak + numarataj + bina sorgula
+    var sw=L.CRS.EPSG3857.project(bounds.getSouthWest());
+    var ne=L.CRS.EPSG3857.project(bounds.getNorthEast());
+    var bbox=sw.x+','+sw.y+','+ne.x+','+ne.y;
+    var wfsBase='https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs';
+    var typeNames=['cbs:MISMAP_CADDE_SOKAK','smpns:m_Numarataj','smpns:MISMAP_NUM_BINA'];
 
-    if(!sample.length){
-        drawReportOlustur(filteredParsels,binas,[]);
-        return;
-    }
-
-    var wmsSonuclari=[];
-    var wmsDone=0;
-    var size=mapsMap?mapsMap.getSize():L.point(2000,1000);
-    var gfiBounds=mapsMap?mapsMap.getBounds():L.latLngBounds(L.latLng(37.0,38.6),L.latLng(37.4,39.0));
-
-    sample.forEach(function(s){
-        var pt=mapsMap?mapsMap.latLngToContainerPoint(L.latLng(s.lat,s.lng)):L.point(1000,500);
-        var gfiUrl='/maps/proxy?url='+encodeURIComponent(
-            wmsBase+'?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo'+
-            '&LAYERS='+wmsLayers+'&QUERY_LAYERS='+wmsLayers+
-            '&BBOX='+gfiBounds.toBBoxString()+'&WIDTH='+Math.round(size.x)+'&HEIGHT='+Math.round(size.y)+
-            '&X='+Math.round(pt.x)+'&Y='+Math.round(pt.y)+
-            '&INFO_FORMAT=application/json&SRS=EPSG:4326&FEATURE_COUNT=10&BUFFER=20'
+    var wfsSonuclari={};
+    var wfsDone=0;
+    typeNames.forEach(function(tn){
+        var url='/maps/proxy?url='+encodeURIComponent(
+            wfsBase+'?service=WFS&version=2.0.0&request=GetFeature'+
+            '&typeNames='+tn+'&bbox='+bbox+',EPSG:3857'+
+            '&outputFormat=application/json&srsName=EPSG:4326&count=200'
         );
-        fetch(gfiUrl).then(function(r){
-            if(!r.ok) return null;
+        fetch(url).then(function(r){
+            if(!r.ok) throw new Error();
             return r.json();
         }).then(function(data){
-            if(data&&data.features){
-                data.features.forEach(function(f){
-                    wmsSonuclari.push({
-                        parselIdx:s.idx, // hangi parsele ait oldugu
-                        layer:f.id?f.id.split('.')[0]:'',
-                        props:f.properties||{}
-                    });
-                });
-            }
-        }).catch(function(){}).then(function(){
-            wmsDone++;
-            if(wmsDone===sample.length) drawReportOlustur(filteredParsels,binas,wmsSonuclari);
+            wfsSonuclari[tn]=(data&&data.features)||[];
+        }).catch(function(){
+            wfsSonuclari[tn]=[];
+        }).then(function(){
+            wfsDone++;
+            if(wfsDone===typeNames.length) drawReportOlustur(filteredParsels,binas,wfsSonuclari);
         });
     });
 }
 
-function drawReportOlustur(parsels,binas,wmsSonuclari){
-    // WMS sonuçlarını parsel index'ine göre grupla
-    var numData={}; // key = ada|parsel
-    parsels.forEach(function(p){
-        var pr=p.properties||{};
-        var key=(pr.ADA||'')+'|'+(pr.PARSEL||'');
-        numData[key]={kapilarObj:{}, caddeler:{}, binaAdlari:[]};
-    });
+function drawReportOlustur(parsels,binas,wfsSonuclari){
+    var caddeFeats=(wfsSonuclari['cbs:MISMAP_CADDE_SOKAK']||[]);
+    var numaratajFeats=(wfsSonuclari['smpns:m_Numarataj']||[]);
+    var binaFeats=(wfsSonuclari['smpns:MISMAP_NUM_BINA']||[]);
 
-    (wmsSonuclari||[]).forEach(function(wr){
-        var p=parsels[wr.parselIdx];
-        if(!p) return;
-        var pr=p.properties||{};
-        var key=(pr.ADA||'')+'|'+(pr.PARSEL||'');
-        if(!numData[key]) return;
-        var fp=wr.props;
-        var layer=wr.layer;
-
-        if(layer==='smpns:m_Numarataj'){
-            var kapiNo=fp.KAPI_NO||fp.kapi_no||'';
-            var binaAdi=fp.BINA_ADI||fp.bina_adi||'';
-            var cadde=((fp.CADDE_SO_1||'')+' '+(fp.CADDE_SO_2||'')).trim()||fp.CADDE_ADI||fp.CADDE||'';
-            if(!cadde) cadde='_NOCADDE_';
-            if(kapiNo){
-                if(!numData[key].kapilarObj[cadde]) numData[key].kapilarObj[cadde]=[];
-                // Aynı kapı no'yu tekrar ekleme
-                var exists=numData[key].kapilarObj[cadde].some(function(k){return k.kapiNo===kapiNo});
-                if(!exists) numData[key].kapilarObj[cadde].push({kapiNo:kapiNo,binaAdi:binaAdi||''});
-            }
-            if(cadde&&cadde!=='_NOCADDE_') numData[key].caddeler[cadde]=cadde;
-        }
-
-        if(layer==='cbs:MISMAP_CADDE_SOKAK'){
-            var caddeAdi=fp.CADDE_ADI||fp.ADI||fp.AD||((fp.CADDE_SO_1||'')+' '+(fp.CADDE_SO_2||'')).trim()||'';
-            if(caddeAdi){
-                // Cadde adını formatla
-                if(!fp.CADDE_SO_1&&!fp.CADDE_SO_2&&caddeAdi.indexOf(' ')===-1){
-                    // Muhtemelen sadece isim, düz ekle
-                }
-                numData[key].caddeler[caddeAdi]=caddeAdi;
-            }
-        }
-
-        if(layer==='smpns:MISMAP_NUM_BINA'){
-            var bAdi=fp.BINA_ADI||fp.bina_adi||fp.NAME||'';
-            if(bAdi&&numData[key].binaAdlari.indexOf(bAdi)===-1){
-                numData[key].binaAdlari.push(bAdi);
-            }
-        }
-    });
-
-    // Parselleri grupla + cadde bilgilerini birleştir
+    // Parsel haritası oluştur
     var parselMap={};
-    var allCaddeler={};
+    var bolgeCaddeler={};
+    var bolgeKapilar=[];
+    var bolgeBinalar=[];
+
     parsels.forEach(function(p){
         var pr=p.properties||{};
         var key=(pr.ADA||'')+'|'+(pr.PARSEL||'');
         var cadde=((pr.CADDE_SO_1||'')+' '+(pr.CADDE_SO_2||'')).trim()||pr.CADDE||pr.CADDE_SOKAK||'';
         var mahalle=pr.MAHALLE_AD||pr.MAHALLE||'';
-        if(!parselMap[key]) parselMap[key]={parsel:p, binas:0, caddeler:{}, binaAdlari:[]};
+        if(!parselMap[key]) parselMap[key]={parsel:p, binas:0, caddeler:{}, kapilarObj:{}, binaAdlari:[]};
         if(cadde){
-            var cKey=mahalle+'|'+cadde;
-            parselMap[key].caddeler[cKey]=cadde;
-            allCaddeler[cKey]=cadde;
-        }
-        // WMS caddelerini merge et
-        if(numData[key]){
-            Object.keys(numData[key].caddeler).forEach(function(ck){
-                parselMap[key].caddeler[ck]=numData[key].caddeler[ck];
-                allCaddeler[ck]=numData[key].caddeler[ck];
-            });
-            // Bina adlarını merge et
-            parselMap[key].binaAdlari=numData[key].binaAdlari;
+            parselMap[key].caddeler[cadde]=cadde;
+            bolgeCaddeler[cadde]=cadde;
         }
     });
 
-    // Bina sayısını ata
+    // Bina sayısı (geo4 WFS)
     binas.forEach(function(b){
         var bp=b.properties||{};
         var key=(bp.ADA||'')+'|'+(bp.PARSEL||'');
         if(parselMap[key]) parselMap[key].binas++;
     });
 
-    // Global'e ata
+    // CADDE/SOKAK (geo3 WFS)
+    caddeFeats.forEach(function(f){
+        var fp=f.properties||{};
+        var caddeAdi=fp.CADDE_ADI||fp.ADI||fp.AD||
+            ((fp.CADDE_SO_1||'')+' '+(fp.CADDE_SO_2||'')).trim()||'';
+        if(!caddeAdi) return;
+        bolgeCaddeler[caddeAdi]=caddeAdi;
+        var ada=fp.ADA||'', parsel=fp.PARSEL||'';
+        if(ada&&parsel){
+            var key=ada+'|'+parsel;
+            if(parselMap[key]) parselMap[key].caddeler[caddeAdi]=caddeAdi;
+        }
+    });
+
+    // NUMARATAJ (geo3 WFS)
+    numaratajFeats.forEach(function(f){
+        var fp=f.properties||{};
+        var kapiNo=fp.KAPI_NO||fp.kapi_no||'';
+        var binaAdi=fp.BINA_ADI||fp.bina_adi||'';
+        var cadde=((fp.CADDE_SO_1||'')+' '+(fp.CADDE_SO_2||'')).trim()||fp.CADDE_ADI||fp.CADDE||'';
+        if(!cadde) cadde='_NOCADDE_';
+        if(!kapiNo) return;
+        // Bölge listesine ekle
+        bolgeKapilar.push({kapiNo:kapiNo,binaAdi:binaAdi,cadde:cadde});
+        // Parselle eşleştir
+        var ada=fp.ADA||'', parsel=fp.PARSEL||'';
+        if(ada&&parsel){
+            var key=ada+'|'+parsel;
+            if(parselMap[key]){
+                if(!parselMap[key].kapilarObj[cadde])
+                    parselMap[key].kapilarObj[cadde]=[];
+                var exists=parselMap[key].kapilarObj[cadde].some(function(k){return k.kapiNo===kapiNo});
+                if(!exists) parselMap[key].kapilarObj[cadde].push({kapiNo:kapiNo,binaAdi:binaAdi||''});
+                if(cadde!=='_NOCADDE_') parselMap[key].caddeler[cadde]=cadde;
+            }
+        }
+    });
+
+    // BINA (geo3 WFS)
+    binaFeats.forEach(function(f){
+        var fp=f.properties||{};
+        var bAdi=fp.BINA_ADI||fp.bina_adi||fp.NAME||'';
+        if(bAdi&&bolgeBinalar.indexOf(bAdi)===-1) bolgeBinalar.push(bAdi);
+        var ada=fp.ADA||'', parsel=fp.PARSEL||'';
+        if(ada&&parsel){
+            var key=ada+'|'+parsel;
+            if(parselMap[key]&&bAdi&&parselMap[key].binaAdlari.indexOf(bAdi)===-1)
+                parselMap[key].binaAdlari.push(bAdi);
+        }
+    });
+
+    // Global
     window._drawReportParselMap=parselMap;
-    window._drawReportNumData=numData;
+    window._drawReportNumData=parselMap;
 
-    // Panel HTML
-    var caddeKeys=Object.keys(allCaddeler);
+    // PANEL HTML
+    var caddeKeys=Object.keys(bolgeCaddeler);
+    var kapiCount=bolgeKapilar.length;
+    var binaCount=bolgeBinalar.length;
+
     var html='<div style="margin-bottom:8px;font-size:11px;color:#64748b;">';
-    html+=parsels.length+' parsel, '+binas.length+' bina'+(caddeKeys.length?', '+caddeKeys.length+' cadde/sokak':'')+' bulundu.';
-    html+='<hr style="border-color:#e2e8f0;margin:6px 0;"></div>';
+    html+=parsels.length+' parsel, '+binas.length+' bina'+
+        (caddeKeys.length?', '+caddeKeys.length+' cadde/sokak':'')+
+        (kapiCount?', '+kapiCount+' kapı':'')+
+        (binaCount?', '+binaCount+' bina adı':'')+' bulundu.';
+    html+='</div>';
 
-    var keys=Object.keys(parselMap);
+    // BÖLGE ÖZETİ
+    if(caddeKeys.length||kapiCount||binaCount){
+        html+='<div style="background:#f8fafc;border-radius:6px;padding:8px 12px;margin-bottom:8px;font-size:11px;line-height:1.6;">';
+        html+='<div style="font-weight:600;color:#334155;margin-bottom:4px;">📊 Bölge Özeti</div>';
+        if(caddeKeys.length) html+='🛣️ <b>Cadde/Sokak:</b> '+caddeKeys.join(', ')+'<br>';
+        if(kapiCount){
+            var kapiOzet=bolgeKapilar.slice(0,15).map(function(k){
+                return k.kapiNo+(k.binaAdi?' ('+k.binaAdi+')':'');
+            }).join(', ');
+            if(kapiCount>15) kapiOzet+=' +'+(kapiCount-15)+' daha';
+            html+='🚪 <b>Kapı No:</b> '+kapiOzet+'<br>';
+        }
+        if(binaCount) html+='🏷️ <b>Binalar:</b> '+bolgeBinalar.join(', ')+'<br>';
+        html+='</div>';
+    }
+
+    // PARSEL LİSTESİ
+    html+='<hr style="border-color:#e2e8f0;margin:6px 0;"><div style="font-weight:600;color:#334155;font-size:11px;margin-bottom:4px;">📍 Parseller</div>';
     html+='<div id="dr-parsel-list">';
-    keys.forEach(function(key){
+    Object.keys(parselMap).forEach(function(key){
         var item=parselMap[key];
         var p=item.parsel.properties||{};
         var ada=p.ADA||'—', parsel=p.PARSEL||'—';
         var mahalle=p.MAHALLE_AD||p.MAHALLE||'—', ilce=p.ILCE||p.ILÇE||'—';
-        var caddeKeys=Object.keys(item.caddeler);
+        var cKeys=Object.keys(item.caddeler);
 
         var secili=window._drSecili&&window._drSecili[key]?'checked':'';
         var showCadde=secili?'style="display:block"':'style="display:none"';
@@ -2099,30 +2098,31 @@ function drawReportOlustur(parsels,binas,wmsSonuclari){
                 '<span class="dr-detail">🏛️ '+ilce+' | 🏘️ '+mahalle+'</span>'+
                 (item.binas?'<span class="dr-detail">🏠 '+item.binas+' bina</span>':'')+
                 (item.binaAdlari.length?'<span class="dr-detail">🏷️ '+item.binaAdlari.join(', ')+'</span>':'')+
+                (cKeys.length?'<span class="dr-detail">🛣️ '+cKeys.join(', ')+'</span>':'')+
                 '<span class="dr-detail" style="font-size:10px;color:#94a3b8;">📍 '+(p.NİTELİK||'')+(p.YÜZÖLÇÜM?' | '+p.YÜZÖLÇÜM+' m²':'')+'</span>'+
             '</div>'+
 
             '<div class="dr-cadde-section" data-parsel="'+key+'" '+showCadde+'>'+
                 '<div style="font-size:10px;color:#64748b;padding:2px 10px 4px 28px;font-weight:600;">Cadde / Sokak:</div>';
 
-        caddeKeys.forEach(function(ck,ci){
-            var caddeAdi=item.caddeler[ck];
+        cKeys.forEach(function(ck,ci){
+            var caddeAdi=ck;
             var cKey=key+'|cadde|'+ci;
             var caddeSecili=window._drCaddeSecili&&window._drCaddeSecili[cKey]?'checked':'';
             var showKapi=caddeSecili?'style="display:block"':'style="display:none"';
-            var kapiArr=numData[key]?numData[key].kapilarObj[caddeAdi]||[]:[];
-            var kapiCount=kapiArr.length;
+            var kapiArr=item.kapilarObj[caddeAdi]||[];
+            var kCount=kapiArr.length;
 
             html+='<div class="dr-cadde-item">'+
                 '<label style="display:flex;align-items:center;gap:6px;padding:3px 10px 3px 28px;cursor:pointer;font-size:12px;" onclick="toggleDrCadde(\''+key+'\','+ci+')">'+
                     '<input type="checkbox" '+caddeSecili+' onchange="toggleDrCadde(\''+key+'\','+ci+')">'+
                     '<span>🛣️ '+caddeAdi+'</span>'+
-                    (kapiCount?'<span style="font-size:10px;color:#94a3b8;">('+kapiCount+' kapı)</span>':'')+
+                    (kCount?'<span style="font-size:10px;color:#94a3b8;">('+kCount+' kapı)</span>':'')+
                 '</label>'+
 
                 '<div class="dr-kapi-section" data-parsel="'+key+'" data-cadde="'+ci+'" '+showKapi+'>'+
-                    (kapiCount?'<div style="font-size:10px;color:#64748b;padding:2px 10px 2px 28px;font-weight:500;">Kapı Numaraları:</div>':'')+
-                    (kapiCount?'<label style="display:flex;align-items:center;gap:6px;padding:2px 10px 2px 28px;cursor:pointer;font-size:11px;color:#64748b;" onclick="toggleDrKapiAll(\''+key+'\','+ci+')">'+
+                    (kCount?'<div style="font-size:10px;color:#64748b;padding:2px 10px 2px 28px;font-weight:500;">Kapı Numaraları:</div>':'')+
+                    (kCount?'<label style="display:flex;align-items:center;gap:6px;padding:2px 10px 2px 28px;cursor:pointer;font-size:11px;color:#64748b;" onclick="toggleDrKapiAll(\''+key+'\','+ci+')">'+
                         '<span style="font-size:10px;">☐ Tümünü Seç</span>'+
                     '</label>':'')+
                     kapiArr.map(function(kap,ki){
@@ -2134,7 +2134,7 @@ function drawReportOlustur(parsels,binas,wmsSonuclari){
                             (kap.binaAdi?'<span style="font-size:10px;color:#94a3b8;">— '+kap.binaAdi+'</span>':'')+
                         '</label>';
                     }).join('')+
-                    (!kapiCount?'<span style="font-size:10px;color:#94a3b8;padding:2px 10px 2px 28px;">Kapı bilgisi bulunamadı</span>':'')+
+                    (!kCount?'<span style="font-size:10px;color:#94a3b8;padding:2px 10px 2px 28px;">Kapı bilgisi yok</span>':'')+
                 '</div>'+
             '</div>';
         });
@@ -2145,12 +2145,15 @@ function drawReportOlustur(parsels,binas,wmsSonuclari){
 
     document.getElementById('draw-report-body').innerHTML=html;
     document.getElementById('draw-report-footer').style.display='flex';
+    window._drParselCount=parsels.length;
     guncelleDrSayac();
     haritadaParselListesiGoster(parsels);
     document.getElementById('parsel-listesi-icerik').innerHTML=
-        '<div style="font-size:11px;color:#94a3b8;">✅ '+parsels.length+' parsel bulundu. Detaylar için sağ paneldeki 📋 Çizim Raporu\'nu kullanın.</div>';
+        '<div style="font-size:11px;color:#94a3b8;">✅ '+parsels.length+' parsel'+
+        (caddeKeys.length?', '+caddeKeys.length+' cadde/sokak':'')+
+        (kapiCount?', '+kapiCount+' kapı':'')+' bulundu.</div>';
     hideLoadingOverlay();
-    showToast('✅ '+parsels.length+' parsel bulundu');
+    showToast('✅ '+parsels.length+' parsel'+(kapiCount?', '+kapiCount+' kapı':'')+' bulundu');
 }
 
 w.toggleDrParsel=function(key){
