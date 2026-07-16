@@ -20,11 +20,18 @@
 - **OpenPanel kaldırıldı**: Çizim sonrası direkt loading overlay + draw report açılır
 - **Aşamalı seçim**: Parsel seç → cadde seç (2 aşama, kapı no yok)
 
+### v7.4 — WMS GetFeatureInfo + Draw Report Akış Düzeltme
+- **handleDrawCreated temizlendi**: İnline WFS parsel sorgusu + sidebar tablosu kaldırıldı (draw report'a devredildi)
+- **WFS 2 aşamalı**: Parsel (count 1000) + Bina → WMS GetFeatureInfo ile numarataj takviyesi
+- **WMS GetFeatureInfo**: Parsel centroid noktalarından (en fazla 30) `m_Numarataj`, `CADDE_SOKAK`, `MISMAP_NUM_BINA` sorgusu
+- **Kapı No**: Draw report'ta `🚪 KAPI_NO` gösterilir
+- **Akış**: Çizim → Draw Report (parsel+cadde+kapi+bina) → Kullanıcı onay → Başvuru formu
+
 ## Kalan İşler (Bir Sonraki Oturum)
-1. Başvuru formu tasarımı derinleştirme
-2. Draw report → başvuru formu entegrasyon testi
-3. Migration'lar Docker'da çalıştırılmalı (OCI_DEFAULT hatası)
-4. `GisKatmanAyar` modeli eksik (controller raw DB kullanıyor)
+1. Başvuru formu tasarımı derinleştirme (draw report'tan gelen verilerle otomatik doldurma)
+2. Migration'lar Docker'da çalıştırılmalı (OCI_DEFAULT hatası)
+3. `GisKatmanAyar` modeli eksik (controller raw DB kullanıyor)
+4. ionCube + custom lisans sistemi kurulumu
 
 ## Dosya Yapısı
 - `resources/views/maps/index.blade.php` (~2000 satır) — tüm CBS UI + JS
