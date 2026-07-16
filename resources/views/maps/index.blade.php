@@ -1934,40 +1934,69 @@ function drawReportAsama2(results,bounds){
         return;
     }
 
-    // AŞAMA 2: WFS ile geo3 üzerinden cadde/sokak + numarataj + bina sorgula
-    var sw=L.CRS.EPSG3857.project(bounds.getSouthWest());
-    var ne=L.CRS.EPSG3857.project(bounds.getNorthEast());
-    var bbox=sw.x+','+sw.y+','+ne.x+','+ne.y;
-    var wfsBase='https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs';
-    var typeNames=['cbs:MISMAP_CADDE_SOKAK','smpns:m_Numarataj','smpns:MISMAP_NUM_BINA'];
+    // AŞAMA 2: WMS GetFeatureInfo ile cadde/sokak + numarataj + bina sorgula
+    // 5 noktadan sorgu (merkez + 4 köşe) + büyük buffer
+    var wmsBase='https://geo3.sanliurfa.bel.tr:8091/geoserver/wms';
+    var wmsLayers='cbs:MISMAP_CADDE_SOKAK,smpns:m_Numarataj,smpns:MISMAP_NUM_BINA';
+    var size=mapsMap?mapsMap.getSize():L.point(2000,1000);
+    var gfiBounds=mapsMap?mapsMap.getBounds():L.latLngBounds(L.latLng(37.0,38.6),L.latLng(37.4,39.0));
 
-    var wfsSonuclari={};
-    var wfsDone=0;
-    typeNames.forEach(function(tn){
-        var url='/maps/proxy?url='+encodeURIComponent(
-            wfsBase+'?service=WFS&version=2.0.0&request=GetFeature'+
-            '&typeNames='+tn+'&bbox='+bbox+',EPSG:3857'+
-            '&outputFormat=application/json&srsName=EPSG:4326&count=200'
-        );
-        fetch(url).then(function(r){
-            if(!r.ok) throw new Error();
-            return r.json();
+    var queryPts=[bounds.getCenter()];
+    try{
+        queryPts.push(bounds.getSouthWest());
+        queryPts.push(bounds.getNorthEast());
+        queryPts.push(bounds.getNorthWest());
+        queryPts.push(bounds.getSouthEast());
+    }catch(e){}
+
+    var allGfiFeatures=[];
+    var gfiDone=0;
+
+    queryPts.forEach(function(qp){
+        var pt=mapsMap?mapsMap.latLngToContainerPoint(qp):L.point(500,500);
+        var params='SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo'+
+            '&LAYERS='+wmsLayers+'&QUERY_LAYERS='+wmsLayers+
+            '&BBOX='+gfiBounds.toBBoxString()+'&WIDTH='+Math.round(size.x)+'&HEIGHT='+Math.round(size.y)+
+            '&X='+Math.round(pt.x)+'&Y='+Math.round(pt.y)+
+            '&INFO_FORMAT=application/json&SRS=EPSG:4326&FEATURE_COUNT=50&BUFFER=80';
+
+        // Önce direkt dene (CORS varsa)
+        var direktUrl=wmsBase+'?'+params;
+        fetch(direktUrl).then(function(r){
+            if(r.ok) return r.json();
+            throw new Error();
         }).then(function(data){
-            wfsSonuclari[tn]=(data&&data.features)||[];
+            if(data&&data.features){
+                // Feature ID format: workspace.layer.featureId → split('.')
+                data.features.forEach(function(f){
+                    var pts=(f.id||'').split('.');
+                    var layerName=pts.length>=3?pts[0]+':'+pts[1]:(pts[0]||'');
+                    allGfiFeatures.push({layer:layerName,props:f.properties||{}});
+                });
+            }
         }).catch(function(){
-            wfsSonuclari[tn]=[];
+            // Proxy'li dene
+            var proxyUrl='/maps/proxy?url='+encodeURIComponent(direktUrl);
+            return fetch(proxyUrl).then(function(r2){
+                if(!r2.ok) return null;
+                return r2.json();
+            }).then(function(data2){
+                if(data2&&data2.features){
+                    data2.features.forEach(function(f){
+                        var pts=(f.id||'').split('.');
+                        var layerName=pts.length>=3?pts[0]+':'+pts[1]:(pts[0]||'');
+                        allGfiFeatures.push({layer:layerName,props:f.properties||{}});
+                    });
+                }
+            }).catch(function(){});
         }).then(function(){
-            wfsDone++;
-            if(wfsDone===typeNames.length) drawReportOlustur(filteredParsels,binas,wfsSonuclari);
+            gfiDone++;
+            if(gfiDone===queryPts.length) drawReportOlustur(filteredParsels,binas,allGfiFeatures);
         });
     });
 }
 
-function drawReportOlustur(parsels,binas,wfsSonuclari){
-    var caddeFeats=(wfsSonuclari['cbs:MISMAP_CADDE_SOKAK']||[]);
-    var numaratajFeats=(wfsSonuclari['smpns:m_Numarataj']||[]);
-    var binaFeats=(wfsSonuclari['smpns:MISMAP_NUM_BINA']||[]);
-
+function drawReportOlustur(parsels,binas,gfiFeatures){
     // Parsel haritası oluştur
     var parselMap={};
     var bolgeCaddeler={};
@@ -1993,54 +2022,52 @@ function drawReportOlustur(parsels,binas,wfsSonuclari){
         if(parselMap[key]) parselMap[key].binas++;
     });
 
-    // CADDE/SOKAK (geo3 WFS)
-    caddeFeats.forEach(function(f){
-        var fp=f.properties||{};
-        var caddeAdi=fp.CADDE_ADI||fp.ADI||fp.AD||
-            ((fp.CADDE_SO_1||'')+' '+(fp.CADDE_SO_2||'')).trim()||'';
-        if(!caddeAdi) return;
-        bolgeCaddeler[caddeAdi]=caddeAdi;
-        var ada=fp.ADA||'', parsel=fp.PARSEL||'';
-        if(ada&&parsel){
-            var key=ada+'|'+parsel;
-            if(parselMap[key]) parselMap[key].caddeler[caddeAdi]=caddeAdi;
-        }
-    });
+    // WMS GFI sonuçlarını işle
+    (gfiFeatures||[]).forEach(function(gfi){
+        var fp=gfi.props||{};
+        var layer=gfi.layer||'';
 
-    // NUMARATAJ (geo3 WFS)
-    numaratajFeats.forEach(function(f){
-        var fp=f.properties||{};
-        var kapiNo=fp.KAPI_NO||fp.kapi_no||'';
-        var binaAdi=fp.BINA_ADI||fp.bina_adi||'';
-        var cadde=((fp.CADDE_SO_1||'')+' '+(fp.CADDE_SO_2||'')).trim()||fp.CADDE_ADI||fp.CADDE||'';
-        if(!cadde) cadde='_NOCADDE_';
-        if(!kapiNo) return;
-        // Bölge listesine ekle
-        bolgeKapilar.push({kapiNo:kapiNo,binaAdi:binaAdi,cadde:cadde});
-        // Parselle eşleştir
-        var ada=fp.ADA||'', parsel=fp.PARSEL||'';
-        if(ada&&parsel){
-            var key=ada+'|'+parsel;
-            if(parselMap[key]){
-                if(!parselMap[key].kapilarObj[cadde])
-                    parselMap[key].kapilarObj[cadde]=[];
-                var exists=parselMap[key].kapilarObj[cadde].some(function(k){return k.kapiNo===kapiNo});
-                if(!exists) parselMap[key].kapilarObj[cadde].push({kapiNo:kapiNo,binaAdi:binaAdi||''});
-                if(cadde!=='_NOCADDE_') parselMap[key].caddeler[cadde]=cadde;
+        if(layer==='cbs:MISMAP_CADDE_SOKAK'){
+            var caddeAdi=fp.CADDE_ADI||fp.ADI||fp.AD||
+                ((fp.CADDE_SO_1||'')+' '+(fp.CADDE_SO_2||'')).trim()||'';
+            if(!caddeAdi) return;
+            bolgeCaddeler[caddeAdi]=caddeAdi;
+            var ada=fp.ADA||'', parsel=fp.PARSEL||'';
+            if(ada&&parsel){
+                var key=ada+'|'+parsel;
+                if(parselMap[key]) parselMap[key].caddeler[caddeAdi]=caddeAdi;
             }
         }
-    });
 
-    // BINA (geo3 WFS)
-    binaFeats.forEach(function(f){
-        var fp=f.properties||{};
-        var bAdi=fp.BINA_ADI||fp.bina_adi||fp.NAME||'';
-        if(bAdi&&bolgeBinalar.indexOf(bAdi)===-1) bolgeBinalar.push(bAdi);
-        var ada=fp.ADA||'', parsel=fp.PARSEL||'';
-        if(ada&&parsel){
-            var key=ada+'|'+parsel;
-            if(parselMap[key]&&bAdi&&parselMap[key].binaAdlari.indexOf(bAdi)===-1)
-                parselMap[key].binaAdlari.push(bAdi);
+        if(layer==='smpns:m_Numarataj'){
+            var kapiNo=fp.KAPI_NO||fp.kapi_no||'';
+            var binaAdi=fp.BINA_ADI||fp.bina_adi||'';
+            var cadde=((fp.CADDE_SO_1||'')+' '+(fp.CADDE_SO_2||'')).trim()||fp.CADDE_ADI||fp.CADDE||'';
+            if(!cadde) cadde='_NOCADDE_';
+            if(!kapiNo) return;
+            bolgeKapilar.push({kapiNo:kapiNo,binaAdi:binaAdi,cadde:cadde});
+            var ada=fp.ADA||'', parsel=fp.PARSEL||'';
+            if(ada&&parsel){
+                var key=ada+'|'+parsel;
+                if(parselMap[key]){
+                    if(!parselMap[key].kapilarObj[cadde])
+                        parselMap[key].kapilarObj[cadde]=[];
+                    var exists=parselMap[key].kapilarObj[cadde].some(function(k){return k.kapiNo===kapiNo});
+                    if(!exists) parselMap[key].kapilarObj[cadde].push({kapiNo:kapiNo,binaAdi:binaAdi||''});
+                    if(cadde!=='_NOCADDE_') parselMap[key].caddeler[cadde]=cadde;
+                }
+            }
+        }
+
+        if(layer==='smpns:MISMAP_NUM_BINA'){
+            var bAdi=fp.BINA_ADI||fp.bina_adi||fp.NAME||'';
+            if(bAdi&&bolgeBinalar.indexOf(bAdi)===-1) bolgeBinalar.push(bAdi);
+            var ada=fp.ADA||'', parsel=fp.PARSEL||'';
+            if(ada&&parsel){
+                var key=ada+'|'+parsel;
+                if(parselMap[key]&&bAdi&&parselMap[key].binaAdlari.indexOf(bAdi)===-1)
+                    parselMap[key].binaAdlari.push(bAdi);
+            }
         }
     });
 
