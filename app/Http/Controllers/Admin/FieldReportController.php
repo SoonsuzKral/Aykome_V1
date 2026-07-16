@@ -7,6 +7,7 @@ use App\Models\FieldTask;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
@@ -26,10 +27,10 @@ class FieldReportController extends Controller
 
         /* ── Monthly completion trend (last 6 months) ── */
         $completedByMonth = FieldTask::query()
-            ->selectRaw('YEAR(updated_at) as yr, MONTH(updated_at) as mo, COUNT(*) as cnt')
+            ->selectRaw('EXTRACT(YEAR FROM updated_at) as yr, EXTRACT(MONTH FROM updated_at) as mo, COUNT(*) as cnt')
             ->where('status', 'completed')
             ->whereDate('updated_at', '>=', $start)
-            ->groupBy('yr', 'mo')
+            ->groupBy(DB::raw('EXTRACT(YEAR FROM updated_at)'), DB::raw('EXTRACT(MONTH FROM updated_at)'))
             ->get()
             ->mapWithKeys(fn ($r) => [sprintf('%04d-%02d', $r->yr, $r->mo) => (int) $r->cnt]);
 
