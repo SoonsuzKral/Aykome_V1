@@ -224,6 +224,6 @@
 
     {{-- Footer --}}
     <div class="border-t border-slate-700/50 px-4 py-3 text-[10px] text-slate-600">
-        HGB Bilişim © {{ date('Y') }} · v6 Ultra
+        HGB Bilişim © {{ date('Y') }} · v6.21
     </div>
 </aside>

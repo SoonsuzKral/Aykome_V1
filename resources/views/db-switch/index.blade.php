@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AYKOME v6 — Veritabani Yonetimi</title>
+<title>AYKOME v6.21 — Veritabani Yonetimi</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#0f172a; color:#e2e8f0; font-size:13px; }
@@ -63,7 +63,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; backg
 </head>
 <body>
 <div class="header">
-    <h1>AYKOME v6 <span>Veritabani Yonetimi</span></h1>
+    <h1>AYKOME v6.21 <span>Veritabani Yonetimi</span></h1>
     <div>
         <span style="color:#64748b;font-size:11px;margin-right:12px;" id="current-db-label">Mevcut: <strong style="color:#e2e8f0;">{{ $currentDb }}</strong></span>
         <a href="{{ route('db-switch.logout') }}">Cikis</a>

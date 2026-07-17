@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AYKOME v6 — Veritabani Yonetimi</title>
+<title>AYKOME v6.21 — Veritabani Yonetimi</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#0f172a; color:#e2e8f0; display:flex; align-items:center; justify-content:center; min-height:100vh; }
@@ -20,7 +20,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; backg
 </head>
 <body>
 <div class="login-box">
-    <h1>AYKOME v6</h1>
+    <h1>AYKOME v6.21</h1>
     <p>Veritabani Yonetim Paneli</p>
     @if($errors->any())
         <div class="error">{{ $errors->first('password') }}</div>

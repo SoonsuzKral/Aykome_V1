@@ -24,7 +24,7 @@
 **Stack:** Laravel + Vite + TailwindCSS + PHP + JS  
 **DB:** MySQL/MariaDB  
 **Auth:** Laravel Auth (mevcut, dokunma)  
-**Versiyon:** v6 Ultra  
+**Versiyon:** v6.21  
 
 **Aktif Kurumlar:** AKSA, TEDAŞ, ŞUSKİ, Türk Telekom, HGB Bilişim  Demo  
 **Mevcut Modüller (dokunma):**
@@ -266,4 +266,4 @@ Claude Code her oturumda şunu yap:
 
 ---
 
-*AYKOME HGB Bilişim  ULTRA SAAS v6 | claude-sonnet-4-5*
+*AYKOME HGB Bilişim  ULTRA SAAS v6.21 | claude-sonnet-4-5*

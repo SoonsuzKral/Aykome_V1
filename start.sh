@@ -1,13 +1,13 @@
 #!/bin/bash
 # =============================================================================
-# AYKOME v6 Ultra — Oracle + MySQL Dual DB
+# AYKOME v6.21 — Oracle + MySQL Dual DB
 # =============================================================================
 
 set -e
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 
 echo -e "${CYAN}╔═══════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║     AYKOME v6 Ultra — Oracle + MySQL         ║${NC}"
+echo -e "${CYAN}║     AYKOME v6.21 — Oracle + MySQL         ║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════╝${NC}"
 
 # Eski container'lari temizle (sadece orphan kalmissa)
