@@ -679,6 +679,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <button class="qa-btn" id="btn-sorgula">🔍 Sorgula</button>
             <button class="qa-btn" id="btn-konum">📍 Konumum</button>
             <button class="qa-btn" id="btn-fullscreen">⛶ Tam Ekran</button>
+            <button class="qa-btn" id="btn-rotate-reset">🧭 0°</button>
         </div>
 
         <div id="maps-search-control">
@@ -713,6 +714,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 
         <div id="maps-statusbar">
             <span id="maps-coords">📍 37.1598° K | 38.7969° D</span>
+            <span id="maps-bearing" style="display:none"></span>
             <span id="maps-active-layers">Aktif: 0 katman</span>
             <span>© 2026 AYKOME — HGB Bilişim  | Şanlıurfa CBS</span>
         </div>
@@ -1022,6 +1024,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
 
 <script>
 (function() {
@@ -1117,7 +1120,35 @@ function initMaps(){
 
     mapsMap=L.map('maps-map-canvas',{
         center:URFA_CENTER,zoom:15,minZoom:12,maxZoom:20,
-        maxBounds:URFA_BOUNDS,maxBoundsViscosity:0.8,preferCanvas:!0
+        maxBounds:URFA_BOUNDS,maxBoundsViscosity:0.8,preferCanvas:!0,
+        rotate:!0,bearingControl:!0,
+        touchRotate:!0
+    });
+
+    // Shift+sağ tık sürükle ile döndürme
+    mapsMap._rotateDragging=!1;
+    mapsMap._rotateStartAngle=0;
+    mapsMap.on('contextmenu',function(e){
+        if(e.originalEvent.shiftKey){
+            L.DomEvent.preventDefault(e.originalEvent);
+            mapsMap._rotateDragging=!0;
+            mapsMap._rotateStartAngle=mapsMap.getBearing();
+            mapsMap._rotateStartPoint={x:e.originalEvent.clientX,y:e.originalEvent.clientY};
+            mapsMap._container.style.cursor='grabbing';
+        }
+    });
+    document.addEventListener('mousemove',function(e){
+        if(mapsMap._rotateDragging&&e.buttons){
+            var dx=e.clientX-mapsMap._rotateStartPoint.x;
+            var angle=mapsMap._rotateStartAngle+dx*0.3;
+            mapsMap.setBearing(angle);
+        }
+    });
+    document.addEventListener('mouseup',function(){
+        if(mapsMap._rotateDragging){
+            mapsMap._rotateDragging=!1;
+            mapsMap._container.style.cursor='';
+        }
     });
 
     basemapLayers.google=L.tileLayer('http://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}',{attribution:'© Google',maxZoom:21}).addTo(mapsMap);
@@ -2098,6 +2129,24 @@ function setupEventListeners(){
             document.body.classList.add('maps-fullscreen');
         }
         setTimeout(function(){mapsMap.invalidateSize()},400);
+    });
+
+    // Rotate reset button + bearing indicator
+    document.getElementById('btn-rotate-reset').addEventListener('click',function(){
+        mapsMap.setBearing(0);
+        document.getElementById('maps-bearing').style.display='none';
+        this.innerHTML='🧭 0°';
+    });
+    mapsMap.on('rotate',function(){
+        var b=mapsMap.getBearing();
+        var deg=Math.round(b);
+        document.getElementById('btn-rotate-reset').innerHTML='🧭 '+deg+'°';
+        if(deg!==0){
+            document.getElementById('maps-bearing').style.display='inline';
+            document.getElementById('maps-bearing').textContent='🧭 '+deg+'°';
+        }else{
+            document.getElementById('maps-bearing').style.display='none';
+        }
     });
 
     document.getElementById('btn-sorgula').addEventListener('click',function(){
