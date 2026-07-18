@@ -860,12 +860,18 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
                 <div class="f-section-title" style="margin-bottom:10px;">💰 Teminat & Kazı Bedeli</div>
                 <div style="display:flex;gap:10px;margin-bottom:10px;">
                     <div style="flex:1;">
-                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Teminat Bedeli (TL)</label>
-                        <input type="text" id="bs-deposit-amount" readonly disabled style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#f1f5f9;color:#64748b;box-sizing:border-box;" value="0.00 TL">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Teminat Bedeli (₺)</label>
+                        <div style="position:relative;">
+                            <input type="text" id="bs-deposit-amount" inputmode="decimal" placeholder="0,00" style="width:100%;padding:7px 28px 7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:12px;color:#94a3b8;pointer-events:none;">₺</span>
+                        </div>
                     </div>
                     <div style="flex:1;">
-                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Kazı Bedeli (TL)</label>
-                        <input type="text" id="bs-excavation-amount" readonly disabled style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#f1f5f9;color:#64748b;box-sizing:border-box;" value="0.00 TL">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Kazı Bedeli (₺)</label>
+                        <div style="position:relative;">
+                            <input type="text" id="bs-excavation-amount" inputmode="decimal" placeholder="0,00" style="width:100%;padding:7px 28px 7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                            <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:12px;color:#94a3b8;pointer-events:none;">₺</span>
+                        </div>
                     </div>
                 </div>
                 <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#166534;display:flex;justify-content:space-between;align-items:center;">
@@ -1345,6 +1351,8 @@ function _buildOzet(){
     var yuzey=document.getElementById('bs-surface-type');
     var yuzeyText=yuzey?yuzey.options[yuzey.selectedIndex]?.text||'-':'-';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Yüzey / Keşif</td><td style="padding:3px 6px;font-weight:600;">'+yuzeyText+' | '+v('bs-width')+'m × '+v('bs-length')+'m</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Teminat</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-deposit-amount')+' ₺</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Kazı Bedeli</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-excavation-amount')+' ₺</td></tr>';
     var dosyaSayisi=_selectedFiles.length;
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Evraklar</td><td style="padding:3px 6px;font-weight:600;">'+dosyaSayisi+' dosya</td></tr>';
     var hesaplanan=document.getElementById('bs-hesaplanan-tutar')?.textContent||'0.00 TL';
@@ -1369,6 +1377,19 @@ function turkishNumber(v){
     if(!v||v==='')return 0;
     return parseFloat(String(v).replace(/\./g,'').replace(',','.'))||0;
 }
+function digitsOnly(v){
+    return String(v).replace(/[^0-9]/g,'');
+}
+function formatInput(el){
+    var liraPart=el.value.replace(/,00$/,'');
+    var d=digitsOnly(liraPart);
+    if(!d){el.value='';return;}
+    d=String(parseInt(d,10)||0);
+    var formatted=d.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+    el.value=formatted+',00';
+    var pos=formatted.length;
+    el.setSelectionRange(pos,pos);
+}
 function updateSurfaceSummary(){
     var area=turkishNumber(document.getElementById('bs-total-area')?.value);
     var w=turkishNumber(document.getElementById('bs-width')?.value);
@@ -1376,10 +1397,6 @@ function updateSurfaceSummary(){
     var price=getSelectedSurfacePrice();
     var measured=(w>0&&l>0)?w*l:area;
     var total=measured*price;
-    var depo=document.getElementById('bs-deposit-amount');
-    var excv=document.getElementById('bs-excavation-amount');
-    if(depo) depo.value=total.toFixed(2)+' TL';
-    if(excv) excv.value=total.toFixed(2)+' TL';
     var hesaplanan=document.getElementById('bs-hesaplanan-tutar');
     if(hesaplanan) hesaplanan.textContent=total.toFixed(2)+' TL';
 }
@@ -1779,6 +1796,14 @@ function setupEventListeners(){
     document.getElementById('bs-surface-type').addEventListener('change',updateSurfaceSummary);
     document.getElementById('bs-width').addEventListener('input',updateSurfaceSummary);
     document.getElementById('bs-length').addEventListener('input',updateSurfaceSummary);
+
+    /* Teminat / Kazı bedeli — Türk lirası formatı */
+    ['bs-deposit-amount','bs-excavation-amount'].forEach(function(id){
+        var el=document.getElementById(id);
+        if(!el)return;
+        el.addEventListener('input',function(){formatInput(this);});
+        el.addEventListener('blur',function(){formatInput(this);});
+    });
 }
 
 function initSearchControl(){
