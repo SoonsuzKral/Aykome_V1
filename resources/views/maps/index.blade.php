@@ -710,7 +710,9 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             </div>
         </div>
 
-        <div id="maps-map-canvas" style="width:100%;height:100%;"></div>
+        <div id="maps-rotate-holder" style="width:100%;height:100%;transform-origin:center center;">
+            <div id="maps-map-canvas" style="width:100%;height:100%;"></div>
+        </div>
 
         <div id="maps-statusbar">
             <span id="maps-coords">📍 37.1598° K | 38.7969° D</span>
@@ -1023,7 +1025,6 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
 
 <script>
 (function() {
@@ -1119,18 +1120,52 @@ function initMaps(){
 
     mapsMap=L.map('maps-map-canvas',{
         center:URFA_CENTER,zoom:15,minZoom:12,maxZoom:20,
-        maxBounds:URFA_BOUNDS,maxBoundsViscosity:0.8,preferCanvas:!0,
-        rotate:!0,bearingControl:!0
+        maxBounds:URFA_BOUNDS,maxBoundsViscosity:0.8,        preferCanvas:!0
     });
 
-    // Shift+sağ tık sürükle ile döndürme
+    // === OZEL ROTASYON: CSS transform ile (leaflet-rotate plugin YOK) ===
+    mapsMap._rotateHolder=document.getElementById('maps-rotate-holder');
+    mapsMap._rotDeg=0;
+
+    function _rotSet(deg){
+        mapsMap._rotDeg=deg;
+        mapsMap._rotateHolder.style.transform='rotate('+deg+'deg)';
+        document.getElementById('btn-rotate-reset').innerHTML='🧭 '+Math.round(deg)+'°';
+    }
+    function _rad(){return mapsMap._rotDeg*Math.PI/180}
+    function _half(){
+        var s=mapsMap.getSize();
+        return L.point(s.x/2,s.y/2);
+    }
+
+    // Koordinat donusum override'lari — CSS rotate'i Leaflet'e bildir
+    var _ocptlp=L.Map.prototype.containerPointToLayerPoint;
+    mapsMap.containerPointToLayerPoint=function(p){
+        if(Math.abs(mapsMap._rotDeg)<.5)return _ocptlp.call(this,p);
+        var h=_half(),r=L.point(p).subtract(h).rotate(-_rad()).add(h);
+        return _ocptlp.call(this,r);
+    };
+    var _olptcp=L.Map.prototype.layerPointToContainerPoint;
+    mapsMap.layerPointToContainerPoint=function(p){
+        if(Math.abs(mapsMap._rotDeg)<.5)return _olptcp.call(this,p);
+        var r=_olptcp.call(this,p),h=_half();
+        return L.point(r).subtract(h).rotate(_rad()).add(h);
+    };
+
+    // Drag offset'i rotate et — CSS rotate nedeniyle goruntu kaymasin
+    mapsMap.dragging._draggable.on('predrag',function(){
+        if(Math.abs(mapsMap._rotDeg)<.5)return;
+        var d=this._newPos.subtract(this._startPos);
+        this._newPos=this._startPos.add(d.rotate(-_rad()));
+    });
+
+    // Shift+sag tik ile dondurme
     mapsMap._rotateDragging=!1;
-    mapsMap._rotateStartAngle=0;
     mapsMap.on('contextmenu',function(e){
         if(e.originalEvent.shiftKey){
             L.DomEvent.preventDefault(e.originalEvent);
             mapsMap._rotateDragging=!0;
-            mapsMap._rotateStartAngle=mapsMap.getBearing();
+            mapsMap._rotateStartAngle=mapsMap._rotDeg;
             mapsMap._rotateStartPoint={x:e.originalEvent.clientX,y:e.originalEvent.clientY};
             mapsMap._container.style.cursor='grabbing';
         }
@@ -1138,7 +1173,7 @@ function initMaps(){
     document.addEventListener('mousemove',function(e){
         if(mapsMap._rotateDragging&&e.buttons){
             var dx=e.clientX-mapsMap._rotateStartPoint.x;
-            mapsMap.setBearing(mapsMap._rotateStartAngle+dx*0.3);
+            _rotSet(mapsMap._rotateStartAngle+dx*0.3);
         }
     });
     document.addEventListener('mouseup',function(){
@@ -1147,45 +1182,8 @@ function initMaps(){
             mapsMap._container.style.cursor='';
         }
     });
-    // TEK ÇALIŞAN YÖNTEM: mousedown'da bearing 0'a çek, bitince geri yükle
-    // leaflet-rotate plugin'i CSS rotate kullandığı için koordinat dönüşümleri
-    // drag sırasında kırılıyor. Bear=0'da Leaflet'in doğal koordinat sistemi çalışır.
-    // Basit tıklamalarda microtask ile paint ÖNCESİ restore → kullanıcı snap görmez.
-    mapsMap.on('mousedown',function(e){
-        if(e.originalEvent.button!==0||mapsMap._rotateDragging)
-            return;
-        var b=mapsMap.getBearing();
-        if(Math.abs(b)<=1)
-            return;
-        mapsMap._savedBearing=b;
-        mapsMap._wasDrag=!1;
-        mapsMap.setBearing(0);
-    });
-    mapsMap.on('dragstart',function(){
-        mapsMap._wasDrag=!0;
-    });
-    mapsMap.on('dragend',function(){
-        if(mapsMap._savedBearing!==void 0){
-            var sb=mapsMap._savedBearing;
-            mapsMap._savedBearing=void 0;
-            mapsMap.setBearing(sb);
-        }
-    });
-    mapsMap.on('click',function(){
-        if(mapsMap._savedBearing!==void 0&&!mapsMap._wasDrag){
-            var sb=mapsMap._savedBearing;
-            mapsMap._savedBearing=void 0;
-            Promise.resolve().then(function(){
-                mapsMap.setBearing(sb);
-            });
-        }
-    });
     document.getElementById('btn-rotate-reset').addEventListener('click',function(){
-        mapsMap.setBearing(0);
-        this.innerHTML='🧭 0°';
-    });
-    mapsMap.on('rotate',function(){
-        document.getElementById('btn-rotate-reset').innerHTML='🧭 '+Math.round(mapsMap.getBearing())+'°';
+        _rotSet(0);
     });
 
     basemapLayers.google=L.tileLayer('http://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}',{attribution:'© Google',maxZoom:21}).addTo(mapsMap);
