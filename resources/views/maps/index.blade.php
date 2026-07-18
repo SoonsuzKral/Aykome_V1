@@ -2643,11 +2643,11 @@ w.drawReportYolHatSorgula=function(){
     var found=[];
     var done=0;
     layers.forEach(function(l,i){
-        // WFS 2.0.0 — EPSG:4326 bbox (geo3 utility katmanlari 2.0.0 gerektirir)
+        // WFS 2.0.0 — bbox srsName'de belirtilen CRS'de (EPSG:4326)
         var url='/maps/proxy?url='+encodeURIComponent(
             'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature'+
             '&typeNames='+l+
-            '&bbox='+bboxStr+',EPSG:4326'+
+            '&bbox='+bboxStr+
             '&outputFormat=application/json'+
             '&srsName=EPSG:4326&count=50'
         );
@@ -3085,11 +3085,11 @@ function sorguCizimAltyapiKesisimi(latlngs){
     var done=0;
     var allFeatures={lines:[],nodes:[]};
     layers.forEach(function(l,i){
-        // WFS 2.0.0 — EPSG:4326 bbox (geo3 utility katmanlari 2.0.0 gerektirir)
+        // WFS 2.0.0 — bbox srsName'de belirtilen CRS'de (EPSG:4326)
         var url='/maps/proxy?url='+encodeURIComponent(
             'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature'+
             '&typeNames='+l+
-            '&bbox='+bboxStr+',EPSG:4326'+
+            '&bbox='+bboxStr+
             '&outputFormat=application/json'+
             '&srsName=EPSG:4326&count=50'
         );
