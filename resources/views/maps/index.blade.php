@@ -483,9 +483,9 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 @keyframes searchSpin { to { transform:rotate(360deg) } }
 
 /* Sorgula Modal */
-#maps-sorgula-modal { position:fixed;top:0;left:0;width:100%;height:100%;z-index:3000;display:flex;align-items:flex-start;justify-content:center;padding-top:80px }
-.sorgula-backdrop { position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px) }
-.sorgula-box { position:relative;background:#fff;border-radius:16px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:sorgulaFadeIn 0.25s ease-out }
+#maps-sorgula-modal { position:fixed;top:0;left:0;width:100%;height:100%;z-index:3000;display:flex;align-items:center;justify-content:center }
+.sorgula-backdrop { position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px);z-index:1 }
+.sorgula-box { position:relative;background:#fff;border-radius:16px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:sorgulaFadeIn 0.25s ease-out;z-index:2 }
 @keyframes sorgulaFadeIn { from { opacity:0;transform:translateY(-20px)scale(0.96) } to { opacity:1;transform:translateY(0)scale(1) } }
 .sorgula-header { display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e2e8f0 }
 .sorgula-title { font-size:16px;font-weight:600;color:#0f172a }
@@ -689,11 +689,11 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
         </div>
 
         <div id="maps-sorgula-modal" style="display:none">
-            <div class="sorgula-backdrop" onclick="closeSorgulaModal()"></div>
+            <div class="sorgula-backdrop" id="sorgula-backdrop"></div>
             <div class="sorgula-box">
                 <div class="sorgula-header">
                     <span class="sorgula-title">🔍 Başvuru Sorgula</span>
-                    <button class="sorgula-close" onclick="closeSorgulaModal()">×</button>
+                    <button class="sorgula-close" id="sorgula-close-btn">×</button>
                 </div>
                 <div class="sorgula-body">
                     <div class="sorgula-input-wrap">
@@ -1000,7 +1000,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 <input type="hidden" id="hk-last-lng" value="">
 
 <!-- Çizim Detay Raporu Paneli -->
-<div id="draw-report-panel" style="display:none;position:fixed;top:60px;right:20px;width:400px;max-width:90vw;max-height:85vh;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:2000;overflow:hidden;font-size:13px;">
+<div id="draw-report-panel" style="display:none;position:fixed;top:60px;left:50%;width:400px;max-width:90vw;max-height:85vh;background:#fff;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:2000;overflow:hidden;font-size:13px;">
     <div class="drag-header" style="background:linear-gradient(135deg,#1e293b,#334155);color:white;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;cursor:grab;">
         <span style="font-weight:600;">📋 ÇİZİM RAPORU</span>
         <button onclick="kapatDrawReport()" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;line-height:1;">×</button>
@@ -1316,12 +1316,8 @@ w.openBasvuruFromClick=function(tip){
 
 function openPanel(){
     var panel=document.getElementById('maps-basvuru-panel');
-    var mapCanvas=document.getElementById('map-canvas');
-    if(mapCanvas){
-        var rect=mapCanvas.getBoundingClientRect();
-        panel.style.left=rect.left+(rect.width/2-360)+'px';
-        panel.style.top=rect.top+40+'px';
-    }
+    panel.style.left=Math.max(10,(window.innerWidth-720)/2)+'px';
+    panel.style.top=Math.max(10,(window.innerHeight-600)/2)+'px';
     wizardReset();
     panel.classList.add('open');
     document.getElementById('maps-overlay').classList.add('active');
@@ -1822,8 +1818,10 @@ function openSorgulaModal(){
 function closeSorgulaModal(){
     var m=document.getElementById('maps-sorgula-modal');
     m.classList.add('sorgula-closing');
-    setTimeout(function(){m.style.display='none'},200);
+    setTimeout(function(){m.style.display='none'},150);
 }
+document.getElementById('sorgula-backdrop').addEventListener('click',function(e){if(e.target===this)closeSorgulaModal()});
+document.getElementById('sorgula-close-btn').addEventListener('click',closeSorgulaModal);
 function doSorgula(){
     var no=document.getElementById('sorgula-input').value.trim();
     if(!no){showToast('⚠️ Başvuru no girin');return}
@@ -2593,6 +2591,8 @@ function sorguCizimDetayRaporu(latlngs){
     var bboxStr=bounds.toBBoxString(); // EPSG:4326 — minLng,minLat,maxLng,maxLat
     var body=document.getElementById('draw-report-body');
     var panel=document.getElementById('draw-report-panel');
+    panel.style.top=Math.max(10,(window.innerHeight-400)/2)+'px';
+    panel.style.left=Math.max(10,(window.innerWidth-400)/2)+'px';
     body.innerHTML='<div style="text-align:center;color:#94a3b8;padding:30px;">🔍 Çizim alanı taranıyor...<br><span style="font-size:11px;">Parseller, binalar, kapı numaraları sorgulanıyor</span></div>';
     panel.style.display='block';
     document.getElementById('draw-report-footer').style.display='none';
