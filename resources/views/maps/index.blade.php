@@ -2372,7 +2372,7 @@ w.drawReportYolHatSorgula=function(){
     layers.forEach(function(l,i){
         // WFS 1.1.0 — EPSG:4326 bbox
         var url='/maps/proxy?url='+encodeURIComponent(
-            'https://geo4.sanliurfa.bel.tr:7171/geoserver/wfs?service=WFS&version=1.1.0&request=GetFeature'+
+            'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs?service=WFS&version=1.1.0&request=GetFeature'+
             '&typeNames='+l+
             '&bbox='+bboxStr+',EPSG:4326'+
             '&outputFormat=application/json'+
@@ -2814,7 +2814,7 @@ function sorguCizimAltyapiKesisimi(latlngs){
     layers.forEach(function(l,i){
         // WFS 1.1.0 — EPSG:4326 bbox
         var url='/maps/proxy?url='+encodeURIComponent(
-            'https://geo4.sanliurfa.bel.tr:7171/geoserver/wfs?service=WFS&version=1.1.0&request=GetFeature'+
+            'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs?service=WFS&version=1.1.0&request=GetFeature'+
             '&typeNames='+l+
             '&bbox='+bboxStr+',EPSG:4326'+
             '&outputFormat=application/json'+
@@ -2840,6 +2840,7 @@ function altyapiSonucGoster(found,allFeatures){
     if(window._utilityHighlight) mapsMap.removeLayer(window._utilityHighlight);
     window._utilityHighlight=null;
     if(found.length){
+        showToast('⚠️ ' + found.join(', '));
         // Hatları kırmızı kesik çizgi olarak göster
         if(allFeatures.lines.length){
             var lineLayer=L.geoJSON(allFeatures.lines,{
@@ -2879,6 +2880,7 @@ function altyapiSonucGoster(found,allFeatures){
         });
     } else {
         warnEl.style.display='none';
+        showToast('✅ Altyapı sorgusu tamam — çizim alanında doğalgaz/elektrik hattı bulunamadı');
     }
 }
 
