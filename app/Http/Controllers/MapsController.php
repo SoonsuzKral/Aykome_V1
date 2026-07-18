@@ -494,6 +494,27 @@ class MapsController extends Controller
 
         $results = $basvurular->map(function ($b) {
             $ea = $b->excavationAreas->first();
+            $lat = $ea ? $ea->center_lat : null;
+            $lng = $ea ? $ea->center_lng : null;
+
+            // Fallback: gis_basvuru_noktalar
+            if (!$lat || !$lng) {
+                $nokta = \App\Models\GisBasvuruNokta::where('basvuru_id', $b->id)->first();
+                if ($nokta) {
+                    $lat = $nokta->lat;
+                    $lng = $nokta->lng;
+                }
+            }
+
+            // Fallback: gis_cizimler
+            if (!$lat || !$lng) {
+                $cizim = \App\Models\GisCizim::where('basvuru_id', $b->id)->first();
+                if ($cizim && $cizim->lat && $cizim->lng) {
+                    $lat = $cizim->lat;
+                    $lng = $cizim->lng;
+                }
+            }
+
             return [
                 'id' => $b->id,
                 'application_no' => $b->application_no,
@@ -501,8 +522,8 @@ class MapsController extends Controller
                 'kurum_adi' => $b->institution ? $b->institution->name : '—',
                 'durum' => $b->status,
                 'tarih' => $b->created_at ? $b->created_at->format('d.m.Y') : '—',
-                'lat' => $ea ? $ea->center_lat : null,
-                'lng' => $ea ? $ea->center_lng : null,
+                'lat' => $lat,
+                'lng' => $lng,
             ];
         });
 
