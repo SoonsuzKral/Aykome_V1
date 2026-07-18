@@ -487,12 +487,13 @@ class MapsController extends Controller
         }
 
         $basvurular = $query->select('id', 'application_no', 'institution_id', 'status', 'created_at')
-            ->with('excavationArea')
+            ->with('excavationAreas')
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get();
 
         $results = $basvurular->map(function ($b) {
+            $ea = $b->excavationAreas->first();
             return [
                 'id' => $b->id,
                 'application_no' => $b->application_no,
@@ -500,8 +501,8 @@ class MapsController extends Controller
                 'kurum_adi' => $b->institution ? $b->institution->name : '—',
                 'durum' => $b->status,
                 'tarih' => $b->created_at ? $b->created_at->format('d.m.Y') : '—',
-                'lat' => $b->excavationArea ? $b->excavationArea->center_lat : null,
-                'lng' => $b->excavationArea ? $b->excavationArea->center_lng : null,
+                'lat' => $ea ? $ea->center_lat : null,
+                'lng' => $ea ? $ea->center_lng : null,
             ];
         });
 

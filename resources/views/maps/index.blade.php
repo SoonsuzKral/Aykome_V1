@@ -1866,8 +1866,8 @@ function sorgulaYakinZamanaEkle(b){
     div.dataset.lng=b.lng||'';
     var statusClass='sorgula-status-aktif';
     var statusText='Aktif';
-    if(b.status==='onaylandı'||b.status==='approved'){statusClass='sorgula-status-onay';statusText='Onaylı'}
-    else if(b.status==='red'||b.status==='rejected'){statusClass='sorgula-status-red';statusText='Red'}
+    if(b.durum==='onaylandı'||b.durum==='approved'){statusClass='sorgula-status-onay';statusText='Onaylı'}
+    else if(b.durum==='red'||b.durum==='rejected'){statusClass='sorgula-status-red';statusText='Red'}
     div.innerHTML='<div class="sorgula-item-icon">📄</div>'
         +'<div class="sorgula-item-info"><div class="sorgula-item-no">'+escHtml(b.application_no)+'</div>'
         +'<div class="sorgula-item-detay">'+escHtml(b.kurum_adi||b.ilce||'')+'</div></div>'
