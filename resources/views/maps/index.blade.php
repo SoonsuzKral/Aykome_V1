@@ -479,6 +479,39 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 .search-result-item .result-icon { color: #94a3b8; margin-top: 2px; }
 .search-result-item .result-main { font-weight: 500; color: #1e293b; }
 .search-result-item .result-sub { color: #64748b; font-size: 12px; }
+.search-spinner { display:inline-block;width:16px;height:16px;border:2px solid #e2e8f0;border-top-color:#E87722;border-radius:50%;animation:searchSpin 0.6s linear infinite;vertical-align:middle;margin-right:6px }
+@keyframes searchSpin { to { transform:rotate(360deg) } }
+
+/* Sorgula Modal */
+#maps-sorgula-modal { position:fixed;top:0;left:0;width:100%;height:100%;z-index:3000;display:flex;align-items:flex-start;justify-content:center;padding-top:80px }
+.sorgula-backdrop { position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.5);backdrop-filter:blur(4px) }
+.sorgula-box { position:relative;background:#fff;border-radius:16px;width:420px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:sorgulaFadeIn 0.25s ease-out }
+@keyframes sorgulaFadeIn { from { opacity:0;transform:translateY(-20px)scale(0.96) } to { opacity:1;transform:translateY(0)scale(1) } }
+.sorgula-header { display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #e2e8f0 }
+.sorgula-title { font-size:16px;font-weight:600;color:#0f172a }
+.sorgula-close { background:none;border:none;font-size:22px;color:#94a3b8;cursor:pointer;padding:0 4px;line-height:1 }
+.sorgula-close:hover { color:#475569 }
+.sorgula-body { padding:16px 20px 20px }
+.sorgula-input-wrap { display:flex;gap:8px }
+.sorgula-input-wrap input { flex:1;padding:10px 14px;border:2px solid #e2e8f0;border-radius:10px;font-size:14px;outline:none;transition:border-color 0.2s }
+.sorgula-input-wrap input:focus { border-color:#E87722 }
+.sorgula-input-wrap button { padding:10px 20px;background:#E87722;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.2s }
+.sorgula-input-wrap button:hover { background:#d06a1a }
+.sorgula-yakin-zamanda { margin-top:16px }
+.sorgula-yakin-title { font-size:12px;font-weight:500;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px }
+.sorgula-item { display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background 0.15s }
+.sorgula-item:hover { background:#f1f5f9 }
+.sorgula-item-icon { width:36px;height:36px;border-radius:50%;background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0 }
+.sorgula-item-info { flex:1;min-width:0 }
+.sorgula-item-no { font-size:14px;font-weight:500;color:#0f172a }
+.sorgula-item-detay { font-size:12px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+.sorgula-item-status { font-size:11px;padding:2px 8px;border-radius:4px;font-weight:500 }
+.sorgula-status-aktif { background:#dcfce7;color:#16a34a }
+.sorgula-status-onay { background:#dbeafe;color:#2563eb }
+.sorgula-status-red { background:#fee2e2;color:#dc2626 }
+#sorgula-sonuc { margin-top:12px;padding:14px;border-radius:10px;text-align:center;font-size:14px }
+#sorgula-sonuc.basarili { background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0 }
+#sorgula-sonuc.hata { background:#fef2f2;color:#dc2626;border:1px solid #fecaca }
 
 #maps-toggle-mobile { display: none; }
 
@@ -650,9 +683,31 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 
         <div id="maps-search-control">
             <div class="search-box">
-                <input type="text" id="maps-search-input" placeholder="🔍 Adres veya yer ara..." autocomplete="off">
+                <input type="text" id="maps-search-input" placeholder="🔍 Cadde, sokak, ada veya parsel ara..." autocomplete="off">
                 <div id="maps-search-results" class="search-dropdown" style="display:none"></div>
             </div>
+        </div>
+
+        <div id="maps-sorgula-modal" style="display:none">
+            <div class="sorgula-backdrop" onclick="closeSorgulaModal()"></div>
+            <div class="sorgula-box">
+                <div class="sorgula-header">
+                    <span class="sorgula-title">🔍 Başvuru Sorgula</span>
+                    <button class="sorgula-close" onclick="closeSorgulaModal()">×</button>
+                </div>
+                <div class="sorgula-body">
+                    <div class="sorgula-input-wrap">
+                        <input type="text" id="sorgula-input" placeholder="Başvuru No girin (örn: AYK-2026-...)">
+                        <button id="sorgula-git">Sorgula</button>
+                    </div>
+                    <div id="sorgula-yakin-zamanda" class="sorgula-yakin-zamanda">
+                        <div class="sorgula-yakin-title">Yakın Zamanda</div>
+                        <div id="sorgula-yakin-liste"></div>
+                    </div>
+                    <div id="sorgula-sonuc" style="display:none"></div>
+                </div>
+            </div>
+        </div>
         </div>
 
         <div id="maps-map-canvas" style="width:100%;height:100%;"></div>
@@ -1757,6 +1812,111 @@ function showToast(msg, duration){
     t._hideTimer=setTimeout(function(){t.classList.remove('show')},duration||4000);
 }
 
+// ─── Sorgula Modal ───
+function openSorgulaModal(){
+    var m=document.getElementById('maps-sorgula-modal');
+    m.style.display='flex';m.classList.remove('sorgula-closing');
+    document.getElementById('sorgula-input').value='';
+    document.getElementById('sorgula-sonuc').style.display='none';
+    setTimeout(function(){document.getElementById('sorgula-input').focus()},100);
+}
+function closeSorgulaModal(){
+    var m=document.getElementById('maps-sorgula-modal');
+    m.classList.add('sorgula-closing');
+    setTimeout(function(){m.style.display='none'},200);
+}
+function doSorgula(){
+    var no=document.getElementById('sorgula-input').value.trim();
+    if(!no){showToast('⚠️ Başvuru no girin');return}
+    var btn=document.getElementById('sorgula-git');
+    btn.textContent='⏳';btn.disabled=true;
+    fetch('/maps/basvuru-sorgula?q='+encodeURIComponent(no))
+    .then(function(r){return r.json()})
+    .then(function(d){
+        var sonuc=document.getElementById('sorgula-sonuc');
+        sonuc.style.display='block';
+        if(d.data&&d.data.length){
+            var b=d.data[0];
+            sonuc.className='basarili';
+            sonuc.innerHTML='✅ <strong>'+escHtml(b.application_no)+'</strong> bulundu — haritaya gidiliyor...';
+            if(b.lat&&b.lng) mapsMap.setView([b.lat,b.lng],17);
+            // Yakın zamana ekle
+            sorgulaYakinZamanaEkle(b);
+        }else{
+            sonuc.className='hata';
+            sonuc.innerHTML='❌ "'+escHtml(no)+'" ile eşleşen başvuru bulunamadı';
+        }
+        btn.textContent='Sorgula';btn.disabled=false;
+    })
+    .catch(function(){
+        var sonuc=document.getElementById('sorgula-sonuc');
+        sonuc.style.display='block';sonuc.className='hata';
+        sonuc.innerHTML='❌ Sorgu başarısız';
+        btn.textContent='Sorgula';btn.disabled=false;
+    });
+}
+function sorgulaYakinZamanaEkle(b){
+    var liste=document.getElementById('sorgula-yakin-liste');
+    if(!b||!b.application_no)return;
+    var items=liste.querySelectorAll('.sorgula-item');
+    for(var i=0;i<items.length;i++){
+        if(items[i].dataset.no===b.application_no)return;
+    }
+    var div=document.createElement('div');
+    div.className='sorgula-item';
+    div.dataset.no=b.application_no;
+    div.dataset.lat=b.lat||'';
+    div.dataset.lng=b.lng||'';
+    var statusClass='sorgula-status-aktif';
+    var statusText='Aktif';
+    if(b.status==='onaylandı'||b.status==='approved'){statusClass='sorgula-status-onay';statusText='Onaylı'}
+    else if(b.status==='red'||b.status==='rejected'){statusClass='sorgula-status-red';statusText='Red'}
+    div.innerHTML='<div class="sorgula-item-icon">📄</div>'
+        +'<div class="sorgula-item-info"><div class="sorgula-item-no">'+escHtml(b.application_no)+'</div>'
+        +'<div class="sorgula-item-detay">'+escHtml(b.kurum_adi||b.ilce||'')+'</div></div>'
+        +'<span class="sorgula-item-status '+statusClass+'">'+statusText+'</span>';
+    div.addEventListener('click',function(){
+        var lat=parseFloat(this.dataset.lat);
+        var lng=parseFloat(this.dataset.lng);
+        if(!isNaN(lat)&&!isNaN(lng)) mapsMap.setView([lat,lng],17);
+        closeSorgulaModal();
+        showToast('🔍 '+this.dataset.no);
+    });
+    liste.insertBefore(div,liste.firstChild);
+    if(liste.children.length>5)liste.removeChild(liste.lastChild);
+    localStorage.setItem('maps_yakin_sorgular',JSON.stringify(
+        Array.from(liste.children).map(function(c){return{no:c.dataset.no,lat:c.dataset.lat,lng:c.dataset.lng}})
+    ));
+    document.getElementById('sorgula-yakin-zamanda').style.display='block';
+}
+function sorgulaYakinZamandaYukle(){
+    var liste=document.getElementById('sorgula-yakin-liste');
+    var kayit=localStorage.getItem('maps_yakin_sorgular');
+    if(!kayit){document.getElementById('sorgula-yakin-zamanda').style.display='none';return}
+    try{
+        var data=JSON.parse(kayit);
+        data.forEach(function(b){
+            var div=document.createElement('div');
+            div.className='sorgula-item';
+            div.dataset.no=b.no;
+            div.dataset.lat=b.lat;
+            div.dataset.lng=b.lng;
+            div.innerHTML='<div class="sorgula-item-icon">📄</div>'
+                +'<div class="sorgula-item-info"><div class="sorgula-item-no">'+escHtml(b.no)+'</div>'
+                +'<div class="sorgula-item-detay">Geçmiş sorgu</div></div>'
+                +'<span class="sorgula-item-status sorgula-status-aktif">Yeniden</span>';
+            div.addEventListener('click',function(){
+                var lat=parseFloat(this.dataset.lat);
+                var lng=parseFloat(this.dataset.lng);
+                if(!isNaN(lat)&&!isNaN(lng)) mapsMap.setView([lat,lng],17);
+                closeSorgulaModal();
+                showToast('🔍 '+this.dataset.no);
+            });
+            liste.appendChild(div);
+        });
+    }catch(e){document.getElementById('sorgula-yakin-zamanda').style.display='none'}
+}
+
 w.startDrawMarker=function(){
     if(!mapsMap)return;
     if(currentDrawLayer){try{currentDrawLayer.disable()}catch(e){}}
@@ -1921,19 +2081,16 @@ function setupEventListeners(){
     });
 
     document.getElementById('btn-sorgula').addEventListener('click',function(){
-        var no=prompt('Başvuru No girin (örn: AYK-2026-)');
-        if(!no)return;
-        fetch('/maps/basvuru-sorgula?q='+encodeURIComponent(no))
-        .then(function(r){return r.json()})
-        .then(function(d){
-            if(d.data&&d.data.length){
-                var b=d.data[0];
-                if(b.lat&&b.lng)mapsMap.setView([b.lat,b.lng],17);
-                showToast('Bulunan: '+b.application_no);
-            }else showToast('Sonuç bulunamadı');
-        })
-        .catch(function(){showToast('Sorgu başarısız')});
+        openSorgulaModal();
     });
+
+    document.getElementById('sorgula-input').addEventListener('keydown',function(e){
+        if(e.key==='Enter')doSorgula();
+    });
+    document.getElementById('sorgula-git').addEventListener('click',doSorgula);
+
+    // Sorgula modal yakın zamanda listesini yükle
+    sorgulaYakinZamandaYukle();
 
     document.addEventListener('keydown',function(e){
         if(e.key==='Escape'){
@@ -1984,6 +2141,7 @@ function setupEventListeners(){
 }
 
 function escHtml(t){var d=document.createElement('div');d.appendChild(document.createTextNode(t||''));return d.innerHTML}
+var _searchCache={};
 function initSearchControl(){
     var searchTimeout;
     var input=document.getElementById('maps-search-input');
@@ -1991,95 +2149,56 @@ function initSearchControl(){
     input.addEventListener('input',function(){
         clearTimeout(searchTimeout);
         var q=this.value.trim();
-        if(q.length<2){
-            resultsEl.style.display='none';
+        if(q.length<2){resultsEl.style.display='none';return}
+        // Client cache
+        if(_searchCache[q]){
+            renderSearchResults(_searchCache[q],input,resultsEl);
             return;
         }
+        resultsEl.innerHTML='<div style="padding:12px;text-align:center;color:#94a3b8"><span class="search-spinner"></span> Araştırılıyor...</div>';
+        resultsEl.style.display='block';
         searchTimeout=setTimeout(function(){
-            var qUrfa=q+' \u015Eanl\u0131urfa';
-            var results=[];
-            var done=0;
-
-            function renderResults(){
-                if(++done<2)return;
-                // sort: Nominatim first (type=place), then cadde, bina, parsel, ada
-                results.sort(function(a,b){
-                    var order={place:0,cadde:1,bina:2,parsel:3,ada:4};
-                    return (order[a.type]||9)-(order[b.type]||9);
-                });
-                var top=results.slice(0,12);
-                if(!top.length){resultsEl.style.display='none';return}
-                resultsEl.innerHTML=top.map(function(r){
-                    var icons={place:'\uD83D\uDCCD',cadde:'\uD83D\uDEE3\uFE0F',bina:'\uD83C\uDFE0',parsel:'\uD83D\uDCCB',ada:'\uD83D\uDCC4'};
-                    return '<div class="search-result-item" data-lat="'+r.lat+'" data-lon="'+r.lon+'">'
-                        +'<span class="result-icon">'+(icons[r.type]||'\uD83D\uDCCD')+'</span>'
-                        +'<div><div class="result-main">'+escHtml(r.label)+'</div>'
-                        +'<div class="result-sub">'+escHtml(r.detail||'')+'</div></div>'
-                        +'</div>';
-                }).join('');
-                resultsEl.style.display='block';
-                resultsEl.querySelectorAll('.search-result-item').forEach(function(item){
-                    item.addEventListener('click',function(){
-                        var lat=parseFloat(this.dataset.lat);
-                        var lon=parseFloat(this.dataset.lon);
-                        mapsMap.flyTo([lat,lon],18,{animate:true,duration:1.2});
-                        if(window._searchMarker)mapsMap.removeLayer(window._searchMarker);
-                        window._searchMarker=L.marker([lat,lon],{
-                            icon:L.divIcon({
-                                className:'',
-                                html:'<div style="background:#E87722;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 0 8px rgba(232,119,34,0.8);animation:pulse 1.5s infinite"></div>',
-                                iconSize:[14,14],iconAnchor:[7,7]
-                            })
-                        }).addTo(mapsMap);
-                        resultsEl.style.display='none';
-                        input.value=this.querySelector('.result-main').textContent;
-                    });
-                });
-            }
-
-            // 1. Nominatim
-            fetch('https://nominatim.openstreetmap.org/search'
-                +'?format=json&q='+encodeURIComponent(qUrfa)
-                +'&limit=5&addressdetails=1&accept-language=tr'
-                +'&viewbox=37.5,37.8,39.5,36.5&bounded=1')
-            .then(function(r){return r.json()})
-            .then(function(data){
-                data.forEach(function(r){
-                    if(r.lat&&r.lon){
-                        var parts=r.display_name.split(', ');
-                        results.push({
-                            type:'place',
-                            label: parts[0],
-                            detail: parts.slice(1,4).join(', '),
-                            lat: parseFloat(r.lat),
-                            lon: parseFloat(r.lon)
-                        });
-                    }
-                });
-                renderResults();
-            }).catch(function(){renderResults()});
-
-            // 2. Local WFS search
             fetch('/maps/ara?q='+encodeURIComponent(q))
             .then(function(r){return r.json()})
             .then(function(data){
-                data.forEach(function(r){
-                    results.push({
-                        type: r.type,
-                        label: r.label,
-                        detail: r.detail,
-                        lat: parseFloat(r.lat),
-                        lon: parseFloat(r.lon)
-                    });
-                });
-                renderResults();
-            }).catch(function(){renderResults()});
-        },350);
+                _searchCache[q]=data;
+                renderSearchResults(data,input,resultsEl);
+            }).catch(function(){resultsEl.style.display='none'});
+        },120);
     });
     document.addEventListener('click',function(e){
         if(!e.target.closest('#maps-search-control')){
             resultsEl.style.display='none';
         }
+    });
+}
+function renderSearchResults(data,input,resultsEl){
+    if(!data||!data.length){resultsEl.style.display='none';return}
+    resultsEl.innerHTML=data.map(function(r){
+        var icons={cadde:'🛣️',parsel:'📋'};
+        return '<div class="search-result-item" data-lat="'+r.lat+'" data-lon="'+r.lon+'">'
+            +'<span class="result-icon">'+(icons[r.type]||'📍')+'</span>'
+            +'<div><div class="result-main">'+escHtml(r.label)+'</div>'
+            +'<div class="result-sub">'+escHtml(r.detail||'')+'</div></div>'
+            +'</div>';
+    }).join('');
+    resultsEl.style.display='block';
+    resultsEl.querySelectorAll('.search-result-item').forEach(function(item){
+        item.addEventListener('click',function(){
+            var lat=parseFloat(this.dataset.lat);
+            var lon=parseFloat(this.dataset.lon);
+            mapsMap.flyTo([lat,lon],18,{animate:true,duration:1});
+            if(window._searchMarker)mapsMap.removeLayer(window._searchMarker);
+            window._searchMarker=L.marker([lat,lon],{
+                icon:L.divIcon({
+                    className:'',
+                    html:'<div style="background:#E87722;width:14px;height:14px;border-radius:50%;border:3px solid white;box-shadow:0 0 8px rgba(232,119,34,0.8);animation:pulse 1.5s infinite"></div>',
+                    iconSize:[14,14],iconAnchor:[7,7]
+                })
+            }).addTo(mapsMap);
+            resultsEl.style.display='none';
+            input.value=this.querySelector('.result-main').textContent;
+        });
     });
 }
 
