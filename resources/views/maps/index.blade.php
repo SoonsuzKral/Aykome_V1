@@ -1151,67 +1151,64 @@ function handleMapsClick(e){
     fetch(gfiUrl)
     .then(function(r){return r.json()})
     .then(function(gfiData){
-        // WMS'den parsel/bina bilgisi gelirse kullan, yoksa Nominatim fallback
+        // WMS'den parsel/bina bilgisi gelirse kullan
+        var ilce='',mahalle='',cadde='',ada='',parsel='',kapiNo='';
         if(gfiData&&gfiData.features&&gfiData.features.length){
-            var gfiProps=gfiData.features[0].properties||{};
-            var ilce=gfiProps.ILCE||gfiProps.ilce||'';
-            var mahalle=gfiProps.MAHALLE_AD||gfiProps.MAHALLE||gfiProps.mahalle||'';
-            var cadde=((gfiProps.CADDE_SO_1||'')+' '+(gfiProps.CADDE_SO_2||'')).trim()||gfiProps.CADDE||gfiProps.cadde||'';
-            var ada=gfiProps.ADA||'';
-            var parsel=gfiProps.PARSEL||'';
-            var kapiNo=gfiProps.KAPI_NO||gfiProps.kapino||gfiProps.KAPINO||'';
-            window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,kapiNo:kapiNo,ada:ada,parsel:parsel,displayName:(ilce?ilce+' / ':'')+(mahalle?mahalle:'')};
-            gosterPopup(lat,lng,ilce,mahalle,cadde,ada,parsel);
-            /* WMS cadde bos ise Nominatim'den cadde/sokak al */
-            if(!cadde&&_nominatimController)_nominatimController.abort();
-            if(!cadde){
-                _nominatimController=new AbortController();
-                fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&addressdetails=1&accept-language=tr',{signal:_nominatimController.signal})
-                .then(function(r){return r.json()})
-                .then(function(data){
-                    var a=data.address||{};
-                    var nCadde=a.road||a.street||'';
-                    var nKapiNo=a.house_number||'';
-                    if(nCadde||nKapiNo){
-                        window._sonTiklama.cadde=nCadde||window._sonTiklama.cadde;
-                        window._sonTiklama.kapiNo=nKapiNo||window._sonTiklama.kapiNo;
-                        /* adres ozetini guncelle */
-                        var p=[];
-                        if(window._sonTiklama.ilce)p.push(window._sonTiklama.ilce);
-                        if(window._sonTiklama.mahalle)p.push(window._sonTiklama.mahalle+' Mah.');
-                        if(window._sonTiklama.cadde)p.push(window._sonTiklama.cadde);
-                        if(window._sonTiklama.kapiNo)p.push('No:'+window._sonTiklama.kapiNo);
-                        document.getElementById('basvuru-adres-ozet').innerHTML='\uD83D\uDCCD '+p.join(', ');
-                        document.getElementById('bs-cadde').value=window._sonTiklama.cadde;
-                        document.getElementById('bs-address').value=p.join(', ');
-                    }
-                })
-                .catch(function(){});
-            }
-            return;
+            gfiData.features.forEach(function(f){
+                var p=f.properties||{};
+                if(p.ILCE||p.ilce) ilce=p.ILCE||p.ilce;
+                if(p.MAHALLE_AD||p.MAHALLE||p.mahalle) mahalle=p.MAHALLE_AD||p.MAHALLE||p.mahalle;
+                var c=((p.CADDE_SO_1||'')+' '+(p.CADDE_SO_2||'')).trim()||p.CADDE||p.cadde||'';
+                if(c) cadde=c;
+                if(p.ADA) ada=p.ADA;
+                if(p.PARSEL) parsel=p.PARSEL;
+                if(p.KAPI_NO||p.kapino||p.KAPINO) kapiNo=p.KAPI_NO||p.kapino||p.KAPINO;
+            });
         }
-        throw new Error('WMS bos');
+        window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,kapiNo:kapiNo,ada:ada,parsel:parsel,displayName:(ilce?ilce+' / ':'')+(mahalle?mahalle:'')};
+        gosterPopup(lat,lng,ilce,mahalle,cadde,ada,parsel);
+        /* WMS'ten eksik kalan adres bilgilerini Nominatim'den tamamla */
+        _nominatimAdresTamamla(lat,lng);
     })
     .catch(function(){
-        // Nominatim fallback
-        if(_nominatimController) _nominatimController.abort();
-        _nominatimController=new AbortController();
-        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&addressdetails=1&accept-language=tr',{signal:_nominatimController.signal})
-        .then(function(r){return r.json()})
-        .then(function(data){
-            var addr=data.address||{};
-            var ilce=addr.county||addr.town||addr.city_district||addr.district||'';
-            var mahalle=addr.suburb||addr.neighbourhood||addr.quarter||addr.village||'';
-            var cadde=addr.road||addr.street||'';
-            var kapiNo=addr.house_number||'';
-            window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,kapiNo:kapiNo,ada:'',parsel:'',displayName:data.display_name||lat.toFixed(6)+', '+lng.toFixed(6)};
-            gosterPopup(lat,lng,ilce,mahalle,cadde,'','');
-        })
-        .catch(function(err){
-            if(err&&err.name==='AbortError')return;
-            window._sonTiklama={lat:lat,lng:lng,ilce:'',mahalle:'',cadde:'',kapiNo:'',ada:'',parsel:'',displayName:lat.toFixed(6)+', '+lng.toFixed(6)};
-            gosterPopup(lat,lng,'','','','','');
-        });
+        // WMS hatasi -> Nominatim
+        _nominatimAdresTamamla(lat,lng);
+    });
+}
+
+function _nominatimAdresTamamla(lat,lng){
+    if(_nominatimController) _nominatimController.abort();
+    _nominatimController=new AbortController();
+    fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&addressdetails=1&accept-language=tr',{signal:_nominatimController.signal})
+    .then(function(r){return r.json()})
+    .then(function(data){
+        var addr=data.address||{};
+        var nIlce=addr.county||addr.town||addr.city_district||addr.district||'';
+        var nMh=addr.suburb||addr.neighbourhood||addr.quarter||addr.village||'';
+        var nCadde=addr.road||addr.street||'';
+        var nKapiNo=addr.house_number||'';
+        window._sonTiklama=window._sonTiklama||{lat:lat,lng:lng,ilce:'',mahalle:'',cadde:'',kapiNo:'',ada:'',parsel:'',displayName:''};
+        if(nIlce&&!window._sonTiklama.ilce) window._sonTiklama.ilce=nIlce;
+        if(nMh&&!window._sonTiklama.mahalle) window._sonTiklama.mahalle=nMh;
+        if(nCadde&&!window._sonTiklama.cadde) window._sonTiklama.cadde=nCadde;
+        if(nKapiNo&&!window._sonTiklama.kapiNo) window._sonTiklama.kapiNo=nKapiNo;
+        window._sonTiklama.displayName=data.display_name||lat.toFixed(6)+', '+lng.toFixed(6);
+        if(!window._sonTiklama.ilce&&!window._sonTiklama.mahalle&&!window._sonTiklama.cadde) return;
+        /* Adres ozetini guncelle */
+        var p=[];
+        if(window._sonTiklama.ilce)p.push(window._sonTiklama.ilce);
+        if(window._sonTiklama.mahalle)p.push(window._sonTiklama.mahalle+' Mah.');
+        if(window._sonTiklama.cadde)p.push(window._sonTiklama.cadde);
+        if(window._sonTiklama.kapiNo)p.push('No:'+window._sonTiklama.kapiNo);
+        document.getElementById('basvuru-adres-ozet').innerHTML='\uD83D\uDCCD '+p.join(', ');
+        document.getElementById('bs-address').value=p.join(', ');
+        document.getElementById('bs-ilce').value=window._sonTiklama.ilce;
+        document.getElementById('bs-mahalle').value=window._sonTiklama.mahalle;
+        document.getElementById('bs-cadde').value=window._sonTiklama.cadde;
+        gosterPopup(lat,lng,window._sonTiklama.ilce,window._sonTiklama.mahalle,window._sonTiklama.cadde,window._sonTiklama.ada,window._sonTiklama.parsel);
+    })
+    .catch(function(err){
+        if(err&&err.name==='AbortError')return;
     });
 }
 
