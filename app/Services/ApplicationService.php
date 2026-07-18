@@ -65,14 +65,9 @@ class ApplicationService
                     ]);
 
                     $year = now()->year;
-                    $allNums = Application::query()
-                        ->where('application_no', 'like', $year . '-%')
-                        ->whereNotNull('application_no')
-                        ->pluck('application_no');
-                    $maxNo = $allNums->map(fn($v) => (int) substr($v, strrpos($v, '-') + 1))->max();
-                    $nextNo = $maxNo > 0 ? $maxNo + 1 : 1;
+                    // Oracle unique constraint sorunu — id bazlı atama (en güvenilir yöntem)
                     $application->update([
-                        'application_no' => sprintf('%s-%03d', $year, $nextNo),
+                        'application_no' => sprintf('%s-%04d', $year, $application->id),
                     ]);
 
                     if (! empty($data['polygon_geojson']) || ! empty($data['total_area_m2'])) {

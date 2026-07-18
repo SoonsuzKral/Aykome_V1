@@ -405,7 +405,6 @@ class MapsController extends Controller
             'selected_parsellers' => ['nullable', 'string'],
             'geometri' => ['nullable', 'json'],
             'draw_type' => ['nullable', 'string', 'max:20'],
-            'excavation_reason' => ['nullable', 'string', 'max:255'],
             'work_type' => ['nullable', 'string', 'max:100'],
             'address_text' => ['nullable', 'string', 'max:500'],
             'start_date' => ['nullable', 'date'],
@@ -414,13 +413,8 @@ class MapsController extends Controller
             'applicant_last_name' => ['nullable', 'string', 'max:100'],
             'applicant_national_id' => ['nullable', 'string', 'max:11'],
             'applicant_phone' => ['nullable', 'string', 'max:20'],
-            'description' => ['nullable', 'string'],
-            'kazi_derinligi' => ['nullable', 'numeric', 'min:0', 'max:100'],
-            'tahmini_sure' => ['nullable', 'integer', 'min:1', 'max:365'],
             'secili_caddeler' => ['nullable', 'array'],
             'secili_caddeler.*' => ['nullable', 'string'],
-            'secili_kapilar' => ['nullable', 'array'],
-            'secili_kapilar.*' => ['nullable', 'string'],
         ]);
 
         $nokta = GisBasvuruNokta::create([
@@ -437,7 +431,6 @@ class MapsController extends Controller
                 'selected_parsellers' => $data['selected_parsellers'] ?? '[]',
                 'geometri' => $data['geometri'] ?? null,
                 'draw_type' => $data['draw_type'] ?? null,
-                'excavation_reason' => $data['excavation_reason'] ?? '',
                 'work_type' => $data['work_type'] ?? '',
                 'address_text' => $data['address_text'] ?? '',
                 'start_date' => $data['start_date'] ?? '',
@@ -446,11 +439,7 @@ class MapsController extends Controller
                 'applicant_last_name' => $data['applicant_last_name'] ?? '',
                 'applicant_national_id' => $data['applicant_national_id'] ?? '',
                 'applicant_phone' => $data['applicant_phone'] ?? '',
-                'description' => $data['description'] ?? '',
-                'kazi_derinligi' => $data['kazi_derinligi'] ?? '',
-                'tahmini_sure' => $data['tahmini_sure'] ?? '',
                 'secili_caddeler' => $data['secili_caddeler'] ?? [],
-                'secili_kapilar' => $data['secili_kapilar'] ?? [],
             ]),
         ]);
 

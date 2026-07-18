@@ -86,8 +86,8 @@
         'cbs:MISMAP_MAHALLE_KOYLER',
         'smpns:MISMAP_NUM_KADASTRO_PARSEL',
         'smpns:MISMAP_NUM_BINA',
-        'aykome:AYK_SU_ICMESUYU_LINKS',
-        'aykome:AYK_DOGALGAZ_LINKS',
+        'smpns:AYK_SU_ICMESUYU_LINKS',
+        'smpns:AYK_DOGALGAZ_LINKS',
     ];
     defaultLayers.forEach(function(l){
         L.tileLayer.wms(GEO3_WMS, {
