@@ -316,10 +316,180 @@ class MapsController extends Controller
 
     public function search(Request $request)
     {
-        // Phase 5'te implement edilecek
         $q = $request->input('q');
-        if (!$q) return response()->json([]);
-        return response()->json([]);
+        if (!$q || strlen(trim($q)) < 2) return response()->json([]);
+        $q = trim($q);
+
+        $results = [];
+
+        // 1. Cadde/Sokak sorgusu (geo3 WFS)
+        try {
+            $caddeUrl = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
+                . '?service=WFS&version=2.0.0&request=GetFeature'
+                . '&typeNames=cbs:MISMAP_CADDE_SOKAK'
+                . '&cql_filter=' . urlencode("CADDE_SO_1 ILIKE '%{$q}%' OR CADDE_SO_2 ILIKE '%{$q}%'")
+                . '&outputFormat=application/json&srsName=EPSG:4326&count=8';
+            $resp = Http::withOptions(['verify' => false])->timeout(8)->get($caddeUrl);
+            if ($resp->successful()) {
+                $data = $resp->json();
+                if (!empty($data['features'])) {
+                    foreach ($data['features'] as $f) {
+                        $p = $f['properties'] ?? [];
+                        $name = trim(($p['CADDE_SO_1'] ?? '') . ' ' . ($p['CADDE_SO_2'] ?? ''));
+                        if (!$name) continue;
+                        $center = $this->centroidFromGeoJson($f['geometry']);
+                        if (!$center) continue;
+                        $results[] = [
+                            'type' => 'cadde',
+                            'label' => $name,
+                            'detail' => ($p['MAHALLE_AD'] ?? '') . ', ' . ($p['ILCE'] ?? ''),
+                            'lat' => $center['lat'],
+                            'lon' => $center['lng'],
+                        ];
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Cadde arama hatası: ' . $e->getMessage());
+        }
+
+        // 2. Parsel/Ada sorgusu
+        try {
+            $parselUrl = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
+                . '?service=WFS&version=2.0.0&request=GetFeature'
+                . '&typeNames=smpns:MISMAP_NUM_KADASTRO_PARSEL'
+                . '&cql_filter=' . urlencode("ADA ILIKE '%{$q}%' OR PARSEL ILIKE '%{$q}%'")
+                . '&outputFormat=application/json&srsName=EPSG:4326&count=5';
+            $resp = Http::withOptions(['verify' => false])->timeout(8)->get($parselUrl);
+            if ($resp->successful()) {
+                $data = $resp->json();
+                if (!empty($data['features'])) {
+                    foreach ($data['features'] as $f) {
+                        $p = $f['properties'] ?? [];
+                        $label = 'Ada ' . ($p['ADA'] ?? '') . ' / Parsel ' . ($p['PARSEL'] ?? '');
+                        $center = $this->centroidFromGeoJson($f['geometry']);
+                        if (!$center) continue;
+                        $results[] = [
+                            'type' => 'parsel',
+                            'label' => $label,
+                            'detail' => ($p['MAHALLE_AD'] ?? '') . ', ' . ($p['ILCE'] ?? ''),
+                            'lat' => $center['lat'],
+                            'lon' => $center['lng'],
+                        ];
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Parsel arama hatası: ' . $e->getMessage());
+        }
+
+        // 3. Bina/Kapi No sorgusu
+        try {
+            $binaUrl = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
+                . '?service=WFS&version=2.0.0&request=GetFeature'
+                . '&typeNames=smpns:MISMAP_NUM_BINA'
+                . '&cql_filter=' . urlencode("KAPI_NO ILIKE '%{$q}%' OR BINA_AD ILIKE '%{$q}%'")
+                . '&outputFormat=application/json&srsName=EPSG:4326&count=5';
+            $resp = Http::withOptions(['verify' => false])->timeout(8)->get($binaUrl);
+            if ($resp->successful()) {
+                $data = $resp->json();
+                if (!empty($data['features'])) {
+                    foreach ($data['features'] as $f) {
+                        $p = $f['properties'] ?? [];
+                        $label = ($p['BINA_AD'] ?? 'Bina') . ' No:' . ($p['KAPI_NO'] ?? '');
+                        $center = $this->centroidFromGeoJson($f['geometry']);
+                        if (!$center) continue;
+                        $results[] = [
+                            'type' => 'bina',
+                            'label' => $label,
+                            'detail' => ($p['MAHALLE_AD'] ?? '') . ', ' . ($p['CADDE_SO_1'] ?? '') . ' ' . ($p['CADDE_SO_2'] ?? ''),
+                            'lat' => $center['lat'],
+                            'lon' => $center['lng'],
+                        ];
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Bina arama hatası: ' . $e->getMessage());
+        }
+
+        // 4. Ada sorgusu (cbs:MISMAP_KADASTRO_ADA)
+        try {
+            $adaUrl = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
+                . '?service=WFS&version=2.0.0&request=GetFeature'
+                . '&typeNames=cbs:MISMAP_KADASTRO_ADA'
+                . '&cql_filter=' . urlencode("ADA ILIKE '%{$q}%'")
+                . '&outputFormat=application/json&srsName=EPSG:4326&count=5';
+            $resp = Http::withOptions(['verify' => false])->timeout(8)->get($adaUrl);
+            if ($resp->successful()) {
+                $data = $resp->json();
+                if (!empty($data['features'])) {
+                    foreach ($data['features'] as $f) {
+                        $p = $f['properties'] ?? [];
+                        $label = 'Ada ' . ($p['ADA'] ?? '');
+                        $center = $this->centroidFromGeoJson($f['geometry']);
+                        if (!$center) continue;
+                        $results[] = [
+                            'type' => 'ada',
+                            'label' => $label,
+                            'detail' => ($p['MAHALLE_AD'] ?? '') . ', ' . ($p['ILCE'] ?? ''),
+                            'lat' => $center['lat'],
+                            'lon' => $center['lng'],
+                        ];
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Ada arama hatası: ' . $e->getMessage());
+        }
+
+        // Limit to 20 results, deduplicate by lat+lon
+        $seen = [];
+        $filtered = [];
+        foreach ($results as $r) {
+            $key = round($r['lat'], 5) . '|' . round($r['lon'], 5);
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true;
+            $filtered[] = $r;
+            if (count($filtered) >= 20) break;
+        }
+
+        return response()->json($filtered);
+    }
+
+    private function centroidFromGeoJson($geom)
+    {
+        if (!$geom) return null;
+        $type = $geom['type'] ?? '';
+        $coords = $geom['coordinates'] ?? [];
+
+        if ($type === 'Point') {
+            return ['lng' => $coords[0], 'lat' => $coords[1]];
+        }
+
+        $points = [];
+        if ($type === 'Polygon') {
+            $points = $coords[0] ?? [];
+        } elseif ($type === 'MultiLineString' || $type === 'MultiPolygon') {
+            $ring = $coords[0][0] ?? $coords[0] ?? [];
+            $points = $ring;
+        } elseif ($type === 'LineString') {
+            $points = $coords;
+        }
+
+        if (empty($points)) return null;
+
+        $sumLat = 0; $sumLng = 0; $count = 0;
+        foreach ($points as $p) {
+            if (is_array($p) && count($p) >= 2) {
+                $sumLng += $p[0];
+                $sumLat += $p[1];
+                $count++;
+            }
+        }
+        if ($count === 0) return null;
+
+        return ['lng' => $sumLng / $count, 'lat' => $sumLat / $count];
     }
 
     public function proxy(Request $request)

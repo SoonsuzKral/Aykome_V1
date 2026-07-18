@@ -1983,39 +1983,46 @@ function setupEventListeners(){
     });
 }
 
+function escHtml(t){var d=document.createElement('div');d.appendChild(document.createTextNode(t||''));return d.innerHTML}
 function initSearchControl(){
     var searchTimeout;
-    document.getElementById('maps-search-input').addEventListener('input',function(){
+    var input=document.getElementById('maps-search-input');
+    var resultsEl=document.getElementById('maps-search-results');
+    input.addEventListener('input',function(){
         clearTimeout(searchTimeout);
         var q=this.value.trim();
-        if(q.length<3){
-            document.getElementById('maps-search-results').style.display='none';
+        if(q.length<2){
+            resultsEl.style.display='none';
             return;
         }
         searchTimeout=setTimeout(function(){
-            var url='https://nominatim.openstreetmap.org/search'
-                +'?format=json&q='+encodeURIComponent(q+' \u015Eanl\u0131urfa')
-                +'&limit=6&addressdetails=1&accept-language=tr'
-                +'&viewbox=37.5,37.8,39.5,36.5&bounded=1';
-            fetch(url).then(function(r){return r.json()}).then(function(results){
-                var el=document.getElementById('maps-search-results');
-                if(!results.length){el.style.display='none';return}
-                el.innerHTML=results.map(function(r){
-                    var parts=r.display_name.split(', ');
-                    var main=parts[0];
-                    var sub=parts.slice(1,4).join(', ');
+            var qUrfa=q+' \u015Eanl\u0131urfa';
+            var results=[];
+            var done=0;
+
+            function renderResults(){
+                if(++done<2)return;
+                // sort: Nominatim first (type=place), then cadde, bina, parsel, ada
+                results.sort(function(a,b){
+                    var order={place:0,cadde:1,bina:2,parsel:3,ada:4};
+                    return (order[a.type]||9)-(order[b.type]||9);
+                });
+                var top=results.slice(0,12);
+                if(!top.length){resultsEl.style.display='none';return}
+                resultsEl.innerHTML=top.map(function(r){
+                    var icons={place:'\uD83D\uDCCD',cadde:'\uD83D\uDEE3\uFE0F',bina:'\uD83C\uDFE0',parsel:'\uD83D\uDCCB',ada:'\uD83D\uDCC4'};
                     return '<div class="search-result-item" data-lat="'+r.lat+'" data-lon="'+r.lon+'">'
-                        +'<span class="result-icon">\uD83D\uDCCD</span>'
-                        +'<div><div class="result-main">'+main+'</div>'
-                        +'<div class="result-sub">'+sub+'</div></div>'
+                        +'<span class="result-icon">'+(icons[r.type]||'\uD83D\uDCCD')+'</span>'
+                        +'<div><div class="result-main">'+escHtml(r.label)+'</div>'
+                        +'<div class="result-sub">'+escHtml(r.detail||'')+'</div></div>'
                         +'</div>';
                 }).join('');
-                el.style.display='block';
-                el.querySelectorAll('.search-result-item').forEach(function(item){
+                resultsEl.style.display='block';
+                resultsEl.querySelectorAll('.search-result-item').forEach(function(item){
                     item.addEventListener('click',function(){
                         var lat=parseFloat(this.dataset.lat);
                         var lon=parseFloat(this.dataset.lon);
-                        mapsMap.flyTo([lat,lon],17,{animate:true,duration:1.5,easeLinearity:0.25});
+                        mapsMap.flyTo([lat,lon],18,{animate:true,duration:1.2});
                         if(window._searchMarker)mapsMap.removeLayer(window._searchMarker);
                         window._searchMarker=L.marker([lat,lon],{
                             icon:L.divIcon({
@@ -2024,21 +2031,58 @@ function initSearchControl(){
                                 iconSize:[14,14],iconAnchor:[7,7]
                             })
                         }).addTo(mapsMap);
-                        el.style.display='none';
-                        document.getElementById('maps-search-input').value=this.querySelector('.result-main').textContent;
+                        resultsEl.style.display='none';
+                        input.value=this.querySelector('.result-main').textContent;
                     });
                 });
-            }).catch(function(){
-                document.getElementById('maps-search-results').style.display='none';
-            });
-        },400);
+            }
+
+            // 1. Nominatim
+            fetch('https://nominatim.openstreetmap.org/search'
+                +'?format=json&q='+encodeURIComponent(qUrfa)
+                +'&limit=5&addressdetails=1&accept-language=tr'
+                +'&viewbox=37.5,37.8,39.5,36.5&bounded=1')
+            .then(function(r){return r.json()})
+            .then(function(data){
+                data.forEach(function(r){
+                    if(r.lat&&r.lon){
+                        var parts=r.display_name.split(', ');
+                        results.push({
+                            type:'place',
+                            label: parts[0],
+                            detail: parts.slice(1,4).join(', '),
+                            lat: parseFloat(r.lat),
+                            lon: parseFloat(r.lon)
+                        });
+                    }
+                });
+                renderResults();
+            }).catch(function(){renderResults()});
+
+            // 2. Local WFS search
+            fetch('/maps/ara?q='+encodeURIComponent(q))
+            .then(function(r){return r.json()})
+            .then(function(data){
+                data.forEach(function(r){
+                    results.push({
+                        type: r.type,
+                        label: r.label,
+                        detail: r.detail,
+                        lat: parseFloat(r.lat),
+                        lon: parseFloat(r.lon)
+                    });
+                });
+                renderResults();
+            }).catch(function(){renderResults()});
+        },350);
     });
     document.addEventListener('click',function(e){
         if(!e.target.closest('#maps-search-control')){
-            document.getElementById('maps-search-results').style.display='none';
+            resultsEl.style.display='none';
         }
     });
 }
+
 
 document.addEventListener('DOMContentLoaded',initMaps);
 w.addEventListener('resize',function(){
