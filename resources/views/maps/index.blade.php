@@ -859,6 +859,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 
                 <input type="hidden" id="bs-polygon-geojson">
                 <input type="hidden" id="bs-total-area">
+                <input type="hidden" id="bs-drawing-type" value="">
+                <input type="hidden" id="bs-drawing-length" value="">
                 <input type="hidden" id="bs-center-lat">
                 <input type="hidden" id="bs-center-lng">
             </div>
@@ -1365,11 +1367,23 @@ function _buildOzet(){
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Çalışma Türü</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-work-type')+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Adres</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-address')+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Tarih</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-start-date')+' → '+v('bs-end-date')+'</td></tr>';
-    var alan=v('bs-total-area');
-    html+='<tr><td style="padding:3px 6px;color:#64748b;">Çizilen Alan (m²)</td><td style="padding:3px 6px;font-weight:600;">'+(alan!=='—'?alan+' m²':'—')+'</td></tr>';
+    var drawType=document.getElementById('bs-drawing-type')?.value||'';
+    var kapsamText='';
+    if(drawType==='polygon'){
+        var alan=v('bs-total-area');
+        kapsamText=alan!=='—'?alan+' m² (Poligon Kesisi)':'—';
+    }else if(drawType==='polyline'){
+        var hatUzunluk=v('bs-drawing-length');
+        var genislik=v('bs-width');
+        kapsamText=(hatUzunluk!=='—'?hatUzunluk+' m Hat':'—')+(genislik!=='—'&&genislik?' × '+genislik+'m Genişlik':'');
+    }else{
+        kapsamText=v('bs-total-area');
+        if(kapsamText==='—')kapsamText=v('bs-drawing-length');
+    }
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Kapsam</td><td style="padding:3px 6px;font-weight:600;">'+kapsamText+'</td></tr>';
     var yuzey=document.getElementById('bs-surface-type');
     var yuzeyText=yuzey?yuzey.options[yuzey.selectedIndex]?.text||'-':'-';
-    html+='<tr><td style="padding:3px 6px;color:#64748b;">Yüzey / Keşif</td><td style="padding:3px 6px;font-weight:600;">'+yuzeyText+' | '+v('bs-width')+'m × '+v('bs-length')+'m</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Yüzey / Keşif</td><td style="padding:3px 6px;font-weight:600;">'+yuzeyText+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Teminat</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-deposit-amount')+' ₺</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Kazı Bedeli</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-excavation-amount')+' ₺</td></tr>';
     var dosyaSayisi=_selectedFiles.length;
@@ -1414,31 +1428,37 @@ function formatInput(el){
     el.setSelectionRange(pos,pos);
 }
 function updateSurfaceSummary(){
-    var area=turkishNumber(document.getElementById('bs-total-area')?.value);
-    var w=turkishNumber(document.getElementById('bs-width')?.value);
-    var l=turkishNumber(document.getElementById('bs-length')?.value);
     var price=getSelectedSurfacePrice();
-    var measured=(w>0&&l>0)?w*l:area;
-    var total=measured*price;
+    var total=0;
+    var drawType=document.getElementById('bs-drawing-type')?.value||'';
+    if(drawType==='polygon'){
+        var area=turkishNumber(document.getElementById('bs-total-area')?.value);
+        total=area*price;
+    }else{
+        var w=turkishNumber(document.getElementById('bs-width')?.value);
+        var l=turkishNumber(document.getElementById('bs-length')?.value);
+        total=(w>0&&l>0)?w*l*price:0;
+    }
     var hesaplanan=document.getElementById('bs-hesaplanan-tutar');
     if(hesaplanan) hesaplanan.textContent=total.toFixed(2)+' TL';
 }
 function autoFillDimensions(){
     if(!drawnItems||drawnItems.getLayers().length===0)return;
-    var bounds=drawnItems.getBounds();
-    if(!bounds||!bounds.isValid())return;
-    var c=bounds.getCenter();
-    function dist(a,b){
-        var R=6371000;
-        var dLat=(b.lat-a.lat)*Math.PI/180;
-        var dLng=(b.lng-a.lng)*Math.PI/180;
-        var a2=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
-        return R*2*Math.atan2(Math.sqrt(a2),Math.sqrt(1-a2));
+    var drawType=document.getElementById('bs-drawing-type')?.value||'';
+    if(drawType==='polygon'){
+        document.getElementById('bs-width').value='';
+        document.getElementById('bs-length').value='';
+        document.getElementById('bs-width').disabled=!0;
+        document.getElementById('bs-length').disabled=!0;
+        updateSurfaceSummary();
+        return;
     }
-    var w=dist({lat:c.lat,lng:bounds.getWest()},{lat:c.lat,lng:bounds.getEast()});
-    var h=dist({lat:bounds.getSouth(),lng:c.lng},{lat:bounds.getNorth(),lng:c.lng});
-    if(w>0) document.getElementById('bs-width').value=Math.max(w,h).toFixed(2);
-    if(h>0) document.getElementById('bs-length').value=Math.min(w,h).toFixed(2);
+    var len=parseFloat(document.getElementById('bs-drawing-length')?.value);
+    if(len>0){
+        document.getElementById('bs-length').value=len.toFixed(2);
+        document.getElementById('bs-length').disabled=!0;
+        document.getElementById('bs-width').disabled=!1;
+    }
     updateSurfaceSummary();
 }
 
@@ -1478,6 +1498,8 @@ w.basvuruSubmit=function(){
         length_m:parseFloat(gv('bs-length'))||null,
         polygon_geojson:gv('bs-polygon-geojson')||null,
         total_area_m2:parseFloat(gv('bs-total-area'))||0,
+        drawing_type:gv('bs-drawing-type')||'polygon',
+        drawing_length_m:parseFloat(gv('bs-drawing-length'))||null,
         center_lat:parseFloat(gv('bs-center-lat'))||null,
         center_lng:parseFloat(gv('bs-center-lng'))||null,
         deposit_amount:turkishNumber(gv('bs-deposit-amount')),
@@ -1535,6 +1557,10 @@ function handleDrawCreated(e){
     document.getElementById('basvuru-area-display').style.display='none';
 
     var layer=e.layer,type=e.layerType,lat,lng,area=null;
+    document.getElementById('bs-drawing-type').value='';
+    document.getElementById('bs-drawing-length').value='';
+    document.getElementById('bs-width').disabled=!1;
+    document.getElementById('bs-length').disabled=!1;
 
     if(type==='marker'){
         var ll=layer.getLatLng();lat=ll.lat;lng=ll.lng
@@ -1555,6 +1581,16 @@ function handleDrawCreated(e){
         var cl=layer.getLatLng();lat=cl.lat;lng=cl.lng;
         bounds=layer.getBounds();
         area=Math.PI*layer.getRadius()*layer.getRadius();
+    } else if(type==='polyline'||type==='line'){
+        try{
+            var ll=layer.getLatLngs();
+            var totalLen=0;
+            for(var i=1;i<ll.length;i++){
+                totalLen+=ll[i-1].distanceTo(ll[i]);
+            }
+            document.getElementById('bs-drawing-length').value=totalLen.toFixed(2);
+            document.getElementById('bs-drawing-type').value='polyline';
+        }catch(le){}
     }
 
     if(area&&area>0){
@@ -1562,6 +1598,7 @@ function handleDrawCreated(e){
         document.getElementById('basvuru-area-display').textContent='📐 Alan: '+areaText;
         document.getElementById('basvuru-area-display').style.display='block';
         document.getElementById('bs-total-area').value=area.toFixed(2);
+        document.getElementById('bs-drawing-type').value='polygon';
     }
 
     document.getElementById('bs-lat').value=lat;
