@@ -1226,7 +1226,9 @@ w.openBasvuruFromClick=function(tip){
     if(t.ilce) adresParcalari.push(t.ilce);
     if(t.mahalle) adresParcalari.push(t.mahalle+' Mahallesi');
     if(t.cadde) adresParcalari.push(t.cadde);
-    document.getElementById('basvuru-adres-ozet').innerHTML='\uD83D\uDCCD '+(adresParcalari.length?adresParcalari.join(', '):'Adres bilgisi al\u0131namad\u0131');
+    var adresStr=adresParcalari.join(', ');
+    document.getElementById('basvuru-adres-ozet').innerHTML='\uD83D\uDCCD '+(adresStr||'Adres bilgisi al\u0131namad\u0131');
+    document.getElementById('bs-address').value=adresStr;
     document.getElementById('basvuru-coord-display').textContent=t.lat.toFixed(6)+'\u00B0 K, '+t.lng.toFixed(6)+'\u00B0 D';
 
     openPanel();
@@ -1348,7 +1350,13 @@ function _copyStep1ToStep2(){
     if(t.ilce) adresParcalari.push(t.ilce);
     if(t.mahalle) adresParcalari.push(t.mahalle+' Mahallesi');
     if(t.cadde) adresParcalari.push(t.cadde);
-    document.getElementById('bs-address').value=adresParcalari.join(', ');
+    var adresStr=adresParcalari.join(', ');
+    if(adresStr){
+        document.getElementById('bs-address').value=adresStr;
+    }else{
+        var ozetEl=document.getElementById('basvuru-adres-ozet');
+        if(ozetEl) document.getElementById('bs-address').value=ozetEl.textContent.replace(/^\uD83D\uDCCD\s*/,'');
+    }
     if(t.lat)document.getElementById('bs-center-lat').value=t.lat;
     if(t.lng)document.getElementById('bs-center-lng').value=t.lng;
 }
@@ -1440,7 +1448,7 @@ function updateSurfaceSummary(){
         total=(w>0&&l>0)?w*l*price:0;
     }
     var hesaplanan=document.getElementById('bs-hesaplanan-tutar');
-    if(hesaplanan) hesaplanan.textContent=total.toFixed(2)+' TL';
+    if(hesaplanan) hesaplanan.textContent=(total>0?total.toLocaleString('tr-TR',{minimumFractionDigits:2,maximumFractionDigits:2})+' ₺':'0,00 ₺');
 }
 function autoFillDimensions(){
     if(!drawnItems||drawnItems.getLayers().length===0)return;
@@ -1458,8 +1466,13 @@ function autoFillDimensions(){
         document.getElementById('bs-length').value=len.toFixed(2);
         document.getElementById('bs-length').disabled=!0;
         document.getElementById('bs-width').disabled=!1;
+        document.getElementById('bs-width').focus();
     }
     updateSurfaceSummary();
+    /* step-2 adresine koordinat yaz */
+    var t=window._sonTiklama||{};
+    if(t.lat)document.getElementById('bs-center-lat').value=t.lat;
+    if(t.lng)document.getElementById('bs-center-lng').value=t.lng;
 }
 
 w.basvuruSubmit=function(){
