@@ -1023,6 +1023,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 @push('scripts')
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
 
 <script>
 (function() {
@@ -1118,28 +1119,21 @@ function initMaps(){
 
     mapsMap=L.map('maps-map-canvas',{
         center:URFA_CENTER,zoom:15,minZoom:12,maxZoom:20,
-        maxBounds:URFA_BOUNDS,maxBoundsViscosity:0.8,preferCanvas:!0
+        maxBounds:URFA_BOUNDS,maxBoundsViscosity:0.8,preferCanvas:!0,
+        rotate:!0,bearingControl:!0
     });
 
-    // Shift+sağ tık sürükle ile görsel döndürme (CSS rotate)
-    // Koordinat sistemini ETKİLEMEZ — pan/zoom sorunsuz çalışır
-    mapsMap._rotateAngle=0;
+    // Shift+sağ tık sürükle ile döndürme
+    // Pan sırasında bearing geçici olarak 0'a çekilir (koordinat kırılmasın)
+    mapsMap._savedBearing=undefined;
     mapsMap._rotateDragging=!1;
-    function setMapRotation(deg){
-        mapsMap._rotateAngle=deg;
-        var pane=document.querySelector('.leaflet-map-pane');
-        if(pane){
-            pane.style.transformOrigin='50% 50%';
-            if(deg!==0) pane.style.rotate=deg+'deg';
-            else pane.style.rotate='';
-        }
-        document.getElementById('btn-rotate-reset').innerHTML='🧭 '+Math.round(deg)+'°';
-    }
+    mapsMap._rotateStartAngle=0;
+
     mapsMap.on('contextmenu',function(e){
         if(e.originalEvent.shiftKey){
             L.DomEvent.preventDefault(e.originalEvent);
             mapsMap._rotateDragging=!0;
-            mapsMap._rotateStartAngle=mapsMap._rotateAngle||0;
+            mapsMap._rotateStartAngle=mapsMap.getBearing();
             mapsMap._rotateStartPoint={x:e.originalEvent.clientX,y:e.originalEvent.clientY};
             mapsMap._container.style.cursor='grabbing';
         }
@@ -1147,7 +1141,7 @@ function initMaps(){
     document.addEventListener('mousemove',function(e){
         if(mapsMap._rotateDragging&&e.buttons){
             var dx=e.clientX-mapsMap._rotateStartPoint.x;
-            setMapRotation(mapsMap._rotateStartAngle+dx*0.3);
+            mapsMap.setBearing(mapsMap._rotateStartAngle+dx*0.3);
         }
     });
     document.addEventListener('mouseup',function(){
@@ -1156,8 +1150,30 @@ function initMaps(){
             mapsMap._container.style.cursor='';
         }
     });
+    // Pan başlarken bearing'i sıfırla, pan bitince geri yükle
+    mapsMap.on('mousedown',function(e){
+        if(e.originalEvent.button===0&&!mapsMap._rotateDragging){
+            var b=mapsMap.getBearing();
+            if(Math.abs(b)>1){
+                mapsMap._savedBearing=b;
+                mapsMap.setBearing(0);
+            }
+        }
+    });
+    mapsMap.on('mouseup',function(){
+        if(mapsMap._savedBearing!==undefined){
+            var sb=mapsMap._savedBearing;
+            mapsMap._savedBearing=undefined;
+            mapsMap.setBearing(sb);
+        }
+    });
     document.getElementById('btn-rotate-reset').addEventListener('click',function(){
-        setMapRotation(0);
+        mapsMap.setBearing(0);
+        this.innerHTML='🧭 0°';
+    });
+    mapsMap.on('rotate',function(){
+        var deg=Math.round(mapsMap.getBearing());
+        document.getElementById('btn-rotate-reset').innerHTML='🧭 '+deg+'°';
     });
 
     basemapLayers.google=L.tileLayer('http://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}',{attribution:'© Google',maxZoom:21}).addTo(mapsMap);
