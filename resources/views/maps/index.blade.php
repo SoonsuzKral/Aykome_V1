@@ -1270,7 +1270,6 @@ function showWizardStep(step){
     document.getElementById('btn-ileri').style.display=(step<_totalSteps?'inline-block':'none');
     document.getElementById('btn-kaydet').style.display=(step===_totalSteps?'inline-block':'none');
 }
-}
 function wizardGeri(){
     if(_currentStep>1){_currentStep--;showWizardStep(_currentStep)}
 }
