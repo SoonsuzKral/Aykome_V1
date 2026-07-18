@@ -41,6 +41,7 @@ Route::middleware(['auth'])->prefix('maps')->name('maps.')->group(function () {
     Route::get('/',                          [MapsController::class, 'index'])->name('index');
     Route::get('/proxy',                     [MapsController::class, 'proxy'])->name('proxy');
     Route::post('/nokta-kaydet',             [MapsController::class, 'noktaKaydet'])->name('noktaKaydet');
+    Route::post('/basvuru-olustur',          [MapsController::class, 'basvuruOlustur'])->name('basvuruOlustur');
     Route::get('/basvurular/geojson',        [MapsController::class, 'basvurularGeoJson'])->name('basvurularGeoJson');
     Route::get('/basvuru-sorgula',           [MapsController::class, 'basvuruSorgula'])->name('basvuruSorgula');
 

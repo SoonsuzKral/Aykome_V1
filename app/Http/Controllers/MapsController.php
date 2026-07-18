@@ -450,6 +450,119 @@ class MapsController extends Controller
         ]);
     }
 
+    public function basvuruOlustur(Request $request)
+    {
+        $data = $request->validate([
+            'basvuru_tipi' => ['nullable', 'in:kazi_ruhsat,ortak_kazi'],
+            'ortak_kurumlar' => ['nullable', 'string', 'max:500'],
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
+            'ilce' => ['nullable', 'string', 'max:100'],
+            'mahalle' => ['nullable', 'string', 'max:100'],
+            'ada' => ['nullable', 'string', 'max:50'],
+            'parsel' => ['nullable', 'string', 'max:50'],
+            'address_text' => ['nullable', 'string', 'max:500'],
+            'institution_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'applicant_first_name' => ['required', 'string', 'max:100'],
+            'applicant_last_name' => ['required', 'string', 'max:100'],
+            'applicant_national_id' => ['nullable', 'string', 'max:11'],
+            'applicant_phone' => ['nullable', 'string', 'max:20'],
+            'excavation_reason' => ['nullable', 'string', 'max:255'],
+            'work_type' => ['nullable', 'string', 'max:120'],
+            'description' => ['nullable', 'string', 'max:5000'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+            'surface_type_id' => ['nullable', 'integer', 'exists:surface_types,id'],
+            'width_m' => ['nullable', 'numeric', 'min:0'],
+            'length_m' => ['nullable', 'numeric', 'min:0'],
+            'polygon_geojson' => ['nullable', 'json'],
+            'total_area_m2' => ['nullable', 'numeric', 'min:0'],
+            'center_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'center_lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'deposit_amount' => ['nullable', 'numeric', 'min:0'],
+            'excavation_amount' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        try {
+            $user = auth()->user();
+
+            $application = \App\Models\Application::query()->create([
+                'application_no' => null,
+                'institution_id' => $data['institution_id'] ?? $user?->institution_id ?? 1,
+                'created_by' => $user?->id ?? 1,
+                'status' => \App\Enums\ApplicationStatus::Draft,
+                'applicant_first_name' => $data['applicant_first_name'],
+                'applicant_last_name' => $data['applicant_last_name'],
+                'applicant_national_id' => $data['applicant_national_id'] ?? null,
+                'tc_no' => $data['applicant_national_id'] ?? null,
+                'identity_no' => $data['applicant_national_id'] ?? null,
+                'applicant_phone' => $data['applicant_phone'] ?? null,
+                'excavation_reason' => $data['excavation_reason'] ?? null,
+                'work_type' => $data['work_type'] ?? null,
+                'description' => $data['description'] ?? null,
+                'start_date' => $data['start_date'] ?? now()->addDay(),
+                'end_date' => $data['end_date'] ?? now()->addDays(30),
+                'address_text' => $data['address_text'] ?? null,
+                'width_m' => $data['width_m'] ?? null,
+                'length_m' => $data['length_m'] ?? null,
+                'deposit_amount' => $data['deposit_amount'] ?? null,
+                'excavation_amount' => $data['excavation_amount'] ?? null,
+                'total_area_m2' => $data['total_area_m2'] ?? 0,
+            ]);
+
+            $application->update([
+                'application_no' => now()->year . '-' . str_pad($application->id, 4, '0', STR_PAD_LEFT),
+            ]);
+
+            if (! empty($data['polygon_geojson']) || ! empty($data['center_lat'])) {
+                $service = app(\App\Services\MapDrawingService::class);
+                $service->syncPrimaryArea($application, [
+                    'polygon_geojson' => $data['polygon_geojson'] ?? null,
+                    'total_area_m2' => $data['total_area_m2'] ?? 0,
+                    'center_lat' => $data['center_lat'] ?? null,
+                    'center_lng' => $data['center_lng'] ?? null,
+                    'address_text' => $data['address_text'] ?? null,
+                ]);
+            }
+
+            if (! empty($data['surface_type_id'])) {
+                $pricing = app(\App\Services\PricingService::class);
+                $pricing->upsertSurfaceLine($application, $data);
+                $pricing->recalculateTotals($application);
+            }
+
+            // GIS noktasını da kaydet
+            if (! empty($data['lat']) && ! empty($data['lng'])) {
+                GisBasvuruNokta::create([
+                    'basvuru_id' => $application->id,
+                    'basvuru_tipi' => $data['basvuru_tipi'] ?? 'kazi_ruhsat',
+                    'lat' => $data['lat'],
+                    'lng' => $data['lng'],
+                    'ilce' => $data['ilce'] ?? '',
+                    'mahalle' => $data['mahalle'] ?? '',
+                    'ada' => $data['ada'] ?? '',
+                    'parsel' => $data['parsel'] ?? '',
+                    'wfs_response' => json_encode([
+                        'ortak_kurumlar' => $data['ortak_kurumlar'] ?? '',
+                    ]),
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Başvuru başarıyla oluşturuldu.',
+                'application_no' => $application->application_no,
+                'data' => ['id' => $application->id],
+            ]);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('basvuruOlustur hatası: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Başvuru oluşturulamadı: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function basvurularGeoJson()
     {
         try {

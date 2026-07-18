@@ -363,7 +363,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 #maps-overlay.active { display: block; }
 
 #maps-basvuru-panel {
-    position: fixed; width: 520px; max-width: 98vw; max-height: 92vh; background: white;
+    position: fixed; width: 720px; max-width: 98vw; max-height: 92vh; background: white;
     border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
     z-index: 2000; display: none; overflow: hidden; flex-direction: column; user-select: none;
 }
@@ -743,78 +743,142 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 
         <!-- Adım 2: Başvuru Bilgileri -->
         <div id="step-2" class="wizard-step" style="display:none;">
-            <div class="f-section">
-                <div class="f-section-title">👤 Başvuru Sahibi & İletişim</div>
-                <div style="font-size:11px;color:#64748b;margin-bottom:12px;">Kazı başvurusuna ait bilgileri doldurun.</div>
+            <div class="f-section" style="font-size:12px;">
+                <div class="f-section-title" style="margin-bottom:10px;">👤 Başvuru Sahibi & İletişim</div>
 
-                <!-- Row 1: Kurum Türü -->
-                <div class="row" style="margin-bottom:12px;">
-                    <div class="col-12">
-                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:4px;">Başvuru / Kurum Türü</label>
-                        <select id="bs-kurum-turu" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff;">
+                <!-- Satır 1: Kurum -->
+                <div style="display:flex;gap:10px;margin-bottom:10px;">
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Kurum</label>
+                        <select id="bs-institution" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff;">
                             <option value="">— Seçiniz —</option>
-                            <option value="vatandas">Vatandaş / Şahıs</option>
-                            <option value="firma">Özel Firma / Müteahhit</option>
-                            <option value="altyapi">Altyapı Kurumu</option>
+                            <option value="1">AKSA</option>
+                            <option value="2">TEDAŞ</option>
+                            <option value="3">ŞUSKİ</option>
+                            <option value="4">Türk Telekom</option>
+                            <option value="5">HGB Bilişim Demo</option>
                         </select>
                     </div>
                 </div>
 
-                <!-- Row 2: Ad Soyad + Telefon -->
-                <div class="row" style="margin-bottom:12px;display:flex;gap:10px;">
-                    <div style="flex:1;min-width:0;">
-                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:4px;">Kazı Yapacak Ad/Soyad / Ünvan</label>
-                        <input type="text" id="bs-adsoyad" class="form-control" placeholder="Ad Soyad veya Firma Ünvanı" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;" required>
+                <!-- Satır 2: Ad + Soyad -->
+                <div style="display:flex;gap:10px;margin-bottom:10px;">
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Ad</label>
+                        <input type="text" id="bs-first-name" placeholder="Ad" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
                     </div>
-                    <div style="flex-basis:180px;min-width:0;">
-                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:4px;">İrtibat Tel (Kazı Sorumlusu)</label>
-                        <input type="text" id="bs-telefon" class="form-control" placeholder="05XX XXX XX XX" pattern="[0-9]*" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
-                    </div>
-                </div>
-
-                <!-- Row 3: Kazı Amacı -->
-                <div class="row" style="margin-bottom:12px;">
-                    <div class="col-12">
-                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:4px;">Kazı Amacı & Açıklaması</label>
-                        <textarea id="bs-aciklama" class="form-control" rows="3" placeholder="Kazı yapılma sebebini ve çalışma detaylarını açıklayın..." style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;resize:vertical;box-sizing:border-box;"></textarea>
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Soyad</label>
+                        <input type="text" id="bs-last-name" placeholder="Soyad" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
                     </div>
                 </div>
 
-                <div class="f-section-title" style="margin-top:16px;">⚙️ Teknik Detaylar</div>
+                <!-- Satır 3: TCKN + Telefon -->
+                <div style="display:flex;gap:10px;margin-bottom:10px;">
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">TC Kimlik No</label>
+                        <div style="display:flex;gap:4px;">
+                            <input type="text" id="bs-tckn" placeholder="TC Kimlik No" maxlength="11" style="flex:1;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;">
+                            <button type="button" id="btn-tckn-sorgula" style="padding:7px 12px;border:1px solid #E87722;background:#E87722;color:#fff;border-radius:6px;font-size:11px;cursor:pointer;white-space:nowrap;">TCKN Sorgula</button>
+                        </div>
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Telefon Numarası</label>
+                        <input type="text" id="bs-phone" placeholder="05XX XXX XX XX" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                </div>
 
-                <!-- Row 4: Teknik Detaylar -->
-                <div class="row" style="display:flex;gap:10px;">
-                    <div style="flex:1;min-width:0;">
-                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:4px;">Kazı Genişliği (m)</label>
-                        <input type="number" id="bs-genislik" class="form-control" placeholder="0.00" step="0.01" min="0" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                <!-- Satır 4: İşin Adı -->
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">İşin Adı</label>
+                    <input type="text" id="bs-excavation-reason" placeholder="Kazı işinin adı" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                </div>
+
+                <!-- Satır 5: Çalışma Türü + Adres -->
+                <div style="display:flex;gap:10px;margin-bottom:10px;">
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Çalışma Türü</label>
+                        <input type="text" id="bs-work-type" placeholder="Kazı / Altyapı / Onarım" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
                     </div>
-                    <div style="flex:1;min-width:0;">
-                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:4px;">Kazı Uzunluğu (m)</label>
-                        <input type="number" id="bs-uzunluk" class="form-control" placeholder="0.00" step="0.01" min="0" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Adres</label>
+                        <input type="text" id="bs-address" placeholder="Haritadan otomatik doldurulur" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;background:#f8fafc;">
                     </div>
-                    <div style="flex:1;min-width:0;">
-                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:4px;">Tahmini Zemin Cinsi</label>
-                        <select id="bs-zemin" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff;">
+                </div>
+
+                <!-- Satır 6: Başlangıç + Bitiş Tarihi -->
+                <div style="display:flex;gap:10px;margin-bottom:10px;">
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Başlangıç Tarihi</label>
+                        <input type="date" id="bs-start-date" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Bitiş Tarihi</label>
+                        <input type="date" id="bs-end-date" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                </div>
+
+                <!-- Satır 7: Açıklama -->
+                <div style="margin-bottom:10px;">
+                    <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Açıklama</label>
+                    <textarea id="bs-description" rows="3" placeholder="Kazı ile ilgili açıklamalar..." style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;resize:vertical;box-sizing:border-box;"></textarea>
+                </div>
+
+                <div class="f-section-title" style="margin-top:14px;margin-bottom:10px;">⚙️ Yüzey ve Keşif</div>
+
+                <!-- Satır 8: Yüzey Tipi + Genişlik + Uzunluk -->
+                <div style="display:flex;gap:10px;">
+                    <div style="flex:2;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Yüzey Tipi</label>
+                        <select id="bs-surface-type" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff;">
                             <option value="">— Seçiniz —</option>
-                            <option value="asfalt">Asfalt</option>
-                            <option value="beton">Beton</option>
-                            <option value="parke">Parke</option>
-                            <option value="toprak">Toprak Zemin</option>
-                            <option value="stabilize">Stabilize</option>
-                            <option value="diger">Diğer</option>
+                            <option value="1">Asfalt</option>
+                            <option value="2">Beton</option>
+                            <option value="3">Parke Taşı</option>
+                            <option value="4">Toprak Zemin</option>
+                            <option value="5">Stabilize</option>
+                            <option value="6">Diğer</option>
                         </select>
                     </div>
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Genişlik (m)</label>
+                        <input type="number" id="bs-width" placeholder="0.00" step="0.01" min="0" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Uzunluk (m)</label>
+                        <input type="number" id="bs-length" placeholder="0.00" step="0.01" min="0" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
+                    </div>
                 </div>
+
+                <input type="hidden" id="bs-polygon-geojson">
+                <input type="hidden" id="bs-total-area">
+                <input type="hidden" id="bs-center-lat">
+                <input type="hidden" id="bs-center-lng">
             </div>
         </div>
 
-        <!-- Adım 3: Evraklar -->
+        <!-- Adım 3: Evraklar ve Teminat -->
         <div id="step-3" class="wizard-step" style="display:none;">
-            <div class="f-section">
-                <div class="f-section-title">Yüklenecek Evraklar</div>
-                <div style="color:#64748b;font-size:12px;padding:8px 0;">Evrak yükleme alanı ilerleyen sürümde eklenecek.</div>
-                <div style="border:2px dashed #e2e8f0;border-radius:8px;padding:30px;text-align:center;color:#94a3b8;font-size:13px;">
-                    📁 Dosyaları sürükleyip bırakın veya <a href="#" style="color:#E87722;">gözatın</a>
+            <div class="f-section" style="font-size:12px;">
+                <div class="f-section-title" style="margin-bottom:10px;">💰 Teminat & Kazı Bedeli</div>
+                <div style="display:flex;gap:10px;margin-bottom:16px;">
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Teminat Bedeli (TL)</label>
+                        <input type="text" id="bs-deposit-amount" readonly disabled style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#f1f5f9;color:#64748b;box-sizing:border-box;" value="0.00 TL">
+                    </div>
+                    <div style="flex:1;">
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Kazı Bedeli (TL)</label>
+                        <input type="text" id="bs-excavation-amount" readonly disabled style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#f1f5f9;color:#64748b;box-sizing:border-box;" value="0.00 TL">
+                    </div>
+                </div>
+
+                <div class="f-section-title" style="margin-bottom:10px;">📎 Yüklenecek Evraklar</div>
+                <div id="bs-file-upload-area" style="border:2px dashed #cbd5e1;border-radius:10px;padding:36px 20px;text-align:center;cursor:pointer;transition:all 0.2s;background:#fafbfc;" onclick="document.getElementById('bs-file-input').click()" ondragover="this.style.borderColor='#E87722';this.style.background='#fff7ed'" ondragleave="this.style.borderColor='#cbd5e1';this.style.background='#fafbfc'" ondrop="handleFileDrop(event)">
+                    <div style="font-size:36px;color:#3b82f6;margin-bottom:8px;">📤</div>
+                    <div style="color:#475569;font-weight:600;font-size:14px;margin-bottom:4px;">Tıklayarak veya sürükleyerek belge yükleyin</div>
+                    <div style="color:#94a3b8;font-size:11px;">PDF, JPG, PNG, DOC (max 20MB)</div>
+                    <input type="file" id="bs-file-input" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="display:none;" onchange="handleFileSelect(event)">
+                    <div id="bs-file-list" style="margin-top:12px;text-align:left;font-size:12px;color:#475569;"></div>
                 </div>
             </div>
         </div>
@@ -822,8 +886,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
         <!-- Adım 4: Özet & Onay -->
         <div id="step-4" class="wizard-step" style="display:none;">
             <div class="f-section">
-                <div class="f-section-title">Başvuru Özeti</div>
-                <div id="basvuru-ozet-icerik" style="background:#f8fafc;border-radius:8px;padding:12px;font-size:12px;line-height:1.8;color:#334155;">
+                <div class="f-section-title">📋 Başvuru Özeti</div>
+                <div id="basvuru-ozet-icerik" style="background:#f8fafc;border-radius:8px;padding:14px;font-size:12px;line-height:1.8;color:#334155;max-height:300px;overflow-y:auto;">
                     Lütfen tüm bilgileri gözden geçirin ve başvuruyu tamamlayın.
                 </div>
             </div>
@@ -1153,7 +1217,7 @@ function openPanel(){
     var mapCanvas=document.getElementById('map-canvas');
     if(mapCanvas){
         var rect=mapCanvas.getBoundingClientRect();
-        panel.style.left=rect.left+(rect.width/2-260)+'px';
+        panel.style.left=rect.left+(rect.width/2-360)+'px';
         panel.style.top=rect.top+40+'px';
     }
     wizardReset();
@@ -1206,53 +1270,155 @@ function showWizardStep(step){
     document.getElementById('btn-ileri').style.display=(step<_totalSteps?'inline-block':'none');
     document.getElementById('btn-kaydet').style.display=(step===_totalSteps?'inline-block':'none');
 }
-function wizardIleri(){
-    if(_currentStep<_totalSteps){_currentStep++;showWizardStep(_currentStep)}
 }
 function wizardGeri(){
     if(_currentStep>1){_currentStep--;showWizardStep(_currentStep)}
 }
+/* Wizard'a gidişte özeti doldur — github arayüzü için w. ile de export et */
+function wizardIleri(){
+    if(_currentStep===1)_copyStep1ToStep2();
+    if(_currentStep<_totalSteps){
+        _currentStep++;
+        if(_currentStep===_totalSteps)_buildOzet();
+        showWizardStep(_currentStep);
+    }
+}
+w.wizardIleri=wizardIleri;
+w.wizardGeri=wizardGeri;
+function wizardOzetGuncelle(){if(_currentStep===_totalSteps)_buildOzet()}
 /* Wizard'ı resetle */
 function wizardReset(){_currentStep=1;showWizardStep(1)}
 /* closeBasvuruPanel zaten aşağıda tanımlı */
 
 var _nominatimController = null;
+var _selectedFiles=[];
+
+/* Dosya yükleme işleyicileri */
+function handleFileSelect(e){
+    var files=e.target.files;
+    if(files&&files.length)_selectedFiles=_selectedFiles.concat(Array.from(files));
+    _renderFileList();
+}
+function handleFileDrop(e){
+    e.preventDefault();
+    var area=document.getElementById('bs-file-upload-area');
+    area.style.borderColor='#cbd5e1';area.style.background='#fafbfc';
+    var files=e.dataTransfer.files;
+    if(files&&files.length)_selectedFiles=_selectedFiles.concat(Array.from(files));
+    _renderFileList();
+}
+function _renderFileList(){
+    var list=document.getElementById('bs-file-list');
+    if(!_selectedFiles.length){list.innerHTML='';return}
+    list.innerHTML=_selectedFiles.map(function(f,i){
+        var sizeKB=Math.round(f.size/1024);
+        return '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid #f1f5f9;">'+
+            '<span style="color:#3b82f6;font-size:14px;">📄</span>'+
+            '<span style="flex:1;">'+f.name+'</span>'+
+            '<span style="color:#94a3b8;font-size:10px;">'+sizeKB+' KB</span>'+
+            '<span onclick="_removeFile('+i+')" style="cursor:pointer;color:#ef4444;font-size:14px;">×</span></div>';
+    }).join('');
+}
+function _removeFile(idx){_selectedFiles.splice(idx,1);_renderFileList()}
+
+/* Adres kopyalama: Step-1 → Step-2 */
+function _copyStep1ToStep2(){
+    var t=window._sonTiklama||{};
+    var adresStr=document.getElementById('basvuru-adres-ozet')?.textContent||'';
+    document.getElementById('bs-address').value=adresStr.replace(/^📍\s*/,'');
+    if(t.lat)document.getElementById('bs-center-lat').value=t.lat;
+    if(t.lng)document.getElementById('bs-center-lng').value=t.lng;
+}
+
+/* Özet oluştur */
+function _buildOzet(){
+    function v(id){return document.getElementById(id)?.value||'-'}
+    var html='<table style="width:100%;border-collapse:collapse;">';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Kurum</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-institution')+'</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Ad Soyad</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-first-name')+' '+v('bs-last-name')+'</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">TCKN</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-tckn')+'</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Telefon</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-phone')+'</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">İşin Adı</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-excavation-reason')+'</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Çalışma Türü</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-work-type')+'</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Adres</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-address')+'</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Tarih</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-start-date')+' → '+v('bs-end-date')+'</td></tr>';
+    var yuzey=document.getElementById('bs-surface-type');
+    var yuzeyText=yuzey?yuzey.options[yuzey.selectedIndex]?.text||'-':'-';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Yüzey / Keşif</td><td style="padding:3px 6px;font-weight:600;">'+yuzeyText+' | '+v('bs-width')+'m × '+v('bs-length')+'m</td></tr>';
+    var dosyaSayisi=_selectedFiles.length;
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Evraklar</td><td style="padding:3px 6px;font-weight:600;">'+dosyaSayisi+' dosya</td></tr>';
+    html+='</table>';
+    document.getElementById('basvuru-ozet-icerik').innerHTML=html;
+}
+w._buildOzet=_buildOzet;
+w._copyStep1ToStep2=_copyStep1ToStep2;
+w.handleFileSelect=handleFileSelect;
+w.handleFileDrop=handleFileDrop;
+w._removeFile=_removeFile;
 
 w.basvuruSubmit=function(){
     var tipEl=document.querySelector('.tip-option.selected input');
     var tip=tipEl?tipEl.value:'kazi_ruhsat';
+    var ortakKurumlar=document.getElementById('bs-ortak-kurumlar')?.value||'';
 
-    // Seçili cadde bilgisini dr-selected'dan al
-    var drSecili=document.getElementById('dr-selected').value;
-    var secilenCaddeler=[];
-    try{var drData=JSON.parse(drSecili);if(drData.caddeler) secilenCaddeler=Object.keys(drData.caddeler);}catch(e){}
+    function gv(id){var el=document.getElementById(id);return el?el.value:''}
 
-    var data={
+    var payload={
+        _token:document.querySelector('meta[name=csrf-token]').content,
         basvuru_tipi:tip,
-        ortak_kurumlar:document.getElementById('bs-ortak-kurumlar').value,
-        lat:parseFloat(document.getElementById('bs-lat').value),
-        lng:parseFloat(document.getElementById('bs-lng').value),
-        ilce:document.getElementById('bs-ilce').value,
-        mahalle:document.getElementById('bs-mahalle').value,
-        address_text:document.getElementById('basvuru-adres-ozet').textContent.replace('\uD83D\uDCCD ',''),
-        secili_caddeler:secilenCaddeler
+        ortak_kurumlar:ortakKurumlar,
+        lat:parseFloat(gv('bs-lat'))||null,
+        lng:parseFloat(gv('bs-lng'))||null,
+        ilce:gv('bs-ilce'),
+        mahalle:gv('bs-mahalle'),
+        ada:gv('bs-ada')||'',
+        parsel:gv('bs-parsel')||'',
+        address_text:gv('bs-address')||document.getElementById('basvuru-adres-ozet')?.textContent?.replace('\uD83D\uDCCD ','')||'',
+        // Step-2 form fields
+        institution_id:gv('bs-institution')||null,
+        applicant_first_name:gv('bs-first-name'),
+        applicant_last_name:gv('bs-last-name'),
+        applicant_national_id:gv('bs-tckn'),
+        tc_no:gv('bs-tckn'),
+        identity_no:gv('bs-tckn'),
+        applicant_phone:gv('bs-phone'),
+        excavation_reason:gv('bs-excavation-reason'),
+        work_type:gv('bs-work-type'),
+        description:gv('bs-description'),
+        start_date:gv('bs-start-date'),
+        end_date:gv('bs-end-date'),
+        surface_type_id:gv('bs-surface-type')||null,
+        width_m:parseFloat(gv('bs-width'))||null,
+        length_m:parseFloat(gv('bs-length'))||null,
+        polygon_geojson:gv('bs-polygon-geojson')||null,
+        total_area_m2:parseFloat(gv('bs-total-area'))||0,
+        center_lat:parseFloat(gv('bs-center-lat'))||null,
+        center_lng:parseFloat(gv('bs-center-lng'))||null,
+        deposit_amount:parseFloat(gv('bs-deposit-amount'))||0,
+        excavation_amount:parseFloat(gv('bs-excavation-amount'))||0,
     };
 
-    if(!data.lat||!data.lng){showToast('Konum bilgisi eksik');return}
+    if(!payload.lat||!payload.lng){showToast('⚠️ Konum bilgisi eksik');return}
+    if(!payload.applicant_first_name||!payload.applicant_last_name){showToast('⚠️ Ad ve Soyad gerekli');return}
 
-    fetch('/maps/nokta-kaydet',{
+    showToast('📤 Başvuru gönderiliyor...');
+
+    fetch('/maps/basvuru-olustur',{
         method:'POST',
         headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content},
-        body:JSON.stringify(data)
+        body:JSON.stringify(payload)
     })
     .then(function(r){return r.json()})
     .then(function(d){
         if(d.success){
-            closeBasvuruPanel();showToast('Ba\u015fvuru kaydedildi!');
+            closeBasvuruPanel();
+            showToast('✅ Başvuru oluşturuldu: '+(d.application_no||''));
             loadBasvuruMarkers();
-        }else showToast('Hata: '+(d.message||'Kay\u0131t ba\u015far\u0131s\u0131z'));
+        }else{
+            showToast('⚠️ '+(d.message||'Kayıt başarısız'));
+        }
     })
-    .catch(function(){showToast('Hata olu\u015ftu')});
+    .catch(function(){showToast('❌ Sunucu hatası')});
 };
 
 function handleDrawCreated(e){
