@@ -701,7 +701,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
                         <button id="sorgula-git">Sorgula</button>
                     </div>
                     <div id="sorgula-yakin-zamanda" class="sorgula-yakin-zamanda">
-                        <div class="sorgula-yakin-title">Yakın Zamanda</div>
+                        <div class="sorgula-yakin-title">Önceki Sorgular</div>
                         <div id="sorgula-yakin-liste"></div>
                     </div>
                     <div id="sorgula-sonuc" style="display:none"></div>
@@ -1830,17 +1830,20 @@ function doSorgula(){
     fetch('/maps/basvuru-sorgula?q='+encodeURIComponent(no))
     .then(function(r){return r.json()})
     .then(function(d){
-        var sonuc=document.getElementById('sorgula-sonuc');
-        sonuc.style.display='block';
         if(d.data&&d.data.length){
             var b=d.data[0];
-            sonuc.className='basarili';
-            sonuc.innerHTML='✅ <strong>'+escHtml(b.application_no)+'</strong> bulundu — haritaya gidiliyor...';
-            if(b.lat&&b.lng) mapsMap.setView([b.lat,b.lng],17);
-            // Yakın zamana ekle
             sorgulaYakinZamanaEkle(b);
+            closeSorgulaModal();
+            showToast('✅ '+escHtml(b.application_no)+' bulundu');
+            if(b.lat&&b.lng){
+                mapsMap.flyTo([b.lat,b.lng],18,{animate:true,duration:1});
+                sorgulaHighlightBasvuru(b);
+            }else{
+                showToast('⚠️ Bu başvurunun harita konumu yok');
+            }
         }else{
-            sonuc.className='hata';
+            var sonuc=document.getElementById('sorgula-sonuc');
+            sonuc.style.display='block';sonuc.className='hata';
             sonuc.innerHTML='❌ "'+escHtml(no)+'" ile eşleşen başvuru bulunamadı';
         }
         btn.textContent='Sorgula';btn.disabled=false;
@@ -1852,12 +1855,32 @@ function doSorgula(){
         btn.textContent='Sorgula';btn.disabled=false;
     });
 }
+
+function sorgulaHighlightBasvuru(b){
+    if(window._sorgulaMarker)mapsMap.removeLayer(window._sorgulaMarker);
+    if(window._sorgulaCircle)mapsMap.removeLayer(window._sorgulaCircle);
+    window._sorgulaMarker=L.marker([b.lat,b.lng],{
+        icon:L.divIcon({
+            className:'',
+            html:'<div style="background:#E87722;width:18px;height:18px;border-radius:50%;border:3px solid white;box-shadow:0 0 12px rgba(232,119,34,0.8);animation:pulse 1.2s infinite"></div>',
+            iconSize:[18,18],iconAnchor:[9,9]
+        })
+    }).addTo(mapsMap);
+    window._sorgulaCircle=L.circle([b.lat,b.lng],{
+        radius:15,color:'#E87722',fillColor:'#E87722',fillOpacity:0.1,weight:2
+    }).addTo(mapsMap);
+    setTimeout(function(){
+        if(window._sorgulaMarker){mapsMap.removeLayer(window._sorgulaMarker);window._sorgulaMarker=null}
+        if(window._sorgulaCircle){mapsMap.removeLayer(window._sorgulaCircle);window._sorgulaCircle=null}
+    },8000);
+}
+
 function sorgulaYakinZamanaEkle(b){
     var liste=document.getElementById('sorgula-yakin-liste');
     if(!b||!b.application_no)return;
     var items=liste.querySelectorAll('.sorgula-item');
     for(var i=0;i<items.length;i++){
-        if(items[i].dataset.no===b.application_no)return;
+        if(items[i].dataset.no===b.application_no){liste.removeChild(items[i]);break}
     }
     var div=document.createElement('div');
     div.className='sorgula-item';
@@ -1875,12 +1898,12 @@ function sorgulaYakinZamanaEkle(b){
     div.addEventListener('click',function(){
         var lat=parseFloat(this.dataset.lat);
         var lng=parseFloat(this.dataset.lng);
-        if(!isNaN(lat)&&!isNaN(lng)) mapsMap.setView([lat,lng],17);
+        if(!isNaN(lat)&&!isNaN(lng)){mapsMap.flyTo([lat,lng],18,{animate:true,duration:1});sorgulaHighlightBasvuru({lat:lat,lng:lng,application_no:this.dataset.no})}
         closeSorgulaModal();
         showToast('🔍 '+this.dataset.no);
     });
     liste.insertBefore(div,liste.firstChild);
-    if(liste.children.length>5)liste.removeChild(liste.lastChild);
+    while(liste.children.length>4)liste.removeChild(liste.lastChild);
     localStorage.setItem('maps_yakin_sorgular',JSON.stringify(
         Array.from(liste.children).map(function(c){return{no:c.dataset.no,lat:c.dataset.lat,lng:c.dataset.lng}})
     ));
