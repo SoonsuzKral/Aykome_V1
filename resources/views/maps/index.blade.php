@@ -708,7 +708,6 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
                 </div>
             </div>
         </div>
-        </div>
 
         <div id="maps-map-canvas" style="width:100%;height:100%;"></div>
 
