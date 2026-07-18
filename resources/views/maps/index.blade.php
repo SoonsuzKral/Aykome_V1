@@ -1124,8 +1124,6 @@ function initMaps(){
     });
 
     // Shift+sağ tık sürükle ile döndürme
-    // Pan sırasında bearing geçici olarak 0'a çekilir (koordinat kırılmasın)
-    mapsMap._savedBearing=undefined;
     mapsMap._rotateDragging=!1;
     mapsMap._rotateStartAngle=0;
 
@@ -1150,39 +1148,12 @@ function initMaps(){
             mapsMap._container.style.cursor='';
         }
     });
-    // Pan başlarken bearing'i geçici olarak sıfırla
-    // mousedown'da hemen sıfırlanır (koordinat sistemi drag öncesi düzelsin)
-    // click'te (basit tıklama) veya dragend'de (sürükleme) geri yüklenir
-    mapsMap.on('mousedown',function(e){
-        if(e.originalEvent.button===0&&!mapsMap._rotateDragging){
-            var b=mapsMap.getBearing();
-            if(Math.abs(b)>1){
-                mapsMap._savedBearing=b;
-                mapsMap.setBearing(0);
-            }
-        }
-    });
-    mapsMap.on('click',function(){
-        if(mapsMap._savedBearing!==undefined){
-            var sb=mapsMap._savedBearing;
-            mapsMap._savedBearing=undefined;
-            mapsMap.setBearing(sb);
-        }
-    });
-    mapsMap.on('dragend',function(){
-        if(mapsMap._savedBearing!==undefined){
-            var sb=mapsMap._savedBearing;
-            mapsMap._savedBearing=undefined;
-            mapsMap.setBearing(sb);
-        }
-    });
     document.getElementById('btn-rotate-reset').addEventListener('click',function(){
         mapsMap.setBearing(0);
         this.innerHTML='🧭 0°';
     });
     mapsMap.on('rotate',function(){
-        var deg=Math.round(mapsMap.getBearing());
-        document.getElementById('btn-rotate-reset').innerHTML='🧭 '+deg+'°';
+        document.getElementById('btn-rotate-reset').innerHTML='🧭 '+Math.round(mapsMap.getBearing())+'°';
     });
 
     basemapLayers.google=L.tileLayer('http://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}',{attribution:'© Google',maxZoom:21}).addTo(mapsMap);
