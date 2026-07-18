@@ -1147,27 +1147,10 @@ function initMaps(){
             mapsMap._container.style.cursor='';
         }
     });
-    // Koordinat kırılması: sadece drag algılanınca (mouse 4px+ hareket) bearing 0'a çekilir
-    // Basit tıklamalarda bearing HİÇ değişmez — snap olmaz
-    // Capture phase mousemove ile Draggable'dan ÖNCE müdahale edilir
-    mapsMap._savedBearing=null;
-    mapsMap._mdPoint=null;
-    mapsMap._wasDrag=!1;
-    mapsMap._bearingGuard=!1;
-
-    function _bearingCheckMove(e){
-        if(!mapsMap._bearingGuard||mapsMap._savedBearing===null||mapsMap._mdPoint===null)
-            return;
-        var dx=e.clientX-mapsMap._mdPoint.x,
-            dy=e.clientY-mapsMap._mdPoint.y;
-        if(dx*dx+dy*dy>16){
-            mapsMap._bearingGuard=!1;
-            mapsMap._wasDrag=!0;
-            mapsMap.setBearing(0);
-        }
-    }
-    document.addEventListener('mousemove',_bearingCheckMove,!0);
-
+    // TEK ÇALIŞAN YÖNTEM: mousedown'da bearing 0'a çek, bitince geri yükle
+    // leaflet-rotate plugin'i CSS rotate kullandığı için koordinat dönüşümleri
+    // drag sırasında kırılıyor. Bear=0'da Leaflet'in doğal koordinat sistemi çalışır.
+    // Basit tıklamalarda microtask ile paint ÖNCESİ restore → kullanıcı snap görmez.
     mapsMap.on('mousedown',function(e){
         if(e.originalEvent.button!==0||mapsMap._rotateDragging)
             return;
@@ -1176,30 +1159,25 @@ function initMaps(){
             return;
         mapsMap._savedBearing=b;
         mapsMap._wasDrag=!1;
-        mapsMap._mdPoint={x:e.originalEvent.clientX,y:e.originalEvent.clientY};
-        mapsMap._bearingGuard=!0;
+        mapsMap.setBearing(0);
     });
-
     mapsMap.on('dragstart',function(){
-        mapsMap._bearingGuard=!1;
         mapsMap._wasDrag=!0;
     });
-
     mapsMap.on('dragend',function(){
-        mapsMap._bearingGuard=!1;
-        if(mapsMap._savedBearing!==null){
+        if(mapsMap._savedBearing!==void 0){
             var sb=mapsMap._savedBearing;
-            mapsMap._savedBearing=null;
-            mapsMap._mdPoint=null;
+            mapsMap._savedBearing=void 0;
             mapsMap.setBearing(sb);
         }
     });
-
     mapsMap.on('click',function(){
-        mapsMap._bearingGuard=!1;
-        mapsMap._mdPoint=null;
-        if(mapsMap._savedBearing!==null&&!mapsMap._wasDrag){
-            mapsMap._savedBearing=null;
+        if(mapsMap._savedBearing!==void 0&&!mapsMap._wasDrag){
+            var sb=mapsMap._savedBearing;
+            mapsMap._savedBearing=void 0;
+            Promise.resolve().then(function(){
+                mapsMap.setBearing(sb);
+            });
         }
     });
     document.getElementById('btn-rotate-reset').addEventListener('click',function(){
