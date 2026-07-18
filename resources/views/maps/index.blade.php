@@ -1162,6 +1162,32 @@ function handleMapsClick(e){
             var kapiNo=gfiProps.KAPI_NO||gfiProps.kapino||gfiProps.KAPINO||'';
             window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,kapiNo:kapiNo,ada:ada,parsel:parsel,displayName:(ilce?ilce+' / ':'')+(mahalle?mahalle:'')};
             gosterPopup(lat,lng,ilce,mahalle,cadde,ada,parsel);
+            /* WMS cadde bos ise Nominatim'den cadde/sokak al */
+            if(!cadde&&_nominatimController)_nominatimController.abort();
+            if(!cadde){
+                _nominatimController=new AbortController();
+                fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&addressdetails=1&accept-language=tr',{signal:_nominatimController.signal})
+                .then(function(r){return r.json()})
+                .then(function(data){
+                    var a=data.address||{};
+                    var nCadde=a.road||a.street||'';
+                    var nKapiNo=a.house_number||'';
+                    if(nCadde||nKapiNo){
+                        window._sonTiklama.cadde=nCadde||window._sonTiklama.cadde;
+                        window._sonTiklama.kapiNo=nKapiNo||window._sonTiklama.kapiNo;
+                        /* adres ozetini guncelle */
+                        var p=[];
+                        if(window._sonTiklama.ilce)p.push(window._sonTiklama.ilce);
+                        if(window._sonTiklama.mahalle)p.push(window._sonTiklama.mahalle+' Mah.');
+                        if(window._sonTiklama.cadde)p.push(window._sonTiklama.cadde);
+                        if(window._sonTiklama.kapiNo)p.push('No:'+window._sonTiklama.kapiNo);
+                        document.getElementById('basvuru-adres-ozet').innerHTML='\uD83D\uDCCD '+p.join(', ');
+                        document.getElementById('bs-cadde').value=window._sonTiklama.cadde;
+                        document.getElementById('bs-address').value=p.join(', ');
+                    }
+                })
+                .catch(function(){});
+            }
             return;
         }
         throw new Error('WMS bos');
