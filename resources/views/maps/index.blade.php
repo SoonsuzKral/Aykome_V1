@@ -1151,14 +1151,22 @@ function initMaps(){
         }
     });
     // Pan başlarken bearing'i geçici olarak sıfırla
-    // (sadece gerçek sürükleme başlayınca, basit tıklamada değil)
-    mapsMap.on('dragstart',function(){
-        if(!mapsMap._rotateDragging){
+    // mousedown'da hemen sıfırlanır (koordinat sistemi drag öncesi düzelsin)
+    // click'te (basit tıklama) veya dragend'de (sürükleme) geri yüklenir
+    mapsMap.on('mousedown',function(e){
+        if(e.originalEvent.button===0&&!mapsMap._rotateDragging){
             var b=mapsMap.getBearing();
             if(Math.abs(b)>1){
                 mapsMap._savedBearing=b;
                 mapsMap.setBearing(0);
             }
+        }
+    });
+    mapsMap.on('click',function(){
+        if(mapsMap._savedBearing!==undefined){
+            var sb=mapsMap._savedBearing;
+            mapsMap._savedBearing=undefined;
+            mapsMap.setBearing(sb);
         }
     });
     mapsMap.on('dragend',function(){
