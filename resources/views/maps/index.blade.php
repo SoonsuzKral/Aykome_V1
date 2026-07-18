@@ -1340,7 +1340,9 @@ function _copyStep1ToStep2(){
 function _buildOzet(){
     function v(id){return document.getElementById(id)?.value||'-'}
     var html='<table style="width:100%;border-collapse:collapse;">';
-    html+='<tr><td style="padding:3px 6px;color:#64748b;">Kurum</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-institution')+'</td></tr>';
+    var kurumEl=document.getElementById('bs-institution');
+    var kurumText=kurumEl?kurumEl.options[kurumEl.selectedIndex]?.text||'-':'-';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Kurum</td><td style="padding:3px 6px;font-weight:600;">'+kurumText+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Ad Soyad</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-first-name')+' '+v('bs-last-name')+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">TCKN</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-tckn')+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Telefon</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-phone')+'</td></tr>';
@@ -1475,7 +1477,25 @@ w.basvuruSubmit=function(){
     .then(function(d){
         if(d.success){
             closeBasvuruPanel();
-            showToast('✅ Başvuru oluşturuldu: '+(d.application_no||''));
+            if(typeof Swal!=='undefined'){
+                Swal.fire({
+                    toast:true,
+                    position:'top-end',
+                    icon:'success',
+                    title:'Başvuru Oluşturuldu',
+                    html:'<div style="font-size:13px;line-height:1.6;">' +
+                        '<b>Başvuru No:</b> '+(d.application_no||'')+'<br>' +
+                        '<b>Tarih:</b> '+new Date().toLocaleString('tr-TR')+'<br>' +
+                        '<span style="color:#02E0FB;font-size:11px;">Başvurunuz başarıyla kaydedildi.</span>' +
+                        '</div>',
+                    showConfirmButton:false,
+                    timer:5500,
+                    timerProgressBar:true,
+                    iconColor:'#02E0FB',
+                });
+            }else{
+                showToast('✅ Başvuru oluşturuldu: '+(d.application_no||''));
+            }
             loadBasvuruMarkers();
         }else{
             showToast('⚠️ '+(d.message||'Kayıt başarısız'));
