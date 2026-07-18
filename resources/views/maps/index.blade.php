@@ -1159,7 +1159,8 @@ function handleMapsClick(e){
             var cadde=((gfiProps.CADDE_SO_1||'')+' '+(gfiProps.CADDE_SO_2||'')).trim()||gfiProps.CADDE||gfiProps.cadde||'';
             var ada=gfiProps.ADA||'';
             var parsel=gfiProps.PARSEL||'';
-            window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,ada:ada,parsel:parsel,displayName:(ilce?ilce+' / ':'')+(mahalle?mahalle:'')};
+            var kapiNo=gfiProps.KAPI_NO||gfiProps.kapino||gfiProps.KAPINO||'';
+            window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,kapiNo:kapiNo,ada:ada,parsel:parsel,displayName:(ilce?ilce+' / ':'')+(mahalle?mahalle:'')};
             gosterPopup(lat,lng,ilce,mahalle,cadde,ada,parsel);
             return;
         }
@@ -1173,15 +1174,16 @@ function handleMapsClick(e){
         .then(function(r){return r.json()})
         .then(function(data){
             var addr=data.address||{};
-            var ilce=addr.county||addr.town||addr.city_district||'';
+            var ilce=addr.county||addr.town||addr.city_district||addr.district||'';
             var mahalle=addr.suburb||addr.neighbourhood||addr.quarter||addr.village||'';
-            var cadde=addr.road||'';
-            window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,ada:'',parsel:'',displayName:data.display_name||lat.toFixed(6)+', '+lng.toFixed(6)};
+            var cadde=addr.road||addr.street||'';
+            var kapiNo=addr.house_number||'';
+            window._sonTiklama={lat:lat,lng:lng,ilce:ilce,mahalle:mahalle,cadde:cadde,kapiNo:kapiNo,ada:'',parsel:'',displayName:data.display_name||lat.toFixed(6)+', '+lng.toFixed(6)};
             gosterPopup(lat,lng,ilce,mahalle,cadde,'','');
         })
         .catch(function(err){
             if(err&&err.name==='AbortError')return;
-            window._sonTiklama={lat:lat,lng:lng,ilce:'',mahalle:'',cadde:'',ada:'',parsel:'',displayName:lat.toFixed(6)+', '+lng.toFixed(6)};
+            window._sonTiklama={lat:lat,lng:lng,ilce:'',mahalle:'',cadde:'',kapiNo:'',ada:'',parsel:'',displayName:lat.toFixed(6)+', '+lng.toFixed(6)};
             gosterPopup(lat,lng,'','','','','');
         });
     });
@@ -1206,7 +1208,7 @@ function gosterPopup(lat,lng,ilce,mahalle,cadde,ada,parsel){
 
 w.openBasvuruFromClick=function(tip){
     mapsMap.closePopup();
-    var t=window._sonTiklama||{lat:0,lng:0,ilce:'',mahalle:'',cadde:'',ada:'',parsel:'',displayName:''};
+    var t=window._sonTiklama||{lat:0,lng:0,ilce:'',mahalle:'',cadde:'',kapiNo:'',ada:'',parsel:'',displayName:''};
 
     document.getElementById('bs-lat').value=t.lat;
     document.getElementById('bs-lng').value=t.lng;
@@ -1224,8 +1226,9 @@ w.openBasvuruFromClick=function(tip){
 
     var adresParcalari=[];
     if(t.ilce) adresParcalari.push(t.ilce);
-    if(t.mahalle) adresParcalari.push(t.mahalle+' Mahallesi');
+    if(t.mahalle) adresParcalari.push(t.mahalle+' Mah.');
     if(t.cadde) adresParcalari.push(t.cadde);
+    if(t.kapiNo) adresParcalari.push('No:'+t.kapiNo);
     var adresStr=adresParcalari.join(', ');
     document.getElementById('basvuru-adres-ozet').innerHTML='\uD83D\uDCCD '+(adresStr||'Adres bilgisi al\u0131namad\u0131');
     document.getElementById('bs-address').value=adresStr;
@@ -1348,8 +1351,9 @@ function _copyStep1ToStep2(){
     var t=window._sonTiklama||{};
     var adresParcalari=[];
     if(t.ilce) adresParcalari.push(t.ilce);
-    if(t.mahalle) adresParcalari.push(t.mahalle+' Mahallesi');
+    if(t.mahalle) adresParcalari.push(t.mahalle+' Mah.');
     if(t.cadde) adresParcalari.push(t.cadde);
+    if(t.kapiNo) adresParcalari.push('No:'+t.kapiNo);
     var adresStr=adresParcalari.join(', ');
     if(adresStr){
         document.getElementById('bs-address').value=adresStr;
@@ -1454,10 +1458,23 @@ function autoFillDimensions(){
     if(!drawnItems||drawnItems.getLayers().length===0)return;
     var drawType=document.getElementById('bs-drawing-type')?.value||'';
     if(drawType==='polygon'){
-        document.getElementById('bs-width').value='';
-        document.getElementById('bs-length').value='';
-        document.getElementById('bs-width').disabled=!0;
-        document.getElementById('bs-length').disabled=!0;
+        var bounds=drawnItems.getBounds();
+        if(bounds&&bounds.isValid()){
+            var c=bounds.getCenter();
+            function dist(a,b){
+                var R=6371000;
+                var dLat=(b.lat-a.lat)*Math.PI/180;
+                var dLng=(b.lng-a.lng)*Math.PI/180;
+                var a2=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+                return R*2*Math.atan2(Math.sqrt(a2),Math.sqrt(1-a2));
+            }
+            var w=dist({lat:c.lat,lng:bounds.getWest()},{lat:c.lat,lng:bounds.getEast()});
+            var h=dist({lat:bounds.getSouth(),lng:c.lng},{lat:bounds.getNorth(),lng:c.lng});
+            document.getElementById('bs-width').value=Math.max(w,h).toFixed(2);
+            document.getElementById('bs-length').value=Math.min(w,h).toFixed(2);
+            document.getElementById('bs-width').disabled=!0;
+            document.getElementById('bs-length').disabled=!0;
+        }
         updateSurfaceSummary();
         return;
     }
@@ -1631,17 +1648,20 @@ function handleDrawCreated(e){
     .then(function(r){return r.json()})
     .then(function(data){
         var addr=data.address||{};
-        var ilce=addr.county||addr.town||addr.city_district||'';
+        var ilce=addr.county||addr.town||addr.city_district||addr.district||'';
         var mahalle=addr.suburb||addr.neighbourhood||addr.quarter||addr.village||'';
-        var cadde=addr.road||'';
+        var cadde=addr.road||addr.street||addr.pedestrian||'';
+        var kapiNo=addr.house_number||'';
         window._sonTiklama.ilce=ilce;
         window._sonTiklama.mahalle=mahalle;
         window._sonTiklama.cadde=cadde;
+        window._sonTiklama.kapiNo=kapiNo;
         window._sonTiklama.displayName=data.display_name||lat.toFixed(6)+', '+lng.toFixed(6);
         var adresParcalari=[];
         if(ilce) adresParcalari.push(ilce);
-        if(mahalle) adresParcalari.push(mahalle+' Mahallesi');
+        if(mahalle) adresParcalari.push(mahalle+' Mah.');
         if(cadde) adresParcalari.push(cadde);
+        if(kapiNo) adresParcalari.push('No:'+kapiNo);
         var adresStr=adresParcalari.join(', ');
         document.getElementById('basvuru-adres-ozet').innerHTML='\uD83D\uDCCD '+(adresStr||lat.toFixed(6)+', '+lng.toFixed(6));
         document.getElementById('bs-address').value=adresStr;
