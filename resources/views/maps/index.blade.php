@@ -714,7 +714,6 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 
         <div id="maps-statusbar">
             <span id="maps-coords">📍 37.1598° K | 38.7969° D</span>
-            <span id="maps-bearing" style="display:none"></span>
             <span id="maps-active-layers">Aktif: 0 katman</span>
             <span>© 2026 AYKOME — HGB Bilişim  | Şanlıurfa CBS</span>
         </div>
@@ -1121,10 +1120,8 @@ function initMaps(){
     mapsMap=L.map('maps-map-canvas',{
         center:URFA_CENTER,zoom:15,minZoom:12,maxZoom:20,
         maxBounds:URFA_BOUNDS,maxBoundsViscosity:0.8,preferCanvas:!0,
-        rotate:!0,bearingControl:!0,
-        touchRotate:!0
+        rotate:!0,touchRotate:!0
     });
-    mapsMap.setBearing(0); // rotate state'i baslat
 
     // Shift+sağ tık sürükle ile döndürme
     mapsMap._rotateDragging=!1;
@@ -1149,9 +1146,13 @@ function initMaps(){
         if(mapsMap._rotateDragging){
             mapsMap._rotateDragging=!1;
             mapsMap._container.style.cursor='';
-            // Rotasyon bittiğinde pan'ın düzgün çalışması için map'i tazele
-            mapsMap.invalidateSize();
+            mapsMap._resetView(mapsMap.getCenter(),mapsMap.getZoom());
         }
+    });
+    document.getElementById('btn-rotate-reset').addEventListener('click',function(){
+        mapsMap.setBearing(0);
+        this.innerHTML='🧭 0°';
+        mapsMap._resetView(mapsMap.getCenter(),mapsMap.getZoom());
     });
 
     basemapLayers.google=L.tileLayer('http://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}',{attribution:'© Google',maxZoom:21}).addTo(mapsMap);
@@ -2132,24 +2133,6 @@ function setupEventListeners(){
             document.body.classList.add('maps-fullscreen');
         }
         setTimeout(function(){mapsMap.invalidateSize()},400);
-    });
-
-    // Rotate reset button + bearing indicator
-    document.getElementById('btn-rotate-reset').addEventListener('click',function(){
-        mapsMap.setBearing(0);
-        document.getElementById('maps-bearing').style.display='none';
-        this.innerHTML='🧭 0°';
-    });
-    mapsMap.on('rotate',function(){
-        var b=mapsMap.getBearing();
-        var deg=Math.round(b);
-        document.getElementById('btn-rotate-reset').innerHTML='🧭 '+deg+'°';
-        if(deg!==0){
-            document.getElementById('maps-bearing').style.display='inline';
-            document.getElementById('maps-bearing').textContent='🧭 '+deg+'°';
-        }else{
-            document.getElementById('maps-bearing').style.display='none';
-        }
     });
 
     document.getElementById('btn-sorgula').addEventListener('click',function(){
