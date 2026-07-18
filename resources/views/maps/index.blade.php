@@ -832,12 +832,9 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
                         <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Yüzey Tipi</label>
                         <select id="bs-surface-type" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#fff;">
                             <option value="">— Seçiniz —</option>
-                            <option value="1">Asfalt</option>
-                            <option value="2">Beton</option>
-                            <option value="3">Parke Taşı</option>
-                            <option value="4">Toprak Zemin</option>
-                            <option value="5">Stabilize</option>
-                            <option value="6">Diğer</option>
+                            @foreach($surfaceTypes as $s)
+                            <option value="{{ $s->id }}" data-price="{{ $s->price_per_m2 }}">{{ $s->name }} — {{ number_format($s->price_per_m2, 2) }} TL/m²</option>
+                            @endforeach
                         </select>
                     </div>
                     <div style="flex:1;">
@@ -861,7 +858,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
         <div id="step-3" class="wizard-step" style="display:none;">
             <div class="f-section" style="font-size:12px;">
                 <div class="f-section-title" style="margin-bottom:10px;">💰 Teminat & Kazı Bedeli</div>
-                <div style="display:flex;gap:10px;margin-bottom:16px;">
+                <div style="display:flex;gap:10px;margin-bottom:10px;">
                     <div style="flex:1;">
                         <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Teminat Bedeli (TL)</label>
                         <input type="text" id="bs-deposit-amount" readonly disabled style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#f1f5f9;color:#64748b;box-sizing:border-box;" value="0.00 TL">
@@ -870,6 +867,10 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
                         <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Kazı Bedeli (TL)</label>
                         <input type="text" id="bs-excavation-amount" readonly disabled style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;background:#f1f5f9;color:#64748b;box-sizing:border-box;" value="0.00 TL">
                     </div>
+                </div>
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:#166534;display:flex;justify-content:space-between;align-items:center;">
+                    <span>💰 <b>Hesaplanan Tutar:</b></span>
+                    <span id="bs-hesaplanan-tutar" style="font-weight:700;font-size:14px;color:#059669;">0.00 TL</span>
                 </div>
 
                 <div class="f-section-title" style="margin-bottom:10px;">📎 Yüklenecek Evraklar</div>
@@ -1346,6 +1347,8 @@ function _buildOzet(){
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Yüzey / Keşif</td><td style="padding:3px 6px;font-weight:600;">'+yuzeyText+' | '+v('bs-width')+'m × '+v('bs-length')+'m</td></tr>';
     var dosyaSayisi=_selectedFiles.length;
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Evraklar</td><td style="padding:3px 6px;font-weight:600;">'+dosyaSayisi+' dosya</td></tr>';
+    var hesaplanan=document.getElementById('bs-hesaplanan-tutar')?.textContent||'0.00 TL';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Hesaplanan Tutar</td><td style="padding:3px 6px;font-weight:600;">'+hesaplanan+'</td></tr>';
     html+='</table>';
     document.getElementById('basvuru-ozet-icerik').innerHTML=html;
 }
@@ -1354,6 +1357,50 @@ w._copyStep1ToStep2=_copyStep1ToStep2;
 w.handleFileSelect=handleFileSelect;
 w.handleFileDrop=handleFileDrop;
 w._removeFile=_removeFile;
+
+/* Yüzey tipleri (DB'den) */
+var surfaceTypes = @json($surfaceTypes);
+function getSelectedSurfacePrice(){
+    var id = Number(document.getElementById('bs-surface-type')?.value || 0);
+    var s = surfaceTypes.find(function(i){return Number(i.id)===id});
+    return s ? Number(s.price_per_m2) : 0;
+}
+function turkishNumber(v){
+    if(!v||v==='')return 0;
+    return parseFloat(String(v).replace(/\./g,'').replace(',','.'))||0;
+}
+function updateSurfaceSummary(){
+    var area=turkishNumber(document.getElementById('bs-total-area')?.value);
+    var w=turkishNumber(document.getElementById('bs-width')?.value);
+    var l=turkishNumber(document.getElementById('bs-length')?.value);
+    var price=getSelectedSurfacePrice();
+    var measured=(w>0&&l>0)?w*l:area;
+    var total=measured*price;
+    var depo=document.getElementById('bs-deposit-amount');
+    var excv=document.getElementById('bs-excavation-amount');
+    if(depo) depo.value=total.toFixed(2)+' TL';
+    if(excv) excv.value=total.toFixed(2)+' TL';
+    var hesaplanan=document.getElementById('bs-hesaplanan-tutar');
+    if(hesaplanan) hesaplanan.textContent=total.toFixed(2)+' TL';
+}
+function autoFillDimensions(){
+    if(!drawnItems||drawnItems.getLayers().length===0)return;
+    var bounds=drawnItems.getBounds();
+    if(!bounds||!bounds.isValid())return;
+    var c=bounds.getCenter();
+    function dist(a,b){
+        var R=6371000;
+        var dLat=(b.lat-a.lat)*Math.PI/180;
+        var dLng=(b.lng-a.lng)*Math.PI/180;
+        var a2=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+        return R*2*Math.atan2(Math.sqrt(a2),Math.sqrt(1-a2));
+    }
+    var w=dist({lat:c.lat,lng:bounds.getWest()},{lat:c.lat,lng:bounds.getEast()});
+    var h=dist({lat:bounds.getSouth(),lng:c.lng},{lat:bounds.getNorth(),lng:c.lng});
+    if(w>0) document.getElementById('bs-width').value=Math.max(w,h).toFixed(2);
+    if(h>0) document.getElementById('bs-length').value=Math.min(w,h).toFixed(2);
+    updateSurfaceSummary();
+}
 
 w.basvuruSubmit=function(){
     var tipEl=document.querySelector('.tip-option.selected input');
@@ -1393,8 +1440,8 @@ w.basvuruSubmit=function(){
         total_area_m2:parseFloat(gv('bs-total-area'))||0,
         center_lat:parseFloat(gv('bs-center-lat'))||null,
         center_lng:parseFloat(gv('bs-center-lng'))||null,
-        deposit_amount:parseFloat(gv('bs-deposit-amount'))||0,
-        excavation_amount:parseFloat(gv('bs-excavation-amount'))||0,
+        deposit_amount:turkishNumber(gv('bs-deposit-amount')),
+        excavation_amount:turkishNumber(gv('bs-excavation-amount')),
     };
 
     if(!payload.lat||!payload.lng){showToast('⚠️ Konum bilgisi eksik');return}
@@ -1469,6 +1516,8 @@ function handleDrawCreated(e){
         else if(type==='polyline'||type==='line') latlngs=layer.getLatLngs();
         if(latlngs&&latlngs.length) afterDrawCheck(type,latlngs);
     }
+    setTimeout(autoFillDimensions,200);
+    setTimeout(updateSurfaceSummary,250);
 }
 
 function getBbox(lng,lat,m){
@@ -1725,6 +1774,11 @@ function setupEventListeners(){
     document.getElementById('maps-toggle-mobile').addEventListener('click',function(){
         document.getElementById('maps-left-panel').classList.toggle('mobile-open');
     });
+
+    /* Yüzey tipi / genişlik / uzunluk değişiminde fiyat güncelle */
+    document.getElementById('bs-surface-type').addEventListener('change',updateSurfaceSummary);
+    document.getElementById('bs-width').addEventListener('input',updateSurfaceSummary);
+    document.getElementById('bs-length').addEventListener('input',updateSurfaceSummary);
 }
 
 function initSearchControl(){

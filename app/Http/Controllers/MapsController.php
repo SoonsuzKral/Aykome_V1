@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\GisBasvuruNokta;
+use App\Models\SurfaceType;
 use App\Models\Application;
 use App\Models\GisCizim;
 use App\Services\DrawingService;
@@ -15,7 +16,12 @@ class MapsController extends Controller
 {
     public function index(): View
     {
-        return view('maps.index');
+        $surfaceTypes = SurfaceType::query()
+            ->where('active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'price_per_m2']);
+
+        return view('maps.index', compact('surfaceTypes'));
     }
 
     // ─── CBS v7 — 15m Yol Analizi ───
