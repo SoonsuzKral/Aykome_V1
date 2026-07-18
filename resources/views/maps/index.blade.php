@@ -1617,6 +1617,44 @@ function handleDrawCreated(e){
     document.getElementById('bs-lat').value=lat;
     document.getElementById('bs-lng').value=lng;
 
+    /* _sonTiklama ve adres: drawing verilerini forma bagla */
+    window._sonTiklama=window._sonTiklama||{};
+    window._sonTiklama.lat=lat;
+    window._sonTiklama.lng=lng;
+    if(!window._sonTiklama.ilce) window._sonTiklama.ilce='';
+    if(!window._sonTiklama.mahalle) window._sonTiklama.mahalle='';
+    if(!window._sonTiklama.cadde) window._sonTiklama.cadde='';
+    /* Nominatim ile adres coz */
+    if(_nominatimController) _nominatimController.abort();
+    _nominatimController=new AbortController();
+    fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&addressdetails=1&accept-language=tr',{signal:_nominatimController.signal})
+    .then(function(r){return r.json()})
+    .then(function(data){
+        var addr=data.address||{};
+        var ilce=addr.county||addr.town||addr.city_district||'';
+        var mahalle=addr.suburb||addr.neighbourhood||addr.quarter||addr.village||'';
+        var cadde=addr.road||'';
+        window._sonTiklama.ilce=ilce;
+        window._sonTiklama.mahalle=mahalle;
+        window._sonTiklama.cadde=cadde;
+        window._sonTiklama.displayName=data.display_name||lat.toFixed(6)+', '+lng.toFixed(6);
+        var adresParcalari=[];
+        if(ilce) adresParcalari.push(ilce);
+        if(mahalle) adresParcalari.push(mahalle+' Mahallesi');
+        if(cadde) adresParcalari.push(cadde);
+        var adresStr=adresParcalari.join(', ');
+        document.getElementById('basvuru-adres-ozet').innerHTML='\uD83D\uDCCD '+(adresStr||lat.toFixed(6)+', '+lng.toFixed(6));
+        document.getElementById('bs-address').value=adresStr;
+        document.getElementById('bs-ilce').value=ilce;
+        document.getElementById('bs-mahalle').value=mahalle;
+        document.getElementById('bs-cadde').value=cadde;
+    })
+    .catch(function(err){
+        if(err&&err.name==='AbortError')return;
+        document.getElementById('basvuru-adres-ozet').innerHTML='\uD83D\uDCCD '+lat.toFixed(6)+', '+lng.toFixed(6);
+        document.getElementById('bs-address').value=lat.toFixed(6)+', '+lng.toFixed(6);
+    });
+
     // sadece koordinatları kaydet, draw report açar
     if(bounds){
         var latlngs=layer.getLatLngs();
@@ -1781,14 +1819,18 @@ function setupEventListeners(){
     });
 
     document.getElementById('btn-yeni-basvuru').addEventListener('click',function(){
-        document.getElementById('bs-lat').value='';
-        document.getElementById('bs-lng').value='';
-        document.getElementById('bs-ilce').value='';
-        document.getElementById('bs-mahalle').value='';
-        document.getElementById('bs-cadde').value='';
+        var drawType=document.getElementById('bs-drawing-type')?.value||'';
+        var hasDrawing=drawType&&drawnItems&&drawnItems.getLayers().length>0;
+        if(!hasDrawing){
+            document.getElementById('bs-lat').value='';
+            document.getElementById('bs-lng').value='';
+            document.getElementById('bs-ilce').value='';
+            document.getElementById('bs-mahalle').value='';
+            document.getElementById('bs-cadde').value='';
+            document.getElementById('basvuru-adres-ozet').innerHTML='<span style="color:#94a3b8;">Haritadan bir konum se\u00e7in</span>';
+            document.getElementById('basvuru-coord-display').textContent='';
+        }
         document.getElementById('ortak-kurum-section').style.display='none';
-        document.getElementById('basvuru-adres-ozet').innerHTML='<span style="color:#94a3b8;">Haritadan bir konum se\u00e7in</span>';
-        document.getElementById('basvuru-coord-display').textContent='';
         document.querySelectorAll('.ortak-kurum-item').forEach(function(el){el.classList.remove('selected')});
         document.getElementById('bs-ortak-kurumlar').value='';
         document.querySelectorAll('.tip-option').forEach(function(el){el.classList.remove('selected')});
