@@ -1150,9 +1150,10 @@ function initMaps(){
             mapsMap._container.style.cursor='';
         }
     });
-    // Pan başlarken bearing'i sıfırla, pan bitince geri yükle
-    mapsMap.on('mousedown',function(e){
-        if(e.originalEvent.button===0&&!mapsMap._rotateDragging){
+    // Pan başlarken bearing'i geçici olarak sıfırla
+    // (sadece gerçek sürükleme başlayınca, basit tıklamada değil)
+    mapsMap.on('dragstart',function(){
+        if(!mapsMap._rotateDragging){
             var b=mapsMap.getBearing();
             if(Math.abs(b)>1){
                 mapsMap._savedBearing=b;
@@ -1160,7 +1161,7 @@ function initMaps(){
             }
         }
     });
-    mapsMap.on('mouseup',function(){
+    mapsMap.on('dragend',function(){
         if(mapsMap._savedBearing!==undefined){
             var sb=mapsMap._savedBearing;
             mapsMap._savedBearing=undefined;
