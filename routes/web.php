@@ -44,6 +44,7 @@ Route::middleware(['auth'])->prefix('maps')->name('maps.')->group(function () {
     Route::post('/basvuru-olustur',          [MapsController::class, 'basvuruOlustur'])->name('basvuruOlustur');
     Route::get('/basvurular/geojson',        [MapsController::class, 'basvurularGeoJson'])->name('basvurularGeoJson');
     Route::get('/basvuru-sorgula',           [MapsController::class, 'basvuruSorgula'])->name('basvuruSorgula');
+    Route::get('/tckn-sorgula/{tckn}',       [MapsController::class, 'tcknSorgula'])->name('tcknSorgula');
 
     // CBS v7 — 15m Yol + Hat Kimliği
     Route::get('/15m/alti',                  [MapsController::class, 'geoJson15Alti'])->name('15m.alti');

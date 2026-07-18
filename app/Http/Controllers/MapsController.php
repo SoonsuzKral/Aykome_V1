@@ -563,6 +563,33 @@ class MapsController extends Controller
         }
     }
 
+    public function tcknSorgula($tckn)
+    {
+        if (strlen($tckn) < 10) {
+            return response()->json(['found' => false]);
+        }
+
+        $application = Application::where('applicant_national_id', $tckn)
+            ->orWhere('tc_no', $tckn)
+            ->orWhere('identity_no', $tckn)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        if (!$application) {
+            return response()->json(['found' => false]);
+        }
+
+        return response()->json([
+            'found' => true,
+            'data' => [
+                'first_name' => $application->applicant_first_name,
+                'last_name' => $application->applicant_last_name,
+                'phone' => $application->applicant_phone,
+                'address' => $application->address_text,
+            ],
+        ]);
+    }
+
     public function basvurularGeoJson()
     {
         try {

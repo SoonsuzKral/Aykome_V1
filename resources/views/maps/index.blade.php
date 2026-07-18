@@ -1705,6 +1705,23 @@ function setupEventListeners(){
 
     document.getElementById('maps-overlay').addEventListener('click',closeBasvuruPanel);
 
+    document.getElementById('btn-tckn-sorgula').addEventListener('click',function(){
+        var tckn=document.getElementById('bs-tckn').value.trim();
+        if(tckn.length<10){showToast('⚠️ Geçerli bir TCKN girin');return}
+        fetch('/maps/tckn-sorgula/'+tckn)
+        .then(function(r){return r.json()})
+        .then(function(d){
+            if(d.found&&d.data){
+                if(d.data.first_name) document.getElementById('bs-first-name').value=d.data.first_name;
+                if(d.data.last_name) document.getElementById('bs-last-name').value=d.data.last_name;
+                if(d.data.phone) document.getElementById('bs-phone').value=d.data.phone;
+                if(d.data.address) document.getElementById('bs-address').value=d.data.address;
+                showToast('✅ Bilgiler getirildi');
+            }else showToast('⚠️ Bu TCKN\'ye ait kayıt bulunamadı');
+        })
+        .catch(function(){showToast('⚠️ Sorgu başarısız')});
+    });
+
     document.getElementById('maps-toggle-mobile').addEventListener('click',function(){
         document.getElementById('maps-left-panel').classList.toggle('mobile-open');
     });
