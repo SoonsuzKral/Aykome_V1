@@ -483,6 +483,8 @@ class MapsController extends Controller
             'length_m' => ['nullable', 'numeric', 'min:0'],
             'polygon_geojson' => ['nullable', 'json'],
             'total_area_m2' => ['nullable', 'numeric', 'min:0'],
+            'drawing_type' => ['nullable', 'string', 'in:polygon,polyline'],
+            'drawing_length_m' => ['nullable', 'numeric', 'min:0'],
             'center_lat' => ['nullable', 'numeric', 'between:-90,90'],
             'center_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
@@ -524,7 +526,9 @@ class MapsController extends Controller
                 $service = app(\App\Services\MapDrawingService::class);
                 $service->syncPrimaryArea($application, [
                     'polygon_geojson' => $data['polygon_geojson'] ?? null,
-                    'total_area_m2' => $data['total_area_m2'] ?? 0,
+                'total_area_m2' => $data['total_area_m2'] ?? 0,
+                'drawing_type' => $data['drawing_type'] ?? null,
+                'drawing_length_m' => $data['drawing_length_m'] ?? null,
                     'center_lat' => $data['center_lat'] ?? null,
                     'center_lng' => $data['center_lng'] ?? null,
                     'address_text' => $data['address_text'] ?? null,
