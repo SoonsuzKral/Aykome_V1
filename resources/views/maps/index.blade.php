@@ -1126,7 +1126,6 @@ function initMaps(){
     // Shift+sağ tık sürükle ile döndürme
     mapsMap._rotateDragging=!1;
     mapsMap._rotateStartAngle=0;
-
     mapsMap.on('contextmenu',function(e){
         if(e.originalEvent.shiftKey){
             L.DomEvent.preventDefault(e.originalEvent);
@@ -1146,6 +1145,38 @@ function initMaps(){
         if(mapsMap._rotateDragging){
             mapsMap._rotateDragging=!1;
             mapsMap._container.style.cursor='';
+        }
+    });
+    // Koordinat kırılması: pan'de bearing 0'a çekilir, bitince geri yüklenir
+    // Basit tıklamada click event'inde microtask ile restore → paint öncesi çalışır,
+    // kullanıcı snap görmez.
+    mapsMap.on('mousedown',function(e){
+        if(e.originalEvent.button!==0||mapsMap._rotateDragging||mapsMap.dragging.moving())
+            return;
+        var b=mapsMap.getBearing();
+        if(Math.abs(b)<=1)
+            return;
+        mapsMap._savedBearing=b;
+        mapsMap._wasDrag=!1;
+        mapsMap.setBearing(0);
+    });
+    mapsMap.on('dragstart',function(){
+        mapsMap._wasDrag=!0;
+    });
+    mapsMap.on('dragend',function(){
+        if(mapsMap._savedBearing!==void 0){
+            var sb=mapsMap._savedBearing;
+            mapsMap._savedBearing=void 0;
+            mapsMap.setBearing(sb);
+        }
+    });
+    mapsMap.on('click',function(){
+        if(mapsMap._savedBearing!==void 0&&!mapsMap._wasDrag){
+            var sb=mapsMap._savedBearing;
+            mapsMap._savedBearing=void 0;
+            Promise.resolve().then(function(){
+                mapsMap.setBearing(sb);
+            });
         }
     });
     document.getElementById('btn-rotate-reset').addEventListener('click',function(){

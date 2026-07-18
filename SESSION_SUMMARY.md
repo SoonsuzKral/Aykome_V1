@@ -1,4 +1,4 @@
-# AYKOME CBS — Oturum Özeti (14 Temmuz 2026)
+# AYKOME CBS — Oturum Özeti (19 Temmuz 2026)
 
 ## Yapılan İşlemler
 
@@ -40,6 +40,24 @@
 1. Migration'lar Docker'da çalıştırılmalı (OCI_DEFAULT hatası)
 2. `GisKatmanAyar` modeli eksik (controller raw DB kullanıyor)
 3. ionCube + custom lisans sistemi kurulumu
+
+## v7.6 — Harita Döndürme (Rotate) + Bearing Toggle Temizliği
+- **leaflet-rotate v0.2.8 eklendi**: CDN'den import, `rotate:true, bearingControl:true`
+- **Shift+sağ tık drag**: `contextmenu` + `mousemove`/`mouseup` ile döndürme
+- **🧭 butonu**: Canlı derece göstergesi, tıklayınca 0° sıfırlama
+- **Bearing toggle kaldırıldı**: Daha önce pan'de bearing sıfırlanıp geri yükleniyordu (koordinat kırılmasın diye), kullanıcı rahatsız oldu. Artık bearing PAN BOYUNCA AYNI KALIR
+- **Duplicate handler temizliği**: Aynı `contextmenu` handler'ı iki kere bağlanmış, kaldırıldı
+- **17 test, 38 assertion ✅**
+
+## Dosya Yapısı
+- `resources/views/maps/index.blade.php` (~3400 satır) — tüm CBS UI + JS
+- `app/Http/Controllers/MapsController.php` (548 satır) — proxy, drawing CRUD, katman, arama
+- `app/Models/GisBasvuruNokta.php` — başvuru noktaları
+- `app/Models/GisCizim.php` — çizimler
+- `app/Models/GisCizimYolIliskisi.php` — çizim-yol ilişkisi
+- `app/Services/DrawingService.php` — findRelatedRoads, save/update/delete drawing
+- `routes/web.php` — maps route group (16 endpoint)
+- `tests/Feature/MapsControllerTest.php` — 17 test ✅
 
 ## Dosya Yapısı
 - `resources/views/maps/index.blade.php` (~2000 satır) — tüm CBS UI + JS
