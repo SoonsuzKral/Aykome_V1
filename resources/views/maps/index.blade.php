@@ -1147,25 +1147,59 @@ function initMaps(){
             mapsMap._container.style.cursor='';
         }
     });
-    // Koordinat kırılması: SADECE drag başlayınca bearing 0'a çekilir
-    // Basit tıklamalarda (click) bearing DEĞİŞMEZ — snap olmaz
-    mapsMap._dragBearingSaved=!1;
-    mapsMap.dragging._draggable.on('predrag',function(){
-        if(mapsMap._rotateDragging||mapsMap._dragBearingSaved)
+    // Koordinat kırılması: sadece drag algılanınca (mouse 4px+ hareket) bearing 0'a çekilir
+    // Basit tıklamalarda bearing HİÇ değişmez — snap olmaz
+    // Capture phase mousemove ile Draggable'dan ÖNCE müdahale edilir
+    mapsMap._savedBearing=null;
+    mapsMap._mdPoint=null;
+    mapsMap._wasDrag=!1;
+    mapsMap._bearingGuard=!1;
+
+    function _bearingCheckMove(e){
+        if(!mapsMap._bearingGuard||mapsMap._savedBearing===null||mapsMap._mdPoint===null)
+            return;
+        var dx=e.clientX-mapsMap._mdPoint.x,
+            dy=e.clientY-mapsMap._mdPoint.y;
+        if(dx*dx+dy*dy>16){
+            mapsMap._bearingGuard=!1;
+            mapsMap._wasDrag=!0;
+            mapsMap.setBearing(0);
+        }
+    }
+    document.addEventListener('mousemove',_bearingCheckMove,!0);
+
+    mapsMap.on('mousedown',function(e){
+        if(e.originalEvent.button!==0||mapsMap._rotateDragging)
             return;
         var b=mapsMap.getBearing();
         if(Math.abs(b)<=1)
             return;
         mapsMap._savedBearing=b;
-        mapsMap.setBearing(0);
-        mapsMap._dragBearingSaved=!0;
+        mapsMap._wasDrag=!1;
+        mapsMap._mdPoint={x:e.originalEvent.clientX,y:e.originalEvent.clientY};
+        mapsMap._bearingGuard=!0;
     });
+
+    mapsMap.on('dragstart',function(){
+        mapsMap._bearingGuard=!1;
+        mapsMap._wasDrag=!0;
+    });
+
     mapsMap.on('dragend',function(){
-        mapsMap._dragBearingSaved=!1;
-        if(mapsMap._savedBearing!==void 0){
+        mapsMap._bearingGuard=!1;
+        if(mapsMap._savedBearing!==null){
             var sb=mapsMap._savedBearing;
-            mapsMap._savedBearing=void 0;
+            mapsMap._savedBearing=null;
+            mapsMap._mdPoint=null;
             mapsMap.setBearing(sb);
+        }
+    });
+
+    mapsMap.on('click',function(){
+        mapsMap._bearingGuard=!1;
+        mapsMap._mdPoint=null;
+        if(mapsMap._savedBearing!==null&&!mapsMap._wasDrag){
+            mapsMap._savedBearing=null;
         }
     });
     document.getElementById('btn-rotate-reset').addEventListener('click',function(){
