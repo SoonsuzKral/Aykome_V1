@@ -555,9 +555,9 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label><span class="color-dot" style="background:#eab308;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:AYK_ELEKTRIK_LINKS"><span>Aykome Elektrik</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:AYK_DOGALGAZ_LINKS"><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#3b82f6;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:AYK_DOGALGAZ_NODES"><span>Doğalgaz (Noktalar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#eab308;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_ELEKTRIK_LINKS"><span>Aykome Elektrik</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_LINKS"><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label><span class="color-dot" style="background:#3b82f6;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_NODES"><span>Doğalgaz (Noktalar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -1062,9 +1062,9 @@ function initMaps(){
         'smpns:m_Numarataj':               {on:!1, group:'building'},
         'cbs:MISMAP_CADDE_SOKAK':          {on:!1, group:'building'},
         // Altyapı Şebekeleri
-        'smpns:AYK_ELEKTRIK_LINKS':       {on:!1, group:'utility'},
-        'smpns:AYK_DOGALGAZ_LINKS':       {on:!1, group:'utility'},
-        'smpns:AYK_DOGALGAZ_NODES':       {on:!1, group:'utility'}
+        'aykome:AYK_ELEKTRIK_LINKS':       {on:!1, group:'utility'},
+        'aykome:AYK_DOGALGAZ_LINKS':       {on:!1, group:'utility'},
+        'aykome:AYK_DOGALGAZ_NODES':       {on:!1, group:'utility'}
     };
 
     Object.keys(geo3Layers).forEach(function(l){
@@ -2365,7 +2365,7 @@ w.drawReportYolHatSorgula=function(){
     var bounds=L.latLngBounds(allLatLngs);
     var bboxStr=bounds.toBBoxString(); // EPSG:4326
 
-    var layers=['smpns:AYK_DOGALGAZ_LINKS','smpns:AYK_ELEKTRIK_LINKS'];
+    var layers=['aykome:AYK_DOGALGAZ_LINKS','aykome:AYK_ELEKTRIK_LINKS'];
     var names=['Doğalgaz Hattı','Elektrik Hattı'];
     var found=[];
     var done=0;
@@ -2806,7 +2806,7 @@ function sorguCizimAltyapiKesisimi(latlngs){
     if(!warnEl||!latlngs||latlngs.length<2){if(warnEl)warnEl.style.display='none';return}
     var bounds=L.latLngBounds(latlngs);
     var bboxStr=bounds.toBBoxString(); // EPSG:4326
-    var layers=['smpns:AYK_DOGALGAZ_LINKS','smpns:AYK_ELEKTRIK_LINKS','smpns:AYK_DOGALGAZ_NODES','smpns:AYK_ELEKTRIK_NODES'];
+    var layers=['aykome:AYK_DOGALGAZ_LINKS','aykome:AYK_ELEKTRIK_LINKS','aykome:AYK_DOGALGAZ_NODES','aykome:AYK_ELEKTRIK_NODES'];
     var names=['Doğalgaz Hattı','Elektrik Hattı','Doğalgaz Noktası','Elektrik Noktası'];
     var found=[];
     var done=0;
@@ -2874,7 +2874,7 @@ function altyapiSonucGoster(found,allFeatures){
         warnEl.style.display='block';
         showToast('⚠️ Uyarı: Çizim alanında ' + found.join(', ')+' tespit edildi!');
         // Katman checkbox'larını aç (LINKS için)
-        ['smpns:AYK_DOGALGAZ_LINKS','smpns:AYK_ELEKTRIK_LINKS','smpns:AYK_DOGALGAZ_NODES','smpns:AYK_ELEKTRIK_NODES'].forEach(function(l){
+        ['aykome:AYK_DOGALGAZ_LINKS','aykome:AYK_ELEKTRIK_LINKS','aykome:AYK_DOGALGAZ_NODES','aykome:AYK_ELEKTRIK_NODES'].forEach(function(l){
             var cb=document.querySelector('.katman-checkbox[data-layer="'+l+'"]');
             if(cb&&!cb.checked) cb.checked=true;
         });

@@ -97,14 +97,13 @@ const PROXY = "/maps/proxy?url=";
 | `smpns:MISMAP_NUM_PAFTA` | Pafta | ❌ |
 | `smpns:MISMAP_NUM_BAGIMSIZ` | Bağımsız Kullanım | ✅ |
 
-### geo2 — MAKS+ Grubu (uID: 404)
+### geo3 — MAKS+ Grubu (geo3'te aykome: workspace)
 | Layer Name | Açıklama | Varsayılan |
 |---|---|---|
-| `smpns:AYK_DOGALGAZ_LINKS` | Doğalgaz Hatları | ✅ |
-| `smpns:AYK_DOGALGAZ_NODES` | Doğalgaz Noktaları | ❌ |
-| `smpns:AYK_ELEKTRIK_LINKS` | Elektrik Hatları | ❌ |
-| `smpns:AYK_ELEKTRIK_NODES` | Elektrik Noktaları | ❌ |
-| `smpns:METROBUS_CAD` | Metrobüs CAD | ❌ |
+| `aykome:AYK_DOGALGAZ_LINKS` | Doğalgaz Hatları | ✅ |
+| `aykome:AYK_DOGALGAZ_NODES` | Doğalgaz Noktaları | ❌ |
+| `aykome:AYK_ELEKTRIK_LINKS` | Elektrik Hatları | ❌ |
+| `aykome:AYK_ELEKTRIK_NODES` | Elektrik Noktaları | ❌ |
 
 > ⚠️ AKOS grubundaki tahminli layer isimler network'ten teyit edilmeli.
 > WFS typename formatı: `smpns:LAYER_ADI`
