@@ -501,6 +501,16 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
     .qa-btn { padding: 5px 8px; font-size: 11px; }
     #maps-statusbar { font-size: 10px; flex-wrap: wrap; }
 }
+@media print {
+    body * { visibility: hidden; }
+    #maps-basvuru-panel, #maps-basvuru-panel * { visibility: visible; }
+    #maps-basvuru-panel { position: absolute; left: 0; top: 0; width: 100%; height: auto; box-shadow: none; border: none; }
+    #maps-overlay, #maps-wrapper, .btn, .wizard-steps, .basvuru-header, .basvuru-footer { display: none !important; }
+    #step-4 { display: block !important; }
+    #basvuru-ozet-icerik { max-height: none !important; overflow: visible !important; }
+    .wizard-step { display: none !important; }
+    #step-4.wizard-step { display: block !important; }
+}
 </style>
 @endpush
 
@@ -906,6 +916,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
         <div style="flex:1;"></div>
         <button type="button" class="btn btn-success" id="btn-ileri" onclick="wizardIleri()" style="padding:7px 20px;font-size:12px;border-radius:6px;background:#059669;border-color:#059669;color:#fff;">Sonraki Adım →</button>
         <button type="button" class="btn btn-primary" id="btn-kaydet" onclick="basvuruSubmit()" style="display:none;padding:7px 20px;font-size:12px;border-radius:6px;background:#E87722;border-color:#E87722;color:#fff;">Başvuruyu Tamamla ✓</button>
+        <button type="button" class="btn btn-outline-secondary" id="btn-yazdir" onclick="window.print()" style="display:none;padding:7px 14px;font-size:12px;border-radius:6px;margin-left:6px;"><i class="fa fa-print"></i> Yazdır</button>
         <button type="button" class="btn btn-outline-danger" onclick="closeBasvuruPanel()" style="margin-left:6px;padding:7px 14px;font-size:12px;border-radius:6px;">İptal</button>
     </div>
 </div>
@@ -1276,6 +1287,7 @@ function showWizardStep(step){
     document.getElementById('btn-geri').style.display=(step>1?'inline-block':'none');
     document.getElementById('btn-ileri').style.display=(step<_totalSteps?'inline-block':'none');
     document.getElementById('btn-kaydet').style.display=(step===_totalSteps?'inline-block':'none');
+    document.getElementById('btn-yazdir').style.display=(step===_totalSteps?'inline-block':'none');
 }
 function wizardGeri(){
     if(_currentStep>1){_currentStep--;showWizardStep(_currentStep)}
@@ -1330,8 +1342,11 @@ function _removeFile(idx){_selectedFiles.splice(idx,1);_renderFileList()}
 /* Adres kopyalama: Step-1 → Step-2 */
 function _copyStep1ToStep2(){
     var t=window._sonTiklama||{};
-    var adresStr=document.getElementById('basvuru-adres-ozet')?.textContent||'';
-    document.getElementById('bs-address').value=adresStr.replace(/^📍\s*/,'');
+    var adresParcalari=[];
+    if(t.ilce) adresParcalari.push(t.ilce);
+    if(t.mahalle) adresParcalari.push(t.mahalle+' Mahallesi');
+    if(t.cadde) adresParcalari.push(t.cadde);
+    document.getElementById('bs-address').value=adresParcalari.join(', ');
     if(t.lat)document.getElementById('bs-center-lat').value=t.lat;
     if(t.lng)document.getElementById('bs-center-lng').value=t.lng;
 }
@@ -1350,6 +1365,8 @@ function _buildOzet(){
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Çalışma Türü</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-work-type')+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Adres</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-address')+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Tarih</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-start-date')+' → '+v('bs-end-date')+'</td></tr>';
+    var alan=v('bs-total-area');
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">Çizilen Alan (m²)</td><td style="padding:3px 6px;font-weight:600;">'+(alan!=='—'?alan+' m²':'—')+'</td></tr>';
     var yuzey=document.getElementById('bs-surface-type');
     var yuzeyText=yuzey?yuzey.options[yuzey.selectedIndex]?.text||'-':'-';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Yüzey / Keşif</td><td style="padding:3px 6px;font-weight:600;">'+yuzeyText+' | '+v('bs-width')+'m × '+v('bs-length')+'m</td></tr>';
@@ -1377,7 +1394,11 @@ function getSelectedSurfacePrice(){
 }
 function turkishNumber(v){
     if(!v||v==='')return 0;
-    return parseFloat(String(v).replace(/\./g,'').replace(',','.'))||0;
+    var s=String(v).trim();
+    if(s.indexOf(',')>-1){
+        s=s.replace(/\./g,'').replace(',','.');
+    }
+    return parseFloat(s)||0;
 }
 function digitsOnly(v){
     return String(v).replace(/[^0-9]/g,'');
@@ -1540,6 +1561,7 @@ function handleDrawCreated(e){
         var areaText=area>=1e4?(area/1e4).toFixed(2)+' da':area.toFixed(1)+' m²';
         document.getElementById('basvuru-area-display').textContent='📐 Alan: '+areaText;
         document.getElementById('basvuru-area-display').style.display='block';
+        document.getElementById('bs-total-area').value=area.toFixed(2);
     }
 
     document.getElementById('bs-lat').value=lat;
