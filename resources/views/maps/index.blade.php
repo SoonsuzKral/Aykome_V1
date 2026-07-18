@@ -1124,9 +1124,9 @@ function initMaps(){
         rotate:!0,bearingControl:!0,
         touchRotate:!0
     });
+    mapsMap.setBearing(0); // rotate state'i baslat
 
     // Shift+sağ tık sürükle ile döndürme
-    // Normal sol tık sürükleme (pan) yapınca döndürme otomatik 0°'a döner
     mapsMap._rotateDragging=!1;
     mapsMap._rotateStartAngle=0;
     mapsMap.on('contextmenu',function(e){
@@ -1136,11 +1136,6 @@ function initMaps(){
             mapsMap._rotateStartAngle=mapsMap.getBearing();
             mapsMap._rotateStartPoint={x:e.originalEvent.clientX,y:e.originalEvent.clientY};
             mapsMap._container.style.cursor='grabbing';
-        }
-    });
-    document.addEventListener('mousedown',function(e){
-        if(!mapsMap._rotateDragging&&e.button===0&&mapsMap.getBearing()!==0&&e.target.closest('#maps-map-canvas')){
-            mapsMap.setBearing(0);
         }
     });
     document.addEventListener('mousemove',function(e){
@@ -1154,6 +1149,8 @@ function initMaps(){
         if(mapsMap._rotateDragging){
             mapsMap._rotateDragging=!1;
             mapsMap._container.style.cursor='';
+            // Rotasyon bittiğinde pan'ın düzgün çalışması için map'i tazele
+            mapsMap.invalidateSize();
         }
     });
 
