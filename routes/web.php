@@ -66,7 +66,7 @@ Route::middleware(['auth'])->prefix('maps')->name('maps.')->group(function () {
     Route::get('/ara',                       [MapsController::class, 'search'])->name('ara');
 });
 
-Route::prefix('db-switch')->name('db-switch.')->controller(\App\Http\Controllers\DatabaseSwitcherController::class)->group(function () {
+Route::middleware(['auth', 'role:super-admin'])->prefix('db-switch')->name('db-switch.')->controller(\App\Http\Controllers\DatabaseSwitcherController::class)->group(function () {
     Route::match(['get', 'post'], '/login', 'login')->name('login');
     Route::get('/', 'index')->name('index');
     Route::post('/switch', 'switch')->name('switch');

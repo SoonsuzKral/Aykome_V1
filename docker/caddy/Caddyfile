@@ -1,0 +1,3 @@
+aykome.eyyubiye.bel.tr {
+    reverse_proxy serve:8001
+}
