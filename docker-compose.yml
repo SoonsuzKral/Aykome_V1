@@ -2,8 +2,8 @@ services:
   oracle:
     image: gvenzl/oracle-free:slim
     container_name: aykome-v6-oracle
-    expose:
-      - "1521"
+    ports:
+      - "1521:1521"
     environment:
       ORACLE_PASSWORD: aykome123
       APP_USER: aykome_user
@@ -16,88 +16,26 @@ services:
       timeout: 10s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    container_name: aykome-v6-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
   adminer:
     build:
       context: ./docker/adminer
       dockerfile: Dockerfile
     container_name: aykome-v6-adminer
-    expose:
-      - "8080"
-    depends_on:
-      oracle:
-        condition: service_healthy
-
-  php-oci8:
-    build:
-      context: ./docker/php
-      dockerfile: Dockerfile
-    container_name: aykome-v6-php
-    working_dir: /app
-    volumes:
-      - .:/app
-    depends_on:
-      oracle:
-        condition: service_healthy
-    command: ["sleep", "infinity"]
-
-  redis:
-    image: redis:7-alpine
-    container_name: aykome-v6-redis
-    expose:
-      - "6379"
-    volumes:
-      - redis_data:/data
-    command: ["redis-server", "--appendonly", "yes"]
-
-  php-fpm:
-    build:
-      context: ./docker/php
-      dockerfile: Dockerfile
-    container_name: aykome-v6-fpm
-    working_dir: /app
-    volumes:
-      - .:/app
-    depends_on:
-      oracle:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    expose:
-      - "9000"
-    environment:
-      APP_RUNNING_IN_CONTAINER: "true"
-
-  reverb:
-    build:
-      context: ./docker/php
-      dockerfile: Dockerfile
-    container_name: aykome-v6-reverb
-    working_dir: /app
-    volumes:
-      - .:/app
-    depends_on:
-      oracle:
-        condition: service_healthy
-      redis:
-        condition: service_started
-    expose:
-      - "8090"
-    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8090"]
-
-  caddy:
-    image: caddy:2
-    container_name: aykome-v6-caddy
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile
-      - ./public:/app/public
-      - caddy_data:/data
+      - "8080:8080"
     depends_on:
-      - php-fpm
+      oracle:
+        condition: service_healthy
 
 volumes:
   oracle_data:
   redis_data:
-  caddy_data:
