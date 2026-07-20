@@ -49,23 +49,24 @@ services:
       - redis_data:/data
     command: ["redis-server", "--appendonly", "yes"]
 
-  php-fpm:
+  serve:
     build:
       context: ./docker/php
       dockerfile: Dockerfile
-    container_name: aykome-v6-fpm
+    container_name: aykome-v6-serve
     working_dir: /app
     volumes:
       - .:/app
     depends_on:
       oracle:
         condition: service_healthy
+      php-oci8:
+        condition: service_started
       redis:
         condition: service_started
-    expose:
-      - "9000"
-    environment:
-      APP_RUNNING_IN_CONTAINER: "true"
+    ports:
+      - "8001:8001"
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8001"]
 
   reverb:
     build:
@@ -92,10 +93,9 @@ services:
       - "443:443"
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile
-      - ./public:/app/public
       - caddy_data:/data
     depends_on:
-      - php-fpm
+      - serve
 
 volumes:
   oracle_data:
