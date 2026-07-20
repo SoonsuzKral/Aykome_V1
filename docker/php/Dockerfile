@@ -9,9 +9,9 @@ ENV IC_VERSION=19.23.0.0.0
 ENV IC_DIR=1923000
 
 RUN curl -sL -o /tmp/basic.zip \
-    "https://download.oracle.com/otn_software/linux/instantclient/${IC_DIR}/instantclient-basic-linux.x64-${IC_VERSION}dbru.zip" && \
+    "https://download.oracle.com/otn_software/linux/instantclient/${IC_DIR}/instantclient-basic-linux.arm64-${IC_VERSION}dbru.zip" && \
     curl -sL -o /tmp/sdk.zip \
-    "https://download.oracle.com/otn_software/linux/instantclient/${IC_DIR}/instantclient-sdk-linux.x64-${IC_VERSION}dbru.zip" && \
+    "https://download.oracle.com/otn_software/linux/instantclient/${IC_DIR}/instantclient-sdk-linux.arm64-${IC_VERSION}dbru.zip" && \
     mkdir -p /opt/oracle && \
     unzip -q /tmp/basic.zip -d /opt/oracle && \
     unzip -qo /tmp/sdk.zip -d /opt/oracle && \
