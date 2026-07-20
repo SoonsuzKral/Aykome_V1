@@ -1,8 +1,8 @@
-FROM php:8.2-cli-bookworm
+FROM php:8.2-fpm-bookworm
 
 RUN apt-get update && apt-get install -y \
     libaio1 unzip curl libpq-dev libpng-dev libzip-dev \
-    && docker-php-ext-install pdo_pgsql gd zip \
+    && docker-php-ext-install pdo_pgsql gd zip opcache \
     && rm -rf /var/lib/apt/lists/*
 
 ENV IC_VERSION=19.23.0.0.0
@@ -29,6 +29,17 @@ RUN docker-php-ext-configure oci8 --with-oci8=instantclient,/opt/oracle/instantc
     docker-php-ext-install oci8 pdo_mysql exif pcntl
 
 RUN pecl install redis && docker-php-ext-enable redis
+
+# OpCache config
+RUN docker-php-ext-enable opcache
+RUN { \
+    echo 'opcache.memory_consumption=128'; \
+    echo 'opcache.interned_strings_buffer=8'; \
+    echo 'opcache.max_accelerated_files=10000'; \
+    echo 'opcache.revalidate_freq=2'; \
+    echo 'opcache.fast_shutdown=1'; \
+    echo 'opcache.enable_cli=1'; \
+} > /usr/local/etc/php/conf.d/opcache.ini
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

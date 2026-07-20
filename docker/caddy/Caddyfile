@@ -1,3 +1,27 @@
 aykome.eyyubiye.bel.tr {
-    reverse_proxy serve:8001
+    root * /app/public
+    encode gzip
+    file_server
+    php_fastcgi php-fpm:9000
+    # Laravel SPA fallback
+    @not-static {
+        not file {
+            try_files {path} /index.html /index.php
+        }
+    }
+    rewrite @not-static /index.php
+}
+
+# For local development via localhost
+:80 {
+    root * /app/public
+    encode gzip
+    file_server
+    php_fastcgi php-fpm:9000
+    @not-static {
+        not file {
+            try_files {path} /index.html /index.php
+        }
+    }
+    rewrite @not-static /index.php
 }
