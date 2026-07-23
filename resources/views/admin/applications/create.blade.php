@@ -8,6 +8,8 @@
     <style>
         #application-drawing-map { min-height: 500px; position: relative; z-index: 1; }
         #application-drawing-map .leaflet-container { border-radius: 0.75rem; }
+        .leaflet-pane { z-index: 10 !important; }
+        .leaflet-top, .leaflet-bottom { z-index: 99 !important; }
         .row-tooltip { background: #1e293b !important; color: #fff !important; border: none !important; border-radius: 4px !important; padding: 2px 8px !important; font-size: 11px !important; font-weight: 600 !important; box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important; }
         .row-tooltip::before { border-top-color: #1e293b !important; }
         .leaflet-draw-toolbar a {
@@ -460,6 +462,7 @@
         let surfaceLines = [];
         let nextRowId = 1;
         let isDicleElektrik = @json(auth()->user()?->institution?->tax_number === '2950368442');
+        let isInstitutionUser = @json(auth()->user()?->institution_id ? true : false);
         let activeDrawRowId = null;
         let rowDrawings = {};
 
@@ -503,7 +506,7 @@
             var ruhsatHarci = isDicleElektrik ? 0 : toplamMiktar * 9;
             var kesifBedeli = 361 + (ztb * 0.01);
             var ztbToplam = ztb + kdv + ruhsatHarci + kesifBedeli;
-            var teminat = ztb * 0.50;
+            var teminat = isInstitutionUser ? 0 : ztb * 0.50;
             var genelToplam = ztbToplam + teminat;
 
             document.getElementById('calc-toplam-miktar').textContent = toplamMiktar.toFixed(2);
@@ -1296,7 +1299,7 @@
             });
         }
 
-        // ─── INSTITUTION → DICLE ELEKTRIK ────────────────────────────────
+        // ─── INSTITUTION → DICLE + TEMINAT ───────────────────────────────
         function initInstitutionWatcher() {
             var sel = document.getElementById('institution_id');
             if (!sel) return;
@@ -1304,6 +1307,7 @@
             function checkDicle() {
                 var opt = sel.options[sel.selectedIndex];
                 isDicleElektrik = opt && opt.dataset.tax === '2950368442';
+                isInstitutionUser = opt && opt.value !== '';
                 recalculateAll();
             }
 
