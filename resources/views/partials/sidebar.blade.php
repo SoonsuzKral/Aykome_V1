@@ -41,24 +41,13 @@
             'perm'  => 'pro.field_reports',
             'icon'  => '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>',
         ],
-        [
-            'label' => 'Evrak ve Tevdi (E-Belge)',
-            'route' => 'admin.e-document.index',
-            'match' => 'admin.e-document.*',
-            'perm'  => 'pro.evrak_tevdi',
-            'icon'  => '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>',
-        ],
     ];
 
     // Yakında: PRO Sidebar önerileri (tıklanabilir değil, popup ile)
-    $proComingSoon = [
-        ['label' => 'Kazı Metraj Tahmin Motoru', 'icon' => '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>'],
-    ];
+    $proComingSoon = [];
 
     // Yakında gelecek placeholder modüller
-    $premiumModules = [
-        ['label' => 'E-Tebligat Servisi', 'icon' => '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/><path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/></svg>'],
-    ];
+    $premiumModules = [];
 @endphp
 
 <aside
@@ -167,7 +156,7 @@
         @endcan
 
         {{-- Divider & PRO Active Modules — permission-based (@can) --}}
-        @if(auth()->user()->canAny(['pro.live_map', 'pro.work_orders', 'pro.advanced_reports', 'pro.evrak_tevdi']))
+        @if(auth()->user()->canAny(['pro.live_map', 'pro.work_orders', 'pro.advanced_reports']))
         <div class="my-3 border-t border-slate-700/50"></div>
         <p class="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">PRO Modüller</p>
 
