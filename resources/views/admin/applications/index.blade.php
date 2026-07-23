@@ -76,6 +76,17 @@
             </select>
         </div>
 
+        {{-- Application Type --}}
+        <div class="min-w-[140px]">
+            <label class="mb-1 block text-xs font-medium text-slate-500">Tür</label>
+            <select name="application_type"
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/30">
+                <option value="">Tümü</option>
+                <option value="basvuru" @selected($filters['application_type'] === 'basvuru')>Normal Başvuru</option>
+                <option value="ariza" @selected($filters['application_type'] === 'ariza')>Arıza (Acil)</option>
+            </select>
+        </div>
+
         {{-- Institution (admin/municipality only) --}}
         @if($institutions->isNotEmpty())
         <div class="min-w-[160px]">
@@ -118,6 +129,7 @@
                         <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Başvuru No</th>
                         <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Kurum</th>
                         <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Başvuran</th>
+                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Tür</th>
                         <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Durum</th>
                         <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Tarih</th>
                         <th class="bg-gray-50/50 px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">İşlem</th>
@@ -136,6 +148,13 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100 font-mono font-semibold text-slate-700">{{ $row->application_no }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100 text-slate-600">{{ $row->institution?->name ?? '—' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100 text-slate-700">{{ $row->applicant_first_name }} {{ $row->applicant_last_name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100">
+                            @if(($row->application_type ?? 'basvuru') === 'ariza')
+                                <span class="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">Acil</span>
+                            @else
+                                <span class="inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-600">Başvuru</span>
+                            @endif
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100">
                             <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $sclass }}">{{ $slabel }}</span>
                         </td>
@@ -165,7 +184,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-12 text-center text-slate-400">
+                        <td colspan="8" class="px-6 py-12 text-center text-slate-400">
                             <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto mb-3 h-10 w-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                             Kayıt bulunamadı.
                         </td>

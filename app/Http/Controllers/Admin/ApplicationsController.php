@@ -39,6 +39,7 @@ class ApplicationsController extends Controller
             'q' => trim((string) $request->query('q', '')),
             'status' => trim((string) $request->query('status', '')),
             'institution_id' => trim((string) $request->query('institution_id', '')),
+            'application_type' => trim((string) $request->query('application_type', '')),
         ];
 
         $query = Application::query()->with(['institution', 'creator'])->latest();
@@ -79,6 +80,10 @@ class ApplicationsController extends Controller
             }
         }
 
+        if ($filters['application_type'] !== '') {
+            $query->where('application_type', $filters['application_type']);
+        }
+
         return view('admin.applications.index', [
             'applications' => $query->paginate(15)->withQueryString(),
             'filters' => $filters,
@@ -101,6 +106,7 @@ class ApplicationsController extends Controller
             : Institution::query()->orderBy('name')->get(['id', 'name', 'slug', 'color_code', 'is_municipality']);
 
         $applicantPrefill = null;
+        $institutionPrefill = null;
         if ($isInstitutionUser) {
             $nationalId = preg_replace('/\D+/', '', (string) ($user->national_id ?? ''));
             $nameParts = preg_split('/\s+/', trim((string) $user->name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
@@ -114,6 +120,14 @@ class ApplicationsController extends Controller
                 'national_id_masked' => $this->maskNationalId($nationalId),
                 'phone' => $user->phone ?? '',
             ];
+
+            $inst = $user->institution;
+            if ($inst && $inst->tax_number) {
+                $institutionPrefill = [
+                    'tax_number' => $inst->tax_number,
+                    'phone' => $inst->phone ?? $user->phone ?? '',
+                ];
+            }
         }
 
         return view('admin.applications.create', [
@@ -122,6 +136,7 @@ class ApplicationsController extends Controller
             'googleMapsApiKey' => config('services.google_maps.api_key') ?: config('aykome.google_maps_api_key'),
             'isInstitutionUser' => $isInstitutionUser,
             'applicantPrefill' => $applicantPrefill,
+            'institutionPrefill' => $institutionPrefill,
         ]);
     }
 
@@ -288,7 +303,7 @@ class ApplicationsController extends Controller
         $this->authorize('update', $application);
 
         $user = $request->user();
-        $application->load(['institution:id,name,slug,color_code,is_municipality', 'excavationAreas', 'documents']);
+        $application->load(['institution:id,name,slug,color_code,is_municipality', 'excavationAreas', 'documents', 'surfaceLines.surfaceType']);
         $area = $application->excavationAreas->sortByDesc('updated_at')->first();
 
         $institutions = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
@@ -299,7 +314,6 @@ class ApplicationsController extends Controller
             'application' => $application,
             'institutions' => $institutions,
             'surfaceTypes' => \App\Models\SurfaceType::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'price_per_m2']),
-            'currentSurfaceTypeId' => $application->surfaceLines()->first()?->surface_type_id,
             'googleMapsApiKey' => config('services.google_maps.api_key') ?: config('aykome.google_maps_api_key'),
             'drawing' => [
                 'polygon_geojson' => $area?->polygon_geojson,
@@ -307,6 +321,16 @@ class ApplicationsController extends Controller
                 'center_lat' => $area?->center_lat,
                 'center_lng' => $area?->center_lng,
             ],
+            'surfaceLinesData' => $application->surfaceLines->map(fn ($sl) => [
+                'id' => $sl->id,
+                'surface_type_id' => $sl->surface_type_id,
+                'surface_type_name' => $sl->surfaceType?->name ?? '',
+                'price_per_m2' => (float) ($sl->surfaceType?->price_per_m2 ?? 0),
+                'width_m' => (float) ($sl->width_m ?? 0),
+                'length_m' => (float) ($sl->length_m ?? 0),
+                'quantity' => (float) ($sl->quantity ?? 0),
+                'amount' => (float) ($sl->amount ?? 0),
+            ])->values(),
         ]);
     }
 
@@ -319,29 +343,46 @@ class ApplicationsController extends Controller
         $this->authorize('update', $application);
 
         // Virgüllü ondalık ayracını noktaya çevir (Türkçe format desteği)
-        foreach (['width_m', 'length_m', 'quantity', 'multiplier', 'total_area_m2', 'deposit_amount', 'excavation_amount'] as $field) {
+        foreach (['total_area_m2', 'deposit_amount', 'excavation_amount'] as $field) {
             if ($request->has($field) && is_string($request->input($field))) {
                 $val = $request->input($field);
-                $val = str_replace('.', '', $val);   // binlik ayracını kaldır
-                $val = str_replace(',', '.', $val);  // virgülü noktaya çevir
+                $val = str_replace('.', '', $val);
+                $val = str_replace(',', '.', $val);
                 $request->merge([$field => $val !== '' ? $val : null]);
             }
+        }
+
+        // Normalize surface_lines decimals
+        if ($request->has('surface_lines') && is_array($request->input('surface_lines'))) {
+            $normalized = [];
+            foreach ($request->input('surface_lines') as $index => $line) {
+                if (! is_array($line)) continue;
+                foreach (['width_m', 'length_m', 'quantity'] as $f) {
+                    if (isset($line[$f]) && is_string($line[$f])) {
+                        $line[$f] = str_replace(',', '.', $line[$f]);
+                    }
+                }
+                $normalized[$index] = $line;
+            }
+            $request->merge(['surface_lines' => $normalized]);
         }
 
         $data = $request->validate([
             'institution_id' => ['nullable', 'exists:institutions,id'],
             'applicant_phone' => ['nullable', 'string', 'max:32'],
+            'project_code' => ['nullable', 'string', 'max:100'],
+            'application_type' => ['nullable', 'string', 'in:basvuru,ariza', 'max:20'],
             'description' => ['nullable', 'string'],
             'address_text' => ['nullable', 'string', 'max:500'],
             'polygon_geojson' => ['nullable', 'string'],
             'total_area_m2' => ['nullable', 'numeric', 'min:0'],
             'center_lat' => ['nullable', 'numeric', 'between:-90,90'],
             'center_lng' => ['nullable', 'numeric', 'between:-180,180'],
-            'surface_type_id' => ['nullable', 'exists:surface_types,id'],
-            'width_m' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
-            'length_m' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
-            'quantity' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
-            'multiplier' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
+            'surface_lines' => ['nullable', 'array', 'min:1'],
+            'surface_lines.*.surface_type_id' => ['required', 'integer', 'exists:surface_types,id'],
+            'surface_lines.*.width_m' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
+            'surface_lines.*.length_m' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
+            'surface_lines.*.quantity' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'excavation_amount' => ['nullable', 'numeric', 'min:0'],
             'documents' => ['nullable', 'array'],
@@ -382,18 +423,16 @@ class ApplicationsController extends Controller
             'description' => $data['description'] ?? null,
             'address_text' => $data['address_text'] ?? $application->address_text,
             'total_area_m2' => $totalAreaM2 ?? ($data['total_area_m2'] ?? $application->total_area_m2),
-            'width_m' => $data['width_m'] ?? $application->width_m,
-            'length_m' => $data['length_m'] ?? $application->length_m,
-            'deposit_amount' => $data['deposit_amount'] ?? $application->deposit_amount,
-            'excavation_amount' => $data['excavation_amount'] ?? $application->excavation_amount,
         ]);
 
         $this->handleDocumentUploads($request, $application);
 
-        if (! empty($data['surface_type_id'])) {
-            $pricingService->upsertSurfaceLine($application, $data);
-            $pricingService->recalculateTotals($application);
+        if (! empty($data['surface_lines']) && is_array($data['surface_lines'])) {
+            $pricingService->upsertSurfaceLines($application, $data['surface_lines']);
         }
+
+        // Always recalculate totals to keep DB computed fields in sync
+        $pricingService->recalculateTotals($application);
 
         AuditLogger::log('application.update', "Başvuru güncellendi: {$application->application_no}", 'Application', $application->id);
         return redirect()

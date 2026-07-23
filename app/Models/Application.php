@@ -51,6 +51,8 @@ class Application extends Model implements HasMedia
         'address_text',
         'license_document_path',
         'receipt_file_path',
+        'project_code',
+        'application_type',
     ];
 
     protected function casts(): array

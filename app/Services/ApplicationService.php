@@ -58,10 +58,6 @@ class ApplicationService
                         'start_date' => $data['start_date'],
                         'end_date' => $data['end_date'],
                         'address_text' => $data['address_text'] ?? null,
-                        'width_m' => $data['width_m'] ?? null,
-                        'length_m' => $data['length_m'] ?? null,
-                        'deposit_amount' => $data['deposit_amount'] ?? null,
-                        'excavation_amount' => $data['excavation_amount'] ?? null,
                     ]);
 
                     $year = now()->year;
@@ -83,8 +79,8 @@ class ApplicationService
                         ]);
                     }
 
-                    if (! empty($data['surface_type_id'])) {
-                        $this->pricingService->upsertSurfaceLine($application, $data);
+                    if (! empty($data['surface_lines']) && is_array($data['surface_lines'])) {
+                        $this->pricingService->upsertSurfaceLines($application, $data['surface_lines']);
                         $this->pricingService->recalculateTotals($application);
                     }
 

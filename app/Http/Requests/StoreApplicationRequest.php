@@ -14,9 +14,7 @@ class StoreApplicationRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $user = $this->user();
-        // Kurum personeli (belediye/super-admin olmayan): controller zaten override eder.
-        // Burada sadece digit temizliğini çalıştırmak yeterli; sahte veri validation'a girseydi
-        // bile controller katmanı üzerine yazar.
+
         $rawPrimary = (string) ($this->input('applicant_national_id') ?: $this->input('tc_no') ?: $this->input('identity_no'));
         $rawTcNo = (string) $this->input('tc_no', '');
         $rawIdentityNo = (string) $this->input('identity_no', '');
@@ -31,14 +29,28 @@ class StoreApplicationRequest extends FormRequest
             'identity_no' => $identityNo ?: $primary,
         ]);
 
-        foreach (['width_m', 'length_m', 'quantity', 'multiplier', 'total_area_m2', 'deposit_amount', 'excavation_amount'] as $field) {
+        foreach (['total_area_m2', 'deposit_amount', 'excavation_amount'] as $field) {
             if ($this->has($field) && is_string($this->input($field))) {
                 $val = $this->input($field);
-                // Nokta (binlik) ve virgül (ondalık) temizliği: "2.500,00" → "2500.00"
-                $val = str_replace('.', '', $val);   // binlik ayracını kaldır
-                $val = str_replace(',', '.', $val);  // virgülü noktaya çevir
+                $val = str_replace('.', '', $val);
+                $val = str_replace(',', '.', $val);
                 $this->merge([$field => $val !== '' ? $val : null]);
             }
+        }
+
+        // Normalize surface_lines array — comma to dot for decimals
+        if ($this->has('surface_lines') && is_array($this->input('surface_lines'))) {
+            $normalized = [];
+            foreach ($this->input('surface_lines') as $index => $line) {
+                if (! is_array($line)) continue;
+                foreach (['width_m', 'length_m', 'quantity'] as $f) {
+                    if (isset($line[$f]) && is_string($line[$f])) {
+                        $line[$f] = str_replace(',', '.', $line[$f]);
+                    }
+                }
+                $normalized[$index] = $line;
+            }
+            $this->merge(['surface_lines' => $normalized]);
         }
     }
 
@@ -48,8 +60,6 @@ class StoreApplicationRequest extends FormRequest
     public function rules(): array
     {
         $user = $this->user();
-        // Belediye/super-admin: TCKN zorunlu 11 hane.
-        // Kurum personeli: TC ya da vergi no (esnek) — controller zaten auth()->user() ile ezer.
         $isInstitutionUser = $user && ! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff']);
 
         $nationalIdRules = $isInstitutionUser
@@ -68,6 +78,8 @@ class StoreApplicationRequest extends FormRequest
             'tc_no' => $tcAliasRules,
             'identity_no' => $tcAliasRules,
             'applicant_phone' => ['nullable', 'string', 'max:32'],
+            'project_code' => ['nullable', 'string', 'max:100'],
+            'application_type' => ['nullable', 'string', 'in:basvuru,ariza', 'max:20'],
             'excavation_reason' => ['nullable', 'string', 'max:255'],
             'work_type' => ['nullable', 'string', 'max:120'],
             'description' => ['nullable', 'string'],
@@ -78,11 +90,11 @@ class StoreApplicationRequest extends FormRequest
             'total_area_m2' => ['nullable', 'numeric', 'min:0'],
             'center_lat' => ['nullable', 'numeric'],
             'center_lng' => ['nullable', 'numeric'],
-            'surface_type_id' => ['nullable', 'exists:surface_types,id'],
-            'width_m' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
-            'length_m' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
-            'quantity' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
-            'multiplier' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
+            'surface_lines' => ['nullable', 'array', 'min:1'],
+            'surface_lines.*.surface_type_id' => ['required', 'integer', 'exists:surface_types,id'],
+            'surface_lines.*.width_m' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
+            'surface_lines.*.length_m' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
+            'surface_lines.*.quantity' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'excavation_amount' => ['nullable', 'numeric', 'min:0'],
             'documents' => ['nullable', 'array'],

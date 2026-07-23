@@ -85,9 +85,27 @@
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="mb-4 text-sm font-semibold text-slate-800">Başvuru Bilgileri</h2>
                 <dl class="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                    <div class="sm:col-span-2 flex items-center gap-3">
+                        <dt class="text-xs font-medium text-slate-500">Başvuru Türü</dt>
+                        <dd class="mt-0.5">
+                            @if($application->application_type === 'ariza')
+                                <span class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+                                    <span class="inline-block h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                                    Arıza (Acil Kazı)
+                                </span>
+                            @else
+                                <span class="inline-flex items-center gap-1 rounded-full bg-sky-100 px-2.5 py-0.5 text-xs font-semibold text-sky-700">
+                                    Normal Başvuru
+                                </span>
+                            @endif
+                        </dd>
+                    </div>
                     <div><dt class="text-xs font-medium text-slate-500">Başvuran</dt><dd class="mt-0.5 font-medium text-slate-800">{{ $application->applicant_first_name }} {{ $application->applicant_last_name }}</dd></div>
                     <div><dt class="text-xs font-medium text-slate-500">TC Kimlik</dt><dd class="mt-0.5">{{ $application->applicant_national_id ?? '—' }}</dd></div>
                     <div><dt class="text-xs font-medium text-slate-500">Telefon</dt><dd class="mt-0.5">{{ $application->applicant_phone ?? '—' }}</dd></div>
+                    @if($application->project_code)
+                    <div><dt class="text-xs font-medium text-slate-500">Proje Kodu</dt><dd class="mt-0.5 font-mono text-slate-800">{{ $application->project_code }}</dd></div>
+                    @endif
                     <div><dt class="text-xs font-medium text-slate-500">Alan</dt><dd class="mt-0.5">{{ number_format((float)$application->total_area_m2, 2, ',', '.') }} m²</dd></div>
                     <div><dt class="text-xs font-medium text-slate-500">Genişlik</dt><dd class="mt-0.5">{{ $application->width_m ? number_format((float)$application->width_m, 2, ',', '.') . ' m' : '—' }}</dd></div>
                     <div><dt class="text-xs font-medium text-slate-500">Uzunluk</dt><dd class="mt-0.5">{{ $application->length_m ? number_format((float)$application->length_m, 2, ',', '.') . ' m' : '—' }}</dd></div>
