@@ -64,16 +64,16 @@ class StoreApplicationRequest extends FormRequest
 
         $nationalIdRules = $isInstitutionUser
             ? ['nullable', 'string', 'max:20']
-            : ['required', 'digits:11'];
+            : ['required', 'string', 'regex:/^\d{10,11}$/'];
 
         $tcAliasRules = $isInstitutionUser
             ? ['nullable', 'string', 'max:20']
-            : ['nullable', 'digits:11'];
+            : ['nullable', 'string', 'regex:/^\d{10,11}$/'];
 
         return [
             'institution_id' => ['nullable', 'exists:institutions,id'],
             'applicant_first_name' => ['required', 'string', 'max:120'],
-            'applicant_last_name' => ['required', 'string', 'max:120'],
+            'applicant_last_name' => ['nullable', 'string', 'max:120'],
             'applicant_national_id' => $nationalIdRules,
             'tc_no' => $tcAliasRules,
             'identity_no' => $tcAliasRules,

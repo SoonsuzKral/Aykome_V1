@@ -102,8 +102,8 @@ class ApplicationsController extends Controller
         $isInstitutionUser = ! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff']);
 
         $institutions = $isInstitutionUser
-            ? Institution::query()->where('id', $user->institution_id)->get(['id', 'name', 'slug', 'color_code', 'is_municipality'])
-            : Institution::query()->orderBy('name')->get(['id', 'name', 'slug', 'color_code', 'is_municipality']);
+            ? Institution::query()->where('id', $user->institution_id)->get(['id', 'name', 'slug', 'color_code', 'is_municipality', 'tax_number', 'phone'])
+            : Institution::query()->orderBy('name')->get(['id', 'name', 'slug', 'color_code', 'is_municipality', 'tax_number', 'phone']);
 
         $applicantPrefill = null;
         $institutionPrefill = null;
@@ -158,6 +158,9 @@ class ApplicationsController extends Controller
             $validated['identity_no'] = $nationalId;
             $validated['applicant_phone'] = $user->phone ?? null;
         }
+
+        // Soyad alanı formdan kaldırıldı; boşsa first_name kopyalansın (Ad Soyad tek alan)
+        $validated['applicant_last_name'] ??= $validated['applicant_first_name'] ?? '';
 
         $validated['applicant_national_id'] = preg_replace('/\D+/', '', (string) ($validated['applicant_national_id'] ?? '')) ?: null;
         $validated['tc_no'] = preg_replace('/\D+/', '', (string) ($validated['tc_no'] ?? $validated['applicant_national_id'] ?? '')) ?: $validated['applicant_national_id'];
@@ -307,8 +310,8 @@ class ApplicationsController extends Controller
         $area = $application->excavationAreas->sortByDesc('updated_at')->first();
 
         $institutions = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
-            ? Institution::query()->orderBy('name')->get(['id', 'name', 'slug', 'color_code', 'is_municipality'])
-            : Institution::query()->where('id', $user->institution_id)->get(['id', 'name', 'slug', 'color_code', 'is_municipality']);
+            ? Institution::query()->orderBy('name')->get(['id', 'name', 'slug', 'color_code', 'is_municipality', 'tax_number', 'phone'])
+            : Institution::query()->where('id', $user->institution_id)->get(['id', 'name', 'slug', 'color_code', 'is_municipality', 'tax_number', 'phone']);
 
         return view('admin.applications.edit', [
             'application' => $application,

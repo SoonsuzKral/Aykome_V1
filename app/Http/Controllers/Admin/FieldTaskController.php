@@ -191,15 +191,22 @@ class FieldTaskController extends Controller
             }
         }
 
-        // Aşama tamamlandığında yöneticileri bildir
+        // Aşama tamamlandığında yöneticileri + kurum çalışanlarını bildir
         if ($isCompletingStage) {
             try {
-                $admins = User::role(['super-admin', 'municipality-admin', 'municipality-staff'])->get();
+                $application = $fieldTask->application;
+                $admins = User::query()
+                    ->where(function ($q) use ($application) {
+                        $q->role(['super-admin', 'municipality-admin', 'municipality-staff']);
+                        if ($application && $application->institution_id) {
+                            $q->orWhere('institution_id', $application->institution_id);
+                        }
+                    })
+                    ->where('id', '!=', $request->user()->id)
+                    ->get();
                 $notification = new FieldStageCompleted($fieldTask, $request->user(), $stage);
                 foreach ($admins as $admin) {
-                    if ($admin->id !== $request->user()->id) {
-                        $admin->notify($notification);
-                    }
+                    $admin->notify($notification);
                 }
             } catch (\Throwable) {
                 // Bildirim hatası ana akışı durdurmasın

@@ -66,7 +66,7 @@
                 >
                     <option value="">—</option>
                     @foreach($institutions as $i)
-                        <option value="{{ $i->id }}" data-tax="{{ $i->tax_number }}" @selected((string) old('institution_id') === (string) $i->id)>{{ $i->name }}</option>
+                        <option value="{{ $i->id }}" data-tax="{{ $i->tax_number }}" data-name="{{ $i->name }}" data-phone="{{ $i->phone }}" data-is-merkez="{{ $i->is_municipality ? '1' : '0' }}" @selected((string) old('institution_id') === (string) $i->id)>{{ $i->name }}</option>
                     @endforeach
                 </select>
                 @error('institution_id')
@@ -91,15 +91,10 @@
                         </div>
 
                         <div>
-                            <label class="block text-sm font-medium text-slate-700">Ad</label>
-                            <input type="text" value="{{ $applicantPrefill['first_name'] }}" readonly
+                            <label class="block text-sm font-medium text-slate-700">Başvuru Sahibi (Ad Soyad / Kurum Ünvanı)</label>
+                            <input type="text" value="{{ trim($applicantPrefill['first_name'] . ' ' . $applicantPrefill['last_name']) }}" readonly
                                 class="mt-1 block w-full cursor-not-allowed rounded-lg border-slate-200 bg-slate-100 text-slate-500 shadow-sm">
                             <input type="hidden" name="applicant_first_name" value="{{ $applicantPrefill['first_name'] }}">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700">Soyad</label>
-                            <input type="text" value="{{ $applicantPrefill['last_name'] }}" readonly
-                                class="mt-1 block w-full cursor-not-allowed rounded-lg border-slate-200 bg-slate-100 text-slate-500 shadow-sm">
                             <input type="hidden" name="applicant_last_name" value="{{ $applicantPrefill['last_name'] }}">
                         </div>
                         <div>
@@ -133,16 +128,9 @@
                     @else
                         {{-- ── Belediye / Super Admin: tam serbest TCKN girişi + sorgulama ──── --}}
                         <div>
-                            <label class="block text-sm font-medium text-slate-700" for="applicant_first_name">Ad</label>
+                            <label class="block text-sm font-medium text-slate-700" for="applicant_first_name">Başvuru Sahibi (Ad Soyad / Kurum Ünvanı)</label>
                             <input id="applicant_first_name" type="text" name="applicant_first_name" value="{{ old('applicant_first_name') }}" required class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('applicant_first_name') border-red-300 ring-red-100 @enderror">
                             @error('applicant_first_name')
-                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700" for="applicant_last_name">Soyad</label>
-                            <input id="applicant_last_name" type="text" name="applicant_last_name" value="{{ old('applicant_last_name') }}" required class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('applicant_last_name') border-red-300 ring-red-100 @enderror">
-                            @error('applicant_last_name')
                                 <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
@@ -766,7 +754,6 @@
             const btn = document.getElementById('tckn-check-btn');
             const status = document.getElementById('tckn-check-status');
             const firstNameInput = document.getElementById('applicant_first_name');
-            const lastNameInput = document.getElementById('applicant_last_name');
             const phoneInput = document.getElementById('applicant_phone');
             const tcNoInput = document.getElementById('tc_no');
             const identityNoInput = document.getElementById('identity_no');
@@ -799,8 +786,8 @@
                     var p = await r.json().catch(function () { return {}; });
                     if (!r.ok) { setStatus(typeof p?.message === 'string' ? p.message : 'Sorgu hatası.', 'error'); return; }
                     if (p?.found && p?.data) {
-                        if (firstNameInput && p.data.applicant_first_name) firstNameInput.value = p.data.applicant_first_name;
-                        if (lastNameInput && p.data.applicant_last_name) lastNameInput.value = p.data.applicant_last_name;
+                        var fullName = ((p.data.applicant_first_name || '') + ' ' + (p.data.applicant_last_name || '')).trim();
+                        if (firstNameInput && fullName) firstNameInput.value = fullName;
                         if (phoneInput && p.data.applicant_phone) phoneInput.value = p.data.applicant_phone;
                         if (input && p.data.applicant_national_id) input.value = p.data.applicant_national_id;
                         var norm = p.data.applicant_national_id || tckn;
@@ -1208,7 +1195,7 @@
                         drawnItems.addLayer(layer);
                     }
                 });
-                if (!bounds.isEmpty()) map.fitBounds(bounds);
+                if (bounds.isValid()) map.fitBounds(bounds);
                 serializeAndSync('GeoJSON haritaya uygulandı.');
                 renderTable();
             });
@@ -1299,15 +1286,41 @@
             });
         }
 
-        // ─── INSTITUTION → DICLE + TEMINAT ───────────────────────────────
+        function setField(id, val, lock) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (val !== null) el.value = val || '';
+            if (lock) { el.readOnly = true; }
+            else { el.removeAttribute('readonly'); }
+        }
+
+        // ─── INSTITUTION → DICLE + TEMINAT + AUTO-FILL ──────────────────
         function initInstitutionWatcher() {
             var sel = document.getElementById('institution_id');
             if (!sel) return;
 
             function checkDicle() {
                 var opt = sel.options[sel.selectedIndex];
-                isDicleElektrik = opt && opt.dataset.tax === '2950368442';
-                isInstitutionUser = opt && opt.value !== '';
+                var isMerkez = opt && opt.dataset.isMerkez === '1';
+                var isEmpty = !opt || opt.value === '';
+
+                if (isEmpty || isMerkez) {
+                    isDicleElektrik = false;
+                    isInstitutionUser = false;
+                    setField('applicant_first_name', null, false);
+                    setField('applicant_national_id', null, false);
+                    setField('tc_no', null, false);
+                    setField('identity_no', null, false);
+                    setField('applicant_phone', null, false);
+                } else {
+                    isDicleElektrik = opt.dataset.tax === '2950368442';
+                    isInstitutionUser = true;
+                    setField('applicant_first_name', opt.dataset.name, true);
+                    setField('applicant_national_id', opt.dataset.tax, true);
+                    setField('tc_no', opt.dataset.tax, true);
+                    setField('identity_no', opt.dataset.tax, true);
+                    setField('applicant_phone', opt.dataset.phone, true);
+                }
                 recalculateAll();
             }
 

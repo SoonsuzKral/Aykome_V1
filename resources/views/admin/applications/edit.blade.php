@@ -76,7 +76,7 @@
                 >
                     <option value="">—</option>
                     @foreach($institutions as $i)
-                        <option value="{{ $i->id }}" data-tax="{{ $i->tax_number }}" @selected((string) old('institution_id', $application->institution_id) === (string) $i->id)>{{ $i->name }}</option>
+                        <option value="{{ $i->id }}" data-tax="{{ $i->tax_number }}" data-name="{{ $i->name }}" data-phone="{{ $i->phone }}" data-is-merkez="{{ $i->is_municipality ? '1' : '0' }}" @selected((string) old('institution_id', $application->institution_id) === (string) $i->id)>{{ $i->name }}</option>
                     @endforeach
                 </select>
                 @error('institution_id')
@@ -1003,7 +1003,7 @@
                         drawnItems.addLayer(layer);
                     }
                 });
-                if (!bounds.isEmpty()) map.fitBounds(bounds);
+                if (bounds.isValid()) map.fitBounds(bounds);
                 serializeAndSync('GeoJSON haritaya uygulandı.');
                 renderTable();
             });
@@ -1083,15 +1083,23 @@
             });
         }
 
-        // ─── INSTITUTION → DICLE ELEKTRIK ────────────────────────────────
+        // ─── INSTITUTION → DICLE + TEMINAT ────────────────────────────────
         function initInstitutionWatcher() {
             var sel = document.getElementById('institution_id');
             if (!sel) return;
 
             function checkDicle() {
                 var opt = sel.options[sel.selectedIndex];
-                isDicleElektrik = opt && opt.dataset.tax === '2950368442';
-                isInstitutionUser = opt && opt.value !== '';
+                var isMerkez = opt && opt.dataset.isMerkez === '1';
+                var isEmpty = !opt || opt.value === '';
+
+                if (isEmpty || isMerkez) {
+                    isDicleElektrik = false;
+                    isInstitutionUser = false;
+                } else {
+                    isDicleElektrik = opt.dataset.tax === '2950368442';
+                    isInstitutionUser = true;
+                }
                 recalculateAll();
             }
 

@@ -133,6 +133,23 @@ class ApplicationService
         return $application->fresh();
     }
 
+    private function getTargetedUsers(Application $application, ?int $excludeUserId = null): \Illuminate\Support\Collection
+    {
+        $query = User::query()
+            ->where(function ($q) use ($application) {
+                $q->role(['super-admin', 'municipality-admin', 'municipality-staff']);
+                if ($application->institution_id) {
+                    $q->orWhere('institution_id', $application->institution_id);
+                }
+            });
+
+        if ($excludeUserId) {
+            $query->where('id', '!=', $excludeUserId);
+        }
+
+        return $query->get();
+    }
+
     public function submit(User $user, Application $application): Application
     {
         $application->update(['status' => ApplicationStatus::Submitted]);
@@ -142,11 +159,8 @@ class ApplicationService
 
         $fresh = $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
 
-        // Notify municipality users about the submitted application
-        User::query()
-            ->role(['super-admin', 'municipality-admin', 'municipality-staff'])
-            ->where('id', '!=', $user->id)
-            ->get()
+        // Targeted notification: admins see all, institution employees see only their own
+        $this->getTargetedUsers($application, $user->id)
             ->each(fn (User $admin) => $admin->notify(new NewApplicationCreatedNotification($fresh)));
 
         // Real-time broadcast
@@ -230,10 +244,8 @@ class ApplicationService
 
             $this->log($application, $user, 'receipt.uploaded', ['receipt_id' => $receipt->id], 'Makbuz yüklendi ve onay sürecine alındı');
 
-            // Notify municipality admins to review receipt
-            User::query()
-                ->role(['super-admin', 'municipality-admin', 'municipality-staff'])
-                ->get()
+            // Notify admins + institution employees about receipt
+            $this->getTargetedUsers($application)
                 ->each(fn (User $admin) => $admin->notify(new ReceiptUploadedNotification($application, $receipt)));
 
             return $receipt;
