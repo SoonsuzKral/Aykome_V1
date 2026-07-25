@@ -54,6 +54,8 @@ class ApplicationService
                         'applicant_phone' => $data['applicant_phone'] ?? null,
                         'excavation_reason' => $data['excavation_reason'] ?? null,
                         'work_type' => $data['work_type'] ?? null,
+                        'project_code' => $data['project_code'] ?? null,
+                        'application_type' => $data['application_type'] ?? 'basvuru',
                         'description' => $data['description'] ?? null,
                         'start_date' => $data['start_date'],
                         'end_date' => $data['end_date'],

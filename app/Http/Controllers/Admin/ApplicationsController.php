@@ -343,6 +343,7 @@ class ApplicationsController extends Controller
                 'center_lng' => $area?->center_lng,
             ],
             'surfaceLinesData' => $application->surfaceLines->map(fn ($sl) => [
+                'id' => $sl->id,
                 'surface_type_id' => $sl->surface_type_id,
                 'surface_type_name' => $sl->surfaceType?->name ?? '',
                 'price_per_m2' => (float) ($sl->surfaceType?->price_per_m2 ?? 0),
@@ -350,7 +351,8 @@ class ApplicationsController extends Controller
                 'length_m' => (float) ($sl->length_m ?? 0),
                 'quantity' => (float) ($sl->quantity ?? 0),
                 'amount' => (float) ($sl->amount ?? 0),
-            ])->values(),
+                'address' => $sl->address ?? '',
+            ])->values()->toArray(),
         ]);
     }
 
