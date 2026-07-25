@@ -47,17 +47,14 @@
             'price_per_m2' => (float) $item->price_per_m2,
         ])->values();
 
-        $initialGeoJson = old('polygon_geojson', $drawing['polygon_geojson'] ?? null);
         $initialArea = old('total_area_m2', $drawing['total_area_m2'] ?? $application->total_area_m2 ?? 0);
         $initialAreaFormatted = $initialArea ? number_format((float) $initialArea, 0, ',', '.') : '0';
-        $initialCenterLat = old('center_lat', $drawing['center_lat'] ?? null);
-        $initialCenterLng = old('center_lng', $drawing['center_lng'] ?? null);
     @endphp
 
     <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
             <h1 class="text-2xl font-semibold text-slate-900">{{ $application->application_no }}</h1>
-            <p class="text-sm text-slate-600">Başvuru detayları, harita çizimi ve keşif bilgilerini güncelleyin.</p>
+            <p class="text-sm text-slate-600">Başvuru bilgilerini, harita çizimini ve keşif satırını tek akışta güncelleyin.</p>
         </div>
         <a href="{{ route('admin.applications.show', $application) }}" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Detaya dön</a>
     </div>
@@ -86,8 +83,114 @@
         @endif
 
         <div class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div class="space-y-4">
-                <div class="grid gap-4 sm:grid-cols-2">
+            <div class="space-y-8">
+                <fieldset class="grid gap-4 sm:grid-cols-2">
+                    <legend class="col-span-full text-sm font-semibold text-slate-800">Başvuru sahibi</legend>
+
+                    @if($isInstitutionUser)
+                        <div class="col-span-full mb-1 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                            <svg class="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75A4.5 4.5 0 0 0 12 2.25a4.5 4.5 0 0 0-4.5 4.5v3.75M3.75 10.5h16.5M6 21h12a.75.75 0 0 0 .75-.75V11.25a.75.75 0 0 0-.75-.75H6a.75.75 0 0 0-.75.75v8.999c0 .414.336.751.75.751Z"/></svg>
+                            <p class="text-xs text-amber-700">Kurum personeli olarak <strong>kendi adınıza</strong> başvuru oluşturuyorsunuz. Başvurucu bilgileri oturumunuzdan otomatik atandı.</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Başvuru Sahibi (Ad Soyad / Kurum Ünvanı)</label>
+                            <input type="text" value="{{ trim($applicantPrefill['first_name'] . ' ' . $applicantPrefill['last_name']) }}" readonly
+                                class="mt-1 block w-full cursor-not-allowed rounded-lg border-slate-200 bg-slate-100 text-slate-500 shadow-sm">
+                            <input type="hidden" name="applicant_first_name" value="{{ $applicantPrefill['first_name'] }}">
+                            <input type="hidden" name="applicant_last_name" value="{{ $applicantPrefill['last_name'] }}">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">TC Kimlik / Vergi No</label>
+                            <div class="mt-1 flex items-center gap-2">
+                                @if($institutionPrefill)
+                                    <input type="text" value="{{ $institutionPrefill['tax_number'] }}" readonly
+                                        class="block w-full cursor-not-allowed rounded-lg border-slate-200 bg-slate-100 font-mono text-sm tracking-widest text-slate-500 shadow-sm">
+                                    <input type="hidden" name="applicant_national_id" value="{{ $institutionPrefill['tax_number'] }}">
+                                    <input type="hidden" id="tc_no" name="tc_no" value="{{ $institutionPrefill['tax_number'] }}">
+                                    <input type="hidden" id="identity_no" name="identity_no" value="{{ $institutionPrefill['tax_number'] }}">
+                                @else
+                                    <input type="text" value="{{ $applicantPrefill['national_id_masked'] }}" readonly
+                                        class="block w-full cursor-not-allowed rounded-lg border-slate-200 bg-slate-100 font-mono text-sm tracking-widest text-slate-500 shadow-sm">
+                                    <input type="hidden" name="applicant_national_id" value="{{ $applicantPrefill['national_id'] }}">
+                                    <input type="hidden" id="tc_no" name="tc_no" value="{{ $applicantPrefill['national_id'] }}">
+                                    <input type="hidden" id="identity_no" name="identity_no" value="{{ $applicantPrefill['national_id'] }}">
+                                @endif
+                                <span class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-2 text-xs font-semibold text-amber-700">
+                                    🔒 Kilitli
+                                </span>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-500">Kimlik bilgisi oturumdaki hesaba bağlıdır; değiştirilemez.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700">Telefon</label>
+                            <input type="text" value="{{ $institutionPrefill['phone'] ?? $applicantPrefill['phone'] }}" readonly
+                                class="mt-1 block w-full cursor-not-allowed rounded-lg border-slate-200 bg-slate-100 text-slate-500 shadow-sm">
+                            <input type="hidden" name="applicant_phone" value="{{ $institutionPrefill['phone'] ?? $applicantPrefill['phone'] }}">
+                        </div>
+                    @else
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700" for="applicant_first_name">Başvuru Sahibi (Ad Soyad / Kurum Ünvanı)</label>
+                            <input id="applicant_first_name" type="text" name="applicant_first_name" value="{{ old('applicant_first_name', $application->applicant_first_name) }}" required class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('applicant_first_name') border-red-300 ring-red-100 @enderror">
+                            @error('applicant_first_name')
+                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700" for="applicant_national_id">TC Kimlik No</label>
+                            <div class="mt-1 flex gap-2">
+                                <input id="applicant_national_id" type="text" name="applicant_national_id" value="{{ old('applicant_national_id', $application->applicant_national_id) }}" maxlength="11" required class="block w-full rounded-lg border-slate-300 shadow-sm @error('applicant_national_id') border-red-300 ring-red-100 @enderror">
+                                <button
+                                    type="button"
+                                    id="tckn-check-btn"
+                                    class="inline-flex shrink-0 items-center rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700 hover:bg-cyan-100"
+                                >
+                                    TCKN Sorgula
+                                </button>
+                            </div>
+                            <input type="hidden" id="tc_no" name="tc_no" value="{{ old('tc_no', $application->tc_no ?? $application->applicant_national_id) }}">
+                            <input type="hidden" id="identity_no" name="identity_no" value="{{ old('identity_no', $application->identity_no ?? $application->applicant_national_id) }}">
+                            <p id="tckn-check-status" class="mt-1 text-xs text-slate-500"></p>
+                            @error('applicant_national_id')
+                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700" for="applicant_phone">Telefon</label>
+                            <input id="applicant_phone" type="text" name="applicant_phone" value="{{ old('applicant_phone', $application->applicant_phone) }}" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('applicant_phone') border-red-300 ring-red-100 @enderror">
+                            @error('applicant_phone')
+                                <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    @endif
+
+                    <div class="col-span-full mt-1">
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Başvuru Türü</label>
+                        <div class="flex gap-4">
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="application_type" value="basvuru" {{ old('application_type', $application->application_type ?? 'basvuru') === 'basvuru' ? 'checked' : '' }} class="h-4 w-4 text-sky-600 border-slate-300 focus:ring-sky-500">
+                                <span class="text-sm text-slate-700 font-medium">Normal Başvuru</span>
+                            </label>
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="application_type" value="ariza" {{ old('application_type', $application->application_type) === 'ariza' ? 'checked' : '' }} class="h-4 w-4 text-red-500 border-slate-300 focus:ring-red-400">
+                                <span class="text-sm text-slate-700 font-medium">Arıza (Acil Kazı)</span>
+                            </label>
+                        </div>
+                        @error('application_type')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </fieldset>
+
+                <fieldset class="grid gap-4 sm:grid-cols-2">
+                    <legend class="col-span-full text-sm font-semibold text-slate-800">Kazı</legend>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700" for="excavation_reason">Projenin Adı : </label>
+                        <input id="excavation_reason" type="text" name="excavation_reason" value="{{ old('excavation_reason', $application->excavation_reason) }}" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('excavation_reason') border-red-300 ring-red-100 @enderror">
+                        @error('excavation_reason')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700" for="project_code">Proje Kodu</label>
                         <input id="project_code" type="text" name="project_code" value="{{ old('project_code', $application->project_code) }}" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('project_code') border-red-300 ring-red-100 @enderror">
@@ -96,54 +199,59 @@
                         @enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700" for="applicant_phone">Telefon</label>
-                        <input id="applicant_phone" type="text" name="applicant_phone" value="{{ old('applicant_phone', $application->applicant_phone) }}" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('applicant_phone') border-red-300 ring-red-100 @enderror">
-                        @error('applicant_phone')
+                        <label class="block text-sm font-medium text-slate-700" for="work_type">Çalışma türü</label>
+                        <input id="work_type" type="text" name="work_type" value="{{ old('work_type', $application->work_type) }}" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('work_type') border-red-300 ring-red-100 @enderror">
+                        @error('work_type')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
-                    <div>
+                    <div class="sm:col-span-2">
                         <label class="block text-sm font-medium text-slate-700" for="address_text">Adres</label>
                         <input id="address_text" type="text" name="address_text" value="{{ old('address_text', $application->address_text) }}" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('address_text') border-red-300 ring-red-100 @enderror">
                         @error('address_text')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
-                </div>
-
-                {{-- Başvuru / Arıza seçimi --}}
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1.5">Başvuru Türü</label>
-                    <div class="flex gap-4">
-                        <label class="inline-flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="application_type" value="basvuru" {{ old('application_type', $application->application_type ?? 'basvuru') === 'basvuru' ? 'checked' : '' }} class="h-4 w-4 text-sky-600 border-slate-300 focus:ring-sky-500">
-                            <span class="text-sm text-slate-700 font-medium">Normal Başvuru</span>
-                        </label>
-                        <label class="inline-flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="application_type" value="ariza" {{ old('application_type', $application->application_type) === 'ariza' ? 'checked' : '' }} class="h-4 w-4 text-red-500 border-slate-300 focus:ring-red-400">
-                            <span class="text-sm text-slate-700 font-medium">Arıza (Acil Kazı)</span>
-                        </label>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="start_date">Başlangıç</label>
+                        <input id="start_date" type="date" name="start_date" value="{{ old('start_date', $application->start_date?->format('Y-m-d')) }}" required class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('start_date') border-red-300 ring-red-100 @enderror">
+                        @error('start_date')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
-                    @error('application_type')
-                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-700" for="description">Açıklama</label>
-                    <textarea id="description" name="description" rows="4" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm @error('description') border-red-300 ring-red-100 @enderror">{{ old('description', $application->description) }}</textarea>
-                    @error('description')
-                        <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                    @enderror
-                </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="end_date">Bitiş</label>
+                        <div class="mt-1 flex gap-2">
+                            <input id="end_date" type="date" name="end_date" value="{{ old('end_date', $application->end_date?->format('Y-m-d')) }}" required class="block w-full rounded-lg border-slate-300 shadow-sm @error('end_date') border-red-300 ring-red-100 @enderror">
+                            <select id="auto_date_adder" class="shrink-0 rounded-lg border border-slate-300 bg-white px-2 py-2 text-xs font-medium text-slate-700 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/30">
+                                <option value="">+ Gün</option>
+                                <option value="10">+10 Gün</option>
+                                <option value="15">+15 Gün</option>
+                                <option value="30">+1 Ay</option>
+                            </select>
+                        </div>
+                        @error('end_date')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700" for="description">Açıklama</label>
+                        <textarea id="description" name="description" rows="3" class="mt-1 w-full rounded-lg border-slate-300 shadow-sm @error('description') border-red-300 ring-red-100 @enderror">{{ old('description', $application->description) }}</textarea>
+                        @error('description')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </fieldset>
             </div>
 
             <aside class="space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-                <h3 class="text-sm font-semibold text-slate-800">Güncelleme notu</h3>
+                <h3 class="text-sm font-semibold text-slate-800">Hızlı notlar</h3>
                 <ul class="space-y-2 text-xs text-slate-600">
-                    <li>• Haritadaki çizim değişirse GeoJSON, alan ve merkez değerleri otomatik senkronlanır.</li>
-                    <li>• Kurum seçimi değiştiğinde çizim rengi otomatik yenilenir.</li>
-                    <li>• Yüzey tipine göre hesapla ile keşif bedeli anlık görülür.</li>
+                    <li>• Çizim yaptıktan sonra GeoJSON, alan ve merkez otomatik güncellenir.</li>
+                    <li>• Kurum değiştiğinde çizim rengi kurum rengine göre ayarlanır.</li>
+                    <li>• Yüzey tipi seçilip "Yüzey tipine göre hesapla" ile metraj tutarı anlık hesaplanır.</li>
+                    <br>
+                    <li><strong> <b>. Genişlik ve Uzunluk" değerleri çizilen şeklin tam kenar ölçülerini değil; şekli harita üzerinde içine alan en dış sınırların (iz düşüm kutusunun) yatay ve dikey mesafesini gösterir.</b></strong></li>
                 </ul>
             </aside>
         </div>
@@ -157,20 +265,31 @@
                 </span>
             </div>
             <p class="mt-1 text-xs text-slate-500">
-                Polygon, polyline veya marker düzenleyin; GeoJSON ve metraj otomatik güncellenecektir.
+                Harita üzerinden polygon, polyline veya marker çizin. GeoJSON, alan ve merkez koordinatları otomatik doldurulur.
             </p>
 
-            <div id="application-drawing-map" class="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50" style="min-height:500px"></div>
+            <div class="relative mt-3">
+                <input id="map-search-input" type="text"
+                    class="absolute top-4 right-12 z-10 w-72 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm shadow-[0_4px_20px_rgba(250,96,1,0.22)] focus:outline-none focus:ring-2 focus:ring-[#02E0FB] focus:border-[#02E0FB] placeholder:text-slate-400"
+                    placeholder="Sokak, bina veya bölge ara...">
+                <div id="map-style-panel" class="absolute top-[4.5rem] right-12 z-10 flex w-40 flex-col gap-1 rounded-xl border border-gray-200 bg-white/95 p-2 shadow-[0_4px_20px_rgba(250,96,1,0.15)] backdrop-blur-sm">
+                    <p class="pb-0.5 pl-1 text-[9px] font-black uppercase tracking-wider text-slate-400">Görünüm</p>
+                    <button id="style-standard" class="w-full rounded-lg border border-[#FA6001]/30 bg-[#FA6001]/10 px-3 py-1.5 text-left text-[11px] font-semibold text-[#FA6001] transition hover:bg-[#FA6001]/20">⊙ Standart</button>
+                    <button id="style-satellite" class="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-left text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50">🛰 Uydu</button>
+                    <button id="style-terrain"  class="w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-left text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50">⛰ Arazi</button>
+                </div>
+                <div id="application-drawing-map" class="w-full rounded-xl border border-slate-200 bg-slate-50" style="min-height:500px"></div>
+            </div>
             <div class="mt-2 flex flex-wrap items-center gap-2">
                 <button type="button" id="map-clear-btn" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Çizimi temizle</button>
                 <button type="button" id="map-apply-geojson-btn" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">GeoJSON'u haritaya uygula</button>
-                <span id="map-status" class="text-xs text-slate-500">Mevcut çizim yüklendi.</span>
+                <span id="map-status" class="text-xs text-slate-500">Haritadan bir alan seçin.</span>
             </div>
 
             <div class="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
                 <div>
                     <label class="block text-sm font-medium text-slate-700" for="polygon_geojson">GeoJSON</label>
-                    <textarea id="polygon_geojson" name="polygon_geojson" rows="6" class="mt-1 w-full rounded-lg border-slate-300 font-mono text-xs shadow-sm @error('polygon_geojson') border-red-300 ring-red-100 @enderror" placeholder='{"type":"FeatureCollection","features":[...]}'>{{ $initialGeoJson }}</textarea>
+                    <textarea id="polygon_geojson" name="polygon_geojson" rows="6" class="mt-1 w-full rounded-lg border-slate-300 font-mono text-xs shadow-sm @error('polygon_geojson') border-red-300 ring-red-100 @enderror" placeholder='{"type":"FeatureCollection","features":[...]}'>{{ old('polygon_geojson', $drawing['polygon_geojson'] ?? '') }}</textarea>
                     @error('polygon_geojson')
                         <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                     @enderror
@@ -184,11 +303,11 @@
                         @enderror
                     </div>
 
-                    <input type="hidden" name="center_lat" id="center_lat" value="{{ $initialCenterLat }}">
-                    <input type="hidden" name="center_lng" id="center_lng" value="{{ $initialCenterLng }}">
+                    <input type="hidden" name="center_lat" id="center_lat" value="{{ old('center_lat', $drawing['center_lat'] ?? '') }}">
+                    <input type="hidden" name="center_lng" id="center_lng" value="{{ old('center_lng', $drawing['center_lng'] ?? '') }}">
 
                     <p class="text-xs text-slate-500">
-                        Merkez koordinat: <span id="center-display">{{ $initialCenterLat && $initialCenterLng ? $initialCenterLat.', '.$initialCenterLng : '—' }}</span>
+                        Merkez koordinat: <span id="center-display">{{ old('center_lat', $drawing['center_lat'] ?? '') && old('center_lng', $drawing['center_lng'] ?? '') ? old('center_lat', $drawing['center_lat'] ?? '').', '.old('center_lng', $drawing['center_lng'] ?? '') : '—' }}</span>
                     </p>
 
                     <div class="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
@@ -341,7 +460,7 @@
             </div>
         </fieldset>
 
-        <div class="flex gap-3">
+        <div class="flex justify-end gap-3">
             <a href="{{ route('admin.applications.show', $application) }}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">İptal</a>
             <button type="submit" class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">Kaydet</button>
         </div>
@@ -353,28 +472,27 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
     <script>
         // ─── STATE & CONFIG ────────────────────────────────────────────────
-        var SURFACE_TYPES = @json($surfaceTypeOptions);
-        var INSTITUTIONS = @json($institutionOptions);
-        var INITIAL_SURFACE_LINES = @json($surfaceLinesData ?? []);
-        var INITIAL_GEOJSON = @json($drawing['polygon_geojson'] ?? '');
+        const SURFACE_TYPES = @json($surfaceTypeOptions);
+        const INSTITUTIONS = @json($institutionOptions);
+        const INITIAL_SURFACE_LINES = @json($surfaceLinesData ?? []);
 
-        var surfaceLines = [];
-        var nextRowId = 1;
-        var isDicleElektrik = @json(auth()->user()?->institution?->tax_number === '2950368442');
-        var isInstitutionUser = @json(auth()->user()?->institution_id ? true : false);
-        var activeDrawRowId = null;
-        var rowDrawings = {};
+        let surfaceLines = [];
+        let nextRowId = 1;
+        let isDicleElektrik = @json(auth()->user()?->institution?->tax_number === '2950368442');
+        let isInstitutionUser = @json(auth()->user()?->institution_id ? true : false);
+        let activeDrawRowId = null;
+        let rowDrawings = {};
 
         // ─── PURE CALCULATION FUNCTIONS ───────────────────────────────────
         function calculateRowTotal(quantity, unitPrice) {
-            var q = Math.max(parseFloat(quantity) || 0, 0);
-            var p = Math.max(parseFloat(unitPrice) || 0, 0);
+            const q = Math.max(parseFloat(quantity) || 0, 0);
+            const p = Math.max(parseFloat(unitPrice) || 0, 0);
             return q * p;
         }
 
         function hasValidRows() {
             return surfaceLines.some(function (r) {
-                return parseInt(r.surface_type_id) > 0 && (parseFloat(r.quantity) || 0) > 0;
+                return r.surface_type_id != null && (parseFloat(r.quantity) || 0) > 0;
             });
         }
 
@@ -434,20 +552,19 @@
                 var rowTotal = calculateRowTotal(qty, unitPrice);
                 var hasDrawing = rowDrawings[row.rowId] != null;
 
-                var opts = SURFACE_TYPES.map(function (st) {
-                    var sel = parseInt(st.id) === parseInt(row.surface_type_id) ? ' selected' : '';
-                    return '<option value="' + st.id + '" data-price="' + st.price_per_m2 + '"' + sel + '>' + st.name + ' - ' + Number(st.price_per_m2).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' \u20BA</option>';
-                }).join('');
-
                 tr.innerHTML =
                     '<td class="py-2 pr-2 text-slate-400 font-mono text-[10px] align-top pt-3">' + (idx + 1) + '</td>' +
-                    '<td class="p-2 align-top pt-2"><select data-row-id="' + row.rowId + '" class="surface-type-select block w-full rounded border-slate-300 text-xs shadow-sm"><option value="">—</option>' + opts + '</select></td>' +
+                    '<td class="p-2 align-top pt-2"><select data-row-id="' + row.rowId + '" class="surface-type-select block w-full rounded border-slate-300 text-xs shadow-sm"><option value="">—</option>' +
+                        SURFACE_TYPES.map(function (st) {
+                            return '<option value="' + st.id + '" data-price="' + st.price_per_m2 + '"' + (parseInt(st.id) === parseInt(row.surface_type_id) ? ' selected' : '') + '>' + st.name + ' - ' + Number(st.price_per_m2).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' \u20BA</option>';
+                        }).join('') +
+                    '</select></td>' +
                     '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-width w-full rounded border-slate-300 text-xs shadow-sm" value="' + (row.width_m || '') + '" placeholder="0"></td>' +
                     '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-length w-full rounded border-slate-300 text-xs shadow-sm" value="' + (row.length_m || '') + '" placeholder="0"></td>' +
                     '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-quantity w-full rounded border-slate-300 text-xs shadow-sm font-semibold" value="' + (qty || '') + '" placeholder="0"></td>' +
-                    '<td class="p-2 align-top pt-3 text-xs text-slate-600 font-mono"><span class="row-unit-price" data-row-id="' + row.rowId + '">' + Number(unitPrice).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span> \u20BA/m\u00B2</td>' +
+                    '<td class="p-2 align-top pt-3 text-xs text-slate-600 font-mono"><span class="row-unit-price" data-row-id="' + row.rowId + '">' + Number(unitPrice).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span> ₺/m²</td>' +
                     '<td class="p-2 align-top"><button type="button" data-row-id="' + row.rowId + '" class="row-draw-btn rounded border border-slate-300 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50 transition ' + (activeDrawRowId === row.rowId ? 'ring-2 ring-amber-400 bg-amber-50' : '') + '">' + (hasDrawing ? '🔄 Çiz' : '🎯 Çiz') + '</button></td>' +
-                    '<td class="p-2 align-top pt-3 text-right font-mono text-xs font-semibold text-slate-800"><span class="row-total" data-row-id="' + row.rowId + '">' + rowTotal.toFixed(2) + '</span> \u20BA</td>' +
+                    '<td class="p-2 align-top pt-3 text-right font-mono text-xs font-semibold text-slate-800"><span class="row-total" data-row-id="' + row.rowId + '">' + rowTotal.toFixed(2) + '</span> ₺</td>' +
                     '<td class="p-2 align-top pt-2 whitespace-nowrap"><button type="button" data-row-id="' + row.rowId + '" class="row-copy-btn rounded border border-cyan-200 bg-cyan-50 px-1.5 py-1 text-[10px] font-medium text-cyan-700 hover:bg-cyan-100 transition" title="Kopyala">📋</button> <button type="button" data-row-id="' + row.rowId + '" class="row-remove-btn rounded border border-red-200 bg-red-50 px-1.5 py-1 text-[10px] font-medium text-red-600 hover:bg-red-100 transition" title="Sil">🗑</button></td>';
 
                 tbody.appendChild(tr);
@@ -457,7 +574,7 @@
             recalculateAll();
         }
 
-        // ─── LIGHTWEIGHT UPDATE (no DOM rebuild — fixes focus loss) ───────
+        // ─── LIGHTWEIGHT UPDATE ───────────────────────────────────────────
         function updateAllDisplays() {
             surfaceLines.forEach(function (row) {
                 var unitPrice = parseFloat(row.price_per_m2) || 0;
@@ -471,6 +588,7 @@
             recalculateAll();
         }
 
+        // ─── EVENT DELEGATION ─────────────────────────────────────────────
         function attachRowEvents() {
             document.querySelectorAll('.surface-type-select').forEach(function (el) {
                 el.addEventListener('change', function () {
@@ -561,8 +679,9 @@
             });
         }
 
+        // ─── CRUD OPERATIONS ──────────────────────────────────────────────
         function addSurfaceLine(data) {
-            var row = {
+            const row = {
                 rowId: nextRowId++,
                 surface_type_id: data.surface_type_id || null,
                 surface_type_name: data.surface_type_name || '',
@@ -587,9 +706,9 @@
         }
 
         function copySurfaceLine(rowId) {
-            var original = surfaceLines.find(function (r) { return r.rowId === rowId; });
+            const original = surfaceLines.find(function (r) { return r.rowId === rowId; });
             if (!original) return;
-            var copy = JSON.parse(JSON.stringify(original));
+            const copy = JSON.parse(JSON.stringify(original));
             copy.rowId = nextRowId++;
             surfaceLines.push(copy);
             if (rowDrawings[rowId]) {
@@ -600,6 +719,7 @@
             renderTable();
         }
 
+        // ─── MAP INTEGRATION ──────────────────────────────────────────────
         function setActiveDrawRow(rowId) {
             if (activeDrawRowId === rowId) {
                 activeDrawRowId = null;
@@ -615,8 +735,8 @@
         }
 
         function updateActiveDrawIndicator() {
-            var ind = document.getElementById('active-draw-indicator');
-            var lbl = document.getElementById('active-draw-label');
+            const ind = document.getElementById('active-draw-indicator');
+            const lbl = document.getElementById('active-draw-label');
             if (activeDrawRowId) {
                 ind.classList.remove('hidden');
                 lbl.textContent = 'Satır ' + activeDrawRowId + ' için çizim yapılıyor...';
@@ -626,17 +746,18 @@
         }
 
         function setMapStatus(msg) {
-            var el = document.getElementById('map-status');
+            const el = document.getElementById('map-status');
             if (el) el.textContent = msg;
         }
 
+        // ─── SUBMIT HOOK ──────────────────────────────────────────────────
         function prepareSurfaceLinesForSubmit() {
-            var container = document.getElementById('surface-lines-hidden-inputs');
+            const container = document.getElementById('surface-lines-hidden-inputs');
             container.innerHTML = '';
 
             surfaceLines.forEach(function (row, idx) {
                 function addHidden(name, value) {
-                    var inp = document.createElement('input');
+                    const inp = document.createElement('input');
                     inp.type = 'hidden';
                     inp.name = 'surface_lines[' + idx + '][' + name + ']';
                     inp.value = value != null ? value : '';
@@ -648,11 +769,73 @@
                 addHidden('quantity', row.quantity || '');
             });
 
-            var allFeatures = Object.values(rowDrawings).filter(Boolean);
-            var geoInput = document.getElementById('polygon_geojson');
+            // Merge row drawings into polygon_geojson
+            const allFeatures = Object.values(rowDrawings).filter(Boolean);
+            const geoInput = document.getElementById('polygon_geojson');
             if (allFeatures.length > 0) {
                 geoInput.value = JSON.stringify({ type: 'FeatureCollection', features: allFeatures });
             }
+        }
+
+        // ─── TCKN LOOKUP ──────────────────────────────────────────────────
+        function initTcknLookup() {
+            const input = document.getElementById('applicant_national_id');
+            const btn = document.getElementById('tckn-check-btn');
+            const status = document.getElementById('tckn-check-status');
+            const firstNameInput = document.getElementById('applicant_first_name');
+            const phoneInput = document.getElementById('applicant_phone');
+            const tcNoInput = document.getElementById('tc_no');
+            const identityNoInput = document.getElementById('identity_no');
+
+            if (!btn) return; // Only for non-institution users
+
+            function setStatus(msg, tone) {
+                if (!status) return;
+                status.textContent = msg;
+                status.className = 'mt-1 text-xs';
+                var cls = { neutral: 'text-slate-500', success: 'text-emerald-700', error: 'text-red-600', info: 'text-cyan-700' }[tone] || 'text-slate-500';
+                status.classList.add(cls);
+            }
+
+            async function check() {
+                var raw = String(input?.value || '');
+                var tckn = raw.replace(/\D+/g, '');
+                if (tckn.length !== 11) { setStatus('TCKN 11 haneli olmalıdır.', 'error'); return; }
+                if (input) input.value = tckn;
+                if (tcNoInput) tcNoInput.value = tckn;
+                if (identityNoInput) identityNoInput.value = tckn;
+                var csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+                if (!csrf) { setStatus('CSRF token bulunamadı.', 'error'); return; }
+                if (btn) { btn.disabled = true; btn.classList.add('opacity-70', 'cursor-not-allowed'); }
+                setStatus('TCKN sorgulanıyor...', 'info');
+                try {
+                    var r = await fetch(@json(route('admin.applications.check-applicant')), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                        body: JSON.stringify({ applicant_national_id: tckn }),
+                    });
+                    var p = await r.json().catch(function () { return {}; });
+                    if (!r.ok) { setStatus(typeof p?.message === 'string' ? p.message : 'Sorgu hatası.', 'error'); return; }
+                    if (p?.found && p?.data) {
+                        var fullName = ((p.data.applicant_first_name || '') + ' ' + (p.data.applicant_last_name || '')).trim();
+                        if (firstNameInput && fullName) firstNameInput.value = fullName;
+                        if (phoneInput && p.data.applicant_phone) phoneInput.value = p.data.applicant_phone;
+                        if (input && p.data.applicant_national_id) input.value = p.data.applicant_national_id;
+                        var norm = p.data.applicant_national_id || tckn;
+                        if (tcNoInput) tcNoInput.value = norm;
+                        if (identityNoInput) identityNoInput.value = norm;
+                        var addr = document.getElementById('address_text');
+                        if (addr && p.data.address_text) addr.value = p.data.address_text;
+                        setStatus('Kayıt bulundu. Alanlar dolduruldu.', 'success');
+                        return;
+                    }
+                    setStatus(p?.message || 'Kayıt bulunamadı.', 'neutral');
+                } catch (e) { setStatus('Ağ hatası.', 'error'); }
+                finally { if (btn) { btn.disabled = false; btn.classList.remove('opacity-70', 'cursor-not-allowed'); } }
+            }
+
+            btn.addEventListener('click', check);
+            input?.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); check(); } });
         }
 
         // ─── MAP ENGINE ───────────────────────────────────────────────────
@@ -670,7 +853,7 @@
             var activeColorDot = document.getElementById('active-draw-color-dot');
             var lineLengthDisplay = document.getElementById('line-length-display');
 
-            if (!mapEl || !geojsonInput || !areaInput) return null;
+            if (!mapEl || !geojsonInput || !areaInput) return;
 
             var _latStr = centerLatInput?.value?.trim() || '';
             var _lngStr = centerLngInput?.value?.trim() || '';
@@ -737,7 +920,8 @@
                 var s = 0;
                 for (var i = 0; i < pts.length; i++) {
                     var a = pts[i], b = pts[(i + 1) % pts.length];
-                    s += (EARTH_R * toRad(a.lng) * sc) * (EARTH_R * toRad(b.lat)) - (EARTH_R * toRad(b.lng) * sc) * (EARTH_R * toRad(a.lat));
+                    s += (EARTH_R * toRad(a.lng) * sc) * (EARTH_R * toRad(b.lat))
+                       - (EARTH_R * toRad(b.lng) * sc) * (EARTH_R * toRad(a.lat));
                 }
                 return Math.abs(s) / 2;
             };
@@ -746,6 +930,10 @@
                 var w = dist({ lat: b.getSouth(), lng: b.getWest() }, { lat: b.getSouth(), lng: b.getEast() });
                 var h = dist({ lat: b.getSouth(), lng: b.getWest() }, { lat: b.getNorth(), lng: b.getWest() });
                 return w * h;
+            };
+
+            var toPath = function (ring) {
+                return Array.isArray(ring) ? ring.filter(function (p) { return Array.isArray(p) && p.length >= 2; }).map(function (p) { return { lat: Number(p[1]), lng: Number(p[0]) }; }).filter(function (p) { return Number.isFinite(p.lat) && Number.isFinite(p.lng); }) : [];
             };
 
             var parseGeo = function (raw) {
@@ -758,16 +946,42 @@
                 return [{ type: 'Feature', geometry: data, properties: {} }];
             };
 
+            // Map init
             var map = L.map('application-drawing-map', {
                 center: defaultCenter,
                 zoom: 14,
                 zoomControl: true,
             });
 
-            var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>' });
-            var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: '&copy; <a href="https://esri.com">Esri</a>' });
+            var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19, attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
+            });
+            var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19, attribution: '&copy; <a href="https://esri.com">Esri</a>',
+            });
+            var terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                maxZoom: 17, attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+            });
             osm.addTo(map);
-            L.control.layers({ Standart: osm, Uydu: satellite }, null, { position: 'topleft' }).addTo(map);
+            L.control.layers({ Standart: osm, Uydu: satellite, Arazi: terrain }, null, { position: 'topleft' }).addTo(map);
+
+            // Style panel
+            var styleRow = document.getElementById('map-style-panel');
+            if (styleRow) {
+                var switchLayer = function (id) {
+                    var layers = { 'style-standard': osm, 'style-satellite': satellite, 'style-terrain': terrain };
+                    Object.entries(layers).forEach(function (e) { if (e[0] === id) map.addLayer(e[1]); else map.removeLayer(e[1]); });
+                    document.querySelectorAll('#map-style-panel button').forEach(function (b) {
+                        var active = b.id === id;
+                        b.className = active
+                            ? 'w-full rounded-lg border border-[#FA6001]/30 bg-[#FA6001]/10 px-3 py-1.5 text-left text-[11px] font-semibold text-[#FA6001] transition hover:bg-[#FA6001]/20'
+                            : 'w-full rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-left text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50';
+                    });
+                };
+                document.getElementById('style-standard')?.addEventListener('click', function () { switchLayer('style-standard'); });
+                document.getElementById('style-satellite')?.addEventListener('click', function () { switchLayer('style-satellite'); });
+                document.getElementById('style-terrain')?.addEventListener('click', function () { switchLayer('style-terrain'); });
+            }
 
             var strokeColor = getDrawColor();
             var drawnItems = new L.FeatureGroup();
@@ -783,15 +997,19 @@
                     polyline: { shapeOptions: { color: strokeColor, weight: 3 } },
                     circle: { shapeOptions: { color: strokeColor, fillOpacity: 0.22, weight: 2 } },
                     rectangle: { shapeOptions: { color: strokeColor, fillOpacity: 0.22, weight: 2 } },
-                    marker: true, circlemarker: false,
+                    marker: true,
+                    circlemarker: false,
                 },
             });
             map.addControl(drawControl);
 
             var repaintOverlays = function () {
-                drawnItems.eachLayer(function (layer) { if (layer.setStyle) layer.setStyle({ color: strokeColor, fillColor: strokeColor }); });
+                drawnItems.eachLayer(function (layer) {
+                    if (layer.setStyle) layer.setStyle({ color: strokeColor, fillColor: strokeColor });
+                });
             };
 
+            // My Location
             var myLocationMarker = null;
             var MyLocationControl = L.Control.extend({
                 onAdd: function () {
@@ -809,14 +1027,15 @@
                         if (statusEl) statusEl.textContent = 'Konum alınıyor...';
                         navigator.geolocation.getCurrentPosition(
                             function (pos) {
-                                map.setView([pos.coords.latitude, pos.coords.longitude], 17);
+                                var p = [pos.coords.latitude, pos.coords.longitude];
+                                map.setView(p, 17);
                                 if (myLocationMarker) map.removeLayer(myLocationMarker);
-                                myLocationMarker = L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map);
+                                myLocationMarker = L.marker(p).addTo(map);
                                 myLocationMarker.bindPopup('📍 Konumum');
                                 if (statusEl) statusEl.textContent = 'Konum işaretlendi.';
                             },
                             function () { if (statusEl) statusEl.textContent = 'Konum alınamadı.'; },
-                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
                         );
                     });
                     return btn;
@@ -824,6 +1043,7 @@
             });
             map.addControl(new MyLocationControl({ position: 'topright' }));
 
+            // Serialize
             var serializeAndSync = function (message) {
                 if (!message) message = 'Çizim güncellendi.';
                 var features = [];
@@ -855,16 +1075,16 @@
                         bounds.extend(ne); bounds.extend(sw);
                         centerCandidate = b.getCenter();
                     } else if (layer instanceof L.Circle) {
-                        var c = layer.getLatLng(), rr = layer.getRadius(), p_cnt = 64, coords3 = [];
+                        var c = layer.getLatLng(), r = layer.getRadius(), p_cnt = 64, coords3 = [];
                         for (var i = 0; i < p_cnt; i++) {
                             var a = (i / p_cnt) * 2 * Math.PI;
-                            coords3.push([c.lng + (rr / (111320 * Math.cos(c.lat * Math.PI / 180))) * Math.sin(a), c.lat + (rr / 111320) * Math.cos(a)]);
+                            coords3.push([c.lng + (r / (111320 * Math.cos(c.lat * Math.PI / 180))) * Math.sin(a), c.lat + (r / 111320) * Math.cos(a)]);
                         }
                         coords3.push(coords3[0]);
                         props.shape = 'circle';
                         if (activeDrawRowId) props.rowId = activeDrawRowId;
                         feature = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords3] }, properties: props };
-                        totalArea += Math.PI * rr * rr;
+                        totalArea += Math.PI * r * r;
                         var cb = layer.getBounds();
                         if (cb) { bounds.extend(cb.getNorthEast()); bounds.extend(cb.getSouthWest()); }
                         centerCandidate = c;
@@ -894,6 +1114,7 @@
                 if (statusEl) statusEl.textContent = message;
             };
 
+            // Draw events
             map.on(L.Draw.Event.CREATED, function (e) {
                 var layer = e.layer;
                 if (layer.setStyle) layer.setStyle({ color: strokeColor, fillColor: strokeColor });
@@ -927,10 +1148,10 @@
                                 feature = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] }, properties: { rowId: capturedRowId, shape: 'polygon' } };
                             }
                         } else if (layer instanceof L.Circle) {
-                            var cc = layer.getLatLng(), rr2 = layer.getRadius(), cnt = 64, ccoords = [];
+                            var cc = layer.getLatLng(), rr = layer.getRadius(), cnt = 64, ccoords = [];
                             for (var ci = 0; ci < cnt; ci++) {
                                 var ca = (ci / cnt) * 2 * Math.PI;
-                                ccoords.push([cc.lng + (rr2 / (111320 * Math.cos(cc.lat * Math.PI / 180))) * Math.sin(ca), cc.lat + (rr2 / 111320) * Math.cos(ca)]);
+                                ccoords.push([cc.lng + (rr / (111320 * Math.cos(cc.lat * Math.PI / 180))) * Math.sin(ca), cc.lat + (rr / 111320) * Math.cos(ca)]);
                             }
                             ccoords.push(ccoords[0]);
                             feature = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ccoords] }, properties: { rowId: capturedRowId, shape: 'circle' } };
@@ -961,6 +1182,7 @@
                 if (drawnItems.getLayers().length === 0) setCenter({ lat: e.latlng.lat, lng: e.latlng.lng });
             });
 
+            // Clear
             clearBtn?.addEventListener('click', function () {
                 drawnItems.clearLayers();
                 geojsonInput.value = '';
@@ -970,6 +1192,7 @@
                 if (statusEl) statusEl.textContent = 'Çizim temizlendi.';
             });
 
+            // Apply GeoJSON
             applyGeojsonBtn?.addEventListener('click', function () {
                 var features = parseGeo(geojsonInput.value);
                 drawnItems.clearLayers();
@@ -1008,6 +1231,7 @@
                 renderTable();
             });
 
+            // Institution color change
             institutionSelect?.addEventListener('change', function () {
                 strokeColor = getDrawColor();
                 updateColorPreview();
@@ -1015,15 +1239,17 @@
                 if (statusEl) statusEl.textContent = 'Çizim rengi güncellendi.';
             });
 
+            // Load existing GeoJSON
             if (geojsonInput.value.trim() !== '') {
                 applyGeojsonBtn?.click();
-            } else if (statusEl) {
-                statusEl.textContent = 'Haritadan bir alan seçin.';
+            } else {
+                if (statusEl) statusEl.textContent = 'Haritadan bir alan seçin.';
             }
 
             map.on('moveend', function () {
                 if (drawnItems.getLayers().length === 0) {
-                    setCenter({ lat: map.getCenter().lat, lng: map.getCenter().lng });
+                    var c = map.getCenter();
+                    setCenter({ lat: c.lat, lng: c.lng });
                 }
             });
 
@@ -1047,7 +1273,15 @@
                     var img = f.type.startsWith('image/');
                     var div = document.createElement('div');
                     div.className = 'relative rounded-lg border border-slate-200 bg-white p-2 shadow-sm';
-                    div.innerHTML = '<div class="flex items-center gap-2">' + (img ? '<img src="' + URL.createObjectURL(f) + '" class="h-10 w-10 rounded object-cover">' : '<span class="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs font-bold text-slate-500">PDF</span>') + '<div class="min-w-0"><p class="truncate text-xs font-medium text-slate-700 max-w-[180px]">' + f.name + '</p><p class="text-[10px] text-slate-500">' + (f.size / 1024).toFixed(1) + ' KB</p></div><button type="button" class="rm-file shrink-0 rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600" data-idx="' + i + '">&times;</button></div>';
+                    div.innerHTML =
+                        '<div class="flex items-center gap-2">' +
+                            (img ? '<img src="' + URL.createObjectURL(f) + '" class="h-10 w-10 rounded object-cover">' : '<span class="flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs font-bold text-slate-500">PDF</span>') +
+                            '<div class="min-w-0">' +
+                                '<p class="truncate text-xs font-medium text-slate-700 max-w-[180px]">' + f.name + '</p>' +
+                                '<p class="text-[10px] text-slate-500">' + (f.size / 1024).toFixed(1) + ' KB</p>' +
+                            '</div>' +
+                            '<button type="button" class="rm-file shrink-0 rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600" data-idx="' + i + '">&times;</button>' +
+                        '</div>';
                     preview.appendChild(div);
                 });
                 preview.querySelectorAll('.rm-file').forEach(function (b) {
@@ -1083,7 +1317,15 @@
             });
         }
 
-        // ─── INSTITUTION → DICLE + TEMINAT ────────────────────────────────
+        function setField(id, val, lock) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            if (val !== null) el.value = val || '';
+            if (lock) { el.readOnly = true; }
+            else { el.removeAttribute('readonly'); }
+        }
+
+        // ─── INSTITUTION → DICLE + TEMINAT + AUTO-FILL ──────────────────
         function initInstitutionWatcher() {
             var sel = document.getElementById('institution_id');
             if (!sel) return;
@@ -1096,9 +1338,19 @@
                 if (isEmpty || isMerkez) {
                     isDicleElektrik = false;
                     isInstitutionUser = false;
+                    setField('applicant_first_name', null, false);
+                    setField('applicant_national_id', null, false);
+                    setField('tc_no', null, false);
+                    setField('identity_no', null, false);
+                    setField('applicant_phone', null, false);
                 } else {
                     isDicleElektrik = opt.dataset.tax === '2950368442';
                     isInstitutionUser = true;
+                    setField('applicant_first_name', opt.dataset.name, true);
+                    setField('applicant_national_id', opt.dataset.tax, true);
+                    setField('tc_no', opt.dataset.tax, true);
+                    setField('identity_no', opt.dataset.tax, true);
+                    setField('applicant_phone', opt.dataset.phone, true);
                 }
                 recalculateAll();
             }
@@ -1107,10 +1359,37 @@
             checkDicle();
         }
 
+        // ─── AUTO DATE ADDER ──────────────────────────────────────────────
+        function initAutoDateAdder() {
+            var adder = document.getElementById('auto_date_adder');
+            var startDate = document.getElementById('start_date');
+            var endDate = document.getElementById('end_date');
+            if (!adder || !startDate || !endDate) return;
+
+            adder.addEventListener('change', function () {
+                var days = parseInt(this.value);
+                if (!days || !startDate.value) { this.value = ''; return; }
+                var d = new Date(startDate.value);
+                if (isNaN(d.getTime())) { this.value = ''; return; }
+                if (days === 30) {
+                    d.setMonth(d.getMonth() + 1);
+                } else {
+                    d.setDate(d.getDate() + days);
+                }
+                var y = d.getFullYear();
+                var m = String(d.getMonth() + 1).padStart(2, '0');
+                var dd = String(d.getDate()).padStart(2, '0');
+                endDate.value = y + '-' + m + '-' + dd;
+                this.value = '';
+            });
+        }
+
         // ─── BOOT ─────────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', function () {
+            initTcknLookup();
             initInstitutionWatcher();
             initDocumentUpload();
+            initAutoDateAdder();
 
             // Hydrate from existing surface lines (edit mode)
             if (INITIAL_SURFACE_LINES && INITIAL_SURFACE_LINES.length > 0) {
@@ -1123,10 +1402,41 @@
 
             var mapEngine = initMap();
 
+            // Connect search to map
+            if (mapEngine) {
+                var si = document.getElementById('map-search-input');
+                if (si) {
+                    si.addEventListener('keydown', async function (e) {
+                        if (e.key !== 'Enter') return;
+                        e.preventDefault();
+                        var q = si.value.trim();
+                        if (!q) return;
+                        var statusEl = document.getElementById('map-status');
+                        if (statusEl) statusEl.textContent = 'Adres aranıyor...';
+                        try {
+                            var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=1&countrycodes=tr');
+                            var data = await res.json();
+                            if (data.length) {
+                                mapEngine.map.setView([data[0].lat, data[0].lon], 18);
+                                var addr = document.getElementById('address_text');
+                                if (addr) addr.value = data[0].display_name;
+                                if (statusEl) statusEl.textContent = 'Adres bulundu.';
+                            } else if (statusEl) {
+                                statusEl.textContent = 'Adres bulunamadı.';
+                            }
+                        } catch (e) {
+                            if (statusEl) statusEl.textContent = 'Arama hatası.';
+                        }
+                    });
+                }
+            }
+
+            // Add Row button
             document.getElementById('add-row-btn')?.addEventListener('click', function () {
                 addSurfaceLine({});
             });
 
+            // Submit hook
             document.querySelector('form')?.addEventListener('submit', function () {
                 prepareSurfaceLinesForSubmit();
             });

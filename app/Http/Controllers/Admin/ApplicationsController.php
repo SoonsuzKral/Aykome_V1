@@ -306,18 +306,36 @@ class ApplicationsController extends Controller
         $this->authorize('update', $application);
 
         $user = $request->user();
-        $application->load(['institution:id,name,slug,color_code,is_municipality', 'excavationAreas', 'documents', 'surfaceLines.surfaceType']);
+        $application->loadMissing(['institution:id,name,slug,color_code,is_municipality,tax_number,phone', 'excavationAreas', 'documents', 'surfaceLines.surfaceType']);
         $area = $application->excavationAreas->sortByDesc('updated_at')->first();
 
         $institutions = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
             ? Institution::query()->orderBy('name')->get(['id', 'name', 'slug', 'color_code', 'is_municipality', 'tax_number', 'phone'])
             : Institution::query()->where('id', $user->institution_id)->get(['id', 'name', 'slug', 'color_code', 'is_municipality', 'tax_number', 'phone']);
 
+        $isInstitutionUser = ! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff']);
+        $nameParts = preg_split('/\s+/', trim((string) $user->name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $applicantPrefill = [
+            'first_name' => mb_convert_case((string) (array_shift($nameParts) ?: ''), MB_CASE_TITLE, 'UTF-8'),
+            'last_name' => mb_convert_case(trim(implode(' ', $nameParts)), MB_CASE_TITLE, 'UTF-8'),
+            'national_id' => $user->national_id ?? '',
+            'national_id_masked' => $user->national_id ? str_repeat('*', 8) . substr($user->national_id, -3) : '',
+            'phone' => $user->phone ?? '',
+        ];
+        $institutionPrefill = $user->institution ? [
+            'tax_number' => $user->institution->tax_number ?? '',
+            'name' => $user->institution->name ?? '',
+            'phone' => $user->institution->phone ?? '',
+        ] : null;
+
         return view('admin.applications.edit', [
             'application' => $application,
             'institutions' => $institutions,
             'surfaceTypes' => \App\Models\SurfaceType::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'price_per_m2']),
             'googleMapsApiKey' => config('services.google_maps.api_key') ?: config('aykome.google_maps_api_key'),
+            'isInstitutionUser' => $isInstitutionUser,
+            'applicantPrefill' => $applicantPrefill,
+            'institutionPrefill' => $institutionPrefill,
             'drawing' => [
                 'polygon_geojson' => $area?->polygon_geojson,
                 'total_area_m2' => $area?->total_area_m2 ?? $application->total_area_m2,
@@ -325,7 +343,6 @@ class ApplicationsController extends Controller
                 'center_lng' => $area?->center_lng,
             ],
             'surfaceLinesData' => $application->surfaceLines->map(fn ($sl) => [
-                'id' => $sl->id,
                 'surface_type_id' => $sl->surface_type_id,
                 'surface_type_name' => $sl->surfaceType?->name ?? '',
                 'price_per_m2' => (float) ($sl->surfaceType?->price_per_m2 ?? 0),
@@ -372,9 +389,18 @@ class ApplicationsController extends Controller
 
         $data = $request->validate([
             'institution_id' => ['nullable', 'exists:institutions,id'],
+            'applicant_first_name' => ['nullable', 'string', 'max:255'],
+            'applicant_last_name' => ['nullable', 'string', 'max:255'],
+            'applicant_national_id' => ['nullable', 'string', 'max:20'],
+            'tc_no' => ['nullable', 'string', 'max:20'],
+            'identity_no' => ['nullable', 'string', 'max:20'],
             'applicant_phone' => ['nullable', 'string', 'max:32'],
             'project_code' => ['nullable', 'string', 'max:100'],
             'application_type' => ['nullable', 'string', 'in:basvuru,ariza', 'max:20'],
+            'excavation_reason' => ['nullable', 'string', 'max:500'],
+            'work_type' => ['nullable', 'string', 'max:255'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
             'description' => ['nullable', 'string'],
             'address_text' => ['nullable', 'string', 'max:500'],
             'polygon_geojson' => ['nullable', 'string'],
@@ -391,6 +417,14 @@ class ApplicationsController extends Controller
             'documents' => ['nullable', 'array'],
             'documents.*' => ['nullable', 'file', 'mimetypes:application/pdf,image/jpeg,image/png,image/jpg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/webp,image/gif,image/bmp,image/tiff', 'max:51200'],
         ]);
+
+        // Normalize national IDs
+        if (! empty($data['applicant_national_id'])) {
+            $data['applicant_national_id'] = preg_replace('/\D+/', '', $data['applicant_national_id']);
+            $data['tc_no'] = $data['applicant_national_id'];
+            $data['identity_no'] = $data['applicant_national_id'];
+        }
+        $data['applicant_last_name'] ??= $data['applicant_first_name'] ?? '';
 
         $user = $request->user();
         if (! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])) {
@@ -422,8 +456,19 @@ class ApplicationsController extends Controller
 
         $application->update([
             'institution_id' => $data['institution_id'] ?? $application->institution_id,
-            'applicant_phone' => $data['applicant_phone'] ?? null,
-            'description' => $data['description'] ?? null,
+            'applicant_first_name' => $data['applicant_first_name'] ?? $application->applicant_first_name,
+            'applicant_last_name' => $data['applicant_last_name'] ?? $application->applicant_last_name,
+            'applicant_national_id' => $data['applicant_national_id'] ?? $application->applicant_national_id,
+            'tc_no' => $data['tc_no'] ?? $application->tc_no,
+            'identity_no' => $data['identity_no'] ?? $application->identity_no,
+            'applicant_phone' => $data['applicant_phone'] ?? $application->applicant_phone,
+            'project_code' => $data['project_code'] ?? $application->project_code,
+            'application_type' => $data['application_type'] ?? $application->application_type,
+            'excavation_reason' => $data['excavation_reason'] ?? $application->excavation_reason,
+            'work_type' => $data['work_type'] ?? $application->work_type,
+            'start_date' => $data['start_date'] ?? $application->start_date,
+            'end_date' => $data['end_date'] ?? $application->end_date,
+            'description' => $data['description'] ?? $application->description,
             'address_text' => $data['address_text'] ?? $application->address_text,
             'total_area_m2' => $totalAreaM2 ?? ($data['total_area_m2'] ?? $application->total_area_m2),
         ]);
