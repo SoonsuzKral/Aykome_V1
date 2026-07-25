@@ -59,7 +59,7 @@
         <a href="{{ route('admin.applications.show', $application) }}" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Detaya dön</a>
     </div>
 
-    <form method="POST" action="{{ route('admin.applications.update', $application) }}" enctype="multipart/form-data" class="space-y-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <form id="application-form" method="POST" action="{{ route('admin.applications.update', $application) }}" enctype="multipart/form-data" class="space-y-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         @csrf
         @method('PUT')
 
@@ -1493,7 +1493,7 @@
             });
 
             // Submit hook
-            document.querySelector('form')?.addEventListener('submit', function () {
+            document.getElementById('application-form')?.addEventListener('submit', function () {
                 prepareSurfaceLinesForSubmit();
             });
         });

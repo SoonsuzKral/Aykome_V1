@@ -53,7 +53,7 @@
         <p class="text-sm text-slate-600">Başvuru bilgilerini, harita çizimini ve keşif satırını tek akışta tamamlayın.</p>
     </div>
 
-    <form method="POST" action="{{ route('admin.applications.store') }}" enctype="multipart/form-data" class="space-y-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <form id="application-form" method="POST" action="{{ route('admin.applications.store') }}" enctype="multipart/form-data" class="space-y-8 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         @csrf
 
         @if($institutions->count() > 1)
@@ -1400,7 +1400,7 @@
             });
 
             // Submit hook
-            document.querySelector('form')?.addEventListener('submit', function () {
+            document.getElementById('application-form')?.addEventListener('submit', function () {
                 prepareSurfaceLinesForSubmit();
             });
         });
