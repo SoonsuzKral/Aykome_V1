@@ -1,88 +1,35 @@
-# AYKOME CBS — Oturum Özeti (19 Temmuz 2026)
+# AYKOME — Oturum Özeti (25 Temmuz 2026)
 
 ## Yapılan İşlemler
 
-### v7.2 — Draggable + Cascading
-- **Modal Drag**: `makeDraggable()` fonksiyonu ile 3 panel (draw-report, hat-kimligi, basvuru) serbest sürüklenebilir
-- **Cascading Selection**: Draw report'da parsel → cadde/sokak → kapı no aşamalı seçim
-- **Loading Overlay**: `showLoadingOverlay()` / `hideLoadingOverlay()` + blur animasyon
-- **CQL Filter Fix**: Ada/Parsel aramasında 400 hatası için tek `encodeURIComponent`
+### edit.blade.php Rewrite + Controller Update Fix
+- **edit.blade.php** tamamen yeniden yazıldı (1445 satır, `create.blade.php` ile eşitlendi)
+  - Başvuru sahibi alanları: `first_name`, `last_name`, `national_id` (TCKN mask+tooltip)
+  - Kazı detayları: `excavation_reason`, `work_type`, `start_date`, `end_date`, `project_code`
+  - Harita partial (`_harita.blade.php`) eklendi (mode=edit, drawingEnabled=true)
+  - Arama inputu + stil paneli + arazi katmanı toggle + TCKN sorgulama butonu
+  - Surface lines CRUD: yüzey tipi seçimi, m² girişi, tablo halinde listeleme, silme
+  - Doküman yükleme alanı (mevcut dosyalar listelenir, yenisi eklenir)
+  - Validasyon hataları toast ile gösterilir
+- **ApplicationsController@edit()**: `isInstitutionUser`, `applicantPrefill`, `institutionPrefill` view'e eklendi; institution ilişkileri expand edildi
+- **ApplicationsController@update()**: 7 yeni alan validasyonu (`applicant_first_name`, `applicant_last_name`, `applicant_national_id`, `tc_no`, `identity_no`, `excavation_reason`, `work_type`, `start_date`, `end_date`); national ID normalizasyonu (numeric); tüm alanlar `$application->update()` çağrısına eklendi
 
-### v7.3 — WFS Sadeleştirme + WMS GetFeatureInfo
-- **WFS 4'ten 2'ye düşürüldü**: Sadece `KADASTRO_PARSEL` + `MISMAP_NUM_BINA` (geo4:7171)
-  - `cbs:MISMAP_CADDE_SOKAK` → kaldırıldı (WFS yok, 400 hatası)
-  - `smpns:m_Numarataj` / `smpns:MISMAP_NUM_ADRES` → kaldırıldı (WFS yok, 400/400 hatası)
-- **Cadde/Sokak**: Parsel WFS property'sinden çekilir (`CADDE_SO_1` + `CADDE_SO_2`)
-- **Kapı No (Numarataj)**: Tamamen kaldırıldı (sunucuda WFS layer'ı yayınlanmamış)
-- **WMS GetFeatureInfo**: Harita tıklamada Ada/Parsel/İlçe/Mahalle direkt WMS'den
-- **Nominatim fallback**: WMS başarısız olursa OSM reverse geocode
-- **Popup**: Ada/Parsel bilgisi gösterilir
-- **OpenPanel kaldırıldı**: Çizim sonrası direkt loading overlay + draw report açılır
-- **Aşamalı seçim**: Parsel seç → cadde seç (2 aşama, kapı no yok)
+### ULTRA.md Güncellemesi
+- `edit.blade.php` satır sayısı güncellendi (824→1445)
+- deploy.ps1 ve git tag workflow'u "yapılacaklar"da işaretlendi
+- 2. oturum eklendi
 
-### v7.4 — WMS GetFeatureInfo + Draw Report Akış Düzeltme
-- **handleDrawCreated temizlendi**: İnline WFS parsel sorgusu + sidebar tablosu kaldırıldı (draw report'a devredildi)
-- **WFS 2 aşamalı**: Parsel (count 1000) + Bina → WMS GetFeatureInfo ile numarataj takviyesi
-- **WMS GetFeatureInfo**: Parsel centroid noktalarından (en fazla 30) `m_Numarataj`, `CADDE_SOKAK`, `MISMAP_NUM_BINA` sorgusu
-- **Kapı No**: Draw report'ta `🚪 KAPI_NO` gösterilir
-- **Akış**: Çizim → Draw Report (parsel+cadde+kapi+bina) → Kullanıcı onay → Başvuru formu
+### Diğer
+- `.gitignore`'a `aykome_backup.dmp` ve `index/` eklendi
+- Yanlışlıkla eklenen backup dosyaları commit'den kaldırıldı
 
-### v7.5 — Draw Report Yeniden Yapılandırma (Kapı Seçimi + Yol Hat Adımı)
-- **Kapı Numaraları**: Artık seçilebilir checkbox (önceden sadece text idi)
-- **Bina Adı**: `BINA_ADI` kapı no yanında gösterilir
-- **Tümünü Seç**: Her cadde için toplu seçim/kaldırma butonu (`toggleDrKapiAll`)
-- **Yol Hat Sorgula** ayrı adım: cadde/kapı seçimi → [🔍 Yol Hat Sorgula] → [📝 Başvuruya İlerle]
-- **`afterDrawCheck`**: Altyapı sorgusu kaldırıldı (yol hat adımına taşındı)
-- **Başvuru formu**: Kapı no + bina adı bilgileri artık forma aktarılır
-- **`clearDrawing`**: Yeni global state'ler (`_drKapiSecili`, `_yolHatSorgulandi` vs.) sıfırlanır
+## Commit'ler
+```
+4c88fac feat: edit.blade.php create sayfasi ile esitlendi, controller update() genisletildi
+```
 
 ## Kalan İşler (Bir Sonraki Oturum)
 1. Migration'lar Docker'da çalıştırılmalı (OCI_DEFAULT hatası)
 2. `GisKatmanAyar` modeli eksik (controller raw DB kullanıyor)
 3. ionCube + custom lisans sistemi kurulumu
-
-## v7.6 — Harita Döndürme (Rotate) + Bearing Toggle Temizliği
-- **leaflet-rotate v0.2.8 eklendi**: CDN'den import, `rotate:true, bearingControl:true`
-- **Shift+sağ tık drag**: `contextmenu` + `mousemove`/`mouseup` ile döndürme
-- **🧭 butonu**: Canlı derece göstergesi, tıklayınca 0° sıfırlama
-- **Bearing toggle kaldırıldı**: Daha önce pan'de bearing sıfırlanıp geri yükleniyordu (koordinat kırılmasın diye), kullanıcı rahatsız oldu. Artık bearing PAN BOYUNCA AYNI KALIR
-- **Duplicate handler temizliği**: Aynı `contextmenu` handler'ı iki kere bağlanmış, kaldırıldı
-- **17 test, 38 assertion ✅**
-
-## Dosya Yapısı
-- `resources/views/maps/index.blade.php` (~3400 satır) — tüm CBS UI + JS
-- `app/Http/Controllers/MapsController.php` (548 satır) — proxy, drawing CRUD, katman, arama
-- `app/Models/GisBasvuruNokta.php` — başvuru noktaları
-- `app/Models/GisCizim.php` — çizimler
-- `app/Models/GisCizimYolIliskisi.php` — çizim-yol ilişkisi
-- `app/Services/DrawingService.php` — findRelatedRoads, save/update/delete drawing
-- `routes/web.php` — maps route group (16 endpoint)
-- `tests/Feature/MapsControllerTest.php` — 17 test ✅
-
-## Dosya Yapısı
-- `resources/views/maps/index.blade.php` (~2000 satır) — tüm CBS UI + JS
-- `app/Http/Controllers/MapsController.php` (548 satır) — proxy, drawing CRUD, katman, arama
-- `app/Models/GisBasvuruNokta.php` — başvuru noktaları
-- `app/Models/GisCizim.php` — çizimler
-- `app/Models/GisCizimYolIliskisi.php` — çizim-yol ilişkisi
-- `app/Services/DrawingService.php` — findRelatedRoads, save/update/delete drawing
-- `routes/web.php` — maps route group (16 endpoint)
-- `tests/Feature/MapsControllerTest.php` — 17 test ✅
-
-## Komutlar
-```bash
-# Test
-php vendor/bin/phpunit tests/Feature/MapsControllerTest.php
-
-# Cache temizleme
-php artisan view:clear
-
-# Migration (Docker'da)
-docker exec -it $(docker ps -qf "name=laravel") php artisan migrate
-```
-
-## Notlar
-- WMS sunucu: `geo3.sanliurfa.bel.tr:8091` (tüm WMS layer'ları sorunsuz çalışır)
-- WFS sunucu: `geo4.sanliurfa.bel.tr:7171` (sadece KADASTRO_PARSEL + BINA çalışır)
-- Proxy: `GET /maps/proxy?url=...` (CORS bypass, domain whitelist)
-- 17 test, 38 assertion, tamamı geçiyor
+4. edit.blade.php render testi (Docker'da görsel kontrol)

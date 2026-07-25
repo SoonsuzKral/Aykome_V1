@@ -1,7 +1,7 @@
 # AYKOME ULTRA — Proje Merkezi Doküman
 
 > **Son Güncelleme:** 2026-07-25
-> **Versiyon:** v6.21 → v6.22 (CBS+Deploy)
+> **Versiyon:** v6.22 (CBS+Deploy+Edit Fix)
 > **Domain:** eyyubiye.aykome.bel.tr
 > **Müşteri:** Eyyübiye Belediyesi (Şanlıurfa)
 > **Geliştirme Makinesi:** MacBook Pro M4 Pro — macOS 15.6
@@ -157,7 +157,7 @@ draft → submitted → pre_excavation_approved → priced
 
 **View'ler:**
 - `create.blade.php` (1408 satır) — Leaflet çizim + yüzey hesabı + dosya yükleme + interaktif form
-- `edit.blade.php` (824+ satır) — Mevcut veri ön yüklü
+- `edit.blade.php` (1445 satır) — Mevcut veri ön yüklü (create ile eşitlendi)
 - `show.blade.php` (669 satır) — Detay + timeline + makbuz yönetimi + 5sn polling
 - `index.blade.php` (318 satır) — DataTables tarzı liste + toplu sil + filtreler
 
@@ -288,8 +288,8 @@ git push origin main --tags
 
 ### Acil Düzeltmeler
 - [x] `start.sh`'e `--build` flag'i eklendi (pull hatası çözümü)
-- [ ] `deploy.sh`/`deploy.ps1` script'i yazılacak
-- [ ] Git tag workflow'u oturumlaşacak
+- [x] `deploy.ps1` script'i yazıldı
+- [x] Git tag workflow'u oturumlaştı
 
 ### Yeni Modüller (Planlanan)
 - [ ] **E-Tebligat Servisi** — Dijital tebligat gönderme/alma
@@ -345,10 +345,26 @@ git push origin main --tags
 
 ## 9. OTURUM GEÇMİŞİ
 
-### 2026-07-25 — ULTRA.md Oluşturma + start.sh Fix
+### 2026-07-25 — Oturum 1: ULTRA.md + start.sh + deploy.ps1
 - `start.sh`'e `--build` flag'i eklendi (pull hatası çözümü)
 - `ULTRA.md` oluşturuldu (proje merkezi doküman)
-- Commit: `v6.21 -> v6.22 baslangici: start.sh fix + ULTRA.md`
+- `deploy.ps1` yazıldı (RDP PowerShell deploy script)
+- Commit: `aa9e7d0 v6.22 baslangici` + `b0ccd7f deploy.ps1`
+
+### 2026-07-25 — Oturum 2: edit.blade.php Rewrite + Controller Fix
+- `edit.blade.php` tamamen yeniden yazıldı (1445 satır, create ile eşitlendi)
+  - Başvuru sahibi alanları (first_name, last_name, national_id)
+  - Kazı detayları (excavation_reason, work_type, start_date, end_date, project_code)
+  - Harita arama, stil paneli, arazi katmanı, TCKN sorgulama
+  - Surface lines hydrasyonu + doküman yükleme
+- `ApplicationsController@update()`:
+  - 7 yeni alan validasyonu (applicant_first_name/../excavation_reason/../end_date)
+  - National ID normalizasyonu (numeric)
+  - Tüm alanlar `update()` çağrısına eklendi
+- `ApplicationsController@edit()`:
+  - `isInstitutionUser`, `applicantPrefill`, `institutionPrefill` view'e gönderiliyor
+  - Institution ilişkileri expand edildi
+- Commit: `4c88fac feat: edit.blade.php create sayfasi ile esitlendi, controller update() genisletildi`
 
 ### Önceki Oturumlar (SESSION_SUMMARY.md)
 - v7.6 — Harita döndürme (leaflet-rotate) + bearing toggle temizliği
