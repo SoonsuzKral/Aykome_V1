@@ -1401,8 +1401,8 @@
 
             // ── Address search button ───────────────────────────────────
             document.getElementById('btn-search-address')?.addEventListener('click', async function () {
-                var query = document.getElementById('address_text')?.value?.trim();
-                if (!query || query.length < 3) return alert('Lütfen adres girin.');
+                var rawQuery = document.getElementById('address_text')?.value?.trim();
+                if (!rawQuery || rawQuery.length < 3) return alert('Lütfen daha detaylı bir adres girin.');
 
                 async function searchOSM(q) {
                     try {
@@ -1412,35 +1412,52 @@
                     } catch(e) { return null; }
                 }
 
-                var location = await searchOSM(query);
-                var msg = '📍 Harita hedeflenen adrese ayarlandı.';
+                var q = rawQuery
+                    .replace(/\d{5}/g, '')
+                    .replace(/Sk\./gi, 'Sokak').replace(/Sok\./gi, 'Sokak')
+                    .replace(/Cd\./gi, 'Caddesi').replace(/Cad\./gi, 'Caddesi')
+                    .replace(/Mh\./gi, 'Mahallesi').replace(/Mah\./gi, 'Mahallesi')
+                    .replace(/Merkez\/Şanlıurfa/gi, 'Şanlıurfa');
+                q = q.replace(/\s+/g, ' ').trim();
 
-                if (!location && query.indexOf(',') !== -1) {
-                    var parts = query.split(',');
-                    var simplified = parts[0].trim() + ', ' + parts[parts.length - 1].trim();
-                    location = await searchOSM(simplified);
-                    msg = '⚠️ Birebir sokak/kapı no bulunamadı, adresinizin Mahalle/Bölge merkezine gidiliyor.';
+                var location = null;
+                var msg = '';
+                var zoom = 18;
+
+                location = await searchOSM(q);
+                msg = '📍 Hedef haritaya işaretlendi.';
+
+                if (!location && q.indexOf(',') !== -1) {
+                    var parts = q.split(',');
+                    if (parts.length >= 2) {
+                        var safeSokak = parts[1].replace(/[^0-9\s.]/g, '') + ' Sokak';
+                        var asamaIkiStr = parts[0].trim() + ', ' + safeSokak.trim() + ', Şanlıurfa';
+                        location = await searchOSM(asamaIkiStr);
+                        zoom = 17;
+                        msg = '⚠️ Sokak düzeyine kadar adres eşleştirildi (Nokta atışı için lütfen yakınlaşın).';
+                    }
                 }
 
-                if (!location && query.indexOf(',') !== -1) {
-                    var parts = query.split(',');
-                    var ilce = parts[parts.length - 1].trim();
-                    location = await searchOSM(ilce);
-                    msg = '⚠️ Adres detayınız algılanamadı, ancak sistem seçilen şehre/ilçeye yönleniyor. Lütfen detayı haritadan elle bulun.';
+                if (!location && q.indexOf(',') !== -1) {
+                    var parts = q.split(',');
+                    var asamaUcStr = parts[0].trim() + ', Şanlıurfa';
+                    location = await searchOSM(asamaUcStr);
+                    zoom = 15;
+                    msg = '⚠️ Açık harita (Sokak) bilgisini eşleyemedi. Otomatik olarak (' + parts[0].trim() + ') merkeze zoomlandı, lütfen parselinizi bulup çizin.';
                 }
 
                 if (location) {
-                    var targetLat = parseFloat(location.lat);
-                    var targetLon = parseFloat(location.lon);
+                    var tLat = parseFloat(location.lat);
+                    var tLon = parseFloat(location.lon);
                     alert(msg);
 
                     var targetMainMap = window.appDrawMap || (typeof map !== 'undefined' ? map : (typeof drawMap !== 'undefined' ? drawMap : null));
-                    if (targetMainMap && typeof targetMainMap.flyTo === 'function') targetMainMap.flyTo([targetLat, targetLon], 17);
+                    if (targetMainMap) targetMainMap.flyTo([tLat, tLon], zoom);
 
                     var targetCbsMap = window.appCbsMap || (typeof cbsMap !== 'undefined' ? cbsMap : null);
-                    if (targetCbsMap && typeof targetCbsMap.flyTo === 'function') targetCbsMap.flyTo([targetLat, targetLon], 17);
+                    if (targetCbsMap) targetCbsMap.flyTo([tLat, tLon], zoom);
                 } else {
-                    alert('Aradığınız konum açık harita verilerinde maalesef eşleştirilemedi. Adresi çok basitleştirip yazın.');
+                    alert('Açık Sistem adresinizin mahallesini bile algılayamadı. İl ve ilçe bilgisinden emin olun.');
                 }
             });
 
