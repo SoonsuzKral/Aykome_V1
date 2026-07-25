@@ -1,7 +1,7 @@
 # AYKOME ULTRA — Proje Merkezi Doküman
 
 > **Son Güncelleme:** 2026-07-25
-> **Versiyon:** v6.22 (CBS+Deploy+Edit Fix)
+> **Versiyon:** v6.22 (CBS+Deploy+Edit Fix+Create Fix)
 > **Domain:** eyyubiye.aykome.bel.tr
 > **Müşteri:** Eyyübiye Belediyesi (Şanlıurfa)
 > **Geliştirme Makinesi:** MacBook Pro M4 Pro — macOS 15.6
@@ -365,6 +365,15 @@ git push origin main --tags
   - `isInstitutionUser`, `applicantPrefill`, `institutionPrefill` view'e gönderiliyor
   - Institution ilişkileri expand edildi
 - Commit: `4c88fac feat: edit.blade.php create sayfasi ile esitlendi, controller update() genisletildi`
+
+### 2026-07-25 — Oturum 3: createDraft() Bug Fix (project_code + application_type)
+- `ApplicationService::createDraft()`: `Application::create()` çağrısına `project_code` ve `application_type` eklendi (daha önce bu alanlar kaydedilmiyordu, hep NULL/silinmişti)
+- `ApplicationsController::edit()`: `surfaceLinesData` mapping'ine `id` ve `address` alanları eklendi, `->toArray()` ile güvenli JSON serialization sağlandı
+- Bug'lar:
+  1. Proje Kodu kaydedilmiyor → düzenlemede gelmiyordu ✅
+  2. Uygulama Türü (basvuru/ariza) kaydedilmiyor → hep "Normal Başvuru" görünüyordu ✅
+  3. Zemin Tipleri edit sayfasında gelmiyor → mapping iyileştirildi ✅
+- Commit: `796321f fix: createDraft()'a project_code ve application_type eklendi`
 
 ### Önceki Oturumlar (SESSION_SUMMARY.md)
 - v7.6 — Harita döndürme (leaflet-rotate) + bearing toggle temizliği

@@ -23,13 +23,21 @@
 - `.gitignore`'a `aykome_backup.dmp` ve `index/` eklendi
 - Yanlışlıkla eklenen backup dosyaları commit'den kaldırıldı
 
+### createDraft() Bug Fix (project_code + application_type)
+- **ApplicationService::createDraft()**: `Application::create()` çağrısına `project_code` ve `application_type` alanları eklendi
+  - Bug: Bu alanlar daha önce create()'e iletilmiyordu, DB default değerleri (NULL/'basvuru') yazılıyordu
+  - Sonuç: Proje kodu kayboluyor, başvuru türü hep "Normal Başvuru" görünüyordu
+- **ApplicationsController::edit()**: `surfaceLinesData` mapping'ine `id` ve `address` alanları eklendi, `->toArray()` ile güvenli JSON serialization
+
 ## Commit'ler
 ```
 4c88fac feat: edit.blade.php create sayfasi ile esitlendi, controller update() genisletildi
+796321f fix: createDraft()'a project_code ve application_type eklendi, edit() surface lines mapping iyilestirildi
 ```
 
 ## Kalan İşler (Bir Sonraki Oturum)
-1. Migration'lar Docker'da çalıştırılmalı (OCI_DEFAULT hatası)
-2. `GisKatmanAyar` modeli eksik (controller raw DB kullanıyor)
-3. ionCube + custom lisans sistemi kurulumu
-4. edit.blade.php render testi (Docker'da görsel kontrol)
+1. 🐛 **Zemin Tipleri edit sayfasında gelmiyor** — Controller mapping iyileştirildi (->toArray(), address/id eklendi), Docker'da test edilmeli
+2. Migration'lar Docker'da çalıştırılmalı (OCI_DEFAULT hatası)
+3. `GisKatmanAyar` modeli eksik (controller raw DB kullanıyor)
+4. ionCube + custom lisans sistemi kurulumu
+5. edit.blade.php render testi (Docker'da görsel kontrol — proje kodu, başvuru türü, zemin tipleri doğrulanmalı)
