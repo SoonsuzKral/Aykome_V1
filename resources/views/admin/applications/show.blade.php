@@ -106,12 +106,10 @@
                     @if($application->project_code)
                     <div><dt class="text-xs font-medium text-slate-500">Proje Kodu</dt><dd class="mt-0.5 font-mono text-slate-800">{{ $application->project_code }}</dd></div>
                     @endif
-                    <div><dt class="text-xs font-medium text-slate-500">Alan</dt><dd class="mt-0.5">{{ number_format((float)$application->total_area_m2, 2, ',', '.') }} m²</dd></div>
-                    <div><dt class="text-xs font-medium text-slate-500">Genişlik</dt><dd class="mt-0.5">{{ $application->width_m ? number_format((float)$application->width_m, 2, ',', '.') . ' m' : '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium text-slate-500">Uzunluk</dt><dd class="mt-0.5">{{ $application->length_m ? number_format((float)$application->length_m, 2, ',', '.') . ' m' : '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium text-slate-500">Keşif / Tutar</dt><dd class="mt-0.5 font-semibold text-slate-900">{{ number_format((float)($application->discovery_amount ?? $application->total_price ?? 0), 2, ',', '.') }} ₺</dd></div>
-                    <div><dt class="text-xs font-medium text-slate-500">Teminat Bedeli</dt><dd class="mt-0.5 font-semibold text-slate-900">{{ $application->deposit_amount ? number_format((float)$application->deposit_amount, 2, ',', '.') . ' ₺' : '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium text-slate-500">Kazı Bedeli</dt><dd class="mt-0.5 font-semibold text-slate-900">{{ $application->excavation_amount ? number_format((float)$application->excavation_amount, 2, ',', '.') . ' ₺' : '—' }}</dd></div>
+                    <div><dt class="text-xs font-medium text-slate-500">Kazı Sebebi</dt><dd class="mt-0.5">{{ $application->excavation_reason ?? '—' }}</dd></div>
+                    <div><dt class="text-xs font-medium text-slate-500">İş Türü</dt><dd class="mt-0.5">{{ $application->work_type ?? '—' }}</dd></div>
+                    <div><dt class="text-xs font-medium text-slate-500">Başlangıç</dt><dd class="mt-0.5">{{ $application->start_date?->format('d.m.Y') ?? '—' }}</dd></div>
+                    <div><dt class="text-xs font-medium text-slate-500">Bitiş</dt><dd class="mt-0.5">{{ $application->end_date?->format('d.m.Y') ?? '—' }}</dd></div>
                     <div class="sm:col-span-2"><dt class="text-xs font-medium text-slate-500">Adres</dt><dd class="mt-0.5 text-slate-700">{{ $application->address_text ?? '—' }}</dd></div>
                     @if($application->description)
                     <div class="sm:col-span-2"><dt class="text-xs font-medium text-slate-500">Açıklama</dt><dd class="mt-0.5 text-slate-700">{{ $application->description }}</dd></div>
@@ -136,6 +134,105 @@
                     'application' => $application,
                 ])
             </div>
+
+            {{-- ZEMİN SATIRLARI & HESAPLAMALAR (Read-Only) --}}
+            @php
+                $surfaceLines = $application->surfaceLines;
+                $isDicle = $application->institution?->tax_number === '2950368442';
+                $isInstApp = $application->institution_id && !$application->institution?->is_municipality;
+
+                $toplamMiktar = 0;
+                $ztb = 0;
+                foreach ($surfaceLines as $line) {
+                    $q = max((float)($line->quantity ?? 0), 0);
+                    $up = max((float)($line->surfaceType?->price_per_m2 ?? 0), 0);
+                    $toplamMiktar += $q;
+                    $ztb += $q * $up;
+                }
+
+                $kdv = $ztb * 0.20;
+                $ruhsatHarci = $isDicle ? 0 : $toplamMiktar * 9;
+                $kesifBedeli = 361 + ($ztb * 0.01);
+                $ztbToplam = $ztb + $kdv + $ruhsatHarci + $kesifBedeli;
+                $teminat = $isInstApp ? 0 : $ztb * 0.50;
+                $genelToplam = $ztbToplam + $teminat;
+            @endphp
+
+            @if($surfaceLines->isNotEmpty())
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <h3 class="mb-3 text-sm font-semibold text-slate-800">Zemin Satırları &amp; Hesaplamalar</h3>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs">
+                        <thead>
+                            <tr class="border-b border-slate-300 text-left text-slate-600">
+                                <th class="py-2 pr-2 font-medium">#</th>
+                                <th class="p-2 font-medium min-w-[180px]">Zemin Tipi</th>
+                                <th class="p-2 font-medium min-w-[100px]">Genişlik (m)</th>
+                                <th class="p-2 font-medium min-w-[100px]">Uzunluk (m)</th>
+                                <th class="p-2 font-medium min-w-[120px]">Miktar (m²)</th>
+                                <th class="p-2 font-medium min-w-[110px]">Birim Fiyat</th>
+                                <th class="p-2 font-medium min-w-[140px]">Satır Tutarı (₺)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($surfaceLines as $idx => $line)
+                            @php
+                                $qty = max((float)($line->quantity ?? 0), 0);
+                                $unitPrice = max((float)($line->surfaceType?->price_per_m2 ?? 0), 0);
+                                $rowTotal = $qty * $unitPrice;
+                            @endphp
+                            <tr class="border-b border-slate-200 hover:bg-slate-100/50 transition">
+                                <td class="py-2 pr-2 text-slate-400 font-mono text-[10px] align-top pt-3">{{ $idx + 1 }}</td>
+                                <td class="p-2 align-top pt-2 font-medium text-slate-800">{{ $line->surfaceType?->name ?? '—' }}</td>
+                                <td class="p-2 align-top pt-2 text-slate-700">{{ $line->width_m ? number_format((float)$line->width_m, 2, ',', '.') : '—' }}</td>
+                                <td class="p-2 align-top pt-2 text-slate-700">{{ $line->length_m ? number_format((float)$line->length_m, 2, ',', '.') : '—' }}</td>
+                                <td class="p-2 align-top pt-2 font-semibold text-slate-800">{{ number_format($qty, 2, ',', '.') }}</td>
+                                <td class="p-2 align-top pt-2 text-slate-600 font-mono">{{ number_format($unitPrice, 2, ',', '.') }} ₺/m²</td>
+                                <td class="p-2 align-top pt-2 text-right font-mono text-xs font-semibold text-slate-800">{{ number_format($rowTotal, 2, ',', '.') }} ₺</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- HESAP KARTLARI --}}
+                <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                    <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Toplam Miktar</p>
+                        <p class="mt-1 text-lg font-bold text-slate-800">{{ number_format($toplamMiktar, 2, ',', '.') }} m²</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Zemin Tahrip Bedeli</p>
+                        <p class="mt-1 text-lg font-bold text-slate-800">{{ number_format($ztb, 2, ',', '.') }} ₺</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">KDV (%20)</p>
+                        <p class="mt-1 text-lg font-bold text-slate-800">{{ number_format($kdv, 2, ',', '.') }} ₺</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Ruhsat Harcı</p>
+                        <p class="mt-1 text-lg font-bold text-slate-800">{{ number_format($ruhsatHarci, 2, ',', '.') }} ₺</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Keşif Bedeli</p>
+                        <p class="mt-1 text-lg font-bold text-slate-800">{{ number_format($kesifBedeli, 2, ',', '.') }} ₺</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">ZTB Toplam</p>
+                        <p class="mt-1 text-lg font-bold text-slate-800">{{ number_format($ztbToplam, 2, ',', '.') }} ₺</p>
+                    </div>
+                    <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Teminat</p>
+                        <p class="mt-1 text-lg font-bold text-slate-800">{{ number_format($teminat, 2, ',', '.') }} ₺</p>
+                    </div>
+                    <div class="rounded-lg border border-emerald-300 bg-emerald-50 p-3 shadow-sm">
+                        <p class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Genel Toplam</p>
+                        <p class="mt-1 text-xl font-bold text-emerald-700">{{ number_format($genelToplam, 2, ',', '.') }} ₺</p>
+                    </div>
+                </div>
+            </div>
+            @endif
 
             {{-- Yüklenen Belgeler --}}
             @if($application->documents->isNotEmpty())
@@ -504,6 +601,37 @@
 @endsection
 
 @push('scripts')
+<script>
+// ── Read-Only Harita Poligon Yükleme ───────────────────────────────────
+(function () {
+    var canvas = document.querySelector('[id^="maps-map-canvas-"]');
+    if (!canvas) return;
+    var mapKey = 'cbsMap_' + canvas.id;
+    var drawnKey = 'cbsDrawnItems_' + canvas.id;
+    var map = window[mapKey];
+    var drawnItems = window[drawnKey];
+    if (!map || !drawnItems) return;
+
+    var areas = @json($application->excavationAreas->pluck('polygon_geojson')->filter()->values());
+    if (areas && areas.length) {
+        areas.forEach(function (raw) {
+            try {
+                var p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                if (p && p.features && p.features.length) {
+                    L.geoJSON(p, {
+                        style: { color: '#2563EB', weight: 2, fillOpacity: 0.1 },
+                    }).addTo(drawnItems);
+                }
+            } catch (e) { /* skip */ }
+        });
+    }
+
+    // Fit bounds to show all drawn items
+    if (drawnItems.getLayers().length) {
+        setTimeout(function () { map.fitBounds(drawnItems.getBounds().pad(0.1), { maxZoom: 18 }); }, 500);
+    }
+})();
+</script>
 <script>
 (function () {
     const fileInput   = document.getElementById('receipt_file_input');
