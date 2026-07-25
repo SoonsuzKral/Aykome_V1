@@ -29,6 +29,14 @@
   - Sonuç: Proje kodu kayboluyor, başvuru türü hep "Normal Başvuru" görünüyordu
 - **ApplicationsController::edit()**: `surfaceLinesData` mapping'ine `id` ve `address` alanları eklendi, `->toArray()` ile güvenli JSON serialization
 
+### Lifecycle Hydration — Zemin Tipleri Görünürlük (Bug 2 Final Fix)
+- **edit.blade.php**: JS hydration motoru tamamen yeniden yazıldı
+  - `EXISTING_SURFACE_LINES` = `@json($application->surfaceLines)` — raw model data, `surfaceType` ilişkisi yüklü
+  - Hidrasyon: Her satır model'den alınan `surface_type.name`, `surface_type.price_per_m2` nested data ile yükleniyor
+  - `rowDrawings`: `polygon_geojson` textarea'sından GeoJSON parse edilip `rowId`'ye göre `rowDrawings[satirId]`'e atanıyor
+  - `renderTable()` + `recalculateAll()` explicit çağrılıyor (kart hesapları, ZTB, KDV, teminat vs. eski değerlerle görünüyor)
+  - `nextRowId` sayaç doğru başlatılıyor (mevcut satır sayısı kadar increment)
+
 ## Commit'ler
 ```
 4c88fac feat: edit.blade.php create sayfasi ile esitlendi, controller update() genisletildi

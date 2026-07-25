@@ -157,7 +157,7 @@ draft → submitted → pre_excavation_approved → priced
 
 **View'ler:**
 - `create.blade.php` (1408 satır) — Leaflet çizim + yüzey hesabı + dosya yükleme + interaktif form
-- `edit.blade.php` (1445 satır) — Mevcut veri ön yüklü (create ile eşitlendi)
+- `edit.blade.php` (1491 satır) — Mevcut veri ön yüklü (create ile eşitlendi)
 - `show.blade.php` (669 satır) — Detay + timeline + makbuz yönetimi + 5sn polling
 - `index.blade.php` (318 satır) — DataTables tarzı liste + toplu sil + filtreler
 
@@ -374,6 +374,13 @@ git push origin main --tags
   2. Uygulama Türü (basvuru/ariza) kaydedilmiyor → hep "Normal Başvuru" görünüyordu ✅
   3. Zemin Tipleri edit sayfasında gelmiyor → mapping iyileştirildi ✅
 - Commit: `796321f fix: createDraft()'a project_code ve application_type eklendi`
+
+### 2026-07-25 — Oturum 4: Lifecycle Hydration (Zemin Tipi Görünürlük)
+- `edit.blade.php`: Zemin tipi satırlarının JS `surfaceLines` dizisine hidrate edilmemesi sorunu çözüldü
+  - `INITIAL_SURFACE_LINES` (pre-mapped array) → `EXISTING_SURFACE_LINES` (raw model data, `surfaceType` ilişkisi yüklü)
+  - `rowDrawings` GeoJSON `polygon_geojson` textarea'sından parse edilerek yükleniyor
+  - `renderTable()` + `recalculateAll()` explicit olarak hidrasyon sonrası çağrılıyor
+  - `surface_type.name` ve `surface_type.price_per_m2` nested model ilişkisinden çekiliyor (fallback: `SURFACE_TYPES` array)
 
 ### Önceki Oturumlar (SESSION_SUMMARY.md)
 - v7.6 — Harita döndürme (leaflet-rotate) + bearing toggle temizliği

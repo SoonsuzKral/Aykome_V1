@@ -474,7 +474,9 @@
         // ─── STATE & CONFIG ────────────────────────────────────────────────
         const SURFACE_TYPES = @json($surfaceTypeOptions);
         const INSTITUTIONS = @json($institutionOptions);
-        const INITIAL_SURFACE_LINES = @json($surfaceLinesData ?? []);
+
+        // Lifecycle: raw model data (DB'den gelen satırlar, surfaceType ilişkisi yüklü)
+        const EXISTING_SURFACE_LINES = @json($application->surfaceLines);
 
         let surfaceLines = [];
         let nextRowId = 1;
@@ -1391,11 +1393,55 @@
             initDocumentUpload();
             initAutoDateAdder();
 
-            // Hydrate from existing surface lines (edit mode)
-            if (INITIAL_SURFACE_LINES && INITIAL_SURFACE_LINES.length > 0) {
-                INITIAL_SURFACE_LINES.forEach(function (sl) {
-                    addSurfaceLine(sl);
+            // ── Lifecycle Hydration ────────────────────────────────────────
+            // DB'de kayıtlı satırlar varsa surfaceLines dizisine yükle
+            var hasExisting = EXISTING_SURFACE_LINES && EXISTING_SURFACE_LINES.length > 0;
+            if (hasExisting) {
+                EXISTING_SURFACE_LINES.forEach(function (sl) {
+                    var stName = '';
+                    var stPrice = 0;
+                    if (sl.surface_type) {
+                        stName = sl.surface_type.name || '';
+                        stPrice = parseFloat(sl.surface_type.price_per_m2) || 0;
+                    } else {
+                        var found = SURFACE_TYPES.find(function (t) {
+                            return parseInt(t.id) === parseInt(sl.surface_type_id);
+                        });
+                        if (found) {
+                            stName = found.name;
+                            stPrice = found.price_per_m2;
+                        }
+                    }
+                    var row = {
+                        rowId: nextRowId++,
+                        surface_type_id: sl.surface_type_id || null,
+                        surface_type_name: stName,
+                        price_per_m2: stPrice,
+                        width_m: parseFloat(sl.width_m) || 0,
+                        length_m: parseFloat(sl.length_m) || 0,
+                        quantity: parseFloat(sl.quantity) || 0,
+                    };
+                    surfaceLines.push(row);
                 });
+
+                // rowDrawings: polygon_geojson içindeki feature'lardan rowId sahibi olanları ayıkla
+                var geoInput = document.getElementById('polygon_geojson');
+                if (geoInput && geoInput.value) {
+                    try {
+                        var fc = JSON.parse(geoInput.value);
+                        if (fc && fc.type === 'FeatureCollection' && Array.isArray(fc.features)) {
+                            fc.features.forEach(function (f) {
+                                var rid = f.properties && f.properties.rowId;
+                                if (rid) {
+                                    rowDrawings[rid] = f;
+                                }
+                            });
+                        }
+                    } catch (_e) {}
+                }
+
+                renderTable();
+                recalculateAll();
             } else {
                 addSurfaceLine({});
             }
