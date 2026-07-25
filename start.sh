@@ -15,7 +15,7 @@ docker rm -f aykome-v6-serve aykome-v6-php 2>/dev/null || true
 
 # Tum container'lari docker compose ile baslat
 echo -e "${YELLOW}⏳ Container'lar baslatiliyor...${NC}"
-docker compose up -d --remove-orphans 2>&1 | grep -E "(Started|Healthy|Built|Error)" || true
+docker compose up -d --build --remove-orphans 2>&1 | grep -E "(Started|Healthy|Built|Error)" || true
 
 # Oracle'in hazir olmasini bekle
 echo -n "⏳ Oracle bekleniyor"
