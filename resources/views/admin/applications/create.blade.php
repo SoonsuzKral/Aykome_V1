@@ -1226,6 +1226,7 @@
             });
 
             window.map = map;
+            window.appDrawMap = map;
             return { drawnItems: drawnItems, map: map, serializeAndSync: serializeAndSync };
         }
 
@@ -1399,27 +1400,41 @@
             }
 
             // ── Address search button ───────────────────────────────────
-            document.getElementById('btn-search-address')?.addEventListener('click', async function () {
+            document.getElementById('btn-search-address')?.addEventListener('click', function () {
                 var addrInput = document.getElementById('address_text');
                 var q = addrInput?.value?.trim();
                 if (!q) return;
                 var statusEl = document.getElementById('map-status');
                 if (statusEl) statusEl.textContent = 'Adres aranıyor...';
-                try {
-                    var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=1&countrycodes=tr');
-                    var data = await res.json();
-                    if (data.length) {
-                        var targetLat = parseFloat(data[0].lat);
-                        var targetLon = parseFloat(data[0].lon);
-                        if (typeof window.map !== 'undefined') window.map.flyTo([targetLat, targetLon], 18, { duration: 1.5 });
-                        if (typeof window.cbsMap !== 'undefined') window.cbsMap.flyTo([targetLat, targetLon], 18, { duration: 1.5 });
-                        if (statusEl) statusEl.textContent = 'Adres bulundu: ' + data[0].display_name;
-                    } else if (statusEl) {
-                        statusEl.textContent = 'Adres bulunamadı.';
-                    }
-                } catch (e) {
-                    if (statusEl) statusEl.textContent = 'Arama hatası.';
-                }
+                fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=1&countrycodes=tr')
+                    .then(function(r){ return r.json(); })
+                    .then(function(data){
+                        if(data && data.length > 0) {
+                            var lat = parseFloat(data[0].lat);
+                            var lon = parseFloat(data[0].lon);
+                            console.log('📌 NOMINATIM LOC FOUND: ', lat, lon);
+
+                            var targetMainMap = window.appDrawMap || (typeof map !== 'undefined' ? map : (typeof drawMap !== 'undefined' ? drawMap : null));
+                            if(targetMainMap && typeof targetMainMap.flyTo === 'function') {
+                                targetMainMap.flyTo([lat, lon], 18, { animate: true, duration: 1.5 });
+                            } else {
+                                console.error("Ana çizim harita objesi Global'de yakalanamadı!");
+                            }
+
+                            var targetCbsMap = window.appCbsMap || (typeof cbsMap !== 'undefined' ? cbsMap : null);
+                            if(targetCbsMap && typeof targetCbsMap.flyTo === 'function') {
+                                targetCbsMap.flyTo([lat, lon], 18, { animate: true, duration: 1.5 });
+                            } else {
+                                console.error("CBS Harita objesi Global'de yakalanamadı!");
+                            }
+                        } else {
+                            alert("Aradığınız adres maalesef harita servisinde bulunamadı, lütfen ilçesi/şehri ile daha detaylı (Kısa Sokak vd) giriniz.");
+                        }
+                    })
+                    .catch(function(err){
+                        console.error('Nominatim error:', err);
+                        if (statusEl) statusEl.textContent = 'Arama hatası.';
+                    });
             });
 
             // Add Row button

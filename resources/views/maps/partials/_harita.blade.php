@@ -247,6 +247,7 @@
 
     window['cbsMap_' + opts.canvasId] = map;
     window.cbsMap = map;
+    window.appCbsMap = map;
     window['cbsDrawnItems_' + opts.canvasId] = drawnItems;
 })();
 
