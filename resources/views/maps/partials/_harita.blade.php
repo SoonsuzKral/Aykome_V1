@@ -85,9 +85,9 @@
         maxZoom: 22, maxNativeZoom: 19, attribution: '© Google'
     }).addTo(map);
 
-    // WMS katmanları — tüm aktif katmanlar tek WMS çağrısında (comma-separated)
+    // WMS katmanları — yalnızca doğrulanmış layer isimleri (geo3:8091)
     L.tileLayer.wms(GEO3_WMS, {
-        layers: 'cbs:MISMAP_MAHALLE_KOYLER,smpns:MISMAP_NUM_KADASTRO_PARSEL,smpns:MISMAP_NUM_BINA,smpns:MISMAP_NUM_ILCE,smpns:MISMAP_NUM_CADDESOKAK,smpns:MISMAP_NUM_ADA,smpns:AYK_SU_ICMESUYU_LINKS,smpns:AYK_DOGALGAZ_LINKS,smpns:AYK_ELEKTRIK_LINKS',
+        layers: 'cbs:MISMAP_MAHALLE_KOYLER,smpns:MISMAP_NUM_KADASTRO_PARSEL,smpns:MISMAP_NUM_BINA,cbs:MISMAP_CADDE_SOKAK,cbs:MISMAP_KADASTRO_ADA',
         format: 'image/png', transparent: true,
         version: '1.3.0', maxZoom: 22, opacity: 0.6
     }).addTo(map);
@@ -246,6 +246,7 @@
     });
 
     window['cbsMap_' + opts.canvasId] = map;
+    window.cbsMap = map;
     window['cbsDrawnItems_' + opts.canvasId] = drawnItems;
 })();
 

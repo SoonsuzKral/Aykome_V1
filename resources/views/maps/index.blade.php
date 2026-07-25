@@ -18,13 +18,14 @@
     margin: 0 !important;
     height: 100% !important;
 }
+.maps-page header { display: none !important; }
 
 #maps-wrapper {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     display: flex;
     flex-direction: row;
-    z-index: 100;
+    z-index: 1060;
 }
 
 #maps-left-panel {

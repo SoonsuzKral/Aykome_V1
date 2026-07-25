@@ -1225,6 +1225,7 @@
                 }
             });
 
+            window.map = map;
             return { drawnItems: drawnItems, map: map, serializeAndSync: serializeAndSync };
         }
 
@@ -1408,14 +1409,10 @@
                     var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=1&countrycodes=tr');
                     var data = await res.json();
                     if (data.length) {
-                        var lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
-                        // Fly draw map
-                        if (mapEngine) mapEngine.map.flyTo([lat, lon], 18, { duration: 1.5 });
-                        // Fly CBS reference map (search all known instances)
-                        document.querySelectorAll('[id^="maps-map-canvas-"]').forEach(function (el) {
-                            var cbsMap = window['cbsMap_' + el.id];
-                            if (cbsMap) cbsMap.flyTo([lat, lon], 18, { duration: 1.5 });
-                        });
+                        var targetLat = parseFloat(data[0].lat);
+                        var targetLon = parseFloat(data[0].lon);
+                        if (typeof window.map !== 'undefined') window.map.flyTo([targetLat, targetLon], 18, { duration: 1.5 });
+                        if (typeof window.cbsMap !== 'undefined') window.cbsMap.flyTo([targetLat, targetLon], 18, { duration: 1.5 });
                         if (statusEl) statusEl.textContent = 'Adres bulundu: ' + data[0].display_name;
                     } else if (statusEl) {
                         statusEl.textContent = 'Adres bulunamadı.';
