@@ -1400,41 +1400,48 @@
             }
 
             // ── Address search button ───────────────────────────────────
-            document.getElementById('btn-search-address')?.addEventListener('click', function () {
-                var addrInput = document.getElementById('address_text');
-                var q = addrInput?.value?.trim();
-                if (!q) return;
-                var statusEl = document.getElementById('map-status');
-                if (statusEl) statusEl.textContent = 'Adres aranıyor...';
-                fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=1&countrycodes=tr')
-                    .then(function(r){ return r.json(); })
-                    .then(function(data){
-                        if(data && data.length > 0) {
-                            var lat = parseFloat(data[0].lat);
-                            var lon = parseFloat(data[0].lon);
-                            console.log('📌 NOMINATIM LOC FOUND: ', lat, lon);
+            document.getElementById('btn-search-address')?.addEventListener('click', async function () {
+                var query = document.getElementById('address_text')?.value?.trim();
+                if (!query || query.length < 3) return alert('Lütfen adres girin.');
 
-                            var targetMainMap = window.appDrawMap || (typeof map !== 'undefined' ? map : (typeof drawMap !== 'undefined' ? drawMap : null));
-                            if(targetMainMap && typeof targetMainMap.flyTo === 'function') {
-                                targetMainMap.flyTo([lat, lon], 18, { animate: true, duration: 1.5 });
-                            } else {
-                                console.error("Ana çizim harita objesi Global'de yakalanamadı!");
-                            }
+                async function searchOSM(q) {
+                    try {
+                        var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&countrycodes=tr&limit=1');
+                        var data = await res.json();
+                        return data.length > 0 ? data[0] : null;
+                    } catch(e) { return null; }
+                }
 
-                            var targetCbsMap = window.appCbsMap || (typeof cbsMap !== 'undefined' ? cbsMap : null);
-                            if(targetCbsMap && typeof targetCbsMap.flyTo === 'function') {
-                                targetCbsMap.flyTo([lat, lon], 18, { animate: true, duration: 1.5 });
-                            } else {
-                                console.error("CBS Harita objesi Global'de yakalanamadı!");
-                            }
-                        } else {
-                            alert("Aradığınız adres maalesef harita servisinde bulunamadı, lütfen ilçesi/şehri ile daha detaylı (Kısa Sokak vd) giriniz.");
-                        }
-                    })
-                    .catch(function(err){
-                        console.error('Nominatim error:', err);
-                        if (statusEl) statusEl.textContent = 'Arama hatası.';
-                    });
+                var location = await searchOSM(query);
+                var msg = '📍 Harita hedeflenen adrese ayarlandı.';
+
+                if (!location && query.indexOf(',') !== -1) {
+                    var parts = query.split(',');
+                    var simplified = parts[0].trim() + ', ' + parts[parts.length - 1].trim();
+                    location = await searchOSM(simplified);
+                    msg = '⚠️ Birebir sokak/kapı no bulunamadı, adresinizin Mahalle/Bölge merkezine gidiliyor.';
+                }
+
+                if (!location && query.indexOf(',') !== -1) {
+                    var parts = query.split(',');
+                    var ilce = parts[parts.length - 1].trim();
+                    location = await searchOSM(ilce);
+                    msg = '⚠️ Adres detayınız algılanamadı, ancak sistem seçilen şehre/ilçeye yönleniyor. Lütfen detayı haritadan elle bulun.';
+                }
+
+                if (location) {
+                    var targetLat = parseFloat(location.lat);
+                    var targetLon = parseFloat(location.lon);
+                    alert(msg);
+
+                    var targetMainMap = window.appDrawMap || (typeof map !== 'undefined' ? map : (typeof drawMap !== 'undefined' ? drawMap : null));
+                    if (targetMainMap && typeof targetMainMap.flyTo === 'function') targetMainMap.flyTo([targetLat, targetLon], 17);
+
+                    var targetCbsMap = window.appCbsMap || (typeof cbsMap !== 'undefined' ? cbsMap : null);
+                    if (targetCbsMap && typeof targetCbsMap.flyTo === 'function') targetCbsMap.flyTo([targetLat, targetLon], 17);
+                } else {
+                    alert('Aradığınız konum açık harita verilerinde maalesef eşleştirilemedi. Adresi çok basitleştirip yazın.');
+                }
             });
 
             // Add Row button
