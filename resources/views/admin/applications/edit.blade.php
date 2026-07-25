@@ -1393,58 +1393,68 @@
             initDocumentUpload();
             initAutoDateAdder();
 
-            // ── Lifecycle Hydration ────────────────────────────────────────
-            // DB'de kayıtlı satırlar varsa surfaceLines dizisine yükle
-            var hasExisting = EXISTING_SURFACE_LINES && EXISTING_SURFACE_LINES.length > 0;
-            if (hasExisting) {
-                EXISTING_SURFACE_LINES.forEach(function (sl) {
-                    var stName = '';
-                    var stPrice = 0;
-                    if (sl.surface_type) {
-                        stName = sl.surface_type.name || '';
-                        stPrice = parseFloat(sl.surface_type.price_per_m2) || 0;
-                    } else {
-                        var found = SURFACE_TYPES.find(function (t) {
-                            return parseInt(t.id) === parseInt(sl.surface_type_id);
-                        });
-                        if (found) {
-                            stName = found.name;
-                            stPrice = found.price_per_m2;
-                        }
-                    }
-                    var row = {
-                        rowId: nextRowId++,
-                        surface_type_id: sl.surface_type_id || null,
-                        surface_type_name: stName,
-                        price_per_m2: stPrice,
-                        width_m: parseFloat(sl.width_m) || 0,
-                        length_m: parseFloat(sl.length_m) || 0,
-                        quantity: parseFloat(sl.quantity) || 0,
-                    };
-                    surfaceLines.push(row);
-                });
-
-                // rowDrawings: polygon_geojson içindeki feature'lardan rowId sahibi olanları ayıkla
-                var geoInput = document.getElementById('polygon_geojson');
-                if (geoInput && geoInput.value) {
-                    try {
-                        var fc = JSON.parse(geoInput.value);
-                        if (fc && fc.type === 'FeatureCollection' && Array.isArray(fc.features)) {
-                            fc.features.forEach(function (f) {
-                                var rid = f.properties && f.properties.rowId;
-                                if (rid) {
-                                    rowDrawings[rid] = f;
+            // ── Lifecycle Hydration (DEFENSIVE) ────────────────────────────
+            console.log('Hydration Start. EagerLoaded DB_LINES:', EXISTING_SURFACE_LINES);
+            try {
+                var hasExisting = EXISTING_SURFACE_LINES && Array.isArray(EXISTING_SURFACE_LINES) && EXISTING_SURFACE_LINES.length > 0;
+                if (hasExisting) {
+                    EXISTING_SURFACE_LINES.forEach(function (sl) {
+                        try {
+                            var stName = sl?.surface_type?.name || '';
+                            var stPrice = parseFloat(sl?.surface_type?.price_per_m2) || 0;
+                            if (!stName && !stPrice) {
+                                var found = (SURFACE_TYPES || []).find(function (t) {
+                                    return parseInt(t?.id) === parseInt(sl?.surface_type_id);
+                                });
+                                if (found) {
+                                    stName = found.name || '';
+                                    stPrice = found.price_per_m2 || 0;
                                 }
-                            });
+                            }
+                            var row = {
+                                rowId: nextRowId++,
+                                surface_type_id: sl?.surface_type_id || null,
+                                surface_type_name: stName,
+                                price_per_m2: stPrice,
+                                width_m: parseFloat(sl?.width_m) || 0,
+                                length_m: parseFloat(sl?.length_m) || 0,
+                                quantity: parseFloat(sl?.quantity) || 0,
+                            };
+                            surfaceLines.push(row);
+                        } catch (_rowErr) {
+                            console.warn('Hydration row skip:', _rowErr);
                         }
-                    } catch (_e) {}
-                }
+                    });
 
-                renderTable();
-                recalculateAll();
-            } else {
-                addSurfaceLine({});
+                    // rowDrawings: polygon_geojson içinden rowId'li feature'lar
+                    try {
+                        var geoInput = document.getElementById('polygon_geojson');
+                        if (geoInput) {
+                            var rawGeo = (typeof geoInput.value === 'string' ? geoInput.value.trim() : '');
+                            if (rawGeo) {
+                                var fc = JSON.parse(rawGeo);
+                                if (fc?.type === 'FeatureCollection' && Array.isArray(fc?.features)) {
+                                    fc.features.forEach(function (f) {
+                                        var rid = f?.properties?.rowId;
+                                        if (rid != null) rowDrawings[rid] = f;
+                                    });
+                                }
+                            }
+                        }
+                    } catch (_geoErr) {
+                        console.warn('GeoJSON parse:', _geoErr);
+                    }
+
+                    renderTable();
+                    recalculateAll();
+                } else {
+                    addSurfaceLine({});
+                }
+            } catch (_hydrErr) {
+                console.error('Hydration crashed:', _hydrErr);
+                if (!surfaceLines || surfaceLines.length === 0) addSurfaceLine({});
             }
+            console.log('Hydration Complete. surfaceLines count:', (surfaceLines || []).length);
 
             var mapEngine = initMap();
 

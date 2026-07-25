@@ -157,7 +157,7 @@ draft → submitted → pre_excavation_approved → priced
 
 **View'ler:**
 - `create.blade.php` (1408 satır) — Leaflet çizim + yüzey hesabı + dosya yükleme + interaktif form
-- `edit.blade.php` (1491 satır) — Mevcut veri ön yüklü (create ile eşitlendi)
+- `edit.blade.php` (1501 satır) — Mevcut veri ön yüklü (create ile eşitlendi)
 - `show.blade.php` (669 satır) — Detay + timeline + makbuz yönetimi + 5sn polling
 - `index.blade.php` (318 satır) — DataTables tarzı liste + toplu sil + filtreler
 
@@ -381,6 +381,8 @@ git push origin main --tags
   - `rowDrawings` GeoJSON `polygon_geojson` textarea'sından parse edilerek yükleniyor
   - `renderTable()` + `recalculateAll()` explicit olarak hidrasyon sonrası çağrılıyor
   - `surface_type.name` ve `surface_type.price_per_m2` nested model ilişkisinden çekiliyor (fallback: `SURFACE_TYPES` array)
+  - **v2 (Defensive):** Controller'da `loadMissing` → `load()` (kesin eager loading), JS'de try-catch katmanı, optional chaining (`?.`), `Array.isArray` kontrolü, console.log debug
+  - Commit: `e29af7b` (v1) + `(pending)` (v2)
 
 ### Önceki Oturumlar (SESSION_SUMMARY.md)
 - v7.6 — Harita döndürme (leaflet-rotate) + bearing toggle temizliği

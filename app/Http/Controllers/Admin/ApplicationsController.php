@@ -306,7 +306,8 @@ class ApplicationsController extends Controller
         $this->authorize('update', $application);
 
         $user = $request->user();
-        $application->loadMissing(['institution:id,name,slug,color_code,is_municipality,tax_number,phone', 'excavationAreas', 'documents', 'surfaceLines.surfaceType']);
+        $application->loadMissing(['institution:id,name,slug,color_code,is_municipality,tax_number,phone', 'excavationAreas', 'documents']);
+        $application->load(['surfaceLines.surfaceType']);
         $area = $application->excavationAreas->sortByDesc('updated_at')->first();
 
         $institutions = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
