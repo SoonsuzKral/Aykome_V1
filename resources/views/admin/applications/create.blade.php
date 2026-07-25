@@ -206,7 +206,10 @@
                     </div>
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium text-slate-700" for="address_text">Adres</label>
-                        <input id="address_text" type="text" name="address_text" value="{{ old('address_text') }}" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('address_text') border-red-300 ring-red-100 @enderror">
+                        <div class="mt-1 flex gap-2">
+                            <input id="address_text" type="text" name="address_text" value="{{ old('address_text') }}" class="block flex-1 rounded-lg border-slate-300 shadow-sm @error('address_text') border-red-300 ring-red-100 @enderror">
+                            <button type="button" id="btn-search-address" class="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 whitespace-nowrap">🔍 Haritada Bul</button>
+                        </div>
                         @error('address_text')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
@@ -923,13 +926,13 @@
             });
 
             var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19, attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
+                maxZoom: 22, maxNativeZoom: 19, attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
             });
             var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 19, attribution: '&copy; <a href="https://esri.com">Esri</a>',
+                maxZoom: 22, maxNativeZoom: 19, attribution: '&copy; <a href="https://esri.com">Esri</a>',
             });
             var terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-                maxZoom: 17, attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
+                maxZoom: 22, maxNativeZoom: 17, attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
             });
             osm.addTo(map);
             L.control.layers({ Standart: osm, Uydu: satellite, Arazi: terrain }, null, { position: 'topleft' }).addTo(map);
@@ -1393,6 +1396,34 @@
                     });
                 }
             }
+
+            // ── Address search button ───────────────────────────────────
+            document.getElementById('btn-search-address')?.addEventListener('click', async function () {
+                var addrInput = document.getElementById('address_text');
+                var q = addrInput?.value?.trim();
+                if (!q) return;
+                var statusEl = document.getElementById('map-status');
+                if (statusEl) statusEl.textContent = 'Adres aranıyor...';
+                try {
+                    var res = await fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&limit=1&countrycodes=tr');
+                    var data = await res.json();
+                    if (data.length) {
+                        var lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon);
+                        // Fly draw map
+                        if (mapEngine) mapEngine.map.flyTo([lat, lon], 18, { duration: 1.5 });
+                        // Fly CBS reference map (search all known instances)
+                        document.querySelectorAll('[id^="maps-map-canvas-"]').forEach(function (el) {
+                            var cbsMap = window['cbsMap_' + el.id];
+                            if (cbsMap) cbsMap.flyTo([lat, lon], 18, { duration: 1.5 });
+                        });
+                        if (statusEl) statusEl.textContent = 'Adres bulundu: ' + data[0].display_name;
+                    } else if (statusEl) {
+                        statusEl.textContent = 'Adres bulunamadı.';
+                    }
+                } catch (e) {
+                    if (statusEl) statusEl.textContent = 'Arama hatası.';
+                }
+            });
 
             // Add Row button
             document.getElementById('add-row-btn')?.addEventListener('click', function () {

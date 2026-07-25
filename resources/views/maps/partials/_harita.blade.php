@@ -71,30 +71,26 @@
         center: opts.center ? [opts.center.lat, opts.center.lng] : [37.1598, 38.7969],
         zoom: opts.center ? 17 : 14,
         minZoom: 12,
-        maxZoom: 20,
+        maxZoom: 22,
+        maxNativeZoom: 19,
         zoomControl: !opts.readOnly,
         attributionControl: false,
+        scrollWheelZoom: true,
+        doubleClickZoom: true,
+        dragging: true,
     });
 
     // Basemap
     L.tileLayer('http://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}', {
-        maxZoom: 21, attribution: '© Google'
+        maxZoom: 22, maxNativeZoom: 19, attribution: '© Google'
     }).addTo(map);
 
-    // WMS katmanları — varsayılan açık olanlar
-    var defaultLayers = [
-        'cbs:MISMAP_MAHALLE_KOYLER',
-        'smpns:MISMAP_NUM_KADASTRO_PARSEL',
-        'smpns:MISMAP_NUM_BINA',
-        'smpns:AYK_SU_ICMESUYU_LINKS',
-        'smpns:AYK_DOGALGAZ_LINKS',
-    ];
-    defaultLayers.forEach(function(l){
-        L.tileLayer.wms(GEO3_WMS, {
-            layers: l, format:'image/png', transparent:!0,
-            version:'1.3.0', maxZoom:24, opacity: 0.7
-        }).addTo(map);
-    });
+    // WMS katmanları — tüm aktif katmanlar tek WMS çağrısında (comma-separated)
+    L.tileLayer.wms(GEO3_WMS, {
+        layers: 'cbs:MISMAP_MAHALLE_KOYLER,smpns:MISMAP_NUM_KADASTRO_PARSEL,smpns:MISMAP_NUM_BINA,smpns:MISMAP_NUM_ILCE,smpns:MISMAP_NUM_CADDESOKAK,smpns:MISMAP_NUM_ADA,smpns:AYK_SU_ICMESUYU_LINKS,smpns:AYK_DOGALGAZ_LINKS,smpns:AYK_ELEKTRIK_LINKS',
+        format: 'image/png', transparent: true,
+        version: '1.3.0', maxZoom: 22, opacity: 0.6
+    }).addTo(map);
 
     // Çizim katmanı
     var drawnItems = new L.FeatureGroup();
