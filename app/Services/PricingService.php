@@ -10,6 +10,10 @@ class PricingService
 {
     public function upsertSurfaceLines(Application $application, array $lines): void
     {
+        if (empty($lines)) {
+            return;
+        }
+
         $application->surfaceLines()->delete();
 
         foreach ($lines as $data) {
