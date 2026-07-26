@@ -56,6 +56,9 @@ if [ "$1" = "bash" ]; then
         -e DB_PASSWORD=aykome123 \
         -e APP_KEY=$(grep ^APP_KEY .env | cut -d= -f2-) \
         -e APP_ENV=local \
+        -e REVERB_HOST=host.docker.internal \
+        -e REVERB_PORT=8090 \
+        -e REVERB_SCHEME=http \
         aykome-v6-php \
         bash "$@"
 elif [ "$1" = "composer" ]; then
@@ -90,6 +93,9 @@ elif [ "$1" = "serve" ]; then
         -e CACHE_STORE=file \
         -e QUEUE_CONNECTION=sync \
         -e LOG_CHANNEL=stderr \
+        -e REVERB_HOST=host.docker.internal \
+        -e REVERB_PORT=8090 \
+        -e REVERB_SCHEME=http \
         aykome-v6-php \
         php artisan serve --host=0.0.0.0 --port=${PORT}
 else
@@ -111,6 +117,9 @@ else
         -e CACHE_STORE=file \
         -e QUEUE_CONNECTION=sync \
         -e LOG_CHANNEL=stderr \
+        -e REVERB_HOST=host.docker.internal \
+        -e REVERB_PORT=8090 \
+        -e REVERB_SCHEME=http \
         aykome-v6-php \
         php artisan "$@"
 fi

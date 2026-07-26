@@ -17,11 +17,11 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Models\PermitSetting;
 use App\Services\ApplicationService;
 use App\Services\AuditLogger;
+use App\Services\DocumentRenderer;
 use App\Services\LicenseService;
 use App\Services\MapDrawingService;
 use App\Services\PricingService;
 use App\Services\TaskTransferService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -274,6 +274,7 @@ class ApplicationsController extends Controller
             'surfaceLines.surfaceType',
             'preExcavationApprover',
             'timelineLogs.user',
+            'history.user',
             'fieldTasks.assignee',
             'receipts.uploader',
             'receipts.reviewer',
@@ -406,6 +407,7 @@ class ApplicationsController extends Controller
             'end_date' => ['nullable', 'date'],
             'description' => ['nullable', 'string'],
             'address_text' => ['nullable', 'string', 'max:500'],
+            'address_components' => ['nullable', 'json'],
             'polygon_geojson' => ['nullable', 'string'],
             'total_area_m2' => ['nullable', 'numeric', 'min:0'],
             'center_lat' => ['nullable', 'numeric', 'between:-90,90'],
@@ -518,6 +520,10 @@ class ApplicationsController extends Controller
 
     public function submit(Request $request, Application $application, ApplicationService $service): RedirectResponse
     {
+        if ($request->isMethod('GET')) {
+            return redirect()->route('admin.applications.show', $application);
+        }
+
         $this->authorize('update', $application);
 
         $service->submit($request->user(), $application);
@@ -532,25 +538,223 @@ class ApplicationsController extends Controller
         $service->approvePreExcavation($request->user(), $application);
 
         AuditLogger::log('pre_excavation.approve', "Ön kazı izni onaylandı: {$application->application_no}", 'Application', $application->id);
-        return back()->with('success', 'Ön kazı izni onaylandı ve belge PDF üretildi.');
+        return back()->with('success', 'Ön kazı izni onaylandı.');
     }
 
-    public function downloadPreExcavationPermit(Application $application)
+    public function downloadPrePermit(Application $application)
     {
         $this->authorize('view', $application);
+        $application->load(['institution', 'creator']);
+        $settings = PreExcavationPermitSetting::first();
 
-        if (! $application->pre_excavation_document_path || ! Storage::disk('public')->exists($application->pre_excavation_document_path)) {
-            abort(404, 'Ön kazı izin belgesi bulunamadı.');
+        $data = [
+            'belediye' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI',
+            'mudurluk' => 'Fen İşleri Müdürlüğü',
+            'sayi' => 'E-' . ($settings->document_prefix ?? '18790261') . '-' . str_pad($application->id, 6, '0', STR_PAD_LEFT),
+            'tarih' => $application->created_at?->format('d.m.Y') ?? now()->format('d.m.Y'),
+            'konu' => mb_strtoupper($application->description ?? 'Kazı İzni Hk.', 'UTF-8'),
+            'kurum' => mb_strtoupper($application->institution?->name ?? 'KURUM', 'UTF-8'),
+            'ilgi_tarih' => $application->created_at?->format('d.m.Y') ?? now()->format('d.m.Y'),
+            'ilgi_sayi' => str_pad($application->id, 7, '0', STR_PAD_LEFT),
+            'metin' => self::buildPrePermitText($application),
+            'imza_ad' => 'Mustafa Kemal KARATAŞ',
+            'imza_unvan' => 'Belediye Başkan Yardımcısı',
+            'takip_adresi' => 'https://www.turkiye.gov.tr/eyyubiye-belediyesi-ebys',
+            'adres' => $settings->address ?? 'Eyyüpnebi mh. 3554. Sk. Eski Ptt Binası Eyyübiye / Şanlıurfa',
+            'bilgi_kisi' => $settings->signer_name ?? 'Zeynelabidin AKTAŞOĞLU',
+            'telefon' => $settings->phone ?? '()',
+            'fax' => $settings->fax ?? '()',
+            'eposta' => $application->institution?->email ?? $settings->email ?? '-',
+            'web' => $settings->website ?? '-',
+            'kep_adresi' => $application->institution?->email ?? 'eyyubiye@hs03.kep.tr',
+        ];
+
+        return view('admin.pdf.pre_permit', $data);
+    }
+
+    public function downloadCoverLetter(Application $application)
+    {
+        $this->authorize('view', $application);
+        $application->load(['institution', 'creator', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
+
+        $signerName = $application->creator?->name ?? 'Yetkili';
+        $signerShort = mb_substr($signerName, 0, mb_strrpos($signerName, ' ') ?: mb_strlen($signerName));
+
+        $logoUrl = '';
+        $instSlug = $application->institution?->slug ?? '';
+        $logos = [
+            'dicle' => 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSY1aGeBk3bGnpaUikWjQ-JRMM9kPhZbX8KevL3u5IahtS6t3Zdd-IS4Ic&s=10',
+        ];
+        foreach ($logos as $key => $url) {
+            if (str_contains(mb_strtolower($instSlug), $key) || str_contains(mb_strtolower($application->institution?->name ?? ''), $key)) {
+                $logoUrl = $url;
+                break;
+            }
         }
 
-        return Storage::disk('public')->download(
-            $application->pre_excavation_document_path,
-            'on-kazi-izni-' . $application->application_no . '.pdf'
-        );
+        $data = [
+            'logo_url' => $logoUrl,
+            'kurum' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş.', 'UTF-8'),
+            'kurum_alt' => 'Şanlıurfa Tesis Yöneticiliği',
+            'sayi' => 'E-50005665001100-100-' . str_pad($application->id, 7, '0', STR_PAD_LEFT),
+            'tarih' => $application->created_at?->format('d.m.Y') ?? now()->format('d.m.Y'),
+            'konu' => mb_strtoupper($application->description ?? 'KAZI İZNİ', 'UTF-8'),
+            'alici' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI',
+            'alici_alt' => 'AYKOME ŞUBE MÜDÜRLÜĞÜ',
+            'ilgi_metin' => 'Eybel Proje Anonim Şirketi Genel Müdürlüğü 27.04.2026 tarihli ve 3916463 sayılı yazısı.',
+            'paragraflar' => self::buildCoverLetterParagraphs($application),
+            'mahalleler' => self::buildCoverLetterStreets($application),
+            'muhendis' => $application->applicant_first_name && $application->applicant_last_name
+                ? mb_strtoupper(trim($application->applicant_first_name . ' ' . $application->applicant_last_name), 'UTF-8')
+                : 'Kurum Yetkilisi',
+            'telefon' => '0541 762 29 57',
+            'kazı_miktari' => $application->total_area_m2 ?? '650',
+            'application' => $application,
+        ];
+
+        return view('admin.pdf.cover_letter', $data);
+    }
+
+    public function downloadRuhsat(Application $application)
+    {
+        $this->authorize('view', $application);
+        $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
+
+        $d = (float)($application->deposit_amount ?? 0);
+        $disc = (float)($application->discovery_amount ?? 0);
+
+        $surfaceRows = [];
+        $totalMiktar = 0;
+        $totalTutar = 0;
+        foreach ($application->surfaceLines ?? [] as $sl) {
+            if (!$sl->surfaceType) continue;
+            $miktar = (float)($sl->quantity ?? 0);
+            $tutar = $miktar * (float)($sl->surfaceType->price_per_m2 ?? 0);
+            $totalMiktar += $miktar;
+            $totalTutar += $tutar;
+            $surfaceRows[] = [
+                'ad' => $sl->surfaceType->name,
+                'birim' => 'm2',
+                'miktar' => number_format($miktar, 2, ',', '.'),
+                'tutar' => number_format($tutar, 2, ',', '.'),
+            ];
+        }
+
+        $kdv = $d * 0.2;
+        $ruhsatHarci = $d * 0.18;
+        $kesifBedeli = $disc ?: $d * 0.01;
+        $ztbToplam = $d + $kdv;
+        $genelToplam = $ztbToplam + $ruhsatHarci + $kesifBedeli;
+
+        return view('admin.pdf.ruhsat', [
+            'application' => $application,
+            'surfaceRows' => $surfaceRows,
+            'calculated_kdv' => number_format($kdv, 2, ',', '.'),
+            'calculated_license_fee' => number_format($ruhsatHarci, 2, ',', '.'),
+            'calculated_discovery_fee' => number_format($kesifBedeli, 2, ',', '.'),
+            'calculated_ztb_total' => number_format($ztbToplam, 2, ',', '.'),
+            'calculated_deposit' => number_format($d, 2, ',', '.'),
+            'calculated_general_total' => number_format($genelToplam, 2, ',', '.'),
+            'total_miktar' => number_format($totalMiktar, 2, ',', '.'),
+            'total_tutar' => number_format($totalTutar, 2, ',', '.'),
+            'talep_sahibi' => mb_strtoupper(
+                trim(($application->applicant_first_name ?? '') . ' ' . ($application->applicant_last_name ?? '') ?: 'YETKİLİ'),
+                'UTF-8'
+            ),
+        ]);
+    }
+
+    public function downloadMetraj(Application $application)
+    {
+        $this->authorize('view', $application);
+        $application->load(['institution', 'creator', 'surfaceLines.surfaceType', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
+
+        $rows = self::buildMetrajRows($application);
+        $toplamM2 = 0;
+        foreach ($rows as $r) {
+            $toplamM2 += (float) str_replace(['.', ','], ['', '.'], $r['m2']);
+        }
+
+        $data = [
+            'kurum' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ', 'UTF-8'),
+            'birim' => 'PROJE TESİS YÖNETİCİLİĞİ',
+            'alici' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ',
+            'proje_kodu' => $application->project_code ?? '',
+            'tarih' => now()->format('d.m.Y'),
+            'rows' => $rows,
+            'toplam_m2' => number_format($toplamM2, 2, ',', '.'),
+            'ilce' => $application->district ?? '',
+            'firma' => mb_strtoupper($application->institution?->name ?? 'KURUM', 'UTF-8'),
+            'is_cinsi' => $application->description ?? '',
+            'talep_sahibi' => mb_strtoupper(
+                trim(($application->applicant_first_name ?? '') . ' ' . ($application->applicant_last_name ?? '') ?: 'YETKİLİ'),
+                'UTF-8'
+            ),
+        ];
+
+        return view('admin.pdf.metraj', $data);
+    }
+
+    public function downloadTahakkuk(Application $application)
+    {
+        $this->authorize('view', $application);
+        $application->load(['institution', 'creator']);
+
+        $d = number_format((float)($application->deposit_amount ?? 0), 2, ',', '.');
+
+        $data = [
+            'belediye' => 'EYYÜBİYE BELEDİYESİ',
+            'mudurluk' => 'Fen İşleri Müdürlüğü',
+            'birim' => 'AYKOME BİRİMİ',
+            'altbaslik' => 'ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI',
+            'talep_sahibi' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ', 'UTF-8'),
+            'ilce' => $application->district ?? 'EYYÜBİYE',
+            'adres' => ($application->project_code ?? 'C-26-1100-1063-0019') . ' ' . ($application->district ?? ''),
+            'firma' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ', 'UTF-8'),
+            'is_cinsi' => $application->description ?? 'ENH TESİS YAPIM İŞİ',
+            'vergino' => $application->applicant_national_id ?? '2950368442-04742868630',
+            'metraj_satirlari' => self::buildMetrajSatirlari($application),
+            'toplam_miktar' => '545,80',
+            'genel_tutar' => $d,
+            'tahrip_bedeli' => $d,
+            'kdv' => number_format((float)($application->deposit_amount ?? 0) * 0.2, 2, ',', '.'),
+            'kesif_bedeli' => number_format((float)($application->deposit_amount ?? 0) * 0.01, 2, ',', '.'),
+            'ztb_toplam' => number_format((float)($application->deposit_amount ?? 0) * 1.21, 2, ',', '.'),
+            'teminat' => '0,00',
+            'genel_toplam' => number_format((float)($application->deposit_amount ?? 0) * 1.21, 2, ',', '.'),
+            'duzenleyen' => $application->creator?->name ?? 'Zeynelabidin AKTAŞOĞLU',
+            'mukellef' => mb_strtoupper(
+                trim(($application->applicant_first_name ?? '') . ' ' . ($application->applicant_last_name ?? '') ?: 'YETKİLİ'),
+                'UTF-8'
+            ),
+            'aciklama' => '',
+        ];
+
+        return view('admin.pdf.tahakkuk', $data);
+    }
+
+    public function saveReceiptInfo(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        $validated = $request->validate([
+            'ztb_receipt_info' => ['nullable', 'string', 'max:255'],
+            'deposit_receipt_info' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $application->update($validated);
+
+        AuditLogger::log('receipt_info.save', "Makbuz bilgileri kaydedildi: ZTB={$validated['ztb_receipt_info']}, TEM={$validated['deposit_receipt_info']}", 'Application', $application->id);
+
+        return back()->with('success', 'Makbuz bilgileri kaydedildi.');
     }
 
     public function approvePrice(Request $request, Application $application, ApplicationService $service): RedirectResponse
     {
+        if ($request->isMethod('GET')) {
+            return redirect()->route('admin.applications.show', $application);
+        }
+
         $this->authorize('approvePrice', $application);
 
         $service->approvePrice($request->user(), $application);
@@ -561,6 +765,10 @@ class ApplicationsController extends Controller
 
     public function approveReceipt(Request $request, Application $application, ApplicationService $service, LicenseService $licenseService): RedirectResponse
     {
+        if ($request->isMethod('GET')) {
+            return redirect()->route('admin.applications.show', $application);
+        }
+
         $this->authorize('approveReceipt', $application);
 
         // Onay formuyla birlikte yeni bir dosya gönderildiyse önce kaydet
@@ -899,5 +1107,228 @@ class ApplicationsController extends Controller
             ApplicationStatus::Archived->value => ['label' => 'Arşiv', 'class' => 'bg-zinc-100 text-zinc-700'],
             default => ['label' => $value !== '' ? str_replace('_', ' ', $value) : 'Bilinmiyor', 'class' => 'bg-slate-100 text-slate-700'],
         };
+    }
+
+    private static function buildPrePermitText(Application $app): string
+    {
+        $inst = $app->institution?->name ?? 'Kurum';
+        $projectCode = $app->project_code ?? 'C-26-1100-1063-0012';
+
+        return "
+        <p>İlgi sayılı yazı ile; {$inst} Şanlıurfa Tesis Yöneticiliği {$projectCode}
+        Proje Numarasıyla Eyyübiye İlçesi Hayati Akşemsettin Mahallesi Huzur Sokak
+        1 Adet Trafo Bölgesi AGOG Tesis Yapım İşi çalışması için kazı izni talep edilmektedir.</p>
+        <p>&quot;Altyapı Tesisi Açım Ruhsatı&quot; iş ve işlemlerinin kazı kesin metrajlarının tespit edilmesinden
+        sonra tamamlanması, Yapılacak çalışmanın AYKOME Çalışma Usul ve Esasları Uygulama yönetmeliğine
+        uygun olarak yapılması, çalışma yapılacak cadde ve sokakların kazı öncesinde Eyyübiye Belediyesi Fen
+        işleri Müdürlüğü AYKOME Birimimize haber verilmesi ve diğer altyapı kuruluşlarının (AKSA Şanlıurfa
+        Doğalgaz A.Ş. Telekom İl Müdürlüğü, SUSKİ Genel Müdürlüğü, v.b.) mevcut tesislerine zarar
+        verilmesinin önlenmesi için bu kuruluşlara da yapılacak calışma hakkında bilgi verilmesi koşulu ile kazı</p>
+        ";
+    }
+
+    private static function buildCoverLetterParagraphs(Application $app): array
+    {
+        return [
+            'İlgi sayılı yazınız ile; Şirketimizden kazı izni sokaklarının mahalle isimleri güncellenmiştir.',
+            "Şirketimiz 2026 yılı yatırım programında {$app->project_code} pyp numarası ile yer alan SANLIURFA İLİ
+            EYYÜBİYE İLÇESİ AKŞEMSETTİN MAHALLESİ HUZUR SOKAK 1 ADET TRAFO BÖLGESİ AGOG TESİS YAPIM İŞİ
+            ’nin ihale süreci tamamlanmış olup, söz konusu iş DİCLE KÖK A.Ş. firmasının taahhüdünde kalmıştır. Sanlıurfa
+            EYYÜBİYE Belediyesi sorumluluğunda bulunan cadde ve sokakların kazı izinleri belediyenizce verilmesi
+            gerekmektedir.",
+            'Elektrik şebekesi tesis çalışmaları yapılması planlanan cadde ve sokak isimleri aşağıdaki listede sunulmuştur.',
+            'Gerekli kazı izninin verilmesi hususunda,',
+            'Gereğini arz ederim.',
+        ];
+    }
+
+    private static function buildCoverLetterStreets(Application $app): array
+    {
+        $mahalleler = [];
+
+        if ($app->relationLoaded('gisCizimleri')) {
+            foreach ($app->gisCizimleri as $cizim) {
+                foreach ($cizim->yolIliskileri as $yol) {
+                    $mahalleAdi = $yol->mahalle ? mb_strtoupper(trim($yol->mahalle), 'UTF-8') : 'BELİRTİLMEMİŞ MAHALLE';
+                    if (!isset($mahalleler[$mahalleAdi])) {
+                        $mahalleler[$mahalleAdi] = ['ad' => $mahalleAdi, 'sokaklar' => []];
+                    }
+                    $yolAdi = $yol->yol_adi ? mb_strtoupper(trim($yol->yol_adi), 'UTF-8') : '';
+                    if ($yolAdi && !in_array($yolAdi, $mahalleler[$mahalleAdi]['sokaklar'])) {
+                        $mahalleler[$mahalleAdi]['sokaklar'][] = $yolAdi;
+                    }
+                }
+            }
+        }
+
+        if ($app->relationLoaded('gisNoktalari')) {
+            foreach ($app->gisNoktalari as $nokta) {
+                if ($nokta->mahalle) {
+                    $mahalleAdi = mb_strtoupper(trim($nokta->mahalle), 'UTF-8');
+                    if (!isset($mahalleler[$mahalleAdi])) {
+                        $mahalleler[$mahalleAdi] = ['ad' => $mahalleAdi, 'sokaklar' => []];
+                    }
+                }
+                if ($nokta->parsel) {
+                    $parselAdi = 'PARSEL: ' . ($nokta->ada ? $nokta->ada . '/' : '') . $nokta->parsel;
+                    $mh = $nokta->mahalle ? mb_strtoupper(trim($nokta->mahalle), 'UTF-8') : 'BELİRTİLMEMİŞ MAHALLE';
+                    if (!isset($mahalleler[$mh])) {
+                        $mahalleler[$mh] = ['ad' => $mh, 'sokaklar' => []];
+                    }
+                    if (!in_array($parselAdi, $mahalleler[$mh]['sokaklar'])) {
+                        $mahalleler[$mh]['sokaklar'][] = $parselAdi;
+                    }
+                }
+            }
+        }
+
+        if (!empty($app->address_text)) {
+            $lines = explode("\n", $app->address_text);
+            $mhKey = 'ADRES';
+            $mahalleler[$mhKey] = ['ad' => 'ADRES BİLGİSİ', 'sokaklar' => []];
+            foreach ($lines as $line) {
+                $line = trim($line);
+                if ($line) {
+                    $mahalleler[$mhKey]['sokaklar'][] = $line;
+                }
+            }
+        }
+
+        return array_values($mahalleler);
+    }
+
+    private static function buildRuhsatZeminler(Application $app): array
+    {
+        $d = (float)($app->deposit_amount ?? 0);
+        return [
+            ['ad' => 'ASFALT (SICAK KARIŞIM)', 'birim' => 'm2', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => ''],
+            ['ad' => 'ASFALT (SOĞUK ASFALT)', 'birim' => 'm2', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => 'RUHSAT HARCI', 'toplam' => number_format($d, 2, ',', '.')],
+            ['ad' => 'PARKE', 'birim' => 'm2', 'miktar' => '5,00', 'tutar' => '45,00', 'diger' => 'KESIF BEDELİ', 'toplam' => '45,00'],
+            ['ad' => 'BETON', 'birim' => 'm2', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => number_format($d * 0.09, 2, ',', '.')],
+            ['ad' => 'STABİLİZE', 'birim' => 'm2', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => number_format($d * 1.21, 2, ',', '.')],
+            ['ad' => 'TRETUAR (PARKE PRİZM)', 'birim' => 'm2', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => number_format($d * 0.5, 2, ',', '.')],
+            ['ad' => 'TRETUAR (KARO)', 'birim' => 'm2', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => 'GENEL TOPLAM', 'toplam' => number_format($d * 1.8, 2, ',', '.')],
+            ['ad' => 'TRETUAR (MERMER)', 'birim' => 'm2', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => ''],
+            ['ad' => 'TRETUAR (BAZALT)', 'birim' => 'm2', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => ''],
+            ['ad' => 'BORDÜR (BETON)', 'birim' => 'm', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => ''],
+            ['ad' => 'BORDÜR (BAZALT)', 'birim' => 'm', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => ''],
+            ['ad' => 'ÇİM', 'birim' => 'm2', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => ''],
+            ['ad' => 'TOPRAK', 'birim' => 'm2', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => ''],
+            ['ad' => 'GÖRME ENGELLİ KARO', 'birim' => 'm', 'miktar' => '0,00', 'tutar' => '0,00', 'diger' => '', 'toplam' => ''],
+        ];
+    }
+
+    private static function getRuhsatSartlari(): array
+    {
+        return [
+            '1- Kazıya başlamadan once tum guvenlik onlemleri alınacaktır.',
+            '2- ASFALT olan ZEMİNLERDE ASFALT KESME MAKİNASI KULLANILACAKTIR.',
+            '3- Kış sezonunda TAHRİP EDİLEN TOPRAK VE STABİLİZE ZEMİNLER HARİÇ DİĞER ZEMİNLER BETONLANACAKTIR.',
+            '4- GENEL KURUL KARARI GEREĞİ KAZI GENİŞLİĞİ EN AZ 0,60 (ALTMIŞ) cM DİR.',
+            '5- RUHSAT TARİHİNDEN İTİBAREN 2 (İKİ) YIL İÇERİSİNDE ALINMAYAN TEMİNATLAR GELİR KAYDEDİLİR.',
+            '6- EYYÜBİYE BELEDİYESİ\'NİN RUHSAT TARİHİNDEN ÖNCE VE RUHSAT SÜRESİNDEN SONRA DOĞMUŞ VE DOĞACAK ZARARLARA İLİŞKİN TAZMİNAT VS. HAKKI SAKLIDIR.',
+            '7- İLAVE YAPILACAK KAZILAR İÇİN EK RUHSAT ALINACAKTIR.',
+            '8- KAZI ÇALIŞMALARI ESNASINDA STABİLİZE VE TOPRAK HARİCİNDEKİ ZEMİNLERDE KAZIDAN ÇIKAN HAFRİYAT DOĞRUDAN ARAÇLARA YÜKLENEREK NAKLEDİLECEKTİR.',
+            '9- AYKOME YÖNETMELİK VE EKLERİNİ OKUDUM ŞARTLARINI KABUL EDİYORUM.',
+        ];
+    }
+
+    private static function getAltyapiSartlari(): array
+    {
+        return [
+            '1- Altyapı : Yol üst kaplaması altında kalan yol kısmı ile içme suyu, Kanalizasyon, Elektrik, Doğalgaz, Telekominikasyon bağlantı hatları, Merkezi Isıtma gibi yer altından geçen tüm tesisleri kapsar.',
+            '2- EYYÜBİYE BELEDİYESİ sınırları içerisinde Belediyeye ait yollarda yapılacak altyapı tesisi ile ilgili ruhsatlar ve diğer bütün işlemler ŞANLIURFA BÜYÜKŞEHİR BELEDİYESİ ALTYAPI KOORDİNASYON MERKEZİ kararları doğrultusunda AYKOME Birimince verilecek izne göre yürütülür.',
+        ];
+    }
+
+    private static function buildMetrajSatirlari(Application $app): array
+    {
+        $d = (float)($app->deposit_amount ?? 0);
+        return [
+            ['ad' => 'ASFALT (SICAK KARIŞIM)', 'birim' => 'm2', 'miktar' => '545,80', 'birim_fiyat' => number_format($d / max(545.8, 1), 2, ',', '.'), 'tutar' => number_format($d, 2, ',', '.')],
+            ['ad' => 'ASFALT (SOĞUK ASFALT)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'PARKE', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'BETON', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'STABİLİZE', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'TRETUAR (PARKE PRİZM)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'TRETUAR (KARO)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'TRETUAR (MERMER)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'TRETUAR (BAZALT)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'BORDÜR (BETON)', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'BORDÜR (BAZALT)', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'ÇİM', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'TOPRAK', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'BETON YOL OLUĞU', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+            ['ad' => 'GÖRME ENGELLİ KARO', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
+        ];
+    }
+
+    private static function buildMetrajRows(Application $app): array
+    {
+        $rows = [];
+        $sira = 0;
+        $ilce = $app->district ?? 'EYYÜBİYE';
+        $projeKodu = $app->project_code ?? '';
+        $tarih = $app->start_date?->format('d.m.Y') ?? '';
+
+        $mahalleList = [];
+        $caddeList = [];
+
+        if ($app->relationLoaded('gisNoktalari')) {
+            foreach ($app->gisNoktalari as $n) {
+                if ($n->mahalle) $mahalleList[] = mb_strtoupper(trim($n->mahalle), 'UTF-8');
+            }
+        }
+        if ($app->relationLoaded('gisCizimleri')) {
+            foreach ($app->gisCizimleri as $c) {
+                foreach ($c->yolIliskileri as $y) {
+                    if ($y->mahalle) $mahalleList[] = mb_strtoupper(trim($y->mahalle), 'UTF-8');
+                    if ($y->yol_adi) $caddeList[] = mb_strtoupper(trim($y->yol_adi), 'UTF-8');
+                }
+            }
+        }
+        $mahalle = $mahalleList ? implode(', ', array_unique($mahalleList)) : ($app->address_text ? mb_strtoupper(trim(explode("\n", $app->address_text)[0]), 'UTF-8') : '');
+        $cadde = $caddeList ? implode(', ', array_unique($caddeList)) : '';
+
+        if ($app->relationLoaded('surfaceLines') && $app->surfaceLines->count() > 0) {
+            foreach ($app->surfaceLines as $sl) {
+                if (!$sl->surfaceType) continue;
+                $sira++;
+                $genislik = $sl->width_m ? number_format((float)$sl->width_m, 2, ',', '.') : '0,00';
+                $uzunluk = $sl->length_m ? number_format((float)$sl->length_m, 2, ',', '.') : '0,00';
+                $m2 = $sl->quantity ? number_format((float)$sl->quantity, 2, ',', '.') : '0,00';
+                $zemin = mb_strtoupper($sl->surfaceType->name, 'UTF-8');
+
+                $rows[] = [
+                    'sira' => $sira,
+                    'ilce' => $ilce,
+                    'mahalle' => $mahalle,
+                    'cadde' => $cadde,
+                    'tarih' => $tarih,
+                    'genislik' => $genislik,
+                    'uzunluk' => $uzunluk,
+                    'm2' => $m2,
+                    'zemin' => $zemin,
+                    'proje_kodu' => $projeKodu,
+                ];
+            }
+        }
+
+        if (empty($rows)) {
+            $rows[] = [
+                'sira' => 1,
+                'ilce' => $ilce,
+                'mahalle' => $mahalle,
+                'cadde' => $cadde ?: ($app->address_text ?: ''),
+                'tarih' => $tarih,
+                'genislik' => '0,00',
+                'uzunluk' => '0,00',
+                'm2' => '0,00',
+                'zemin' => 'BELİRTİLMEMİŞ',
+                'proje_kodu' => $projeKodu,
+            ];
+        }
+
+        return $rows;
     }
 }

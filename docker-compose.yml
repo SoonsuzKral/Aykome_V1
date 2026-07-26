@@ -76,6 +76,12 @@ services:
       DB_PASSWORD: aykome123
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REVERB_HOST: reverb
+      REVERB_PORT: 8090
+      REVERB_SCHEME: http
+      REVERB_APP_ID: "${REVERB_APP_ID}"
+      REVERB_APP_KEY: "${REVERB_APP_KEY}"
+      REVERB_APP_SECRET: "${REVERB_APP_SECRET}"
 
   reverb:
     image: aykome-v6-php

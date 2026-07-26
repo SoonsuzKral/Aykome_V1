@@ -30,17 +30,23 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::resource('applications', ApplicationsController::class)->except(['destroy']);
         Route::delete('applications/{application}', [ApplicationsController::class, 'destroy'])->name('applications.destroy');
         Route::post('applications/bulk-destroy',    [ApplicationsController::class, 'bulkDestroy'])->name('applications.bulk-destroy');
-        Route::post('applications/{application}/submit', [ApplicationsController::class, 'submit'])->name('applications.submit');
+        Route::match(['GET', 'POST'], 'applications/{application}/submit', [ApplicationsController::class, 'submit'])->name('applications.submit');
         Route::post('applications/{application}/approve-pre-excavation', [ApplicationsController::class, 'approvePreExcavation'])->name('applications.approve-pre-excavation');
-        Route::get('applications/{application}/pre-excavation-permit', [ApplicationsController::class, 'downloadPreExcavationPermit'])->name('applications.pre-excavation-permit');
-        Route::post('applications/{application}/approve-price', [ApplicationsController::class, 'approvePrice'])->name('applications.approve-price');
-        Route::post('applications/{application}/approve-receipt', [ApplicationsController::class, 'approveReceipt'])->name('applications.approve-receipt');
+
+        Route::match(['GET', 'POST'], 'applications/{application}/approve-price', [ApplicationsController::class, 'approvePrice'])->name('applications.approve-price');
+        Route::match(['GET', 'POST'], 'applications/{application}/approve-receipt', [ApplicationsController::class, 'approveReceipt'])->name('applications.approve-receipt');
         Route::post('applications/{application}/reject-receipt', [ApplicationsController::class, 'rejectReceipt'])->name('applications.reject-receipt');
         Route::post('applications/{application}/field-tasks', [ApplicationsController::class, 'transfer'])->name('applications.field-tasks.store');
         Route::post('applications/{application}/receipts', [ApplicationsController::class, 'storeReceipt'])->name('applications.receipts.store');
         Route::get('applications/{application}/license-pdf',      [ApplicationsController::class, 'downloadLicense']       )->name('applications.license-pdf');
         Route::get('applications/{application}/permit-live',     [ApplicationsController::class, 'downloadPermitLive']    )->name('applications.permit-live');
         Route::get('applications/{application}/payment-receipt', [ApplicationsController::class, 'generatePaymentReceipt'])->name('applications.payment-receipt');
+        Route::get('applications/{application}/pdf/cover-letter', [ApplicationsController::class, 'downloadCoverLetter'])->name('applications.pdf.cover-letter');
+        Route::get('applications/{application}/pdf/pre-permit',   [ApplicationsController::class, 'downloadPrePermit']   )->name('applications.pdf.pre-permit');
+        Route::get('applications/{application}/pdf/ruhsat',       [ApplicationsController::class, 'downloadRuhsat']     )->name('applications.pdf.ruhsat');
+        Route::get('applications/{application}/pdf/metraj',       [ApplicationsController::class, 'downloadMetraj']     )->name('applications.pdf.metraj');
+        Route::get('applications/{application}/pdf/tahakkuk',     [ApplicationsController::class, 'downloadTahakkuk']   )->name('applications.pdf.tahakkuk');
+        Route::put('applications/{application}/save-receipt-info', [ApplicationsController::class, 'saveReceiptInfo']     )->name('applications.save-receipt-info');
         Route::get('applications/{application}/status',          [ApplicationsController::class, 'statusJson']             )->name('applications.status');
 
         Route::get('field-tasks/{fieldTask}',        [FieldTaskController::class, 'show']        )->name('field-tasks.show');

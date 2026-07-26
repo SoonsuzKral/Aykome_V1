@@ -214,6 +214,20 @@
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700">Mahalle & Sokak Listesi</label>
+                        <p class="text-xs text-slate-500 mb-2">Başvuruya ait mahalle ve sokakları ekleyin. Üst yazıda otomatik tablo olarak görünecektir.</p>
+                        <input type="hidden" name="address_components" id="address_components" value='{{ old('address_components', '[]') }}'>
+                        <div id="address-components-container" class="space-y-2">
+                        </div>
+                        <button type="button" id="add-address-component-btn" class="mt-2 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition">
+                            + Mahalle & Sokak Ekle
+                        </button>
+                        @error('address_components')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700" for="start_date">Başlangıç</label>
                         <input id="start_date" type="date" name="start_date" value="{{ old('start_date') }}" required class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('start_date') border-red-300 ring-red-100 @enderror">
@@ -1465,6 +1479,78 @@
             document.getElementById('add-row-btn')?.addEventListener('click', function () {
                 addSurfaceLine({});
             });
+
+            // ─── ADDRESS COMPONENTS ────────────────────────────────────────
+            function initAddressComponents() {
+                var hiddenInput = document.getElementById('address_components');
+                var container = document.getElementById('address-components-container');
+                var addBtn = document.getElementById('add-address-component-btn');
+                if (!hiddenInput || !container) return;
+
+                var components = [];
+                try { components = JSON.parse(hiddenInput.value || '[]'); } catch(e) { components = []; }
+                if (!Array.isArray(components)) components = [];
+
+                function syncHidden() {
+                    hiddenInput.value = JSON.stringify(components);
+                }
+
+                function render() {
+                    container.innerHTML = '';
+                    components.forEach(function (comp, idx) {
+                        var streets = Array.isArray(comp.streets) ? comp.streets : [];
+                        var div = document.createElement('div');
+                        div.className = 'flex items-start gap-2 p-2 rounded-lg border border-slate-200 bg-white';
+                        div.innerHTML =
+                            '<div class="flex-1 space-y-1">' +
+                                '<input type="text" class="comp-mahalle block w-full rounded border-slate-300 text-xs shadow-sm" value="' + (comp.mahalle || '') + '" placeholder="Mahalle Adı (örn: 15 TEMMUZ MAHALLESİ)" data-idx="' + idx + '">' +
+                                '<input type="text" class="comp-streets block w-full rounded border-slate-300 text-xs shadow-sm" value="' + (streets.join(', ')) + '" placeholder="Cadde/Sokak İsimleri (Virgülle ayırın)" data-idx="' + idx + '">' +
+                            '</div>' +
+                            '<button type="button" class="comp-remove shrink-0 rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600" data-idx="' + idx + '" title="Kaldır">&times;</button>';
+                        container.appendChild(div);
+                    });
+                    attachEvents();
+                }
+
+                function attachEvents() {
+                    container.querySelectorAll('.comp-mahalle').forEach(function (el) {
+                        el.addEventListener('input', function () {
+                            var idx = parseInt(this.dataset.idx);
+                            if (!isNaN(idx) && components[idx]) components[idx].mahalle = this.value;
+                            syncHidden();
+                        });
+                    });
+                    container.querySelectorAll('.comp-streets').forEach(function (el) {
+                        el.addEventListener('input', function () {
+                            var idx = parseInt(this.dataset.idx);
+                            if (!isNaN(idx) && components[idx]) {
+                                components[idx].streets = this.value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+                            }
+                            syncHidden();
+                        });
+                    });
+                    container.querySelectorAll('.comp-remove').forEach(function (el) {
+                        el.addEventListener('click', function () {
+                            var idx = parseInt(this.dataset.idx);
+                            if (!isNaN(idx) && components[idx]) {
+                                components.splice(idx, 1);
+                                syncHidden();
+                                render();
+                            }
+                        });
+                    });
+                }
+
+                addBtn?.addEventListener('click', function () {
+                    components.push({ mahalle: '', streets: [] });
+                    syncHidden();
+                    render();
+                });
+
+                render();
+            }
+
+            initAddressComponents();
 
             // Submit hook
             document.getElementById('application-form')?.addEventListener('submit', function () {

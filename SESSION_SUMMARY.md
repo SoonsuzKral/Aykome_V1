@@ -1,51 +1,64 @@
-# AYKOME — Oturum Özeti (25 Temmuz 2026)
+# Oturum Özeti — 26 Temmuz 2026
 
-## Yapılan İşlemler
+## Görev
+PDF Blade view'ların 5 ana kusurunu düzeltmek
 
-### edit.blade.php Rewrite + Controller Update Fix
-- **edit.blade.php** tamamen yeniden yazıldı (1445 satır, `create.blade.php` ile eşitlendi)
-  - Başvuru sahibi alanları: `first_name`, `last_name`, `national_id` (TCKN mask+tooltip)
-  - Kazı detayları: `excavation_reason`, `work_type`, `start_date`, `end_date`, `project_code`
-  - Harita partial (`_harita.blade.php`) eklendi (mode=edit, drawingEnabled=true)
-  - Arama inputu + stil paneli + arazi katmanı toggle + TCKN sorgulama butonu
-  - Surface lines CRUD: yüzey tipi seçimi, m² girişi, tablo halinde listeleme, silme
-  - Doküman yükleme alanı (mevcut dosyalar listelenir, yenisi eklenir)
-  - Validasyon hataları toast ile gösterilir
-- **ApplicationsController@edit()**: `isInstitutionUser`, `applicantPrefill`, `institutionPrefill` view'e eklendi; institution ilişkileri expand edildi
-- **ApplicationsController@update()**: 7 yeni alan validasyonu (`applicant_first_name`, `applicant_last_name`, `applicant_national_id`, `tc_no`, `identity_no`, `excavation_reason`, `work_type`, `start_date`, `end_date`); national ID normalizasyonu (numeric); tüm alanlar `$application->update()` çağrısına eklendi
+## Yapılanlar
 
-### ULTRA.md Güncellemesi
-- `edit.blade.php` satır sayısı güncellendi (824→1445)
-- deploy.ps1 ve git tag workflow'u "yapılacaklar"da işaretlendi
-- 2. oturum eklendi
+### 1. ARAYÜZ — Print Bar + Gölgeli A4 Preview
+- `resources/views/admin/pdf/pdf_layout.blade.php` oluşturuldu — **tüm PDF view'ları saran master layout**
+- Üstte sabit koyu bar (`#1e293b`): solda "Kapat" butonu, sağda "🖨️ Yazdır / PDF Kaydet" butonu
+- `window.print()` butona bağlandı
+- `@media print` ile bar tamamen gizleniyor
+- Sayfa beyaz zemin üzerinde gölgeli (`box-shadow`) ortalanmış A4 preview
+- Tüm 5 view (`pre_permit`, `cover_letter`, `ruhsat`, `metraj`, `tahakkuk`) layout'u kullanacak şekilde yeniden yazıldı
 
-### Diğer
-- `.gitignore`'a `aykome_backup.dmp` ve `index/` eklendi
-- Yanlışlıkla eklenen backup dosyaları commit'den kaldırıldı
+### 2. Cover Letter — Tablo Border
+- `.mahalle-tablo td`'ye `border: 1px solid #000` eklendi
+- Sokak/mahalle listesi hücre içinde nizami görünüyor
 
-### createDraft() Bug Fix (project_code + application_type)
-- **ApplicationService::createDraft()**: `Application::create()` çağrısına `project_code` ve `application_type` alanları eklendi
-  - Bug: Bu alanlar daha önce create()'e iletilmiyordu, DB default değerleri (NULL/'basvuru') yazılıyordu
-  - Sonuç: Proje kodu kayboluyor, başvuru türü hep "Normal Başvuru" görünüyordu
-- **ApplicationsController::edit()**: `surfaceLinesData` mapping'ine `id` ve `address` alanları eklendi, `->toArray()` ile güvenli JSON serialization
+### 3. Statik Adres Verisi → Dinamik
+- `buildCoverLetterStreets()` helper'ı tamamen yeniden yazıldı:
+  - Artık **hiçbir hardcoded sokak/mahalle adı içermiyor**
+  - `$application->gisCizimleri.yolIliskileri` üzerinden gerçek veri çekiyor
+  - `$application->gisNoktalari` üzerinden mahalle/parsel bilgisi çekiyor
+  - `$application->address_text` fallback olarak kullanılıyor
+  - Hiçbir veri yoksa boş array dönüyor
+- **Application modeline 2 yeni relationship eklendi:**
+  - `gisNoktalari()` → `HasMany(GisBasvuruNokta, 'basvuru_id')`
+  - `gisCizimleri()` → `HasMany(GisCizim, 'basvuru_id')`
+- Controller'da `downloadCoverLetter` eager loading'i güncellendi
 
-### Lifecycle Hydration — Zemin Tipleri Görünürlük (Bug 2 Final Fix)
-- **edit.blade.php**: JS hydration motoru tamamen yeniden yazıldı
-  - `EXISTING_SURFACE_LINES` = `@json($application->surfaceLines)` — raw model data, `surfaceType` ilişkisi yüklü
-  - Hidrasyon: Her satır model'den alınan `surface_type.name`, `surface_type.price_per_m2` nested data ile yükleniyor
-  - `rowDrawings`: `polygon_geojson` textarea'sından GeoJSON parse edilip `rowId`'ye göre `rowDrawings[satirId]`'e atanıyor
-  - `renderTable()` + `recalculateAll()` explicit çağrılıyor (kart hesapları, ZTB, KDV, teminat vs. eski değerlerle görünüyor)
-  - `nextRowId` sayaç doğru başlatılıyor (mevcut satır sayısı kadar increment)
+### 4. Ruhsat — Font/Kalınlık/Border
+- Tüm tablo `th`'lere `font-weight: bold` ve `color: #000` eklendi
+- Tablo border kalınlığı `1.5px solid #000` yapıldı (eski 1px)
+- İmza kutuları border'ı da `1.5px` yapıldı
+- Tüm metin siyahlığı belirginleştirildi
 
-## Commit'ler
-```
-4c88fac feat: edit.blade.php create sayfasi ile esitlendi, controller update() genisletildi
-796321f fix: createDraft()'a project_code ve application_type eklendi, edit() surface lines mapping iyilestirildi
-```
+### 5. E-Devlet/Doğrulama İbareleri Temizliği
+- `resources/views/admin/pdf/` altındaki **TÜM dosyalar** tarandı:
+  - "Belge Doğrulama Kodu" ❌ silindi
+  - "5070 sayılı elektronik imza" ❌ silindi
+  - "güvenli elektronik imza" ❌ silindi
+  - "Belge Takip Adresi" ❌ silindi
+  - QR kod alanları zaten yoktu
+- **Hiçbir view'da doğrulama/elektronik imza ibaresi kalmadı**
+- Footer: sadece belediye iletişim adresi ve imza
 
-## Kalan İşler (Bir Sonraki Oturum)
-1. 🐛 **Zemin Tipleri edit sayfasında gelmiyor** — Controller mapping iyileştirildi (->toArray(), address/id eklendi), Docker'da test edilmeli
-2. Migration'lar Docker'da çalıştırılmalı (OCI_DEFAULT hatası)
-3. `GisKatmanAyar` modeli eksik (controller raw DB kullanıyor)
-4. ionCube + custom lisans sistemi kurulumu
-5. edit.blade.php render testi (Docker'da görsel kontrol — proje kodu, başvuru türü, zemin tipleri doğrulanmalı)
+## Dosya Değişiklikleri
+| Dosya | İşlem |
+|---|---|
+| `resources/views/admin/pdf/pdf_layout.blade.php` | **YENİ** — Master layout (print bar + preview) |
+| `resources/views/admin/pdf/pre_permit.blade.php` | Layout'a geçirildi, e-devlet metni silindi |
+| `resources/views/admin/pdf/cover_letter.blade.php` | Layout'a geçirildi, tablo border eklendi |
+| `resources/views/admin/pdf/ruhsat.blade.php` | Layout'a geçirildi, border/font kalınlaştırıldı |
+| `resources/views/admin/pdf/metraj.blade.php` | Layout'a geçirildi |
+| `resources/views/admin/pdf/tahakkuk.blade.php` | Layout'a geçirildi |
+| `app/Models/Application.php` | `gisNoktalari()`, `gisCizimleri()` ilişkileri eklendi |
+| `app/Http/Controllers/Admin/ApplicationsController.php` | `buildCoverLetterStreets` dinamik yapıldı; eager loading güncellendi |
+
+## Sıradaki
+1. Browser'da test: `/admin/applications/864/pdf/pre-permit` — print barı kontrol et
+2. Sırayla cover-letter, ruhsat, metraj, tahakkuk
+3. Görsel fark varsa düzelt
+4. Logo havuzunu genişlet (kullanıcı tüm kurum logolarını sağlayacak)

@@ -5,11 +5,10 @@ namespace App\Services;
 use App\Enums\ApplicationStatus;
 use App\Events\ApplicationSubmitted;
 use App\Models\Application;
+use App\Models\ApplicationAudit;
 use App\Models\ApplicationTimelineLog;
-use App\Models\PreExcavationPermitSetting;
 use App\Models\Receipt;
 use App\Models\User;
-use Barryvdh\DomPDF\Facade\Pdf;
 use App\Notifications\NewApplicationCreatedNotification;
 use App\Notifications\ReceiptUploadedNotification;
 use Illuminate\Database\QueryException;
@@ -103,34 +102,25 @@ class ApplicationService
 
     public function approvePreExcavation(User $user, Application $application): Application
     {
+        $oldStatus = $application->status->value;
+
         $application->load(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
 
         $application->update([
-            'status' => ApplicationStatus::PreExcavationApproved,
+            'status' => ApplicationStatus::PreApproved,
             'pre_excavation_approved_at' => now(),
             'pre_excavation_approved_by' => $user->id,
         ]);
 
-        // Generate pre-excavation permit PDF
-        try {
-            $settings = PreExcavationPermitSetting::getSingleton();
+        ApplicationAudit::create([
+            'application_id' => $application->id,
+            'user_id' => $user->id,
+            'action' => 'Ön Kazı Onayı Verildi',
+            'old_status' => $oldStatus,
+            'new_status' => ApplicationStatus::PreApproved->value,
+        ]);
 
-            $pdf = Pdf::loadView('admin.pdf.pre_excavation_permit', compact('application', 'settings'))
-                ->setPaper('a4', 'portrait');
-
-            $safeNo = $application->application_no ?: (string) $application->id;
-            $pdfPath = 'pre-excavation-permits/pre-excavation-' . $safeNo . '-' . now()->format('YmdHis') . '.pdf';
-
-            Storage::disk('public')->put($pdfPath, $pdf->output());
-
-            $application->update([
-                'pre_excavation_document_path' => $pdfPath,
-            ]);
-        } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('[approvePreExcavation] PDF generation failed: ' . $e->getMessage());
-        }
-
-        $this->log($application, $user, 'pre_excavation.approved', [], 'Ön kazı izni onaylandı, belge üretildi');
+        $this->log($application, $user, 'pre_excavation.approved', [], 'Ön kazı izni onaylandı');
 
         return $application->fresh();
     }

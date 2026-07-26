@@ -53,6 +53,9 @@ class Application extends Model implements HasMedia
         'receipt_file_path',
         'project_code',
         'application_type',
+        'ztb_receipt_info',
+        'deposit_receipt_info',
+        'address_components',
     ];
 
     protected function casts(): array
@@ -71,6 +74,7 @@ class Application extends Model implements HasMedia
             'receipt_approved_at' => 'datetime',
             'pre_excavation_approved_at' => 'datetime',
             'status' => ApplicationStatus::class,
+            'address_components' => 'array',
         ];
     }
 
@@ -134,5 +138,20 @@ class Application extends Model implements HasMedia
     public function documents(): HasMany
     {
         return $this->hasMany(ApplicationDocument::class);
+    }
+
+    public function history(): HasMany
+    {
+        return $this->hasMany(ApplicationAudit::class);
+    }
+
+    public function gisNoktalari(): HasMany
+    {
+        return $this->hasMany(GisBasvuruNokta::class, 'basvuru_id');
+    }
+
+    public function gisCizimleri(): HasMany
+    {
+        return $this->hasMany(GisCizim::class, 'basvuru_id');
     }
 }

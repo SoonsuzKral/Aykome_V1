@@ -13,6 +13,7 @@
             'draft'                  => ['label' => 'Taslak',                 'class' => 'bg-slate-100 text-slate-700'],
             'submitted'              => ['label' => 'Ön Kazı Bekliyor',       'class' => 'bg-sky-100 text-sky-700'],
             'pre_excavation_approved'=> ['label' => 'Ön Kazı Onaylı',         'class' => 'bg-cyan-100 text-cyan-700'],
+            'pre_approved'           => ['label' => 'Ön Kazı Onaylı',         'class' => 'bg-cyan-100 text-cyan-700'],
             'priced'                 => ['label' => 'Fiyatlandı',             'class' => 'bg-indigo-100 text-indigo-700'],
             'awaiting_payment'       => ['label' => 'Ödeme Bekliyor',         'class' => 'bg-amber-100 text-amber-700'],
             'receipt_pending'        => ['label' => 'Makbuz Bekliyor',        'class' => 'bg-orange-100 text-orange-700'],
@@ -35,14 +36,16 @@
             <p class="mt-1 text-sm text-slate-500">{{ $application->institution?->name }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-            {{-- 🏗 ÖN KAZI İZİN BELGESİ — Ön kazı onaylıysa indir --}}
-            @if($st === 'pre_excavation_approved' && $application->pre_excavation_document_path)
-                <a href="{{ route('admin.applications.pre-excavation-permit', $application) }}"
+            {{-- 🏗 ÖN KAZI İZİN BELGESİ — Ön kazı onaylıysa yazdır (SADECE ALT KURUM) --}}
+            @php $isAltKurum = $application->institution && !str_contains(strtolower($application->institution->name ?? ''), 'merkez'); @endphp
+            @if($isAltKurum && in_array($st, ['pre_approved', 'awaiting_payment', 'receipt_pending', 'completed']))
+                <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}"
+                   target="_blank"
                    class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-cyan-900/20 transition hover:from-cyan-500 hover:to-sky-500 active:scale-95">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                     </svg>
-                    Ön Kazı İzin Belgesi İndir
+                    📥 Belediyenin Ön Kazı İzin Belgesini (PDF) Yazdır
                 </a>
             @endif
             {{-- 🧾 TAHSİLAT MAKBUZU — Ödeme bekliyor veya makbuz bekliyor --}}
@@ -407,188 +410,367 @@
                 </div>
             @endif
 
-            {{-- Timeline --}}
+            {{-- Süreç Takip ve Zaman Çizelgesi (Audit History) --}}
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 class="mb-4 text-sm font-semibold text-slate-800">Zaman Çizelgesi</h2>
+                <h2 class="mb-4 text-sm font-semibold text-slate-800">Süreç Takip ve Zaman Çizelgesi</h2>
                 <ol class="relative border-s-2 border-slate-200 ps-1">
-                    @forelse($application->timelineLogs as $log)
+                    @php
+                        $audits = collect($application->history->map(function ($a) {
+                            return (object) [
+                                'type' => 'audit',
+                                'sort' => $a->created_at,
+                                'action' => $a->action,
+                                'user' => $a->user?->name ?? 'Sistem',
+                                'date' => $a->created_at,
+                                'old_status' => $a->old_status,
+                                'new_status' => $a->new_status,
+                            ];
+                        }))->merge($application->timelineLogs->map(function ($l) {
+                            return (object) [
+                                'type' => 'log',
+                                'sort' => $l->created_at,
+                                'action' => $l->action,
+                                'user' => $l->user?->name ?? 'Sistem',
+                                'date' => $l->created_at,
+                                'message' => $l->message,
+                            ];
+                        }))->sortByDesc('sort');
+                    @endphp
+                    @forelse($audits as $entry)
                         <li class="ms-6 pb-5 last:pb-0">
-                            <span class="absolute -start-[0.52rem] mt-1.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#02E0FB]"></span>
+                            <span class="absolute -start-[0.52rem] mt-1.5 h-3.5 w-3.5 rounded-full border-2 border-white {{ $entry->type === 'audit' ? 'bg-emerald-400' : 'bg-[#02E0FB]' }}"></span>
                             <div class="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
-                                <p class="text-sm font-medium text-slate-800">{{ $log->action }}</p>
-                                @if($log->message)<p class="mt-0.5 text-xs text-slate-600">{{ $log->message }}</p>@endif
-                                <p class="mt-1 text-[11px] text-slate-400">{{ $log->user?->name ?? 'Sistem' }} · {{ $log->created_at?->format('d.m.Y H:i') }}</p>
+                                <p class="text-sm font-medium text-slate-800">{{ $entry->action }}</p>
+                                @if(isset($entry->old_status) || isset($entry->new_status))
+                                <p class="mt-0.5 text-xs">
+                                    <span class="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">{{ $entry->old_status ?? '—' }}</span>
+                                    <span class="text-slate-400 mx-1">→</span>
+                                    <span class="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-[10px] text-emerald-700">{{ $entry->new_status ?? '—' }}</span>
+                                </p>
+                                @endif
+                                @if(isset($entry->message) && $entry->message)<p class="mt-0.5 text-xs text-slate-600">{{ $entry->message }}</p>@endif
+                                <p class="mt-1 text-[11px] text-slate-400">{{ $entry->user }} · {{ $entry->date?->format('d.m.Y H:i') }}</p>
                             </div>
                         </li>
                     @empty
-                        <li class="ms-6 text-sm text-slate-500">Kayıt yok.</li>
+                        <li class="ms-6 text-sm text-slate-500">Henüz işlem kaydı bulunmuyor.</li>
                     @endforelse
                 </ol>
             </div>
         </div>
 
         {{-- RIGHT SIDEBAR --}}
-        <div class="space-y-6">
-            {{-- Actions --}}
-            @if($can['update'] ?? false)
-                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h2 class="mb-3 text-sm font-semibold text-slate-800">İşlemler</h2>
-                    <div class="flex flex-col gap-2">
-                        @if($st === 'draft')
-                            <form method="POST" action="{{ route('admin.applications.submit', $application) }}">
-                                @csrf
-                                <button type="submit" class="w-full rounded-lg bg-slate-800 py-2 text-sm font-medium text-white hover:bg-slate-900">Belediyeye gönder</button>
-                            </form>
-                        @endif
-                        @if($can['approve_pre_excavation'] ?? false && $st === 'submitted')
-                            <form method="POST" action="{{ route('admin.applications.approve-pre-excavation', $application) }}">
-                                @csrf
-                                <button type="submit" class="w-full rounded-lg bg-cyan-700 py-2 text-sm font-medium text-white hover:bg-cyan-800">
-                                    <span class="flex items-center justify-center gap-2">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                        </svg>
-                                        Ön Kazı İzni Onay Ver
-                                    </span>
-                                </button>
-                            </form>
-                        @endif
-                        @hasrole('super-admin')
-                            @if(in_array($st, ['submitted', 'pre_excavation_approved']))
-                                <a href="{{ route('admin.settings.pre-excavation-permit') }}"
-                                   target="_blank"
-                                   class="w-full inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                    </svg>
-                                    Ön Kazı Belge Ayarları
-                                </a>
-                            @endif
-                        @endhasrole
-                        @if($can['approve_price'] ?? false && $st === 'pre_excavation_approved')
-                            <form method="POST" action="{{ route('admin.applications.approve-price', $application) }}">
-                                @csrf
-                                <button type="submit" class="w-full rounded-lg bg-emerald-700 py-2 text-sm font-medium text-white hover:bg-emerald-800">Fiyat Onay Ver</button>
-                            </form>
-                        @endif
-                        {{-- Tahsilat Makbuzu: Ödeme Bekliyor veya Makbuz Bekliyor --}}
-                        @if(in_array($st, ['awaiting_payment', 'receipt_pending']))
-                            <a href="{{ route('admin.applications.payment-receipt', $application) }}"
-                               class="w-full inline-flex items-center justify-center gap-2 rounded-lg border-2 border-amber-400 bg-amber-50 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
-                                </svg>
-                                Tahsilat Makbuzu İndir
-                            </a>
-                        @endif
-                        @if($can['approve_receipt'] ?? false)
-                            {{-- BİRLEŞİK FORM: Dosya yükleme + Onay aynı form içinde --}}
-                            <form id="receipt-upload-form"
-                                  method="POST"
-                                  action="{{ route('admin.applications.approve-receipt', $application) }}"
-                                  enctype="multipart/form-data"
-                                  novalidate>
-                                @csrf
+        <div class="space-y-4">
+            {{-- Workflow Step Navigation — Collapsible Accordion --}}
+            @php
+                $workflowSteps = [
+                    1 => ['key' => 'pending',          'label' => 'Ön Kazı',     'icon' => 'M12 2l.64 1.28a1 1 0 01.5.5L14.42 5.5l1.42-.36a1 1 0 011.1.5l.64 1.28 1.42.36a1 1 0 01.7 1.2l-.36 1.42 1.28.64a1 1 0 01.5 1.1l-.36 1.42.5 1.28a1 1 0 01-.5 1.1l-1.28.64.36 1.42a1 1 0 01-.7 1.2l-1.42.36-.64 1.28a1 1 0 01-1.1.5l-1.42-.36-1.28.64a1 1 0 01-1.1-.5L12 21.5l-1.28-.64a1 1 0 01-1.1.5l-1.42-.36-1.28.64a1 1 0 01-1.1-.5l-.64-1.28-1.42-.36a1 1 0 01-.7-1.2l.36-1.42-1.28-.64a1 1 0 01-.5-1.1l.36-1.42-.5-1.28a1 1 0 01.5-1.1l1.28-.64-.36-1.42a1 1 0 01.7-1.2l1.42-.36.64-1.28a1 1 0 011.1-.5l1.42.36 1.28-.64'],
+                    2 => ['key' => 'pre_approved',     'label' => 'Saha Metraj', 'icon' => 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z'],
+                    3 => ['key' => 'measurement_done', 'label' => 'Tahakkuk & Makbuz', 'icon' => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
+                    4 => ['key' => 'accrued',          'label' => 'Taahhütname',  'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
+                    5 => ['key' => 'licensed',         'label' => 'Ruhsat',      'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
+                ];
+                $currentStep = \App\Enums\ApplicationStatus::workflowStep($st);
+                $currentStepNum = $currentStep['step'] ?? 0;
+            @endphp
 
-                                {{-- Makbuz yoksa veya approved değilse dosya yükleme alanını göster --}}
-                                @if(!$latestReceipt || $latestReceipt->status !== 'approved')
-                                <div class="mb-3">
-                                    <p class="mb-2 text-xs font-semibold text-slate-600">
-                                        {{ $latestReceipt ? 'Yeni makbuz yükleyerek onayla' : 'Makbuz yükle ve onayla' }}
-                                    </p>
-                                    <div id="receipt-drop-zone"
-                                        class="relative flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-3 py-5 text-center transition hover:border-emerald-400 hover:bg-emerald-50/30"
-                                        onclick="document.getElementById('receipt_file_input').click()">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
-                                        </svg>
-                                        <p id="receipt-file-label" class="text-xs text-slate-600">
-                                            Dosya seçin veya <span class="font-semibold text-emerald-700">buraya sürükleyin</span>
-                                        </p>
-                                        <p class="text-[10px] text-slate-400">PDF, JPEG, PNG — Maks 5 MB</p>
-                                    </div>
-                                    <input type="file" id="receipt_file_input" name="receipt_file"
-                                        accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png,image/jpg"
-                                        class="sr-only">
-                                    <div id="receipt-file-preview" class="mt-2 hidden items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-800">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                                        <span id="receipt-file-name" class="truncate"></span>
-                                        <button type="button" id="receipt-file-clear" class="ml-auto flex-shrink-0 text-[10px] font-medium text-rose-600 hover:underline">Kaldır</button>
-                                    </div>
-                                    <div class="mt-2">
-                                        <label for="receipt_notes" class="block text-[10px] font-medium text-slate-500">Not (opsiyonel)</label>
-                                        <textarea id="receipt_notes" name="notes" rows="1"
-                                            class="mt-0.5 w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-200"
-                                            placeholder="Makbuz notu (opsiyonel)"></textarea>
-                                    </div>
-                                </div>
+            @foreach($workflowSteps as $num => $step)
+                @php
+                    $isPast = $num < $currentStepNum;
+                    $isCurrent = $num === $currentStepNum;
+                    $isFuture = $num > $currentStepNum;
+
+                    if ($isCurrent) {
+                        $cardClass = 'border-cyan-400 bg-cyan-50 ring-2 ring-cyan-200';
+                        $iconClass = 'text-cyan-700 bg-cyan-100';
+                        $textClass = 'text-cyan-900';
+                        $badgeClass = 'bg-cyan-600 text-white';
+                        $badgeText = 'Aktif';
+                        $expanded = true;
+                    } elseif ($isPast) {
+                        $cardClass = 'border-emerald-300 bg-emerald-50/70';
+                        $iconClass = 'text-emerald-700 bg-emerald-100';
+                        $textClass = 'text-emerald-900';
+                        $badgeClass = 'bg-emerald-500 text-white';
+                        $badgeText = 'Tamamlandı';
+                        $expanded = false;
+                    } else {
+                        $cardClass = 'border-slate-200 bg-slate-50/50';
+                        $iconClass = 'text-slate-400 bg-slate-100';
+                        $textClass = 'text-slate-500';
+                        $badgeClass = 'bg-slate-300 text-white';
+                        $badgeText = 'Pasif';
+                        $expanded = false;
+                    }
+
+                    $stepId = 'step-panel-' . $num;
+                @endphp
+                <div class="rounded-2xl border shadow-sm transition {{ $cardClass }}">
+                    <button type="button"
+                            onclick="toggleStep('{{ $stepId }}')"
+                            class="flex w-full items-center gap-3 px-4 py-3 text-left transition">
+                        <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg {{ $iconClass }}">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="{{ $step['icon'] }}"/>
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-semibold {{ $textClass }}">{{ $step['label'] }}</span>
+                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $badgeClass }}">{{ $badgeText }}</span>
+                            </div>
+                            <p class="mt-0.5 text-[11px] text-slate-400">{{ $num }}. adım</p>
+                        </div>
+                        @if($isPast)
+                            <svg class="h-5 w-5 flex-shrink-0 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        @else
+                            <svg id="{{ $stepId }}-chevron" class="h-4 w-4 flex-shrink-0 text-slate-400 transition-transform {{ $expanded ? 'rotate-180' : '' }}" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        @endif
+                    </button>
+
+                    {{-- Collapsible body --}}
+                    <div id="{{ $stepId }}" class="{{ $expanded ? 'block' : 'hidden' }}">
+                        <div class="border-t border-slate-200/60 px-4 py-3">
+                            {{-- ===== STEP 1: ÖN KAZI ===== --}}
+                            @if($num === 1)
+                                @php
+                                    $isAltKurum = $application->institution && !str_contains(strtolower($application->institution->name ?? ''), 'merkez');
+                                @endphp
+
+                                {{-- DURUM: draft/submitted (ilk aşama) --}}
+                                @if(in_array($st, ['draft', 'submitted']))
+
+                                    @if($st === 'draft')
+                                        <form method="POST" action="{{ route('admin.applications.submit', $application) }}" class="mb-3">
+                                            @csrf
+                                            <button type="submit" class="w-full rounded-lg bg-slate-800 py-2.5 text-sm font-medium text-white hover:bg-slate-900">Başvuruyu Belediyeye Gönder</button>
+                                        </form>
+                                    @endif
+
+                                    @if($isAltKurum)
+                                        {{-- ALT KURUM: Üst Yazı + Ön Kazı Onayı --}}
+                                        <a href="{{ route('admin.applications.pdf.cover-letter', $application) }}" target="_blank"
+                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
+                                            📄 Üst Yazı (Dilekçe) Görüntüle
+                                        </a>
+
+                                        @if($isCurrent && ($can['approve_pre_excavation'] ?? false))
+                                        <form method="POST" action="{{ route('admin.applications.approve-pre-excavation', $application) }}" class="mb-2">
+                                            @csrf
+                                            <button type="submit" class="w-full rounded-lg bg-cyan-700 py-2.5 text-sm font-medium text-white hover:bg-cyan-800">
+                                                <span class="flex items-center justify-center gap-2">
+                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                    </svg>
+                                                    ✅ Ön Kazı Onayı Ver
+                                                </span>
+                                            </button>
+                                        </form>
+                                        @endif
+                                    @else
+                                        {{-- MERKEZ/VATANDAŞ: Üst yazı yok, doğrudan metraja geç --}}
+                                        @if($isCurrent && ($can['approve_pre_excavation'] ?? false))
+                                        <form method="POST" action="{{ route('admin.applications.approve-pre-excavation', $application) }}" class="mb-2">
+                                            @csrf
+                                            <button type="submit" class="w-full rounded-lg bg-emerald-700 py-2.5 text-sm font-medium text-white hover:bg-emerald-800">
+                                                <span class="flex items-center justify-center gap-2">
+                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                    </svg>
+                                                    ✅ Talebi İşleme Al ve Metraj Ekranına Geç
+                                                </span>
+                                            </button>
+                                        </form>
+                                        @endif
+                                    @endif
+
+                                    @if(auth()->user()->hasRole('super-admin') && $isAltKurum && in_array($st, ['submitted']))
+                                        <a href="{{ route('admin.settings.pre-excavation-permit') }}" target="_blank"
+                                           class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
+                                            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            </svg>
+                                            Ön Kazı Belge Ayarları
+                                        </a>
+                                    @endif
+
+                                {{-- DURUM: pre_approved veya sonrası (ön kazı aşaması geçildi) --}}
+                                @elseif(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'completed']))
+                                    @if($isAltKurum)
+                                    <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}" target="_blank"
+                                       class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
+                                        📥 Belediyenin Ön Kazı İzin Belgesini (PDF) Yazdır
+                                    </a>
+                                    @else
+                                    <p class="text-xs text-slate-400">Ön Kazı aşaması tamamlandı. (Merkez/Vatandaş başvurusu — evrak gerektirmez)</p>
+                                    @endif
                                 @endif
 
-                                <button type="submit" id="receipt-submit-btn"
-                                    class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 py-2 text-sm font-medium text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                                    Makbuz onayla &amp; PDF üret
-                                </button>
-                                <span id="receipt-upload-status" class="mt-1 hidden items-center justify-center gap-2 text-xs text-slate-500">
-                                    <svg class="h-3.5 w-3.5 animate-spin text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                                    </svg>
-                                    İşleniyor…
-                                </span>
-                            </form>
-                        @endif
+                            {{-- ===== STEP 2: SAHA METRAJ ===== --}}
+                            @elseif($num === 2)
+                                @if($isCurrent || $isPast)
+                                    @if($isCurrent && ($can['approve_price'] ?? false))
+                                        <form method="POST" action="{{ route('admin.applications.approve-price', $application) }}" class="mb-2">
+                                            @csrf
+                                            <button type="submit" class="w-full rounded-lg bg-emerald-700 py-2.5 text-sm font-medium text-white hover:bg-emerald-800">Metrajı Onayla &amp; Kuruma Gönder</button>
+                                        </form>
+                                    @endif
+
+                                    {{-- Saha Görevi Devri --}}
+                                    @if(($can['transfer'] ?? false) && $fieldUsers->isNotEmpty() && $isCurrent)
+                                        <div class="rounded-lg border border-slate-200 bg-white p-3 mb-2">
+                                            <p class="mb-2 text-xs font-semibold text-slate-600">Saha Görevi Devri</p>
+                                            <form method="POST" action="{{ route('admin.applications.field-tasks.store', $application) }}" class="space-y-2">
+                                                @csrf
+                                                <select name="assigned_to" required class="block w-full rounded-lg border-slate-300 text-xs">
+                                                    @foreach($fieldUsers as $u)
+                                                        <option value="{{ $u->id }}">{{ $u->name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <input type="date" name="due_date" class="block w-full rounded-lg border-slate-300 text-xs">
+                                                <textarea name="notes" rows="1" placeholder="Not" class="block w-full rounded-lg border-slate-300 text-xs"></textarea>
+                                                <button type="submit" class="w-full rounded-lg bg-slate-700 py-1.5 text-xs font-medium text-white hover:bg-slate-800">Devret</button>
+                                            </form>
+                                        </div>
+                                    @endif
+
+                                    {{-- Metraj PDF -- herkes görebilir (pre_approved+) --}}
+                                    @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'completed']))
+                                    <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
+                                       class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 mb-2">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
+                                        📄 Kazı Metraj Cetveli (PDF) Görüntüle
+                                    </a>
+                                    @endif
+
+                                @endif
+
+                            {{-- ===== STEP 3: TAHAKKUK & MAKBUZ ===== --}}
+                            @elseif($num === 3)
+                                @if($isCurrent || $isPast)
+                                    @if(in_array($st, ['awaiting_payment', 'receipt_pending']))
+                                        <a href="{{ route('admin.applications.payment-receipt', $application) }}"
+                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-amber-400 bg-amber-50 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
+                                            </svg>
+                                            Tahsilat Makbuzunu Görüntüle
+                                        </a>
+                                    @endif
+
+                                    @if($can['approve_receipt'] ?? false && $isCurrent)
+                                        <form id="receipt-upload-form" method="POST"
+                                              action="{{ route('admin.applications.approve-receipt', $application) }}"
+                                              enctype="multipart/form-data" novalidate class="mb-2">
+                                            @csrf
+                                            @if(!$latestReceipt || $latestReceipt->status !== 'approved')
+                                            <div class="mb-2 rounded-lg border border-dashed border-slate-300 bg-white p-2">
+                                                <p class="mb-1 text-xs font-medium text-slate-600">Makbuz yükle</p>
+                                                <div id="receipt-drop-zone" class="relative flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-2 py-3 text-center transition hover:border-emerald-400 hover:bg-emerald-50/30"
+                                                     onclick="document.getElementById('receipt_file_input').click()">
+                                                    <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                                                    </svg>
+                                                    <p class="text-xs text-slate-500"><span class="font-semibold text-emerald-700">Dosya seç</span></p>
+                                                </div>
+                                                <input type="file" id="receipt_file_input" name="receipt_file"
+                                                       accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png,image/jpg" class="sr-only">
+                                                <div id="receipt-file-preview" class="mt-1.5 hidden items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
+                                                    <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                    <span id="receipt-file-name" class="truncate"></span>
+                                                    <button type="button" id="receipt-file-clear" class="ml-auto text-[10px] font-medium text-rose-600 hover:underline">Kaldır</button>
+                                                </div>
+                                            </div>
+                                            @endif
+                                            <button type="submit" id="receipt-submit-btn"
+                                                    class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 py-2.5 text-sm font-medium text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60">
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                Makbuz Onayla &amp; PDF Üret
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                    @if($can['reject_receipt'] ?? false && $isCurrent)
+                                        <div class="rounded-lg border border-rose-200 bg-rose-50/50 p-3">
+                                            <p class="mb-2 text-xs font-semibold text-rose-800">Makbuz Reddi</p>
+                                            <form method="POST" action="{{ route('admin.applications.reject-receipt', $application) }}"
+                                                  class="space-y-2"
+                                                  onsubmit="return confirm('Makbuz reddedilsin mi? Başvuru ödeme bekleniyor durumuna alınacak.');">
+                                                @csrf
+                                                <textarea name="review_notes" rows="2" required placeholder="Ret gerekçesini yazın"
+                                                    class="w-full rounded-lg border border-rose-200 bg-white px-2 py-1.5 text-xs focus:border-rose-400 focus:outline-none focus:ring-1 focus:ring-rose-100"></textarea>
+                                                <button type="submit" class="w-full rounded-lg bg-rose-700 py-1.5 text-xs font-medium text-white hover:bg-rose-800">Makbuzu Reddet</button>
+                                            </form>
+                                        </div>
+                                    @endif
+                                @endif
+
+                            {{-- ===== STEP 4: TAAHHÜTNAME ===== --}}
+                            @elseif($num === 4)
+                                <p class="text-xs text-slate-400">Taahhütname işlemleri bu adımda yapılacak.</p>
+
+                            {{-- ===== STEP 5: RUHSAT ===== --}}
+                            @elseif($num === 5)
+                                @php
+                                    $isAltKurum = $application->institution && !str_contains(strtolower($application->institution->name ?? ''), 'merkez');
+                                    $makbuzlarDolu = $application->ztb_receipt_info && $application->deposit_receipt_info;
+                                    $isLicensed = $st === 'licensed';
+                                @endphp
+
+                                @if($isCurrent || $isPast)
+                                    @if($makbuzlarDolu || $isLicensed)
+                                        <a href="{{ route('admin.applications.pdf.ruhsat', $application) }}" target="_blank"
+                                           class="flex w-full items-center justify-center gap-2 rounded-lg bg-sky-600 py-3 text-sm font-bold text-white shadow-md hover:bg-sky-500 transition">
+                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                                            </svg>
+                                            🖨️ AÇIM RUHSATI (FR-290) BELGESİNİ İNDİR / YAZDIR
+                                        </a>
+                                    @else
+                                        <form method="POST" action="{{ route('admin.applications.save-receipt-info', $application) }}" class="space-y-3">
+                                            @csrf
+                                            @method('PUT')
+                                            <div>
+                                                <label class="block text-xs font-medium text-slate-600 mb-1">ZTB Makbuz No ve Tarihi:</label>
+                                                <input type="text" name="ztb_receipt_info" value="{{ old('ztb_receipt_info', $application->ztb_receipt_info) }}"
+                                                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                                                       placeholder="Örn: 22.07.2026-0938547">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-medium text-slate-600 mb-1">Teminat Makbuz No ve Tarihi:</label>
+                                                <input type="text" name="deposit_receipt_info"
+                                                       @if($isAltKurum) readonly disabled
+                                                       class="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-400 cursor-not-allowed"
+                                                       @else
+                                                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                                                       @endif
+                                                       value="{{ old('deposit_receipt_info', $isAltKurum ? 'Muaf / Sıfır' : $application->deposit_receipt_info) }}"
+                                                       placeholder="Örn: 22.07.2026-0938548">
+                                                @if($isAltKurum)
+                                                    <p class="mt-1 text-[10px] text-slate-400">Alt kurum olduğu için teminat muaf.</p>
+                                                @endif
+                                            </div>
+                                            <button type="submit"
+                                                    class="w-full rounded-lg bg-cyan-600 py-2 text-sm font-bold text-white hover:bg-cyan-500 transition">
+                                                Makbuzları Kaydet
+                                            </button>
+                                        </form>
+                                    @endif
+                                @endif
+                            @endif
+                        </div>
                     </div>
                 </div>
-            @endif
+            @endforeach
 
-            {{-- Receipt Reject --}}
-            @if($can['reject_receipt'] ?? false)
-                <div class="rounded-2xl border border-rose-200 bg-rose-50/50 p-5 shadow-sm">
-                    <h2 class="mb-3 text-sm font-semibold text-rose-800">Makbuz Reddi</h2>
-                    <form method="POST" action="{{ route('admin.applications.reject-receipt', $application) }}"
-                          class="space-y-3"
-                          onsubmit="return confirm('Makbuz reddedilsin mi? Başvuru ödeme bekleniyor durumuna alınacak.');">
-                        @csrf
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600">Ret gerekçesi *</label>
-                            <textarea name="review_notes" rows="3" required
-                                class="mt-1 w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-sm focus:border-rose-400 focus:outline-none focus:ring-2 focus:ring-rose-100"
-                                placeholder="Ret gerekçesini yazın"></textarea>
-                        </div>
-                        <button type="submit" class="w-full rounded-lg bg-rose-700 py-2 text-sm font-medium text-white hover:bg-rose-800">Makbuzu Reddet</button>
-                    </form>
-                </div>
-            @endif
-
-            {{-- Task Transfer --}}
-            @if(($can['transfer'] ?? false) && $fieldUsers->isNotEmpty())
-                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h2 class="mb-3 text-sm font-semibold text-slate-800">Saha Görevi Devri</h2>
-                    <form method="POST" action="{{ route('admin.applications.field-tasks.store', $application) }}" class="space-y-3">
-                        @csrf
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600">Saha personeli</label>
-                            <select name="assigned_to" required class="mt-1 block w-full rounded-lg border-slate-300 text-sm">
-                                @foreach($fieldUsers as $u)
-                                    <option value="{{ $u->id }}">{{ $u->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600">Termin tarihi</label>
-                            <input type="date" name="due_date" class="mt-1 block w-full rounded-lg border-slate-300 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium text-slate-600">Not</label>
-                            <textarea name="notes" rows="2" class="mt-1 w-full rounded-lg border-slate-300 text-sm"></textarea>
-                        </div>
-                        <button type="submit" class="w-full rounded-lg bg-slate-700 py-2 text-sm font-medium text-white hover:bg-slate-800">Devret</button>
-                    </form>
-                </div>
-            @endif
-
+            {{-- Başvuruyu Düzenle — her durumda göster --}}
             @can('update', $application)
                 <a href="{{ route('admin.applications.edit', $application) }}"
                    class="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-emerald-700 shadow-sm hover:bg-emerald-50 hover:border-emerald-200">
@@ -793,5 +975,15 @@
         } catch (e) {}
     }, 5000);
 })();
+</script>
+<script>
+function toggleStep(id) {
+    const el = document.getElementById(id);
+    const chevron = document.getElementById(id + '-chevron');
+    if (!el) return;
+    const isHidden = el.classList.contains('hidden');
+    el.classList.toggle('hidden');
+    if (chevron) chevron.classList.toggle('rotate-180');
+}
 </script>
 @endpush
