@@ -78,6 +78,23 @@ Route::middleware(['auth', 'role:super-admin'])->prefix('db-switch')->name('db-s
 
 require __DIR__.'/admin.php';
 
+// ─── E-İmza (Web: auth ile) ──────────────────────────────────────
+Route::middleware(['auth'])->prefix('api/e-imza')->name('api.e-imza.')->group(function () {
+    Route::post('/baslat',       [\App\Http\Controllers\Api\EImzaController::class, 'baslat'])->name('baslat');
+    Route::get('/durum/{transactionId}', [\App\Http\Controllers\Api\EImzaController::class, 'durum'])->name('durum');
+});
+
+// ─── E-İmza (Machine-to-machine: API Key ile) ────────────────────
+Route::prefix('api/e-imza')->group(function () {
+    Route::get('/pdf/{transactionId}',       [\App\Http\Controllers\Api\EImzaController::class, 'pdf'])->name('api.e-imza.pdf');
+    Route::post('/tamamla',                  [\App\Http\Controllers\Api\EImzaController::class, 'tamamla'])->middleware('e-imza.api-key')->name('api.e-imza.tamamla');
+});
+
+// ─── E-İmza (Auth ile dosya indirme) ─────────────────────────────
+Route::middleware('auth')->prefix('e-imza')->name('e-imza.')->group(function () {
+    Route::get('/indir/{transactionId}',     [\App\Http\Controllers\Api\EImzaController::class, 'indir'])->name('indir');
+});
+
 Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::delete('/admin/profile', [ProfileController::class, 'destroy'])->name('admin.profile.destroy');

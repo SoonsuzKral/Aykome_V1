@@ -104,14 +104,14 @@
                                     <input type="text" value="{{ $institutionPrefill['tax_number'] }}" readonly
                                         class="block w-full cursor-not-allowed rounded-lg border-slate-200 bg-slate-100 font-mono text-sm tracking-widest text-slate-500 shadow-sm">
                                     <input type="hidden" name="applicant_national_id" value="{{ $institutionPrefill['tax_number'] }}">
-                                    <input type="hidden" id="tc_no" name="tc_no" value="{{ $institutionPrefill['tax_number'] }}">
-                                    <input type="hidden" id="identity_no" name="identity_no" value="{{ $institutionPrefill['tax_number'] }}">
+                                    <input type="hidden" name="tc_no" value="{{ $institutionPrefill['tax_number'] }}">
+                                    <input type="hidden" name="identity_no" value="{{ $institutionPrefill['tax_number'] }}">
                                 @else
                                     <input type="text" value="{{ $applicantPrefill['national_id_masked'] }}" readonly
                                         class="block w-full cursor-not-allowed rounded-lg border-slate-200 bg-slate-100 font-mono text-sm tracking-widest text-slate-500 shadow-sm">
                                     <input type="hidden" name="applicant_national_id" value="{{ $applicantPrefill['national_id'] }}">
-                                    <input type="hidden" id="tc_no" name="tc_no" value="{{ $applicantPrefill['national_id'] }}">
-                                    <input type="hidden" id="identity_no" name="identity_no" value="{{ $applicantPrefill['national_id'] }}">
+                                    <input type="hidden" name="tc_no" value="{{ $applicantPrefill['national_id'] }}">
+                                    <input type="hidden" name="identity_no" value="{{ $applicantPrefill['national_id'] }}">
                                 @endif
                                 <span class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-2 text-xs font-semibold text-amber-700">
                                     🔒 Kilitli
@@ -146,8 +146,8 @@
                                     TCKN Sorgula
                                 </button>
                             </div>
-                            <input type="hidden" id="tc_no" name="tc_no" value="{{ old('tc_no', old('applicant_national_id')) }}">
-                            <input type="hidden" id="identity_no" name="identity_no" value="{{ old('identity_no', old('applicant_national_id')) }}">
+                            <input type="hidden" id="tc_no_belediye" name="tc_no" value="{{ old('tc_no', old('applicant_national_id')) }}">
+                            <input type="hidden" id="identity_no_belediye" name="identity_no" value="{{ old('identity_no', old('applicant_national_id')) }}">
                             <p id="tckn-check-status" class="mt-1 text-xs text-slate-500"></p>
                             @error('applicant_national_id')
                                 <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
@@ -191,14 +191,14 @@
                         @enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700" for="project_code">Proje Kodu</label>
+                        <label class="block text-sm font-medium text-slate-700" for="project_code">Proje / İşin Adı</label>
                         <input id="project_code" type="text" name="project_code" value="{{ old('project_code') }}" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('project_code') border-red-300 ring-red-100 @enderror">
                         @error('project_code')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700" for="work_type">Çalışma türü</label>
+                        <label class="block text-sm font-medium text-slate-700" for="work_type">İşin Adı</label>
                         <input id="work_type" type="text" name="work_type" value="{{ old('work_type') }}" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('work_type') border-red-300 ring-red-100 @enderror">
                         @error('work_type')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
@@ -218,7 +218,7 @@
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium text-slate-700">Mahalle & Sokak Listesi</label>
                         <p class="text-xs text-slate-500 mb-2">Başvuruya ait mahalle ve sokakları ekleyin. Üst yazıda otomatik tablo olarak görünecektir.</p>
-                        <input type="hidden" name="address_components" id="address_components" value='{{ old('address_components', '[]') }}'>
+                        <input type="hidden" name="address_components" id="address_components" value='{{ old('address_components_json', old('address_components', '[]')) }}'>
                         <div id="address-components-container" class="space-y-2">
                         </div>
                         <button type="button" id="add-address-component-btn" class="mt-2 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition">
@@ -257,6 +257,38 @@
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+                    @unless($isInstitutionUser)
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="vice_mayor_name">Belediye Başkan Yardımcısı</label>
+                        <input id="vice_mayor_name" type="text" name="vice_mayor_name" value="{{ old('vice_mayor_name') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('vice_mayor_name') border-red-300 ring-red-100 @enderror" placeholder="Mustafa Kemal KARATAŞ">
+                        @error('vice_mayor_name')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    @endunless
+                    @if($isInstitutionUser)
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700" for="tesis_sorumlusu">Tesis Sorumlusu</label>
+                        <input id="tesis_sorumlusu" type="text" name="tesis_sorumlusu" value="{{ old('tesis_sorumlusu') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('tesis_sorumlusu') border-red-300 ring-red-100 @enderror" placeholder="Tesis sorumlusunun adı soyadı">
+                        @error('tesis_sorumlusu')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="mudur_adi">Müdür Adı</label>
+                        <input id="mudur_adi" type="text" name="mudur_adi" value="{{ old('mudur_adi') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('mudur_adi') border-red-300 ring-red-100 @enderror" placeholder="Müdür adı soyadı">
+                        @error('mudur_adi')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="mudur_unvani">Müdür Ünvanı</label>
+                        <input id="mudur_unvani" type="text" name="mudur_unvani" value="{{ old('mudur_unvani') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('mudur_unvani') border-red-300 ring-red-100 @enderror" placeholder="İl Müdürü / Müdür Yardımcısı">
+                        @error('mudur_unvani')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    @endif
                 </fieldset>
             </div>
 
@@ -743,7 +775,8 @@
             const container = document.getElementById('surface-lines-hidden-inputs');
             container.innerHTML = '';
 
-            surfaceLines.forEach(function (row, idx) {
+            var validRows = surfaceLines.filter(function (r) { return r.surface_type_id; });
+            validRows.forEach(function (row, idx) {
                 function addHidden(name, value) {
                     const inp = document.createElement('input');
                     inp.type = 'hidden';
@@ -751,7 +784,7 @@
                     inp.value = value != null ? value : '';
                     container.appendChild(inp);
                 }
-                addHidden('surface_type_id', row.surface_type_id || '');
+                addHidden('surface_type_id', row.surface_type_id);
                 addHidden('width_m', row.width_m || '');
                 addHidden('length_m', row.length_m || '');
                 addHidden('quantity', row.quantity || '');
@@ -1306,7 +1339,7 @@
         }
 
         function setField(id, val, lock) {
-            var el = document.getElementById(id);
+            var el = document.getElementById(id) || document.querySelector('[name="' + id + '"]');
             if (!el) return;
             if (val !== null) el.value = val || '';
             if (lock) { el.readOnly = true; }
@@ -1480,7 +1513,38 @@
                 addSurfaceLine({});
             });
 
-            // ─── ADDRESS COMPONENTS ────────────────────────────────────────
+            // ─── ADDRESS COMPONENTS (NESTED CADDE/SOKAK DOM) ────────────────
+            function prepareAddressComponents() {
+                var container = document.getElementById('address-components-container');
+                if (!container) return;
+                var result = [];
+                container.querySelectorAll('[data-mahalle-idx]').forEach(function (wrapper) {
+                    var mahalleInput = wrapper.querySelector('.comp-mahalle');
+                    if (!mahalleInput) return;
+                    var mahalle = mahalleInput.value.trim();
+                    var streets = [];
+                    wrapper.querySelectorAll('.comp-street').forEach(function (s) {
+                        var v = s.value.trim();
+                        if (v) streets.push(v);
+                    });
+                    result.push({ mahalle: mahalle, streets: streets });
+                });
+                var json = JSON.stringify(result);
+                var h = document.getElementById('address_components_json');
+                if (!h) {
+                    h = document.createElement('input');
+                    h.type = 'hidden';
+                    h.name = 'address_components_json';
+                    h.id = 'address_components_json';
+                    document.getElementById('application-form').appendChild(h);
+                }
+                h.value = json;
+                var main = document.getElementById('address_components');
+                if (main) main.value = json;
+            }
+
+            function esc(v) { return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
             function initAddressComponents() {
                 var hiddenInput = document.getElementById('address_components');
                 var container = document.getElementById('address-components-container');
@@ -1499,15 +1563,41 @@
                     container.innerHTML = '';
                     components.forEach(function (comp, idx) {
                         var streets = Array.isArray(comp.streets) ? comp.streets : [];
-                        var div = document.createElement('div');
-                        div.className = 'flex items-start gap-2 p-2 rounded-lg border border-slate-200 bg-white';
-                        div.innerHTML =
-                            '<div class="flex-1 space-y-1">' +
-                                '<input type="text" class="comp-mahalle block w-full rounded border-slate-300 text-xs shadow-sm" value="' + (comp.mahalle || '') + '" placeholder="Mahalle Adı (örn: 15 TEMMUZ MAHALLESİ)" data-idx="' + idx + '">' +
-                                '<input type="text" class="comp-streets block w-full rounded border-slate-300 text-xs shadow-sm" value="' + (streets.join(', ')) + '" placeholder="Cadde/Sokak İsimleri (Virgülle ayırın)" data-idx="' + idx + '">' +
-                            '</div>' +
-                            '<button type="button" class="comp-remove shrink-0 rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600" data-idx="' + idx + '" title="Kaldır">&times;</button>';
-                        container.appendChild(div);
+                        var wrapper = document.createElement('div');
+                        wrapper.className = 'p-3 rounded-lg border border-slate-200 bg-white space-y-2';
+                        wrapper.setAttribute('data-mahalle-idx', idx);
+
+                        var header = document.createElement('div');
+                        header.className = 'flex items-center gap-2';
+                        header.innerHTML =
+                            '<input type="text" class="comp-mahalle flex-1 rounded border-slate-300 text-xs shadow-sm" value="' + esc(comp.mahalle) + '" placeholder="Mahalle Adı (örn: 15 TEMMUZ MAHALLESİ)" data-idx="' + idx + '">' +
+                            '<button type="button" class="comp-remove flex-shrink-0 rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600" data-idx="' + idx + '" title="Mahalleyi Kaldır">&times;</button>';
+                        wrapper.appendChild(header);
+
+                        var streetsContainer = document.createElement('div');
+                        streetsContainer.className = 'ml-2 space-y-1';
+                        streetsContainer.setAttribute('data-streets-container', idx);
+
+                        streets.forEach(function (s, si) {
+                            var sRow = document.createElement('div');
+                            sRow.className = 'flex items-center gap-1';
+                            sRow.innerHTML =
+                                '<span class="text-[10px] text-slate-400 w-4">' + (si + 1) + '.</span>' +
+                                '<input type="text" class="comp-street flex-1 rounded border-slate-200 text-[11px] shadow-sm" value="' + esc(s) + '" placeholder="Cadde/Sokak adı" data-idx="' + idx + '" data-street-idx="' + si + '">' +
+                                '<button type="button" class="street-remove flex-shrink-0 rounded p-0.5 text-red-300 hover:text-red-500" data-idx="' + idx + '" data-street-idx="' + si + '">&times;</button>';
+                            streetsContainer.appendChild(sRow);
+                        });
+
+                        wrapper.appendChild(streetsContainer);
+
+                        var addStreetBtn = document.createElement('button');
+                        addStreetBtn.type = 'button';
+                        addStreetBtn.className = 'ml-2 text-[10px] font-medium text-cyan-700 hover:text-cyan-900 hover:underline';
+                        addStreetBtn.setAttribute('data-add-street-idx', idx);
+                        addStreetBtn.textContent = '+ Cadde / Sokak Ekle';
+                        wrapper.appendChild(addStreetBtn);
+
+                        container.appendChild(wrapper);
                     });
                     attachEvents();
                 }
@@ -1520,15 +1610,41 @@
                             syncHidden();
                         });
                     });
-                    container.querySelectorAll('.comp-streets').forEach(function (el) {
+
+                    container.querySelectorAll('.comp-street').forEach(function (el) {
                         el.addEventListener('input', function () {
                             var idx = parseInt(this.dataset.idx);
-                            if (!isNaN(idx) && components[idx]) {
-                                components[idx].streets = this.value.split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+                            var si = parseInt(this.dataset.streetIdx);
+                            if (!isNaN(idx) && !isNaN(si) && components[idx] && components[idx].streets) {
+                                components[idx].streets[si] = this.value;
                             }
                             syncHidden();
                         });
                     });
+
+                    container.querySelectorAll('.street-remove').forEach(function (el) {
+                        el.addEventListener('click', function () {
+                            var idx = parseInt(this.dataset.idx);
+                            var si = parseInt(this.dataset.streetIdx);
+                            if (!isNaN(idx) && !isNaN(si) && components[idx] && components[idx].streets) {
+                                components[idx].streets.splice(si, 1);
+                                syncHidden();
+                                render();
+                            }
+                        });
+                    });
+
+                    container.querySelectorAll('[data-add-street-idx]').forEach(function (el) {
+                        el.addEventListener('click', function () {
+                            var idx = parseInt(this.dataset.addStreetIdx);
+                            if (!isNaN(idx) && components[idx]) {
+                                components[idx].streets.push('');
+                                syncHidden();
+                                render();
+                            }
+                        });
+                    });
+
                     container.querySelectorAll('.comp-remove').forEach(function (el) {
                         el.addEventListener('click', function () {
                             var idx = parseInt(this.dataset.idx);
@@ -1555,6 +1671,7 @@
             // Submit hook
             document.getElementById('application-form')?.addEventListener('submit', function () {
                 prepareSurfaceLinesForSubmit();
+                prepareAddressComponents();
             });
         });
     </script>

@@ -23,6 +23,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'license'            => \App\Http\Middleware\CheckLicense::class,
             'field-team-scope'   => \App\Http\Middleware\FieldTeamScope::class,
+            'e-imza.api-key'     => \App\Http\Middleware\EImzaApiKey::class,
+        ]);
+
+        $middleware->validateCsrfTokens(except: [
+            'api/e-imza/tamamla',
+            'api/e-imza/pdf/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

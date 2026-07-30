@@ -44,6 +44,7 @@ class FieldTaskCompleted implements ShouldBroadcastNow
                 'task_id'        => $task->id,
                 'application_id' => $app?->id,
                 'application_no' => $app?->application_no,
+                'institution_id' => $app?->institution_id,
                 'address'        => $app?->address_text,
                 'assignee'       => $task->assignee?->name ?? 'Saha Personeli',
                 'completed_at'   => now()->format('d.m.Y H:i'),

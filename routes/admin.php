@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ApplicationsController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ExtraPermitController;
 use App\Http\Controllers\Admin\FieldTaskController;
 use App\Http\Controllers\Admin\FieldReportController;
 use App\Http\Controllers\Admin\InstitutionController;
@@ -37,6 +38,8 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::match(['GET', 'POST'], 'applications/{application}/approve-receipt', [ApplicationsController::class, 'approveReceipt'])->name('applications.approve-receipt');
         Route::post('applications/{application}/reject-receipt', [ApplicationsController::class, 'rejectReceipt'])->name('applications.reject-receipt');
         Route::post('applications/{application}/field-tasks', [ApplicationsController::class, 'transfer'])->name('applications.field-tasks.store');
+        Route::post('applications/{application}/transfer', [ApplicationsController::class, 'transferApplication'])->name('applications.transfer');
+        Route::post('applications/{application}/cancel', [ApplicationsController::class, 'cancel'])->name('applications.cancel');
         Route::post('applications/{application}/receipts', [ApplicationsController::class, 'storeReceipt'])->name('applications.receipts.store');
         Route::get('applications/{application}/license-pdf',      [ApplicationsController::class, 'downloadLicense']       )->name('applications.license-pdf');
         Route::get('applications/{application}/permit-live',     [ApplicationsController::class, 'downloadPermitLive']    )->name('applications.permit-live');
@@ -46,8 +49,17 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::get('applications/{application}/pdf/ruhsat',       [ApplicationsController::class, 'downloadRuhsat']     )->name('applications.pdf.ruhsat');
         Route::get('applications/{application}/pdf/metraj',       [ApplicationsController::class, 'downloadMetraj']     )->name('applications.pdf.metraj');
         Route::get('applications/{application}/pdf/tahakkuk',     [ApplicationsController::class, 'downloadTahakkuk']   )->name('applications.pdf.tahakkuk');
+        Route::get('applications/{application}/pdf/tahsilat-fisi', [ApplicationsController::class, 'downloadTahsilatFisi'])->name('applications.pdf.tahsilat-fisi');
         Route::put('applications/{application}/save-receipt-info', [ApplicationsController::class, 'saveReceiptInfo']     )->name('applications.save-receipt-info');
+        Route::post('applications/{application}/update-surface-lines', [ApplicationsController::class, 'updateSurfaceLines'])->name('applications.update-surface-lines');
+        Route::post('applications/{application}/upload-signed-document', [ApplicationsController::class, 'uploadSignedModuleDocument'])->name('applications.upload-signed-document');
         Route::get('applications/{application}/status',          [ApplicationsController::class, 'statusJson']             )->name('applications.status');
+
+        Route::get('applications/{application}/extra-permits',          [ExtraPermitController::class, 'index'])->name('extra-permits.index');
+        Route::get('applications/{application}/extra-permits/create',   [ExtraPermitController::class, 'create'])->name('extra-permits.create');
+        Route::post('applications/{application}/extra-permits',         [ExtraPermitController::class, 'store'])->name('extra-permits.store');
+        Route::get('applications/{application}/extra-permits/{extraPermit}', [ExtraPermitController::class, 'show'])->name('extra-permits.show');
+        Route::delete('applications/{application}/extra-permits/{extraPermit}', [ExtraPermitController::class, 'destroy'])->name('extra-permits.destroy');
 
         Route::get('field-tasks/{fieldTask}',        [FieldTaskController::class, 'show']        )->name('field-tasks.show');
         Route::get('field-tasks/{fieldTask}/inspect', [FieldTaskController::class, 'inspect']     )->name('field-tasks.inspect');

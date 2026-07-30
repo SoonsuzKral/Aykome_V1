@@ -35,10 +35,10 @@
         <table>
             <tr>
                 <td style="width:25%;">
-                    @if($application->institution)
-                        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSY1aGeBk3bGnpaUikWjQ-JRMM9kPhZbX8KevL3u5IahtS6t3Zdd-IS4Ic&s=10" alt="Logo" style="max-height:180px;">
+                    @if($logo_base64)
+                        <img src="{{ $logo_base64 }}" alt="Logo" style="max-height:85px; width:auto;">
                     @else
-                        <div>BAŞVURU BELGESİ</div>
+                        <div style="font-size: 26px; font-weight: 900; color: #0f172a; text-align:left;">{!! mb_strtoupper(mb_substr($application->institution?->name ?? 'BELEDİYE', 0, 5), 'UTF-8') !!}...</div>
                     @endif
                 </td>
                 <td style="width:50%; text-align:center; padding-top:10px;">
@@ -105,14 +105,14 @@
         <table style="width:100%; margin-top: 50px;">
             <tr>
                 <td style="width:60%; line-height:1.4;">
-                    @php $appName = trim(($application->applicant_first_name ?? '') . ' ' . ($application->applicant_last_name ?? '')); @endphp
-                    Tesis Kontrol: <b>{{ mb_strtoupper($appName ?: '', 'UTF-8') }}</b><br>
+                    Tesis Sorumlusu: <b>{{ mb_strtoupper(trim(($application->tesis_sorumlusu ?? $application->institution?->engineer_name ?? 'Tesis Sorumlusu')), 'UTF-8') }}</b><br>
                     Tel / GSM : <b>{{ $application->applicant_phone ?? '' }}</b><br>
                     Toplam Kazı : <b>{{ number_format((float)($application->total_area_m2 ?? 0), 2, ',', '.') }} m² / m. </b>
                 </td>
                 <td style="width:40%; text-align:center;">
-                    <b>FUAT DEĞER</b><br>
-                    <span style="font-size:14.5px;">Şanlıurfa İl Müdür Yardımcısı</span>
+                    <b style="text-transform:uppercase; font-size:14px;">{{ mb_strtoupper($application->mudur_unvani ?? ($application->institution?->manager_name ? 'İl Müdürü' : 'Kurum Yetkilisi')), 'UTF-8' }}</b><br>
+                    <b style="text-transform:uppercase;">{{ mb_strtoupper($application->mudur_adi ?? $application->institution?->manager_name ?? 'Kurum Yetkilisi'), 'UTF-8' }}</b><br>
+                    <span style="font-size:13.5px;">{{ mb_strtoupper($application->institution?->name ?? '', 'UTF-8') }} Yöneticiliği / İl Md. Yrd.</span>
                 </td>
             </tr>
         </table>

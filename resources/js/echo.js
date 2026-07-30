@@ -46,6 +46,12 @@ function _playNotificationSound() {
         .catch(e => console.log('[Audio] ses izni bekleniyor:', e));
 }
 
+// ── Current user context (from meta tags) ─────────────────────────────────────
+const _userId = document.querySelector('meta[name="user-id"]')?.getAttribute('content');
+const _userInstId = document.querySelector('meta[name="user-institution-id"]')?.getAttribute('content');
+const _userRoles = (document.querySelector('meta[name="user-roles"]')?.getAttribute('content') || '').split(',');
+const _isMunicipalityUser = _userRoles.some(r => ['super-admin', 'municipality-admin', 'municipality-staff'].includes(r.trim()));
+
 // ── Listen on admin-notifications channel ────────────────────────────────────
 // broadcastAs() values are dot-prefixed in JS listeners
 console.log('Echo dinlemeye başladı — admin-notifications kanalı aktif.');
@@ -59,11 +65,21 @@ function _bumpNotifBadge() {
     badge.classList.remove('hidden');
 }
 
+// ── Institution filter: show only if user is municipality/admin OR same inst ──
+function _shouldShowNotification(data) {
+    if (_isMunicipalityUser) return true;
+    if (data.institution_id && _userInstId) {
+        return String(data.institution_id) === String(_userInstId);
+    }
+    return false;
+}
+
 window.Echo.channel('admin-notifications')
 
     // ── Saha görevi tamamlandı ────────────────────────────────────────────
     .listen('.field-task.completed', (data) => {
         console.log('[Reverb] field-task.completed alındı:', data);
+        if (!_shouldShowNotification(data)) return;
         _toast('success', 'Saha Görevi Tamamlandı', data.message ?? 'Bir saha görevi tamamlandı.');
         _playNotificationSound();
         _bumpNotifBadge();
@@ -72,6 +88,7 @@ window.Echo.channel('admin-notifications')
     // ── Makbuz yüklendi ───────────────────────────────────────────────────
     .listen('.receipt.uploaded', (data) => {
         console.log('[Reverb] receipt.uploaded alındı:', data);
+        if (!_shouldShowNotification(data)) return;
         const text = data.message ?? 'Bir başvuruya makbuz yüklendi.';
         _toast('info', 'Makbuz Yüklendi', text, data.detail_url ?? null);
         _playNotificationSound();
@@ -81,6 +98,7 @@ window.Echo.channel('admin-notifications')
     // ── Başvuru gönderildi (alt kurum → belediye) ─────────────────────────
     .listen('.application.submitted', (data) => {
         console.log('[Reverb] application.submitted alındı:', data);
+        if (!_shouldShowNotification(data)) return;
         const text = data.message ?? 'Bir başvuru belediyeye gönderildi.';
         const inst = data.institution ? ' (' + data.institution + ')' : '';
         _toast('success', 'Yeni Başvuru' + inst, text, data.detail_url ?? null);

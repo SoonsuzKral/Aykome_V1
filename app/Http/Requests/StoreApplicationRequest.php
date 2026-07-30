@@ -64,7 +64,7 @@ class StoreApplicationRequest extends FormRequest
 
         $nationalIdRules = $isInstitutionUser
             ? ['nullable', 'string', 'max:20']
-            : ['required', 'string', 'regex:/^\d{10,11}$/'];
+            : ['nullable', 'string', 'regex:/^\d{10,11}$/'];
 
         $tcAliasRules = $isInstitutionUser
             ? ['nullable', 'string', 'max:20']
@@ -86,7 +86,7 @@ class StoreApplicationRequest extends FormRequest
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'address_text' => ['nullable', 'string', 'max:500'],
-            'address_components' => ['nullable', 'json'],
+            'address_components_json' => ['nullable', 'string'],
             'polygon_geojson' => ['nullable', 'string'],
             'total_area_m2' => ['nullable', 'numeric', 'min:0'],
             'center_lat' => ['nullable', 'numeric'],
@@ -98,6 +98,10 @@ class StoreApplicationRequest extends FormRequest
             'surface_lines.*.quantity' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'excavation_amount' => ['nullable', 'numeric', 'min:0'],
+            'vice_mayor_name' => ['nullable', 'string', 'max:255'],
+            'tesis_sorumlusu' => ['nullable', 'string', 'max:255'],
+            'mudur_adi' => ['nullable', 'string', 'max:255'],
+            'mudur_unvani' => ['nullable', 'string', 'max:255'],
             'documents' => ['nullable', 'array'],
             'documents.*' => ['nullable', 'file', 'mimetypes:application/pdf,image/jpeg,image/png,image/jpg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/webp,image/gif,image/bmp,image/tiff', 'max:51200'],
         ];

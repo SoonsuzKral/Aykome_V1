@@ -59,6 +59,11 @@ class ApplicationService
                         'start_date' => $data['start_date'],
                         'end_date' => $data['end_date'],
                         'address_text' => $data['address_text'] ?? null,
+                        'address_components' => $data['address_components'] ?? null,
+                        'vice_mayor_name' => $data['vice_mayor_name'] ?? null,
+                        'tesis_sorumlusu' => $data['tesis_sorumlusu'] ?? null,
+                        'mudur_adi' => $data['mudur_adi'] ?? null,
+                        'mudur_unvani' => $data['mudur_unvani'] ?? null,
                     ]);
 
                     $year = now()->year;
@@ -237,7 +242,7 @@ class ApplicationService
             $this->log($application, $user, 'receipt.uploaded', ['receipt_id' => $receipt->id], 'Makbuz yüklendi ve onay sürecine alındı');
 
             // Notify admins + institution employees about receipt
-            $this->getTargetedUsers($application)
+            $this->getTargetedUsers($application, $user->id)
                 ->each(fn (User $admin) => $admin->notify(new ReceiptUploadedNotification($application, $receipt)));
 
             return $receipt;
@@ -276,7 +281,9 @@ class ApplicationService
 
     public function approveReceipt(User $user, Application $application, LicenseService $licenseService): Application
     {
-        DB::transaction(function () use ($user, $application, $licenseService) {
+        $isMunicipality = $application->institution?->is_municipality ?? false;
+
+        DB::transaction(function () use ($user, $application, $licenseService, $isMunicipality) {
             $receipt = $application->receipts()->latest('id')->first();
 
             if (! $receipt) {
@@ -301,19 +308,30 @@ class ApplicationService
                 ]);
             }
 
-            $application->update([
-                'status' => ApplicationStatus::Licensed,
-                'receipt_approved_at' => now(),
-                'receipt_approved_by' => $user->id,
-                'payment_status' => 'paid',
-                'approval_status' => 'licensed',
-                'receipt_file_path' => $receiptMedia->getPathRelativeToRoot(),
-            ]);
+            if ($isMunicipality) {
+                $application->update([
+                    'status' => ApplicationStatus::PreApproved,
+                    'receipt_approved_at' => now(),
+                    'receipt_approved_by' => $user->id,
+                    'payment_status' => 'paid',
+                    'approval_status' => 'payment_approved',
+                ]);
+                $this->log($application, $user, 'receipt.approved', ['receipt_id' => $receipt->id], 'Makbuz onaylandı, metraj aşamasına geçildi');
+            } else {
+                $application->update([
+                    'status' => ApplicationStatus::Licensed,
+                    'receipt_approved_at' => now(),
+                    'receipt_approved_by' => $user->id,
+                    'payment_status' => 'paid',
+                    'approval_status' => 'licensed',
+                    'receipt_file_path' => $receiptMedia->getPathRelativeToRoot(),
+                ]);
 
-            $result = $licenseService->generateExcavationPermitPdf($application);
-            $application->update(['license_document_path' => $result['path']]);
+                $result = $licenseService->generateExcavationPermitPdf($application);
+                $application->update(['license_document_path' => $result['path']]);
 
-            $this->log($application, $user, 'receipt.approved', ['pdf' => $result['path'], 'receipt_id' => $receipt->id], 'Makbuz onaylandı, ruhsat PDF üretildi');
+                $this->log($application, $user, 'receipt.approved', ['pdf' => $result['path'], 'receipt_id' => $receipt->id], 'Makbuz onaylandı, ruhsat PDF üretildi');
+            }
         });
 
         return $application->fresh();

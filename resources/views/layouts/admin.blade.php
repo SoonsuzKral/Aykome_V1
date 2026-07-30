@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="user-id" content="{{ auth()->id() }}">
+    <meta name="user-institution-id" content="{{ auth()->user()?->institution_id }}">
+    <meta name="user-roles" content="{{ auth()->user()?->getRoleNames()?->implode(',') }}">
     <title>@yield('title', 'Panel — '.config('app.name'))</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">

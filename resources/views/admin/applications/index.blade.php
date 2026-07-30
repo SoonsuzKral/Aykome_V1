@@ -16,6 +16,7 @@
         'completed'              => ['Tamamlandı',            'bg-green-100 text-green-700'],
         'rejected'               => ['Reddedildi',            'bg-red-100 text-red-700'],
         'archived'               => ['Arşivlendi',            'bg-gray-200 text-gray-600'],
+        'cancelled'              => ['İptal Edildi',          'bg-rose-100 text-rose-700'],
     ];
     $filters = $filters ?? ['q' => '', 'status' => '', 'institution_id' => ''];
 @endphp
@@ -146,8 +147,8 @@
                             <input type="checkbox" class="row-checkbox rounded border-slate-300 text-sky-600 shadow-sm focus:ring-sky-400/30" value="{{ $row->id }}">
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100 font-mono font-semibold text-slate-700">{{ $row->application_no }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100 text-slate-600">{{ $row->institution?->name ?? '—' }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100 text-slate-700">{{ $row->applicant_first_name }} {{ $row->applicant_last_name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100 text-slate-600">{{\Illuminate\Support\Str::limit($row->institution?->name ?? '—', 20) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100 text-slate-700">{{\Illuminate\Support\Str::limit(trim($row->applicant_first_name . ' ' . $row->applicant_last_name), 20) }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100">
                             @if(($row->application_type ?? 'basvuru') === 'ariza')
                                 <span class="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600">Acil</span>

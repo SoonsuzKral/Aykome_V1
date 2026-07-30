@@ -55,7 +55,7 @@
                     <th style="width:7%;">UZUNLUK</th>
                     <th style="width:7%;">M² / M</th>
                     <th style="width:10%;">ZEMİN CİNSİ</th>
-                    <th style="width:13%;">PROJE KODU</th>
+                    <th style="width:13%;">PROJE / İŞİN ADI</th>
                 </tr>
 
                 @forelse($rows as $row)

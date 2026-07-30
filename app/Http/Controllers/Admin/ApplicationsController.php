@@ -12,6 +12,7 @@ use App\Http\Requests\TransferTaskRequest;
 use App\Models\Application;
 use App\Models\Institution;
 use App\Models\PreExcavationPermitSetting;
+use App\Models\SurfaceType;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\PermitSetting;
@@ -22,6 +23,7 @@ use App\Services\LicenseService;
 use App\Services\MapDrawingService;
 use App\Services\PricingService;
 use App\Services\TaskTransferService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -166,6 +168,15 @@ class ApplicationsController extends Controller
         $validated['tc_no'] = preg_replace('/\D+/', '', (string) ($validated['tc_no'] ?? $validated['applicant_national_id'] ?? '')) ?: $validated['applicant_national_id'];
         $validated['identity_no'] = preg_replace('/\D+/', '', (string) ($validated['identity_no'] ?? $validated['applicant_national_id'] ?? '')) ?: $validated['applicant_national_id'];
 
+        // Address components: JSON string → decode to array (model casts 'address_components' as 'array')
+        if (! empty($validated['address_components_json'])) {
+            $decoded = json_decode($validated['address_components_json'], true);
+            if (is_array($decoded)) {
+                $validated['address_components'] = $decoded;
+            }
+        }
+        unset($validated['address_components_json']);
+
         $application = $service->createDraft($request->user(), $validated);
 
         $this->handleDocumentUploads($request, $application);
@@ -273,12 +284,14 @@ class ApplicationsController extends Controller
             'excavationAreas',
             'surfaceLines.surfaceType',
             'preExcavationApprover',
+            'assignee',
             'timelineLogs.user',
             'history.user',
             'fieldTasks.assignee',
             'receipts.uploader',
             'receipts.reviewer',
             'documents',
+            'extraPermits',
         ]);
 
         $fieldUsers = User::query()
@@ -287,9 +300,12 @@ class ApplicationsController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
 
+        $surfaceTypes = SurfaceType::query()->orderBy('name')->get(['id', 'name', 'price_per_m2']);
+
         return view('admin.applications.show', [
             'application' => $application,
             'fieldUsers' => $fieldUsers,
+            'surfaceTypes' => $surfaceTypes,
             'googleMapsApiKey' => config('services.google_maps.api_key') ?: config('aykome.google_maps_api_key'),
             'can' => [
                 'update' => $request->user()->can('update', $application),
@@ -407,7 +423,7 @@ class ApplicationsController extends Controller
             'end_date' => ['nullable', 'date'],
             'description' => ['nullable', 'string'],
             'address_text' => ['nullable', 'string', 'max:500'],
-            'address_components' => ['nullable', 'json'],
+            'address_components_json' => ['nullable', 'string'],
             'polygon_geojson' => ['nullable', 'string'],
             'total_area_m2' => ['nullable', 'numeric', 'min:0'],
             'center_lat' => ['nullable', 'numeric', 'between:-90,90'],
@@ -419,9 +435,19 @@ class ApplicationsController extends Controller
             'surface_lines.*.quantity' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'excavation_amount' => ['nullable', 'numeric', 'min:0'],
+            'vice_mayor_name' => ['nullable', 'string', 'max:255'],
             'documents' => ['nullable', 'array'],
             'documents.*' => ['nullable', 'file', 'mimetypes:application/pdf,image/jpeg,image/png,image/jpg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/webp,image/gif,image/bmp,image/tiff', 'max:51200'],
         ]);
+
+        // Address components: JSON string → decode to array (model casts 'address_components' as 'array')
+        if (! empty($data['address_components_json'])) {
+            $decoded = json_decode($data['address_components_json'], true);
+            if (is_array($decoded)) {
+                $data['address_components'] = $decoded;
+            }
+        }
+        unset($data['address_components_json']);
 
         // Normalize national IDs
         if (! empty($data['applicant_national_id'])) {
@@ -475,7 +501,12 @@ class ApplicationsController extends Controller
             'end_date' => $data['end_date'] ?? $application->end_date,
             'description' => $data['description'] ?? $application->description,
             'address_text' => $data['address_text'] ?? $application->address_text,
+            'address_components' => $data['address_components'] ?? $application->address_components,
             'total_area_m2' => $totalAreaM2 ?? ($data['total_area_m2'] ?? $application->total_area_m2),
+            'vice_mayor_name' => $data['vice_mayor_name'] ?? $application->vice_mayor_name,
+            'tesis_sorumlusu' => $data['tesis_sorumlusu'] ?? $application->tesis_sorumlusu,
+            'mudur_adi' => $data['mudur_adi'] ?? $application->mudur_adi,
+            'mudur_unvani' => $data['mudur_unvani'] ?? $application->mudur_unvani,
         ]);
 
         $this->handleDocumentUploads($request, $application);
@@ -499,8 +530,16 @@ class ApplicationsController extends Controller
             return;
         }
 
-        foreach ($request->file('documents') as $file) {
-            if (! $file->isValid()) {
+        $files = $request->file('documents');
+        if (! is_array($files) && ! $files instanceof \Illuminate\Http\UploadedFile) {
+            return;
+        }
+        $files = is_array($files) ? $files : [$files];
+
+        $existingCount = $application->documents()->count();
+
+        foreach ($files as $file) {
+            if (! $file || ! $file->isValid()) {
                 continue;
             }
 
@@ -514,6 +553,16 @@ class ApplicationsController extends Controller
                 'file_path' => $path,
                 'mime_type' => $file->getMimeType(),
                 'file_size' => $file->getSize(),
+            ]);
+        }
+
+        // GÜVENLİK: Yeni yükleme sonrası eski belgelerin silinmediğini doğrula
+        $newCount = $application->documents()->count();
+        if ($newCount < $existingCount) {
+            \Illuminate\Support\Facades\Log::warning('[handleDocumentUploads] Beklenmeyen belge silinmesi tespit edildi', [
+                'application_id' => $application->id,
+                'existing_count' => $existingCount,
+                'new_count' => $newCount,
             ]);
         }
     }
@@ -534,6 +583,10 @@ class ApplicationsController extends Controller
     public function approvePreExcavation(Request $request, Application $application, ApplicationService $service): RedirectResponse
     {
         $this->authorize('approvePreExcavation', $application);
+
+        if ($request->has('vice_mayor_name') && !empty($request->input('vice_mayor_name'))) {
+            $application->update(['vice_mayor_name' => $request->input('vice_mayor_name')]);
+        }
 
         $service->approvePreExcavation($request->user(), $application);
 
@@ -557,7 +610,7 @@ class ApplicationsController extends Controller
             'ilgi_tarih' => $application->created_at?->format('d.m.Y') ?? now()->format('d.m.Y'),
             'ilgi_sayi' => str_pad($application->id, 7, '0', STR_PAD_LEFT),
             'metin' => self::buildPrePermitText($application),
-            'imza_ad' => 'Mustafa Kemal KARATAŞ',
+            'imza_ad' => $application->vice_mayor_name ?: 'Mustafa Kemal KARATAŞ',
             'imza_unvan' => 'Belediye Başkan Yardımcısı',
             'takip_adresi' => 'https://www.turkiye.gov.tr/eyyubiye-belediyesi-ebys',
             'adres' => $settings->address ?? 'Eyyüpnebi mh. 3554. Sk. Eski Ptt Binası Eyyübiye / Şanlıurfa',
@@ -580,20 +633,21 @@ class ApplicationsController extends Controller
         $signerName = $application->creator?->name ?? 'Yetkili';
         $signerShort = mb_substr($signerName, 0, mb_strrpos($signerName, ' ') ?: mb_strlen($signerName));
 
-        $logoUrl = '';
-        $instSlug = $application->institution?->slug ?? '';
-        $logos = [
-            'dicle' => 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSY1aGeBk3bGnpaUikWjQ-JRMM9kPhZbX8KevL3u5IahtS6t3Zdd-IS4Ic&s=10',
-        ];
-        foreach ($logos as $key => $url) {
-            if (str_contains(mb_strtolower($instSlug), $key) || str_contains(mb_strtolower($application->institution?->name ?? ''), $key)) {
-                $logoUrl = $url;
-                break;
+        $logoBase64 = null;
+        if ($application->institution && $application->institution->logo_path) {
+            try {
+                $fileContent = \Illuminate\Support\Facades\Storage::disk('public')->get($application->institution->logo_path);
+                if ($fileContent) {
+                    $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($application->institution->logo_path);
+                    $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($fileContent);
+                }
+            } catch (\Exception $e) {
+                $logoBase64 = null;
             }
         }
 
         $data = [
-            'logo_url' => $logoUrl,
+            'logo_base64' => $logoBase64,
             'kurum' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş.', 'UTF-8'),
             'kurum_alt' => 'Şanlıurfa Tesis Yöneticiliği',
             'sayi' => 'E-50005665001100-100-' . str_pad($application->id, 7, '0', STR_PAD_LEFT),
@@ -687,7 +741,7 @@ class ApplicationsController extends Controller
             'firma' => mb_strtoupper($application->institution?->name ?? 'KURUM', 'UTF-8'),
             'is_cinsi' => $application->description ?? '',
             'talep_sahibi' => mb_strtoupper(
-                trim(($application->applicant_first_name ?? '') . ' ' . ($application->applicant_last_name ?? '') ?: 'YETKİLİ'),
+                trim($application->tesis_sorumlusu ?? $application->institution?->engineer_name ?? 'Yetkili Görevli'),
                 'UTF-8'
             ),
         ];
@@ -733,6 +787,69 @@ class ApplicationsController extends Controller
         return view('admin.pdf.tahakkuk', $data);
     }
 
+    public function downloadTahsilatFisi(Application $application)
+    {
+        $this->authorize('view', $application);
+        $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
+
+        $app = $application;
+        $d = (float)($app->deposit_amount ?? 0);
+        $disc = (float)($app->discovery_amount ?? 0);
+        $kdv = round($d * 0.20, 2);
+        $ruhsatHarci = round($d * 0.18, 2);
+        $kesifBedeli = $disc ?: round(361 + ($d * 0.01), 2);
+        $ztbToplam = round($d + $kdv + $ruhsatHarci + $kesifBedeli, 2);
+        $genelToplam = round($ztbToplam + $d * 0.50, 2);
+
+        $surfaceRows = [];
+        foreach ($app->surfaceLines ?? [] as $sl) {
+            if (!$sl->surfaceType) continue;
+            $qty = (float)($sl->quantity ?? 0);
+            $unit = (float)($sl->surfaceType->price_per_m2 ?? 0);
+            $tutar = round($qty * $unit, 2);
+            $surfaceRows[] = [
+                'ad' => $sl->surfaceType->name,
+                'birim' => 'm2',
+                'miktar' => number_format($qty, 2, ',', '.'),
+                'birim_fiyat' => number_format($unit, 2, ',', '.'),
+                'tutar' => number_format($tutar, 2, ',', '.'),
+            ];
+        }
+
+        if (empty($surfaceRows)) {
+            $surfaceRows = self::buildMetrajSatirlari($app);
+        }
+
+        $data = [
+            'belediye' => 'EYYÜBİYE BELEDİYESİ',
+            'mudurluk' => 'Fen İşleri Müdürlüğü',
+            'birim' => 'AYKOME BİRİMİ',
+            'altbaslik' => 'KAZI İZNİ TAHSİLAT FİŞİ',
+            'fis_no' => 'TF-' . $app->application_no,
+            'tarih' => now()->format('d.m.Y'),
+            'talep_sahibi' => mb_strtoupper(
+                trim(($app->applicant_first_name ?? '') . ' ' . ($app->applicant_last_name ?? '') ?: 'YETKİLİ'),
+                'UTF-8'
+            ),
+            'basvuru_no' => $app->application_no,
+            'adres' => ($app->project_code ?? '') . ' ' . ($app->address_text ?? ''),
+            'ilce' => $app->district ?? 'EYYÜBİYE',
+            'is_adi' => $app->work_type ?? $app->description ?? '',
+            'vergino' => $app->applicant_national_id ?? '—',
+            'metraj_satirlari' => $surfaceRows,
+            'tahrip_bedeli' => number_format($d, 2, ',', '.'),
+            'kdv' => number_format($kdv, 2, ',', '.'),
+            'ruhsat_harci' => number_format($ruhsatHarci, 2, ',', '.'),
+            'kesif_bedeli' => number_format($kesifBedeli, 2, ',', '.'),
+            'ztb_toplam' => number_format($ztbToplam, 2, ',', '.'),
+            'teminat' => number_format($d * 0.50, 2, ',', '.'),
+            'genel_toplam' => number_format($genelToplam, 2, ',', '.'),
+            'duzenleyen' => $app->creator?->name ?? 'Yetkili',
+        ];
+
+        return view('admin.pdf.tahsilat_fisi', $data);
+    }
+
     public function saveReceiptInfo(Request $request, Application $application): RedirectResponse
     {
         $this->authorize('update', $application);
@@ -740,13 +857,14 @@ class ApplicationsController extends Controller
         $validated = $request->validate([
             'ztb_receipt_info' => ['nullable', 'string', 'max:255'],
             'deposit_receipt_info' => ['nullable', 'string', 'max:255'],
+            'taahhutname_notu' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $application->update($validated);
 
-        AuditLogger::log('receipt_info.save', "Makbuz bilgileri kaydedildi: ZTB={$validated['ztb_receipt_info']}, TEM={$validated['deposit_receipt_info']}", 'Application', $application->id);
+        AuditLogger::log('receipt_info.save', "Makbuz/taahhütname bilgileri kaydedildi: {$application->application_no}", 'Application', $application->id);
 
-        return back()->with('success', 'Makbuz bilgileri kaydedildi.');
+        return back()->with('success', 'Bilgiler kaydedildi.');
     }
 
     public function approvePrice(Request $request, Application $application, ApplicationService $service): RedirectResponse
@@ -842,6 +960,27 @@ class ApplicationsController extends Controller
         return back()->with('success', 'Saha görevi devredildi.');
     }
 
+    public function transferApplication(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        $validated = $request->validate([
+            'assigned_to' => 'required|exists:users,id',
+            'transfer_reason' => 'nullable|string|max:500',
+        ]);
+
+        $assignee = User::query()->findOrFail($validated['assigned_to']);
+        $oldAssignee = $application->assignee;
+
+        $application->update([
+            'assigned_to' => $assignee->id,
+        ]);
+
+        AuditLogger::log('application.transfer', "Başvuru devredildi: {$application->application_no} → {$assignee->name}", 'Application', $application->id);
+
+        return back()->with('success', "Başvuru {$assignee->name} kullanıcısına devredildi.");
+    }
+
     public function downloadLicense(Request $request, Application $application)
     {
         $this->authorize('view', $application);
@@ -926,6 +1065,79 @@ class ApplicationsController extends Controller
             'badge_class' => $class,
             'updated_at'  => $application->updated_at?->toIso8601String(),
         ]);
+    }
+
+    public function updateSurfaceLines(Request $request, Application $application, PricingService $pricingService): \Illuminate\Http\RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        $validated = $request->validate([
+            'surface_lines' => 'nullable|array',
+            'surface_lines.*.surface_type_id' => 'required|integer|exists:surface_types,id',
+            'surface_lines.*.width_m' => 'nullable|numeric|min:0',
+            'surface_lines.*.length_m' => 'nullable|numeric|min:0',
+            'surface_lines.*.quantity' => 'required|numeric|min:0',
+        ]);
+
+        $pricingService->upsertSurfaceLines($application, $validated['surface_lines'] ?? []);
+        $pricingService->recalculateTotals($application);
+
+        AuditLogger::log(
+            'surface_lines.updated',
+            "Zemin satırları güncellendi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', 'Zemin satırları güncellendi.');
+    }
+
+    public function uploadSignedModuleDocument(Request $request, Application $application): JsonResponse
+    {
+        $this->authorize('update', $application);
+
+        $request->validate([
+            'module' => 'required|string|in:tahakkuk,metraj,ruhsat,taahhutname,pre_permit',
+            'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
+        ]);
+
+        $user = $request->user();
+        $isMunicipality = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
+            || empty($user->institution_id);
+        $side = $isMunicipality ? 'belediye' : 'kurum';
+
+        $file = $request->file('file');
+        $module = $request->input('module');
+
+        $safeAppNo = $application->application_no ?? (string) $application->id;
+        $storedPath = Storage::disk('public')->putFileAs(
+            'module-documents',
+            $file,
+            sprintf('%s-%s-%s-%s.%s', $module, $side, $safeAppNo, now()->format('YmdHis'), $file->getClientOriginalExtension())
+        );
+
+        if (!$storedPath) {
+            return response()->json(['message' => 'Dosya kaydedilemedi.'], 500);
+        }
+
+        $moduleDocs = $application->module_documents ?? [];
+        $moduleDocs[$module] = array_merge($moduleDocs[$module] ?? [], [
+            "{$side}_path" => $storedPath,
+            "{$side}_uploaded_at" => now()->toIso8601String(),
+            "{$side}_uploaded_by" => $request->user()->id,
+            'status' => "{$side}_signed",
+        ]);
+
+        $application->update(['module_documents' => $moduleDocs]);
+
+        AuditLogger::log(
+            'module_document.uploaded',
+            "{$module} belgesi {$side} tarafından yüklendi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return response()->json(['message' => 'Belge başarıyla yüklendi.', 'path' => Storage::disk('public')->url($storedPath)]);
     }
 
     public function data(Request $request): \Illuminate\Http\JsonResponse
@@ -1044,6 +1256,24 @@ class ApplicationsController extends Controller
             'completed'              => ['Tamamlandı',            'bg-green-100 text-green-700'],
             'archived'               => ['Arşivlendi',            'bg-gray-200 text-gray-600'],
         ];
+    }
+
+    public function cancel(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        $validated = $request->validate([
+            'cancellation_reason' => 'nullable|string|max:1000',
+        ]);
+
+        $application->update([
+            'status' => \App\Enums\ApplicationStatus::Cancelled,
+            'rejection_reason' => $validated['cancellation_reason'] ?? null,
+        ]);
+
+        AuditLogger::log('application.cancel', "Başvuru iptal edildi: {$application->application_no}", 'Application', $application->id);
+
+        return back()->with('success', 'Başvuru iptal edildi.');
     }
 
     public function destroy(Application $application): \Illuminate\Http\JsonResponse
@@ -1269,6 +1499,12 @@ class ApplicationsController extends Controller
         $sira = 0;
         $ilce = $app->district ?? 'EYYÜBİYE';
         $projeKodu = $app->project_code ?? '';
+        $isAdi = $app->work_type ?? '';
+        if ($projeKodu && $isAdi && $projeKodu !== $isAdi) {
+            $projeKodu = $projeKodu . ' / ' . $isAdi;
+        } elseif (!$projeKodu && $isAdi) {
+            $projeKodu = $isAdi;
+        }
         $tarih = $app->start_date?->format('d.m.Y') ?? '';
 
         $mahalleList = [];

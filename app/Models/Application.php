@@ -56,6 +56,13 @@ class Application extends Model implements HasMedia
         'ztb_receipt_info',
         'deposit_receipt_info',
         'address_components',
+        'vice_mayor_name',
+        'tesis_sorumlusu',
+        'mudur_adi',
+        'mudur_unvani',
+        'module_documents',
+        'taahhutname_notu',
+        'assigned_to',
     ];
 
     protected function casts(): array
@@ -75,6 +82,7 @@ class Application extends Model implements HasMedia
             'pre_excavation_approved_at' => 'datetime',
             'status' => ApplicationStatus::class,
             'address_components' => 'array',
+            'module_documents' => 'array',
         ];
     }
 
@@ -93,6 +101,11 @@ class Application extends Model implements HasMedia
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
     }
 
     public function priceApprover(): BelongsTo
@@ -153,5 +166,10 @@ class Application extends Model implements HasMedia
     public function gisCizimleri(): HasMany
     {
         return $this->hasMany(GisCizim::class, 'basvuru_id');
+    }
+
+    public function extraPermits(): HasMany
+    {
+        return $this->hasMany(ExtraPermit::class);
     }
 }

@@ -17,3 +17,11 @@ Schedule::command('licenses:check-expiry')
     ->withoutOverlapping()
     ->runInBackground()
     ->appendOutputTo(storage_path('logs/license-expiry.log'));
+
+// E-İmza: süresi geçmiş transaction'ları temizle
+Schedule::call(function () {
+    $count = app(\App\Services\EImzaService::class)->temizle();
+    if ($count > 0) {
+        \Illuminate\Support\Facades\Log::info("E-İmza temizlik: {$count} eski transaction silindi.");
+    }
+})->hourly()->appendOutputTo(storage_path('logs/e-imza-temizlik.log'));

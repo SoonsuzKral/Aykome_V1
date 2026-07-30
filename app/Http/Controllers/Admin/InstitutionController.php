@@ -7,6 +7,7 @@ use App\Models\Institution;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -105,10 +106,17 @@ class InstitutionController extends Controller
             'address'           => ['nullable', 'string', 'max:1000'],
             'color_code'        => ['nullable', 'string', 'max:7'],
             'is_municipality'   => ['boolean'],
+            'engineer_name'     => ['nullable', 'string', 'max:255'],
+            'manager_name'      => ['nullable', 'string', 'max:255'],
+            'logo'              => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
         $data['slug'] = $this->uniqueSlug($data['name']);
         $data['is_municipality'] = $request->boolean('is_municipality');
+
+        if ($request->hasFile('logo')) {
+            $data['logo_path'] = $request->file('logo')->store('institution-logos', 'public');
+        }
 
         Institution::create($data);
 
@@ -120,6 +128,7 @@ class InstitutionController extends Controller
         return response()->json($institution->only([
             'id', 'name', 'type', 'authorized_person', 'tax_number',
             'phone', 'email', 'address', 'color_code', 'is_municipality',
+            'logo_path', 'engineer_name', 'manager_name',
         ]));
     }
 
@@ -135,9 +144,19 @@ class InstitutionController extends Controller
             'address'           => ['nullable', 'string', 'max:1000'],
             'color_code'        => ['nullable', 'string', 'max:7'],
             'is_municipality'   => ['boolean'],
+            'engineer_name'     => ['nullable', 'string', 'max:255'],
+            'manager_name'      => ['nullable', 'string', 'max:255'],
+            'logo'              => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
         $data['is_municipality'] = $request->boolean('is_municipality');
+
+        if ($request->hasFile('logo')) {
+            if ($institution->logo_path) {
+                Storage::disk('public')->delete($institution->logo_path);
+            }
+            $data['logo_path'] = $request->file('logo')->store('institution-logos', 'public');
+        }
 
         $institution->update($data);
 

@@ -18,6 +18,9 @@ class Institution extends Model
         'phone',
         'email',
         'address',
+        'logo_path',
+        'engineer_name',
+        'manager_name',
     ];
 
     protected function casts(): array

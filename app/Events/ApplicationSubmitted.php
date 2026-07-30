@@ -42,6 +42,7 @@ class ApplicationSubmitted implements ShouldBroadcastNow
             $payload = [
                 'application_id' => $app->id,
                 'application_no' => $app->application_no,
+                'institution_id' => $app->institution_id,
                 'applicant'      => trim($app->applicant_first_name . ' ' . $app->applicant_last_name),
                 'institution'    => $app->institution?->name ?? '',
                 'submitted_at'   => now()->format('d.m.Y H:i'),

@@ -108,16 +108,16 @@
 </div>
 
 {{-- ── Add Modal ────────────────────────────────────────────────────────────── --}}
-<div id="addModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-    <div class="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+<div id="addModal" class="fixed inset-0 z-[99999] hidden items-center justify-center overflow-y-auto bg-black/60 px-4">
+    <div class="relative flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl max-h-[90vh]">
         <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
             <h2 class="text-base font-bold text-slate-900">Yeni Kurum Ekle</h2>
             <button type="button" onclick="closeModal('addModal')" class="text-xl leading-none text-slate-400 hover:text-slate-700">✕</button>
         </div>
-        <form method="POST" action="{{ route('admin.institutions.store') }}" class="p-6">
+        <form method="POST" action="{{ route('admin.institutions.store') }}" enctype="multipart/form-data" class="overflow-y-auto p-6">
             @csrf
             @include('admin.institutions._form')
-            <div class="mt-6 flex justify-end gap-3">
+            <div class="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4 flex-shrink-0">
                 <button type="button" onclick="closeModal('addModal')"
                     class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">İptal</button>
                 <button type="submit"
@@ -128,17 +128,17 @@
 </div>
 
 {{-- ── Edit Modal ───────────────────────────────────────────────────────────── --}}
-<div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-    <div class="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+<div id="editModal" class="fixed inset-0 z-[99999] hidden items-center justify-center overflow-y-auto bg-black/60 px-4">
+    <div class="relative flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl max-h-[90vh]">
         <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
             <h2 class="text-base font-bold text-slate-900">Kurumu Düzenle</h2>
             <button type="button" onclick="closeModal('editModal')" class="text-xl leading-none text-slate-400 hover:text-slate-700">✕</button>
         </div>
-        <form id="editForm" method="POST" action="" class="p-6">
+        <form id="editForm" method="POST" action="" enctype="multipart/form-data" class="overflow-y-auto p-6">
             @csrf
             @method('PUT')
             @include('admin.institutions._form', ['editing' => true])
-            <div class="mt-6 flex justify-end gap-3">
+            <div class="mt-6 flex items-center justify-end gap-3 border-t border-slate-100 pt-4 flex-shrink-0">
                 <button type="button" onclick="closeModal('editModal')"
                     class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">İptal</button>
                 <button type="submit"
@@ -168,12 +168,25 @@ function openEditModal(id) {
         .then(data => {
             const form = document.getElementById('editForm');
             form.action = `/admin/institutions/${id}`;
-            ['name','type','authorized_person','tax_number','phone','email','address','color_code'].forEach(k => {
+            ['name','type','authorized_person','tax_number','phone','email','address','color_code','engineer_name','manager_name'].forEach(k => {
                 const el = form.querySelector(`[name="${k}"]`);
                 if (el) el.value = data[k] ?? '';
             });
             const chk = form.querySelector('[name="is_municipality"]');
             if (chk) chk.checked = !!data.is_municipality;
+            // Logo preview — scope to edit form
+            const logoPreview = form.querySelector('#logo-preview');
+            const logoImg = logoPreview?.querySelector('img');
+            if (logoPreview && logoImg) {
+                if (data.logo_path) {
+                    logoImg.src = '/storage/' + data.logo_path;
+                    logoPreview.classList.remove('hidden');
+                    logoPreview.classList.add('flex');
+                } else {
+                    logoPreview.classList.add('hidden');
+                    logoPreview.classList.remove('flex');
+                }
+            }
             document.getElementById('editModal').classList.replace('hidden', 'flex');
         });
 }

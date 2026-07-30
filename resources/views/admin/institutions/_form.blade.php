@@ -81,4 +81,31 @@
             placeholder="Açık adres"></textarea>
     </div>
 
+    {{-- Logo --}}
+    <div class="sm:col-span-2">
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Kurum Logosu</label>
+        <input type="file" name="logo" accept="image/jpg,image/jpeg,image/png,image/webp"
+            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 shadow-sm file:mr-3 file:rounded file:border-0 file:bg-sky-50 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-sky-700 hover:file:bg-sky-100 focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/40">
+        <div id="logo-preview" class="mt-2 hidden items-center gap-2">
+            <img class="h-10 w-10 rounded object-cover border border-slate-200">
+            <span class="text-xs text-slate-500">Mevcut logo</span>
+        </div>
+    </div>
+
+    {{-- Tesis Kontrol Mühendisi --}}
+    <div>
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Tesis Kontrol Mühendisi</label>
+        <input type="text" name="engineer_name" maxlength="255"
+            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/40"
+            placeholder="Ad Soyad">
+    </div>
+
+    {{-- İl Müdür Yrd / Kurum Yetkilisi --}}
+    <div>
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">İl Müdür Yrd / Yetkili</label>
+        <input type="text" name="manager_name" maxlength="255"
+            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/40"
+            placeholder="Ad Soyad">
+    </div>
+
 </div>
