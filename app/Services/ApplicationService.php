@@ -1,0 +1,349 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\ApplicationStatus;
+use App\Events\ApplicationSubmitted;
+use App\Models\Application;
+use App\Models\ApplicationAudit;
+use App\Models\ApplicationTimelineLog;
+use App\Models\Receipt;
+use App\Models\User;
+use App\Notifications\NewApplicationCreatedNotification;
+use App\Notifications\ReceiptUploadedNotification;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+
+class ApplicationService
+{
+    public function __construct(
+        protected MapDrawingService $mapDrawingService,
+        protected PricingService $pricingService,
+    ) {}
+
+    public function createDraft(User $user, array $data): Application
+    {
+        $maxAttempts = 5;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                return DB::transaction(function () use ($user, $data) {
+                    $institutionId = $data['institution_id'] ?? $user->institution_id;
+                    if ($institutionId === null) {
+                        throw ValidationException::withMessages([
+                            'institution_id' => 'Kurum seçimi zorunludur.',
+                        ]);
+                    }
+
+                    $normalizedNationalId = preg_replace('/\D+/', '', (string) ($data['applicant_national_id'] ?? '')) ?: null;
+
+                    $application = Application::query()->create([
+                        'application_no' => null,
+                        'institution_id' => $institutionId,
+                        'created_by' => $user->id,
+                        'status' => ApplicationStatus::Draft,
+                        'applicant_first_name' => $data['applicant_first_name'],
+                        'applicant_last_name' => $data['applicant_last_name'],
+                        'applicant_national_id' => $normalizedNationalId,
+                        'tc_no' => $data['tc_no'] ?? $normalizedNationalId,
+                        'identity_no' => $data['identity_no'] ?? $normalizedNationalId,
+                        'applicant_phone' => $data['applicant_phone'] ?? null,
+                        'excavation_reason' => $data['excavation_reason'] ?? null,
+                        'work_type' => $data['work_type'] ?? null,
+                        'project_code' => $data['project_code'] ?? null,
+                        'application_type' => $data['application_type'] ?? 'basvuru',
+                        'description' => $data['description'] ?? null,
+                        'start_date' => $data['start_date'],
+                        'end_date' => $data['end_date'],
+                        'address_text' => $data['address_text'] ?? null,
+                        'address_components' => $data['address_components'] ?? null,
+                        'vice_mayor_name' => $data['vice_mayor_name'] ?? null,
+                        'tesis_sorumlusu' => $data['tesis_sorumlusu'] ?? null,
+                        'mudur_adi' => $data['mudur_adi'] ?? null,
+                        'mudur_unvani' => $data['mudur_unvani'] ?? null,
+                    ]);
+
+                    $year = now()->year;
+                    // Oracle unique constraint sorunu — id bazlı atama (en güvenilir yöntem)
+                    $application->update([
+                        'application_no' => sprintf('%s-%04d', $year, $application->id),
+                    ]);
+
+                    if (! empty($data['polygon_geojson']) || ! empty($data['total_area_m2'])) {
+                        $this->mapDrawingService->syncPrimaryArea($application, [
+                            'polygon_geojson' => $data['polygon_geojson'] ?? null,
+                            'total_area_m2' => $data['total_area_m2'] ?? 0,
+                            'center_lat' => $data['center_lat'] ?? null,
+                            'center_lng' => $data['center_lng'] ?? null,
+                            'address_text' => $data['address_text'] ?? null,
+                        ]);
+                        $application->update([
+                            'total_area_m2' => $data['total_area_m2'] ?? $application->excavationAreas()->first()?->total_area_m2 ?? 0,
+                        ]);
+                    }
+
+                    if (! empty($data['surface_lines']) && is_array($data['surface_lines'])) {
+                        $this->pricingService->upsertSurfaceLines($application, $data['surface_lines']);
+                        $this->pricingService->recalculateTotals($application);
+                    }
+
+                    $this->log($application, $user, 'application.created', [], 'Başvuru oluşturuldu');
+
+                    $freshApp = $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
+
+                    return $freshApp;
+                });
+            } catch (QueryException $e) {
+                if ($attempt === $maxAttempts || ! str_contains($e->getMessage(), 'APPLICATION_NO')) {
+                    throw $e;
+                }
+                usleep(100_000);
+            }
+        }
+    }
+
+    public function approvePreExcavation(User $user, Application $application): Application
+    {
+        $oldStatus = $application->status->value;
+
+        $application->load(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
+
+        $application->update([
+            'status' => ApplicationStatus::PreApproved,
+            'pre_excavation_approved_at' => now(),
+            'pre_excavation_approved_by' => $user->id,
+        ]);
+
+        ApplicationAudit::create([
+            'application_id' => $application->id,
+            'user_id' => $user->id,
+            'action' => 'Ön Kazı Onayı Verildi',
+            'old_status' => $oldStatus,
+            'new_status' => ApplicationStatus::PreApproved->value,
+        ]);
+
+        $this->log($application, $user, 'pre_excavation.approved', [], 'Ön kazı izni onaylandı');
+
+        return $application->fresh();
+    }
+
+    private function getTargetedUsers(Application $application, ?int $excludeUserId = null): \Illuminate\Support\Collection
+    {
+        $query = User::query()
+            ->where(function ($q) use ($application) {
+                $q->role(['super-admin', 'municipality-admin', 'municipality-staff']);
+                if ($application->institution_id) {
+                    $q->orWhere('institution_id', $application->institution_id);
+                }
+            });
+
+        if ($excludeUserId) {
+            $query->where('id', '!=', $excludeUserId);
+        }
+
+        return $query->get();
+    }
+
+    public function submit(User $user, Application $application): Application
+    {
+        $application->update(['status' => ApplicationStatus::Submitted]);
+
+        $this->pricingService->recalculateTotals($application);
+        $this->log($application, $user, 'application.submitted', [], 'Başvuru belediyeye gönderildi');
+
+        $fresh = $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
+
+        // Targeted notification: admins see all, institution employees see only their own
+        $this->getTargetedUsers($application, $user->id)
+            ->each(fn (User $admin) => $admin->notify(new NewApplicationCreatedNotification($fresh)));
+
+        // Real-time broadcast
+        ApplicationSubmitted::dispatch($fresh);
+
+        return $fresh;
+    }
+
+    public function approvePrice(User $user, Application $application): Application
+    {
+        $application->update([
+            'status' => ApplicationStatus::AwaitingPayment,
+            'price_approved_at' => now(),
+            'price_approved_by' => $user->id,
+            'approval_status' => 'price_approved',
+        ]);
+
+        $this->log($application, $user, 'price.approved', [], 'Keşif bedeli onaylandı');
+
+        return $application->fresh();
+    }
+
+    public function addReceipt(
+        Application $application,
+        User $user,
+        UploadedFile $file,
+        ?string $notes = null,
+    ): Receipt {
+        return DB::transaction(function () use ($application, $user, $file, $notes) {
+            $existingReceipt = $application->receipts()->latest('id')->first();
+
+            if ($existingReceipt && in_array($existingReceipt->status, ['pending', 'rejected'], true)) {
+                $receipt = $existingReceipt;
+                $receipt->update([
+                    'uploaded_by' => $user->id,
+                    'status' => 'pending',
+                    'notes' => $notes,
+                    'reviewed_by' => null,
+                    'reviewed_at' => null,
+                    'review_notes' => null,
+                ]);
+            } else {
+                $receipt = $application->receipts()->create([
+                    'uploaded_by' => $user->id,
+                    'status' => 'pending',
+                    'notes' => $notes,
+                ]);
+            }
+
+            $safeApplicationNo = $application->application_no ?: (string) $application->id;
+
+            $storedPath = Storage::disk('public')->putFileAs(
+                'receipts',
+                $file,
+                sprintf('receipt-%s-%s.%s', $safeApplicationNo, now()->format('YmdHis'), $file->getClientOriginalExtension())
+            );
+
+            if (! is_string($storedPath) || $storedPath === '') {
+                throw ValidationException::withMessages([
+                    'receipt_file' => 'Makbuz dosyası kaydedilemedi. Lütfen tekrar deneyin.',
+                ]);
+            }
+
+            $receipt
+                ->addMediaFromDisk($storedPath, 'public')
+                ->usingName('receipt-'.$safeApplicationNo)
+                ->usingFileName(basename($storedPath))
+                ->toMediaCollection('scan', 'public');
+
+            $updatePayload = [
+                'payment_status' => 'receipt_uploaded',
+                'receipt_file_path' => $storedPath,
+                'approval_status' => 'pending',
+            ];
+
+            if ($application->status !== ApplicationStatus::ReceiptPending) {
+                $updatePayload['status'] = ApplicationStatus::ReceiptPending;
+            }
+
+            $application->update($updatePayload);
+
+            $this->log($application, $user, 'receipt.uploaded', ['receipt_id' => $receipt->id], 'Makbuz yüklendi ve onay sürecine alındı');
+
+            // Notify admins + institution employees about receipt
+            $this->getTargetedUsers($application, $user->id)
+                ->each(fn (User $admin) => $admin->notify(new ReceiptUploadedNotification($application, $receipt)));
+
+            return $receipt;
+        });
+    }
+
+    public function rejectReceipt(User $user, Application $application, string $reviewNotes): Application
+    {
+        DB::transaction(function () use ($user, $application, $reviewNotes) {
+            $receipt = $application->receipts()->latest('id')->first();
+
+            if (! $receipt) {
+                throw ValidationException::withMessages([
+                    'receipt' => 'Reddedilecek makbuz bulunamadı.',
+                ]);
+            }
+
+            $receipt->update([
+                'status' => 'rejected',
+                'reviewed_by' => $user->id,
+                'reviewed_at' => now(),
+                'review_notes' => $reviewNotes,
+            ]);
+
+            $application->update([
+                'status' => ApplicationStatus::AwaitingPayment,
+                'payment_status' => 'receipt_rejected',
+                'approval_status' => 'pending',
+            ]);
+
+            $this->log($application, $user, 'receipt.rejected', ['receipt_id' => $receipt->id], 'Makbuz reddedildi: '.$reviewNotes);
+        });
+
+        return $application->fresh();
+    }
+
+    public function approveReceipt(User $user, Application $application, LicenseService $licenseService): Application
+    {
+        $isMunicipality = $application->institution?->is_municipality ?? false;
+
+        DB::transaction(function () use ($user, $application, $licenseService, $isMunicipality) {
+            $receipt = $application->receipts()->latest('id')->first();
+
+            if (! $receipt) {
+                throw ValidationException::withMessages([
+                    'receipt' => 'Makbuz yüklenmeden onay verilemez.',
+                ]);
+            }
+
+            $receiptMedia = $receipt->getFirstMedia('scan');
+
+            if (! $receiptMedia) {
+                throw ValidationException::withMessages([
+                    'receipt' => 'Makbuz dosyası eksik. Lütfen makbuz görselini yükleyin.',
+                ]);
+            }
+
+            if ($receipt->status !== 'approved') {
+                $receipt->update([
+                    'status' => 'approved',
+                    'reviewed_by' => $user->id,
+                    'reviewed_at' => now(),
+                ]);
+            }
+
+            if ($isMunicipality) {
+                $application->update([
+                    'status' => ApplicationStatus::PreApproved,
+                    'receipt_approved_at' => now(),
+                    'receipt_approved_by' => $user->id,
+                    'payment_status' => 'paid',
+                    'approval_status' => 'payment_approved',
+                ]);
+                $this->log($application, $user, 'receipt.approved', ['receipt_id' => $receipt->id], 'Makbuz onaylandı, metraj aşamasına geçildi');
+            } else {
+                $application->update([
+                    'status' => ApplicationStatus::Licensed,
+                    'receipt_approved_at' => now(),
+                    'receipt_approved_by' => $user->id,
+                    'payment_status' => 'paid',
+                    'approval_status' => 'licensed',
+                    'receipt_file_path' => $receiptMedia->getPathRelativeToRoot(),
+                ]);
+
+                $result = $licenseService->generateExcavationPermitPdf($application);
+                $application->update(['license_document_path' => $result['path']]);
+
+                $this->log($application, $user, 'receipt.approved', ['pdf' => $result['path'], 'receipt_id' => $receipt->id], 'Makbuz onaylandı, ruhsat PDF üretildi');
+            }
+        });
+
+        return $application->fresh();
+    }
+
+    public function log(Application $application, ?User $user, string $action, array $meta = [], ?string $message = null): ApplicationTimelineLog
+    {
+        return $application->timelineLogs()->create([
+            'user_id' => $user?->id,
+            'action' => $action,
+            'meta' => $meta,
+            'message' => $message,
+        ]);
+    }
+}

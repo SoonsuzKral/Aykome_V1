@@ -1,0 +1,8 @@
+node_modules/
+node-x64/
+dist/
+build/
+*.exe
+*.dmg
+*.zip
+.DS_Store

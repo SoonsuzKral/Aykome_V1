@@ -1,0 +1,26 @@
+# Bağımlılıklar (En çok token tüketen yerler)
+node_modules/
+vendor/
+
+# Geçici Dosyalar ve Loglar
+storage/framework/
+storage/logs/
+bootstrap/cache/
+.phpunit.result.cache
+
+# Derlenmiş Dosyalar
+public/build/
+public/storage/
+
+# Versiyon Kontrol ve Editör Ayarları
+.git/
+.vscode/
+.idea/
+
+# Kilitli Dosyalar (İçeriği çok uzundur)
+package-lock.json
+composer.lock
+
+# Log ve Test Dosyaları
+*.log
+tests/
