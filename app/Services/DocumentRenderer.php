@@ -195,4 +195,26 @@ class DocumentRenderer
 HTML;
         return str_replace('</body>', $overlay . '</body>', $html);
     }
+
+    /**
+     * Ön Kazı İzni yazısı — e-imza PDF'i (pre_permit) dahil tüm çıktılar
+     * bu metni kullanır.
+     */
+    public static function prePermitMetin(Application $app): string
+    {
+        $inst = $app->institution?->name ?? 'Kurum';
+        $projectCode = $app->project_code ?? 'C-26-1100-1063-0012';
+
+        return "
+        <p>İlgi sayılı yazı ile; {$inst} Şanlıurfa Tesis Yöneticiliği {$projectCode}
+        Proje Numarasıyla Eyyübiye İlçesi Hayati Akşemsettin Mahallesi Huzur Sokak
+        1 Adet Trafo Bölgesi AGOG Tesis Yapım İşi çalışması için kazı izni talep edilmektedir.</p>
+        <p>&quot;Altyapı Tesisi Açım Ruhsatı&quot; iş ve işlemlerinin kazı kesin metrajlarının tespit edilmesinden
+        sonra tamamlanması, Yapılacak çalışmanın AYKOME Çalışma Usul ve Esasları Uygulama yönetmeliğine
+        uygun olarak yapılması, çalışma yapılacak cadde ve sokakların kazı öncesinde Eyyübiye Belediyesi Fen
+        işleri Müdürlüğü AYKOME Birimimize haber verilmesi ve diğer altyapı kuruluşlarının (AKSA Şanlıurfa
+        Doğalgaz A.Ş. Telekom İl Müdürlüğü, SUSKİ Genel Müdürlüğü, v.b.) mevcut tesislerine zarar
+        verilmesinin önlenmesi için bu kuruluşlara da yapılacak calışma hakkında bilgi verilmesi koşulu ile kazı</p>
+        ";
+    }
 }

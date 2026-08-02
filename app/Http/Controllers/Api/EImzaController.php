@@ -20,7 +20,7 @@ class EImzaController extends Controller
     {
         $request->validate([
             'application_id' => 'required|exists:applications,id',
-            'pdf_type' => 'required|in:ruhsat,pre_permit,taahhutname,metraj,tahakkuk,cover_letter',
+            'pdf_type' => 'required|in:ruhsat,pre_permit,taahhutname,metraj,tahakkuk,makbuz,cover_letter',
         ]);
 
         $application = Application::findOrFail($request->application_id);

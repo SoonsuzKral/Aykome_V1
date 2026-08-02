@@ -36,7 +36,7 @@ class FieldTaskController extends Controller
         ]);
 
         $isAssignee = $user->id === $fieldTask->assigned_to;
-        $canManage  = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
+        $canManage  = $user->isMunicipalityPersonel()
                       || $isAssignee;
 
         if (! $canManage) {
@@ -59,7 +59,7 @@ class FieldTaskController extends Controller
         $user = $request->user();
 
         $isAssignee = $user->id === $fieldTask->assigned_to;
-        $canUpload  = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
+        $canUpload  = $user->isMunicipalityPersonel()
                       || $isAssignee;
 
         if (! $canUpload) {
@@ -91,7 +91,7 @@ class FieldTaskController extends Controller
         $user = $request->user();
 
         $isAssignee = $user->id === $fieldTask->assigned_to;
-        $canUpdate  = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
+        $canUpdate  = $user->isMunicipalityPersonel()
                       || $isAssignee;
 
         if (! $canUpdate) {
@@ -122,7 +122,7 @@ class FieldTaskController extends Controller
         $user = $request->user();
 
         $isAssignee = $user->id === $fieldTask->assigned_to;
-        $canAccess  = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
+        $canAccess  = $user->isMunicipalityPersonel()
                       || $isAssignee;
 
         if (! $canAccess) {
@@ -146,7 +146,7 @@ class FieldTaskController extends Controller
         $user = $request->user();
 
         $isAssignee = $user->id === $fieldTask->assigned_to;
-        $canUpdate  = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
+        $canUpdate  = $user->isMunicipalityPersonel()
                       || $isAssignee;
 
         if (! $canUpdate) {
@@ -197,7 +197,7 @@ class FieldTaskController extends Controller
                 $application = $fieldTask->application;
                 $admins = User::query()
                     ->where(function ($q) use ($application) {
-                        $q->role(['super-admin', 'municipality-admin', 'municipality-staff']);
+                        $q->role(['super-admin', 'municipality-admin', 'municipality-staff', 'municipality-buro', 'municipality-sef', 'municipality-mudur', 'municipality-makam']);
                         if ($application && $application->institution_id) {
                             $q->orWhere('institution_id', $application->institution_id);
                         }

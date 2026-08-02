@@ -58,6 +58,30 @@ class User extends Authenticatable
         return $this->belongsTo(Institution::class);
     }
 
+    /**
+     * Belediye tarafı kullanıcısı mı? (Super Admin + tüm municipality-* rolleri)
+     * Süreç & Onay Rotası'ndaki hiyerarşi rolleri (buro/sef/mudur/makam) da
+     * bu kontrolden geçer; alt kurum personeli hariç tutulur.
+     */
+    public function isMunicipalityPersonel(): bool
+    {
+        if ($this->hasRole('super-admin')) {
+            return true;
+        }
+
+        return $this->roles
+            ->contains(fn ($role) => str_starts_with((string) $role->name, 'municipality-'));
+    }
+
+    /**
+     * Makam (Başkan/Başkan Yrd.) kullanıcısı mı? Sisteme girişte anasayfası
+     * "Makam Masası" olur.
+     */
+    public function isMakam(): bool
+    {
+        return $this->hasAnyRole(config('aykome.makam_roles', ['municipality-makam', 'municipality-admin']));
+    }
+
     public function createdApplications(): HasMany
     {
         return $this->hasMany(Application::class, 'created_by');

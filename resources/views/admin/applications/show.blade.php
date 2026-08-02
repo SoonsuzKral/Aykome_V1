@@ -2,6 +2,14 @@
 
 @section('page-heading', $application->application_no)
 
+@push('styles')
+<style>
+    .leaflet-pane { z-index: 10 !important; }
+    .leaflet-top, .leaflet-bottom { z-index: 10 !important; }
+    .leaflet-control { z-index: 10 !important; }
+</style>
+@endpush
+
 @section('content')
     @php
         $st = $application->status instanceof \BackedEnum ? $application->status->value : $application->status;
@@ -107,10 +115,15 @@
                     <div><dt class="text-xs font-medium text-slate-500">TC Kimlik</dt><dd class="mt-0.5">{{ $application->applicant_national_id ?? '—' }}</dd></div>
                     <div><dt class="text-xs font-medium text-slate-500">Telefon</dt><dd class="mt-0.5">{{ $application->applicant_phone ?? '—' }}</dd></div>
                     @if($application->project_code || $application->work_type)
-                    <div><dt class="text-xs font-medium text-slate-500">Proje / İşin Adı</dt><dd class="mt-0.5 font-mono text-slate-800">{{ $application->project_code }}{{ $application->project_code && $application->work_type ? ' / ' : '' }}{{ $application->work_type }}</dd></div>
+                    @php
+                        $displayIs = [];
+                        if ($application->project_code) $displayIs[] = 'Kod: ' . $application->project_code;
+                        if ($application->work_type) $displayIs[] = 'İş Cinsi: ' . $application->work_type;
+                    @endphp
+                    <div><dt class="text-xs font-medium text-slate-500">Proje / İşin Adı</dt><dd class="mt-0.5 font-mono text-slate-800">{{ implode(' / ', $displayIs) }}</dd></div>
                     @endif
                     <div><dt class="text-xs font-medium text-slate-500">Kazı Sebebi</dt><dd class="mt-0.5">{{ $application->excavation_reason ?? '—' }}</dd></div>
-                    <div><dt class="text-xs font-medium text-slate-500">İş Türü</dt><dd class="mt-0.5">{{ $application->work_type ?? '—' }}</dd></div>
+                    <div><dt class="text-xs font-medium text-slate-500">İşin Adı (Cinsi)</dt><dd class="mt-0.5">{{ $application->work_type ?? '—' }}</dd></div>
                     <div><dt class="text-xs font-medium text-slate-500">Başlangıç</dt><dd class="mt-0.5">{{ $application->start_date?->format('d.m.Y') ?? '—' }}</dd></div>
                     <div><dt class="text-xs font-medium text-slate-500">Bitiş</dt><dd class="mt-0.5">{{ $application->end_date?->format('d.m.Y') ?? '—' }}</dd></div>
                     <div class="sm:col-span-2"><dt class="text-xs font-medium text-slate-500">Adres</dt><dd class="mt-0.5 text-slate-700">{{ $application->address_text ?? '—' }}</dd></div>
@@ -144,6 +157,37 @@
                     @endif
                     @if($application->vice_mayor_name)
                     <div><dt class="text-xs font-medium text-slate-500">Başkan Yardımcısı</dt><dd class="mt-0.5 font-medium text-slate-800">{{ $application->vice_mayor_name }}</dd></div>
+                    @endif
+                    @if(!$application->institution?->is_municipality && in_array($st, ['draft', 'submitted', 'pending']))
+                    @php
+                        $onayStage = $application->approval_stage ?? 'staff';
+                        $onayMeta = [
+                            'staff'      => ['label' => 'Personel Onayı', 'class' => 'bg-sky-100 text-sky-700'],
+                            'director'   => ['label' => 'Müdür Onayı',    'class' => 'bg-indigo-100 text-indigo-700'],
+                            'vice_mayor' => ['label' => 'Başkan Yrd.',    'class' => 'bg-amber-100 text-amber-700'],
+                            'approved'   => ['label' => 'Onaylandı',      'class' => 'bg-emerald-100 text-emerald-700'],
+                        ];
+                        $onay = $onayMeta[$onayStage] ?? ['label' => ucfirst($onayStage), 'class' => 'bg-slate-100 text-slate-700'];
+                    @endphp
+                    <div class="sm:col-span-2">
+                        <dt class="text-xs font-medium text-slate-500 mb-1">Onay Akışı</dt>
+                        <dd class="mt-0.5">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $onay['class'] }}">
+                                    {{ $onay['label'] }}
+                                </span>
+                                @if($application->staffApprover)
+                                <span class="text-[11px] text-slate-500">Personel: {{ $application->staffApprover->name }} ({{ $application->staff_approved_at?->format('d.m.Y H:i') }})</span>
+                                @endif
+                                @if($application->directorApprover)
+                                <span class="text-[11px] text-slate-500">Müdür: {{ $application->directorApprover->name }} ({{ $application->director_approved_at?->format('d.m.Y H:i') }})</span>
+                                @endif
+                                @if($application->viceMayorApprover)
+                                <span class="text-[11px] text-slate-500">Başkan Yrd.: {{ $application->viceMayorApprover->name }} ({{ $application->vice_mayor_approved_at?->format('d.m.Y H:i') }})</span>
+                                @endif
+                            </div>
+                        </dd>
+                    </div>
                     @endif
                 </dl>
             </div>
@@ -265,9 +309,13 @@
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="mb-4 text-sm font-semibold text-slate-800">📦 Belge Arşivi / Dökümler</h2>
                 <p class="mb-3 text-xs text-slate-500">Başvuru sürecinde oluşturulmuş tüm belgelere buradan erişebilirsiniz.</p>
+                @php
+                    $canEditTemplate = auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']);
+                @endphp
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                     {{-- Üst Yazı (Dilekçe) -- her zaman göster --}}
                     @if($application->institution && !str_contains(strtolower($application->institution->name ?? ''), 'merkez'))
+                    <div class="relative">
                     <a href="{{ route('admin.applications.pdf.cover-letter', $application) }}" target="_blank"
                        class="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-center transition hover:border-cyan-300 hover:bg-cyan-50/70 hover:shadow-sm group">
                         <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-100 text-cyan-700 group-hover:bg-cyan-200 transition">
@@ -276,10 +324,15 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-cyan-800">Üst Yazı</span>
                         <span class="text-[9px] text-slate-400">Dilekçe</span>
                     </a>
+                    @if($canEditTemplate)
+                    <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
+                    @endif
+                    </div>
                     @endif
 
                     {{-- Ön Kazı İzin Belgesi -- her zaman göster (varsa) --}}
                     @if($application->status instanceof \BackedEnum ? in_array($application->status->value, ['pre_excavation_approved', 'priced', 'awaiting_payment', 'receipt_pending', 'approved', 'licensed', 'field_work', 'completed']) : false)
+                    <div class="relative">
                     <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}" target="_blank"
                        class="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-center transition hover:border-cyan-300 hover:bg-cyan-50/70 hover:shadow-sm group">
                         <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-100 text-cyan-700 group-hover:bg-cyan-200 transition">
@@ -288,6 +341,10 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-cyan-800">Ön Kazı</span>
                         <span class="text-[9px] text-slate-400">İzin Belgesi</span>
                     </a>
+                    @if($canEditTemplate)
+                    <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
+                    @endif
+                    </div>
                     @endif
 
                     {{-- Tahsilat Makbuzu -- her zaman göster --}}
@@ -311,6 +368,7 @@
                     </a>
 
                     {{-- Tahakkuk Fişi -- her zaman göster --}}
+                    <div class="relative">
                     <a href="{{ route('admin.applications.pdf.tahakkuk', $application) }}" target="_blank"
                        class="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-center transition hover:border-rose-300 hover:bg-rose-50/70 hover:shadow-sm group">
                         <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-100 text-rose-700 group-hover:bg-rose-200 transition">
@@ -319,8 +377,21 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-rose-800">Tahakkuk</span>
                         <span class="text-[9px] text-slate-400">Fişi</span>
                     </a>
+                    @if($canEditTemplate)
+                    <a href="{{ route('admin.applications.edit-document', [$application, 'tahakkuk']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
+                    @endif
+                    </div>
 
-                    {{-- Ruhsat Belgesi -- her zaman göster --}}
+                    @php
+                        $isAdminUser = auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']);
+                        $statusVal = $application->status instanceof \BackedEnum ? $application->status->value : $application->status;
+                        $ruhsatVisible = $isAdminUser || in_array($statusVal, ['licensed', 'completed']);
+                    @endphp
+
+                    {{-- Ruhsat / Canlı / Eski Ruhsat — yalnızca ruhsatlanmış/tamamlanmış başvurularda (admin hariç) --}}
+                    @if($ruhsatVisible)
+                    {{-- Ruhsat Belgesi --}}
+                    <div class="relative">
                     <a href="{{ route('admin.applications.pdf.ruhsat', $application) }}" target="_blank"
                        class="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-center transition hover:border-emerald-300 hover:bg-emerald-50/70 hover:shadow-sm group">
                         <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200 transition">
@@ -329,8 +400,12 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-emerald-800">Ruhsat</span>
                         <span class="text-[9px] text-slate-400">Belgesi</span>
                     </a>
+                    @if($canEditTemplate)
+                    <a href="{{ route('admin.applications.edit-document', [$application, 'ruhsat']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
+                    @endif
+                    </div>
 
-                    {{-- Canlı Ruhsat (Permit Live) -- her zaman göster --}}
+                    {{-- Canlı Ruhsat (Permit Live) --}}
                     <a href="{{ route('admin.applications.permit-live', $application) }}" target="_blank"
                        class="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-center transition hover:border-teal-300 hover:bg-teal-50/70 hover:shadow-sm group">
                         <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 text-teal-700 group-hover:bg-teal-200 transition">
@@ -350,6 +425,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-sky-800">Eski Ruhsat</span>
                         <span class="text-[9px] text-slate-400">PDF</span>
                     </a>
+                    @endif
                     @endif
                 </div>
             </div>
@@ -810,6 +886,13 @@
 
                                 @else
                                     {{-- ===== INSTITUTION: ÖN KAZI ===== --}}
+                                    @if(auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']))
+                                        <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" target="_blank"
+                                           class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            ✏️ Taslağı Aç & Bu Başvuruya Özel Düzenle (Word)
+                                        </a>
+                                    @endif
                                     {{-- DURUM: draft/submitted (ilk aşama) --}}
                                     @if(in_array($st, ['draft', 'submitted']))
 
@@ -828,14 +911,30 @@
                                                 📄 Üst Yazı (Dilekçe) Görüntüle
                                             </a>
 
-                                            @if($isCurrent && ($can['approve_pre_excavation'] ?? false))
-                                            <button type="button" onclick="document.getElementById('pre-excavation-modal').classList.remove('hidden')"
-                                                    class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-cyan-700 py-2.5 text-sm font-medium text-white hover:bg-cyan-800">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                                </svg>
-                                                ✅ Ön Kazı Onayı Ver
-                                            </button>
+                                            @php $onayStage = $application->approval_stage ?? ($processCurrentStep?->role_key ?? 'staff'); @endphp
+
+                                            {{-- Süreç & Onay Rotası: rolü rotada olan kullanıcı tuşu görür --}}
+                                            @if($isCurrent && ($can['approve_current'] ?? false))
+                                                @if($processCurrentStepIsFinal)
+                                                <button type="button" onclick="document.getElementById('pre-excavation-modal').classList.remove('hidden')"
+                                                        class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 py-2.5 text-sm font-medium text-white hover:bg-amber-700">
+                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                    </svg>
+                                                    ✅ {{ $processCurrentStep?->name ?: 'Başkan Yrd. Onayı' }} / Ön Kazı İzni Ver
+                                                </button>
+                                                @else
+                                                <form method="POST" action="{{ route('admin.applications.approve-pre-excavation', $application) }}" class="mb-2">
+                                                    @csrf
+                                                    <button type="submit"
+                                                            class="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-white {{ $onayStage === 'director' ? 'bg-indigo-700 hover:bg-indigo-800' : 'bg-cyan-700 hover:bg-cyan-800' }}">
+                                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                        </svg>
+                                                        ✅ {{ $processCurrentStep?->name ?: 'Onayla' }} — Onayla &amp; Gönder
+                                                    </button>
+                                                </form>
+                                                @endif
                                             @endif
                                         @endif
 
@@ -1028,6 +1127,13 @@
                                         $makbuzlarDolu = $application->ztb_receipt_info && $application->deposit_receipt_info;
                                         $isLicensed = $st === 'licensed';
                                     @endphp
+                                    @if(auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']))
+                                        <a href="{{ route('admin.applications.edit-document', [$application, 'ruhsat']) }}" target="_blank"
+                                           class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            📊 Taslağı Aç & Bu Başvuruya Özel Düzenle (Excel)
+                                        </a>
+                                    @endif
                                     @if($isCurrent || $isPast)
                                         @if($makbuzlarDolu || $isLicensed)
                                             <div class="mt-4 mb-2">
@@ -1086,6 +1192,14 @@
                                     $makbuzlarDolu = $application->ztb_receipt_info && $application->deposit_receipt_info;
                                     $isLicensed = $st === 'licensed';
                                 @endphp
+
+                                @if(auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']))
+                                    <a href="{{ route('admin.applications.edit-document', [$application, 'ruhsat']) }}" target="_blank"
+                                       class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        📊 Taslağı Aç & Bu Başvuruya Özel Düzenle (Excel)
+                                    </a>
+                                @endif
 
                                 @if($isCurrent || $isPast)
                                     @if($makbuzlarDolu || $isLicensed)
@@ -1148,30 +1262,46 @@
                 <p class="text-sm font-medium text-slate-800">{{ $application->assignee->name }}</p>
             </div>
             @endif
+            <div class="flex flex-col gap-3 mt-4 mb-4 w-full">
             @can('update', $application)
             <button type="button" onclick="document.getElementById('transfer-modal').classList.remove('hidden')"
-                    class="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-indigo-700 shadow-sm hover:bg-indigo-50 hover:border-indigo-200">
+                    class="flex w-full items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-indigo-700"
+                    style="background-color:#4f46e5 !important;color:#ffffff !important;">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg>
                 Görevi Devret
             </button>
             @endcan
 
+            @if($can['transfer_institution'] ?? false)
+            <button type="button" onclick="document.getElementById('transfer-institution-modal').classList.remove('hidden')"
+                    class="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
+                    style="background-image:linear-gradient(90deg,#0284c7,#7c3aed);color:#ffffff !important;">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Kuruma Gönder / Devret
+            </button>
+            @endif
+
             {{-- Başvuru İptal --}}
             @if(!in_array($st, ['cancelled', 'completed', 'licensed']))
             @can('update', $application)
             <button type="button" onclick="document.getElementById('cancel-modal').classList.remove('hidden')"
-                    class="flex w-full items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 py-3 text-sm font-medium text-rose-700 shadow-sm hover:bg-rose-50 hover:border-rose-300">
+                    class="flex w-full items-center justify-center gap-2 rounded-2xl bg-rose-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-rose-700"
+                    style="background-color:#e11d48 !important;color:#ffffff !important;">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 Başvuruyu İptal Et
             </button>
             @endcan
             @endif
+            </div>
         </div>
     </div>
 
+
+
+<!-- Modallar: izole root (nested parent buglarindan kacinmak icin sayfa sonuna tasindi) -->
 {{-- Zemin Satırları Düzenleme Modalı --}}
-<div id="surface-edit-modal" class="fixed inset-0 z-[99999] hidden flex items-center justify-center bg-black/60" onclick="if(event.target===this)this.classList.add('hidden')">
-    <div class="w-full max-w-3xl rounded-lg bg-white p-5 shadow-2xl" onclick="event.stopPropagation()">
+<div id="surface-edit-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-4 overflow-y-auto hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl flex flex-col p-5 my-auto" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-3">
             <h3 class="text-lg font-semibold text-slate-900">Zemin Satırlarını Düzenle</h3>
             <button type="button" onclick="document.getElementById('surface-edit-modal').classList.add('hidden')" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
@@ -1245,11 +1375,11 @@
     </div>
 </div>
 
-{{-- Ön Kazı Onayı Modalı --}}
-<div id="pre-excavation-modal" class="fixed inset-0 z-[99999] hidden flex items-center justify-center bg-black/60" onclick="if(event.target===this)this.classList.add('hidden')">
-    <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-2xl" onclick="event.stopPropagation()">
+{{-- Başkan Yrd. Onayı / Ön Kazı İzni Modalı --}}
+<div id="pre-excavation-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-4 overflow-y-auto hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="relative w-full max-w-lg bg-white rounded-xl shadow-2xl flex flex-col p-6 my-auto" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
-            <h3 class="text-lg font-semibold text-slate-900">Ön Kazı Onayı</h3>
+            <h3 class="text-lg font-semibold text-slate-900">Başkan Yrd. Onayı / Ön Kazı İzni</h3>
             <button type="button" onclick="document.getElementById('pre-excavation-modal').classList.add('hidden')" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
@@ -1257,24 +1387,24 @@
         <form method="POST" action="{{ route('admin.applications.approve-pre-excavation', $application) }}" id="pre-excavation-form">
             @csrf
             <div class="mb-4">
-                <label class="block text-sm font-medium text-slate-700 mb-1">Belediye Başkan Yardımcısı Adı</label>
-                <input type="text" name="vice_mayor_name" required maxlength="255"
-                       class="block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm placeholder-slate-400 focus:border-cyan-400 focus:ring-1 focus:ring-cyan-200"
-                       placeholder="Mustafa Kemal KARATAŞ">
+                <label class="block text-sm font-medium text-slate-700 mb-1">Evrağa Basılacak Başkan Yrd. / Müdür V. Adı Soyadı</label>
+                <input type="text" name="vice_mayor_name" value="{{ $application->vice_mayor_name ?: (\App\Services\SignatoryEngine::resolve('pre_permit', $application->institution_id, 'belediye_baskan_yardimcisi')?->ad_soyad ?? '') }}" maxlength="255"
+                       class="block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm placeholder-slate-400 focus:border-amber-400 focus:ring-1 focus:ring-amber-200"
+                       placeholder="Başkan yardımcısının adı soyadı (boş bırakılırsa makam ayarından yazılır)">
             </div>
-            <p class="mb-4 text-xs text-slate-500">Ön kazı izni onayı için başkan yardımcısının adını girin. Bu bilgi Ön Kazı İzin Belgesi'nde kullanılacaktır.</p>
+            <p class="mb-4 text-xs text-slate-500">Ön kazı izni onayı, evrağa basılacak Başkan Yardımcısı / Müdür Vekili adını onaylayıp (gerekirse değiştirip) verilir. Bu bilgi Ön Kazı İzin Belgesi ve e-devlet şablonlarında kullanılır.</p>
             <div class="flex justify-end gap-2">
                 <button type="button" onclick="document.getElementById('pre-excavation-modal').classList.add('hidden')"
                         class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">İptal</button>
-                <button type="submit" class="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-800">Onayla</button>
+                <button type="submit" class="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">Onayla ve Ön Kazı İzni Ver</button>
             </div>
         </form>
     </div>
 </div>
 
 {{-- Görevi Devret Modalı --}}
-<div id="transfer-modal" class="fixed inset-0 z-[99999] hidden flex items-center justify-center bg-black/60" onclick="if(event.target===this)this.classList.add('hidden')">
-    <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-2xl" onclick="event.stopPropagation()">
+<div id="transfer-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-4 overflow-y-auto hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="relative w-full max-w-lg bg-white rounded-xl shadow-2xl flex flex-col p-6 my-auto" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
             <h3 class="text-lg font-semibold text-slate-900">Görevi Devret</h3>
             <button type="button" onclick="document.getElementById('transfer-modal').classList.add('hidden')" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
@@ -1306,20 +1436,58 @@
     </div>
 </div>
 
+{{-- Kuruma Devret Modalı --}}
+<div id="transfer-institution-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-4 overflow-y-auto hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="relative w-full max-w-lg bg-white rounded-xl shadow-2xl flex flex-col p-6 my-auto" onclick="event.stopPropagation()">
+        <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+            <h3 class="text-lg font-semibold text-slate-900">Kuruma Gönder / Devret</h3>
+            <button type="button" onclick="document.getElementById('transfer-institution-modal').classList.add('hidden')" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <form method="POST" action="{{ route('admin.applications.transfer-institution', $application) }}">
+            @csrf
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-1">Kurum Seçin</label>
+                <select name="institution_id" required class="block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-sky-400 focus:ring-1 focus:ring-sky-200">
+                    <option value="">Kurum Seçin</option>
+                    @foreach($institutions as $inst)
+                        <option value="{{ $inst->id }}">{{ $inst->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-1">Devir Sebebi (opsiyonel)</label>
+                <textarea name="transfer_reason" rows="2" class="block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-sky-400 focus:ring-1 focus:ring-sky-200" placeholder="Devir sebebini kısaca belirtin"></textarea>
+            </div>
+            <p class="mb-4 text-xs text-slate-500">Başvurunun sorumluluğu seçilen kuruma devredilecektir. Alt kurum, başvuruyu kendi ekranından takip edebilecek.</p>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="document.getElementById('transfer-institution-modal').classList.add('hidden')"
+                        class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">İptal</button>
+                <button type="submit" class="rounded-lg bg-sky-700 px-4 py-2 text-sm font-medium text-white hover:bg-sky-800" style="background-image:linear-gradient(90deg,#0284c7,#7c3aed);color:#fff !important;">Kuruma Gönder</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {{-- Başvuru İptal Modalı --}}
-<div id="cancel-modal" class="fixed inset-0 z-[99999] hidden flex items-center justify-center bg-black/60" onclick="if(event.target===this)this.classList.add('hidden')">
-    <div class="w-full max-w-md rounded-lg bg-white p-6 shadow-2xl" onclick="event.stopPropagation()">
+<div id="cancel-modal" class="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 px-4 overflow-y-auto hidden" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="relative w-full max-w-lg bg-white rounded-xl shadow-2xl flex flex-col p-6 my-auto" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
             <h3 class="text-lg font-semibold text-slate-900">Başvuruyu İptal Et</h3>
             <button type="button" onclick="document.getElementById('cancel-modal').classList.add('hidden')" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
-        <form method="POST" action="{{ route('admin.applications.cancel', $application) }}" onsubmit="return confirm('Başvuruyu iptal etmek istediğinize emin misiniz?')">
+        <form method="POST" action="{{ route('admin.applications.cancel', $application) }}" enctype="multipart/form-data" onsubmit="return confirm('Başvuruyu iptal etmek istediğinize emin misiniz?')">
             @csrf
             <div class="mb-4">
                 <label class="block text-sm font-medium text-slate-700 mb-1">İptal Sebebi (opsiyonel)</label>
                 <textarea name="cancellation_reason" rows="3" class="block w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:border-rose-400 focus:ring-1 focus:ring-rose-200" placeholder="İptal sebebini belirtin"></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 mb-1">İptal Gerekçesi Belgesi (opsiyonel)</label>
+                <input type="file" name="cancel_document" accept=".pdf,.jpg,.jpeg,.png,.webp" class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-slate-700 hover:file:bg-slate-200">
             </div>
             <p class="mb-4 text-xs text-rose-600">Bu işlem geri alınamaz. Başvuru iptal edildi olarak işaretlenecektir.</p>
             <div class="flex justify-end gap-2">

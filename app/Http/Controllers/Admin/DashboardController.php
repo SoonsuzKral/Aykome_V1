@@ -14,13 +14,18 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request): View|\Illuminate\Http\RedirectResponse
     {
         $user = $request->user();
 
         // Super Admin — platform-wide license & firm overview
         if ($user->hasRole('super-admin')) {
             return $this->superAdminDashboard($user);
+        }
+
+        // Makam (Başkan / Başkan Yrd.) — sisteme girişte anasayfası Makam Masası'dır
+        if ($user->hasRole('municipality-makam')) {
+            return redirect()->route('admin.makam.index');
         }
 
         // Field team / institution staff get a focused lightweight dashboard

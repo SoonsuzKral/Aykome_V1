@@ -105,13 +105,13 @@
         <table style="width:100%; margin-top: 50px;">
             <tr>
                 <td style="width:60%; line-height:1.4;">
-                    Tesis Sorumlusu: <b>{{ mb_strtoupper(trim(($application->tesis_sorumlusu ?? $application->institution?->engineer_name ?? 'Tesis Sorumlusu')), 'UTF-8') }}</b><br>
+                    Tesis Sorumlusu: <b>{{ mb_strtoupper(trim(($application->tesis_sorumlusu ?? $application->institution?->tesis_sorumlusu_adi ?? 'Tesis Sorumlusu')), 'UTF-8') }}</b><br>
                     Tel / GSM : <b>{{ $application->applicant_phone ?? '' }}</b><br>
                     Toplam Kazı : <b>{{ number_format((float)($application->total_area_m2 ?? 0), 2, ',', '.') }} m² / m. </b>
                 </td>
                 <td style="width:40%; text-align:center;">
-                    <b style="text-transform:uppercase; font-size:14px;">{{ mb_strtoupper($application->mudur_unvani ?? ($application->institution?->manager_name ? 'İl Müdürü' : 'Kurum Yetkilisi')), 'UTF-8' }}</b><br>
-                    <b style="text-transform:uppercase;">{{ mb_strtoupper($application->mudur_adi ?? $application->institution?->manager_name ?? 'Kurum Yetkilisi'), 'UTF-8' }}</b><br>
+                    <b style="text-transform:uppercase; font-size:14px;">{{ mb_strtoupper($application->mudur_unvani ?? $application->institution?->mudur_unvani ?? ($application->institution?->mudur_adi ? 'İl Müdürü' : 'Kurum Yetkilisi')), 'UTF-8' }}</b><br>
+                    <b style="text-transform:uppercase;">{{ mb_strtoupper($application->mudur_adi ?? $application->institution?->mudur_adi ?? 'Kurum Yetkilisi'), 'UTF-8' }}</b><br>
                     <span style="font-size:13.5px;">{{ mb_strtoupper($application->institution?->name ?? '', 'UTF-8') }} Yöneticiliği / İl Md. Yrd.</span>
                 </td>
             </tr>

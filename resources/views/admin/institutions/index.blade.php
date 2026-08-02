@@ -168,7 +168,7 @@ function openEditModal(id) {
         .then(data => {
             const form = document.getElementById('editForm');
             form.action = `/admin/institutions/${id}`;
-            ['name','type','authorized_person','tax_number','phone','email','address','color_code','engineer_name','manager_name'].forEach(k => {
+            ['name','type','authorized_person','tax_number','phone','email','address','color_code','tesis_sorumlusu_adi','mudur_adi','mudur_unvani'].forEach(k => {
                 const el = form.querySelector(`[name="${k}"]`);
                 if (el) el.value = data[k] ?? '';
             });

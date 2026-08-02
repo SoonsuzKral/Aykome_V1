@@ -61,6 +61,7 @@ class ApplicationService
                         'address_text' => $data['address_text'] ?? null,
                         'address_components' => $data['address_components'] ?? null,
                         'vice_mayor_name' => $data['vice_mayor_name'] ?? null,
+                        'process_id' => $data['process_id'] ?? null,
                         'tesis_sorumlusu' => $data['tesis_sorumlusu'] ?? null,
                         'mudur_adi' => $data['mudur_adi'] ?? null,
                         'mudur_unvani' => $data['mudur_unvani'] ?? null,
@@ -105,36 +106,48 @@ class ApplicationService
         }
     }
 
-    public function approvePreExcavation(User $user, Application $application): Application
+    /**
+     * Süreç & Onay Rotası motoru üzerinden onay silsilesini ilerletir.
+     * Adım bilgisi process_steps tablosundan okunur; legacy kolonlar
+     * (staff/director/vice_mayor) default süreç için eşzamanlı doldurulur.
+     * Son adımda evrak onaylanır ve Ön Kazı İzni verilir.
+     */
+    public function advanceApproval(User $user, Application $application, ?string $viceMayorName = null): Application
     {
-        $oldStatus = $application->status->value;
+        $result = app(ProcessEngine::class)->approve($application, $user, $viceMayorName);
 
-        $application->load(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
+        if (! $result['approved']) {
+            throw ValidationException::withMessages([
+                'approval' => $result['reason'] === 'not_authorized'
+                    ? 'Bu adımı onaylama yetkiniz bulunmuyor.'
+                    : 'Onay rotası tanımlı değil veya adım bulunamadı.',
+            ]);
+        }
 
-        $application->update([
-            'status' => ApplicationStatus::PreApproved,
-            'pre_excavation_approved_at' => now(),
-            'pre_excavation_approved_by' => $user->id,
-        ]);
+        $message = match ($result['stage']) {
+            'staff' => 'Onay alındı. Başvuru Müdür onayına gönderildi.',
+            'director' => 'Müdür onayı alındı. Başvuru Başkan Yardımcısı onayına gönderildi.',
+            default => $result['finished']
+                ? 'Ön kazı izni onaylandı.'
+                : ($result['next']?->name ?? 'Sıradaki adım') . ' onayına gönderildi.',
+        };
 
-        ApplicationAudit::create([
-            'application_id' => $application->id,
-            'user_id' => $user->id,
-            'action' => 'Ön Kazı Onayı Verildi',
-            'old_status' => $oldStatus,
-            'new_status' => ApplicationStatus::PreApproved->value,
-        ]);
+        $this->log(
+            $application,
+            $user,
+            $result['finished'] ? 'pre_excavation.approved' : 'approval.step',
+            [],
+            $message
+        );
 
-        $this->log($application, $user, 'pre_excavation.approved', [], 'Ön kazı izni onaylandı');
-
-        return $application->fresh();
+        return $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
     }
 
     private function getTargetedUsers(Application $application, ?int $excludeUserId = null): \Illuminate\Support\Collection
     {
         $query = User::query()
             ->where(function ($q) use ($application) {
-                $q->role(['super-admin', 'municipality-admin', 'municipality-staff']);
+                $q->role(['super-admin', 'municipality-admin', 'municipality-staff', 'municipality-buro', 'municipality-sef', 'municipality-mudur', 'municipality-makam']);
                 if ($application->institution_id) {
                     $q->orWhere('institution_id', $application->institution_id);
                 }
@@ -149,10 +162,16 @@ class ApplicationService
 
     public function submit(User $user, Application $application): Application
     {
-        $application->update(['status' => ApplicationStatus::Submitted]);
+        $engine = app(ProcessEngine::class);
+        $firstStep = $engine->steps(null, $application)->first() ?? $engine->firstStep();
+
+        $application->update([
+            'status' => ApplicationStatus::Submitted,
+            'approval_stage' => $firstStep?->role_key ?? 'staff',
+        ]);
 
         $this->pricingService->recalculateTotals($application);
-        $this->log($application, $user, 'application.submitted', [], 'Başvuru belediyeye gönderildi');
+        $this->log($application, $user, 'application.submitted', [], 'Başvuru belediyeye gönderildi (Belediye personeli onayı bekleniyor)');
 
         $fresh = $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
 
@@ -320,6 +339,7 @@ class ApplicationService
             } else {
                 $application->update([
                     'status' => ApplicationStatus::Licensed,
+                    'licensed_at' => now(),
                     'receipt_approved_at' => now(),
                     'receipt_approved_by' => $user->id,
                     'payment_status' => 'paid',

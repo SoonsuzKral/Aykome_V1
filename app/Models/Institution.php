@@ -21,6 +21,9 @@ class Institution extends Model
         'logo_path',
         'engineer_name',
         'manager_name',
+        'tesis_sorumlusu_adi',
+        'mudur_adi',
+        'mudur_unvani',
     ];
 
     protected function casts(): array

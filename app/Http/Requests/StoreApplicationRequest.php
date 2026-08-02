@@ -60,7 +60,7 @@ class StoreApplicationRequest extends FormRequest
     public function rules(): array
     {
         $user = $this->user();
-        $isInstitutionUser = $user && ! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff']);
+        $isInstitutionUser = $user && ! $user->isMunicipalityPersonel();
 
         $nationalIdRules = $isInstitutionUser
             ? ['nullable', 'string', 'max:20']
@@ -99,6 +99,7 @@ class StoreApplicationRequest extends FormRequest
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'excavation_amount' => ['nullable', 'numeric', 'min:0'],
             'vice_mayor_name' => ['nullable', 'string', 'max:255'],
+            'process_id' => ['nullable', 'integer', 'exists:process_definitions,id'],
             'tesis_sorumlusu' => ['nullable', 'string', 'max:255'],
             'mudur_adi' => ['nullable', 'string', 'max:255'],
             'mudur_unvani' => ['nullable', 'string', 'max:255'],

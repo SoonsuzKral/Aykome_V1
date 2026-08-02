@@ -108,6 +108,9 @@ class InstitutionController extends Controller
             'is_municipality'   => ['boolean'],
             'engineer_name'     => ['nullable', 'string', 'max:255'],
             'manager_name'      => ['nullable', 'string', 'max:255'],
+            'tesis_sorumlusu_adi' => ['nullable', 'string', 'max:255'],
+            'mudur_adi'         => ['nullable', 'string', 'max:255'],
+            'mudur_unvani'      => ['nullable', 'string', 'max:255'],
             'logo'              => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 
@@ -129,6 +132,7 @@ class InstitutionController extends Controller
             'id', 'name', 'type', 'authorized_person', 'tax_number',
             'phone', 'email', 'address', 'color_code', 'is_municipality',
             'logo_path', 'engineer_name', 'manager_name',
+            'tesis_sorumlusu_adi', 'mudur_adi', 'mudur_unvani',
         ]));
     }
 
@@ -146,6 +150,9 @@ class InstitutionController extends Controller
             'is_municipality'   => ['boolean'],
             'engineer_name'     => ['nullable', 'string', 'max:255'],
             'manager_name'      => ['nullable', 'string', 'max:255'],
+            'tesis_sorumlusu_adi' => ['nullable', 'string', 'max:255'],
+            'mudur_adi'         => ['nullable', 'string', 'max:255'],
+            'mudur_unvani'      => ['nullable', 'string', 'max:255'],
             'logo'              => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
 

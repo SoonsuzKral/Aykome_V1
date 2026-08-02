@@ -142,6 +142,7 @@ class LicenseService
 
         $pdf = Pdf::loadView('admin.pdf.ruhsat', [
             'application' => $application,
+            'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
         ])->setPaper('a4', 'portrait');
 
         $filename = 'ruhsat-'.$applicationNo.'.pdf';

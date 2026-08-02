@@ -184,7 +184,7 @@
         { value: '{kurum}', label: 'Kurum Adı' },
         { value: '{basyuran}', label: 'Başvuran Adı' },
         { value: '{kazı_sebebi}', label: 'Kazı Sebebi' },
-        { value: '{calisma_turu}', label: 'Çalışma Türü' },
+        { value: '{calisma_turu}', label: 'İşin Adı (Cinsi)' },
         { value: '{adres}', label: 'Adres' },
         { value: '{baslangic}', label: 'Başlangıç Tarihi' },
         { value: '{bitis}', label: 'Bitiş Tarihi' },

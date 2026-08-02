@@ -25,6 +25,74 @@ services:
       - redis_data:/data
     command: ["redis-server", "--appendonly", "yes"]
 
+  php:
+    image: aykome-v6-php
+    container_name: aykome-v6-php
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment: &php-env
+      DB_CONNECTION: oracle
+      DB_HOST: oracle
+      DB_PORT: 1521
+      DB_DATABASE: FREEPDB1
+      DB_USERNAME: aykome_user
+      DB_PASSWORD: aykome123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    command: ["tail", "-f", "/dev/null"]
+
+  serve:
+    image: aykome-v6-php
+    container_name: aykome-v6-serve
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "8001:8000"
+    environment:
+      <<: *php-env
+      REVERB_HOST: reverb
+      REVERB_APP_ID: 155017
+      REVERB_APP_KEY: rjtkhgphtzelw7kyeam6
+      REVERB_APP_SECRET: 5kx7hy0k91prqlrwzxhp
+      REVERB_SCHEME: http
+      REVERB_PORT: 8090
+    depends_on:
+      oracle:
+        condition: service_healthy
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+
+  reverb:
+    image: aykome-v6-php
+    container_name: aykome-v6-reverb
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "8090:8090"
+    environment:
+      <<: *php-env
+      REVERB_HOST: 0.0.0.0
+      REVERB_APP_ID: 155017
+      REVERB_APP_KEY: rjtkhgphtzelw7kyeam6
+      REVERB_APP_SECRET: 5kx7hy0k91prqlrwzxhp
+      REVERB_SCHEME: http
+      REVERB_PORT: 8090
+    depends_on:
+      oracle:
+        condition: service_healthy
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8090"]
+
+  adminer:
+    image: aykome-adminer
+    container_name: aykome-v6-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      oracle:
+        condition: service_healthy
+
 volumes:
   oracle_data:
   redis_data:

@@ -286,8 +286,15 @@ table.areas tbody td { padding: 4px 8px; color: #334155; }
         <tr>
             <th>Kazı Nedeni</th>
             <td>{{ $application->excavation_reason ?? '—' }}</td>
-            <th>Çalışma Türü</th>
-            <td>{{ $application->work_type ?? '—' }}</td>
+            <th>İşin Adı (Cinsi)</th>
+            <td>
+                @php
+                    $isParts = [];
+                    if ($application->project_code) $isParts[] = 'Kod: ' . $application->project_code;
+                    if ($application->work_type) $isParts[] = 'İş Cinsi: ' . $application->work_type;
+                @endphp
+                {{ $isParts ? implode(' / ', $isParts) : ($application->work_type ?? '—') }}
+            </td>
         </tr>
         <tr>
             <th>Başlangıç Tarihi</th>

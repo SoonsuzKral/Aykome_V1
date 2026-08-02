@@ -31,7 +31,7 @@ Application data ─── map builder ─────────┘
 | `Zeynelabidin AKTAŞOĞLU` | imzacı adı |
 | `E-18790261-755-555505` | belge no |
 | `Kazı İzni Hk.` | konu |
-| `Mustafa Kemal KARATAŞ` | imzacı |
+| `Mehmet ELĞÜN` | imzacı |
 | `Belediye Başkan Yardımcısı` | ünvan |
 | `09/06/2026` | tarih |
 | `13/07/2026` | bitiş tarihi |

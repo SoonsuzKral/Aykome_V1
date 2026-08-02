@@ -13,6 +13,19 @@
     <link rel="apple-touch-icon" href="/favicon.svg">
     @vite(['resources/css/app.css'])
     @stack('styles')
+    <style>
+        /* ═══ GLOBAL Z-INDEX HİYERARŞİSİ FIX ═══
+           Leaflet harita panelleri header/navbar üzerine binmesin.
+           Header/Nav üstte kalsın, modallar en üstte olsun. */
+        .leaflet-container,
+        .leaflet-pane,
+        .leaflet-top,
+        .leaflet-bottom { z-index: 10 !important; }
+
+        header, nav,
+        #admin-sidebar,
+        .admin-navbar { z-index: 50 !important; }
+    </style>
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-900 antialiased{{ request()->is('maps*') ? ' maps-page' : '' }}">
     <div id="sidebar-overlay" class="fixed inset-0 z-40 hidden bg-slate-900/40 lg:hidden" data-sidebar-close></div>

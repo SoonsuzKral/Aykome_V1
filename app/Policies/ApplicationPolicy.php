@@ -9,7 +9,15 @@ class ApplicationPolicy
 {
     protected function managesMunicipality(User $user): bool
     {
-        return $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff']);
+        return $user->isMunicipalityPersonel();
+    }
+
+    /**
+     * Rol bu başvurunun şu anki adımını onaylayabiliyor mu? (Motor kontrolü)
+     */
+    protected function engineAllows(User $user, Application $application): bool
+    {
+        return app(\App\Services\ProcessEngine::class)->userCanApprove($application, $user);
     }
 
     public function viewAny(User $user): bool
@@ -57,6 +65,42 @@ class ApplicationPolicy
         return $user->can('applications.approve_pre_excavation') && $this->managesMunicipality($user);
     }
 
+    /**
+     * Süreç & Onay Rotası: Belediye personeli yalnızca 'staff' adımındaysa
+     * ve rolü bu adıma atanmışsa onaylayabilir.
+     */
+    public function approveStaff(User $user, Application $application): bool
+    {
+        if (! $user->can('applications.approve_pre_excavation') || ! $this->managesMunicipality($user)) {
+            return false;
+        }
+        return in_array($application->approval_stage ?? 'staff', ['staff', null], true)
+            && $this->engineAllows($user, $application);
+    }
+
+    /**
+     * Süreç & Onay Rotası: Müdür yalnızca 'director' adımındaysa ve rolü
+     * bu adıma atanmışsa onaylayabilir.
+     */
+    public function approveDirector(User $user, Application $application): bool
+    {
+        return $user->can('applications.approve_pre_excavation')
+            && $this->managesMunicipality($user)
+            && $application->approval_stage === 'director'
+            && $this->engineAllows($user, $application);
+    }
+
+    /**
+     * Süreç & Onay Rotası: Başkan Yrd. onayı — son aşama (ön kazı izni verilir).
+     */
+    public function approveViceMayor(User $user, Application $application): bool
+    {
+        return $user->can('applications.approve_pre_excavation')
+            && $this->managesMunicipality($user)
+            && $application->approval_stage === 'vice_mayor'
+            && $this->engineAllows($user, $application);
+    }
+
     public function approvePrice(User $user, Application $application): bool
     {
         return $user->can('applications.approve_price') && $this->managesMunicipality($user);
@@ -75,5 +119,12 @@ class ApplicationPolicy
     public function transferTask(User $user, Application $application): bool
     {
         return $user->can('tasks.transfer') && $this->managesMunicipality($user);
+    }
+
+    public function transferToInstitution(User $user, Application $application): bool
+    {
+        // İş yönlendirme (kuruma devretme) yetkisi SADECE belediyeye aittir.
+        // Alt kurum (ŞUSKİ/TEDAŞ/AKSA...) kullanıcıları bu butonu asla göremez.
+        return $user->can('applications.edit') && $this->managesMunicipality($user);
     }
 }

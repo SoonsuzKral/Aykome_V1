@@ -3,28 +3,39 @@ import Pusher from 'pusher-js';
 
 window.Pusher = Pusher;
 
-// ── Reverb debug log ─────────────────────────────────────────────────────────
-Pusher.logToConsole = true;   // shows all WS connect/disconnect events in console
+// ── Reverb connection gürültüsünü sustur (local test ortamı) ────────────────
+Pusher.logToConsole = false;  // WS connect/disconnect kırmızı spam'i kapat
 
-window.Echo = new Echo({
-    broadcaster: 'reverb',
-    key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: import.meta.env.VITE_REVERB_HOST ?? 'localhost',
-    wsPort: import.meta.env.VITE_REVERB_PORT ?? 8090,
-    wssPort: import.meta.env.VITE_REVERB_PORT ?? 8090,
-    forceTLS: false,
-    enabledTransports: ['ws', 'wss'],
-    disableStats: true,
-    debug: true,   // Echo-level debug: logs subscribe/auth/error to console
-});
+// VITE_BROADCAST_CONNECTION yoksa/hatalıysa ya da WS sunucusu offline ise sessiz kal
+const _broadcastEnabled = (import.meta.env.VITE_BROADCAST_CONNECTION ?? 'true') !== 'false' && !!import.meta.env.VITE_REVERB_APP_KEY;
 
-// Log connection state changes so you can see WHY it keeps closing
-window.Echo.connector.pusher.connection.bind('state_change', (states) => {
-    console.log('[Reverb] state:', states.previous, '→', states.current, new Date().toLocaleTimeString());
-});
-window.Echo.connector.pusher.connection.bind('error', (err) => {
-    console.error('[Reverb] connection error:', err);
-});
+window.Echo = null;
+
+if (_broadcastEnabled) {
+    try {
+        window.Echo = new Echo({
+            broadcaster: 'reverb',
+            key: import.meta.env.VITE_REVERB_APP_KEY,
+            wsHost: import.meta.env.VITE_REVERB_HOST ?? 'localhost',
+            wsPort: import.meta.env.VITE_REVERB_PORT ?? 8090,
+            wssPort: import.meta.env.VITE_REVERB_PORT ?? 8090,
+            forceTLS: false,
+            enabledTransports: ['ws', 'wss'],
+            disableStats: true,
+            debug: false,  // Echo-level debug log kapatıldı (spam)
+        });
+    } catch (e) {
+        console.warn('[Reverb] WS kapalı - Mute');
+        window.Echo = null;
+    }
+}
+
+// WS offline / hata durumlarında dev Console Log kırmızı spam'ini sustur
+if (window.Echo && window.Echo.connector && window.Echo.connector.pusher && window.Echo.connector.pusher.connection) {
+    const _wsConn = window.Echo.connector.pusher.connection;
+    _wsConn.bind('state_change', () => { /* sessiz */ });
+    _wsConn.bind('error', () => { console.warn('WSC kapalı - Mute'); });
+}
 
 // ── AudioContext unlock — fires once on first user interaction ────────────────
 let _audioUnlocked = false;
@@ -54,7 +65,7 @@ const _isMunicipalityUser = _userRoles.some(r => ['super-admin', 'municipality-a
 
 // ── Listen on admin-notifications channel ────────────────────────────────────
 // broadcastAs() values are dot-prefixed in JS listeners
-console.log('Echo dinlemeye başladı — admin-notifications kanalı aktif.');
+if (window.Echo) console.log('[Reverb] Echo dinlemeye başladı — admin-notifications kanalı aktif.');
 
 // ── Notification badge bump (navbar red dot) ─────────────────────────────────
 function _bumpNotifBadge() {
@@ -74,7 +85,8 @@ function _shouldShowNotification(data) {
     return false;
 }
 
-window.Echo.channel('admin-notifications')
+if (window.Echo) {
+    window.Echo.channel('admin-notifications')
 
     // ── Saha görevi tamamlandı ────────────────────────────────────────────
     .listen('.field-task.completed', (data) => {
@@ -105,6 +117,7 @@ window.Echo.channel('admin-notifications')
         _playNotificationSound();
         _bumpNotifBadge();
     });
+}
 
 function _toast(icon, title, text, actionUrl = null) {
     if (typeof Swal === 'undefined') return;

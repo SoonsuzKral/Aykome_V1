@@ -19,6 +19,12 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\LiveMapController;
 use App\Http\Controllers\Admin\SurfaceTypeController;
 use App\Http\Controllers\Admin\WorkOrderController;
+use App\Http\Controllers\Admin\DepositController;
+use App\Http\Controllers\Admin\DocumentSettingsController;
+use App\Http\Controllers\Admin\DocumentTemplateController;
+use App\Http\Controllers\Admin\FaultController;
+use App\Http\Controllers\Admin\MakamController;
+use App\Http\Controllers\Admin\ProcessController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -39,6 +45,7 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::post('applications/{application}/reject-receipt', [ApplicationsController::class, 'rejectReceipt'])->name('applications.reject-receipt');
         Route::post('applications/{application}/field-tasks', [ApplicationsController::class, 'transfer'])->name('applications.field-tasks.store');
         Route::post('applications/{application}/transfer', [ApplicationsController::class, 'transferApplication'])->name('applications.transfer');
+        Route::post('applications/{application}/transfer-institution', [ApplicationsController::class, 'transferToInstitution'])->name('applications.transfer-institution');
         Route::post('applications/{application}/cancel', [ApplicationsController::class, 'cancel'])->name('applications.cancel');
         Route::post('applications/{application}/receipts', [ApplicationsController::class, 'storeReceipt'])->name('applications.receipts.store');
         Route::get('applications/{application}/license-pdf',      [ApplicationsController::class, 'downloadLicense']       )->name('applications.license-pdf');
@@ -53,7 +60,12 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::put('applications/{application}/save-receipt-info', [ApplicationsController::class, 'saveReceiptInfo']     )->name('applications.save-receipt-info');
         Route::post('applications/{application}/update-surface-lines', [ApplicationsController::class, 'updateSurfaceLines'])->name('applications.update-surface-lines');
         Route::post('applications/{application}/upload-signed-document', [ApplicationsController::class, 'uploadSignedModuleDocument'])->name('applications.upload-signed-document');
+        Route::get('applications/{application}/document/{module}', [ApplicationsController::class, 'viewModuleDocument'])->name('applications.module-document');
+        Route::get('applications/{application}/edit-document/{documentType}', [DocumentTemplateController::class, 'editApplication'])->name('applications.edit-document');
+        Route::post('applications/{application}/edit-document/{documentType}', [DocumentTemplateController::class, 'saveApplication'])->name('applications.edit-document.save');
+        Route::delete('applications/{application}/edit-document/{documentType}', [DocumentTemplateController::class, 'destroyApplication'])->name('applications.edit-document.destroy');
         Route::get('applications/{application}/status',          [ApplicationsController::class, 'statusJson']             )->name('applications.status');
+        Route::get('api/geocode', [ApplicationsController::class, 'geocodeProxy'])->name('api.geocode');
 
         Route::get('applications/{application}/extra-permits',          [ExtraPermitController::class, 'index'])->name('extra-permits.index');
         Route::get('applications/{application}/extra-permits/create',   [ExtraPermitController::class, 'create'])->name('extra-permits.create');
@@ -66,6 +78,16 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::post('field-tasks/{fieldTask}/media',  [FieldTaskController::class, 'addMedia']    )->name('field-tasks.media.store');
         Route::post('field-tasks/{fieldTask}/status', [FieldTaskController::class, 'updateStatus'])->name('field-tasks.status.update');
         Route::post('field-tasks/{fieldTask}/stage',  [FieldTaskController::class, 'updateStage'] )->name('field-tasks.stage.update');
+    });
+
+    // ─── Teminat & İadeler + Toplu Arıza (Acil Kazı) ───────────────────────────
+    Route::middleware('permission:applications.view')->group(function () {
+        Route::get('deposits',                     [DepositController::class, 'index']        )->name('deposits.index');
+        Route::post('deposits/{application}/refund', [DepositController::class, 'refund']     )->name('deposits.refund');
+        Route::post('deposits/{application}/update', [DepositController::class, 'update']     )->name('deposits.update');
+
+        Route::get('faults',                       [FaultController::class, 'index']         )->name('faults.index');
+        Route::post('faults/bulk-tahakkuk',        [FaultController::class, 'bulkTahakkuk']  )->name('faults.bulk-tahakkuk');
     });
 
     // ─── Zemin Tipleri ────────────────────────────────────────────────────────
@@ -138,6 +160,40 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
 
         Route::get('settings/pre-excavation-permit',  [PreExcavationPermitSettingController::class, 'edit']  )->name('settings.pre-excavation-permit');
         Route::put('settings/pre-excavation-permit',  [PreExcavationPermitSettingController::class, 'update'])->name('settings.pre-excavation-permit.update');
+    });
+
+    // ─── Evrak & Makam Ayarları (Global Signatory Engine) ─────────────────────
+    Route::prefix('document-settings')->name('document-settings.')->group(function () {
+        Route::get('/',               [DocumentSettingsController::class, 'index']  )->name('index');
+        Route::post('/',              [DocumentSettingsController::class, 'store'] )->name('store');
+        Route::put('/{setting}',      [DocumentSettingsController::class, 'update'])->name('update');
+        Route::delete('/{setting}',   [DocumentSettingsController::class, 'destroy'])->name('destroy');
+    });
+
+    // ─── EBYS Taslak Motoru — Global Şablon Yönetimi (Word / Excel editör) ────
+    Route::prefix('document-templates')->name('document-templates.')->group(function () {
+        Route::get('/',                  [DocumentTemplateController::class, 'index']       )->name('index');
+        Route::get('{documentType}/edit', [DocumentTemplateController::class, 'editGlobal'])->name('edit');
+        Route::post('{documentType}',     [DocumentTemplateController::class, 'updateGlobal'])->name('update');
+    });
+
+    // ─── Süreç ve Onay Rotası (Hiyerarşi Yönetim Modülü) — merkez yönetim ─────
+    Route::prefix('processes')->name('processes.')->group(function () {
+        Route::get('/',                        [ProcessController::class, 'index']            )->name('index');
+        Route::post('/',                       [ProcessController::class, 'storeDefinition']   )->name('store-definition');
+        Route::post('/steps',                  [ProcessController::class, 'storeStep']         )->name('store-step');
+        Route::put('/steps/{step}',            [ProcessController::class, 'updateStep']        )->name('update-step');
+        Route::delete('/steps/{step}',         [ProcessController::class, 'destroyStep']       )->name('destroy-step');
+        Route::post('/steps/{step}/reorder/{direction}', [ProcessController::class, 'reorderStep'])->name('reorder-step');
+        Route::post('/{process}/set-default',  [ProcessController::class, 'setDefault']        )->name('set-default');
+        Route::post('/{process}/toggle-active',[ProcessController::class, 'toggleActive']      )->name('toggle-active');
+    });
+
+    // ─── Makam Masası (Başkan / Karar Yeri) ──────────────────────────────────
+    Route::prefix('makam')->name('makam.')->group(function () {
+        Route::get('/',                     [MakamController::class, 'index'])->name('index');
+        Route::get('/{application}',        [MakamController::class, 'show']  )->name('show');
+        Route::post('/{application}/onayla',[MakamController::class, 'onayla'])->name('onayla');
     });
 
     // ─── PRO Modüller ──────────────────────────────────────────────────────────

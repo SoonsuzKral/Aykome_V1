@@ -185,15 +185,15 @@
                 <td class="font-bold" style="width: 7%; padding: 2px;">FİRMA</td>
                 <td style="width: 21%; font-size: 11px; font-weight:bold; padding: 2px;">{{ mb_strtoupper($application->institution?->name ?? 'Şahsi Başvuru', 'UTF-8') }}</td>
                 <td rowspan="4" class="text-center" style="vertical-align: middle; padding: 0;">
-                    <div style="margin-top: 5px;">Mahmut DOĞAN</div>
-                    <div style="font-weight:bold; margin-top: 2px; margin-bottom:5px;">AYKOME Birim Sorumlusu</div>
+                    <div style="margin-top: 5px;">{{ $signatories['aykome_sorumlusu']['ad_soyad'] ?? 'Yetkili' }}</div>
+                    <div style="font-weight:bold; margin-top: 2px; margin-bottom:5px;">{{ $signatories['aykome_sorumlusu']['unvan'] ?? 'AYKOME Birim Sorumlusu' }}</div>
                 </td>
                 <td rowspan="4" class="text-center" style="vertical-align: middle; padding: 0;">
-                    <div style="margin-top: 5px;">Burak Bakır YÜCETEPE</div>
-                    <div style="font-weight:bold; margin-top: 2px; margin-bottom:5px;">Fen İşleri Müdürü</div>
+                    <div style="margin-top: 5px;">{{ $signatories['fen_isleri_muduru']['ad_soyad'] ?? 'Yetkili' }}</div>
+                    <div style="font-weight:bold; margin-top: 2px; margin-bottom:5px;">{{ $signatories['fen_isleri_muduru']['unvan'] ?? 'Fen İşleri Müdürü' }}</div>
                 </td>
             </tr>
-            <tr><td class="font-bold" style="padding: 2px;">SORUMLU</td> <td style="font-size:11px; padding: 2px;">{{ mb_strtoupper($application->applicant_name ?? 'Yetkili Görevli', 'UTF-8') }}</td></tr>
+            <tr><td class="font-bold" style="padding: 2px;">SORUMLU</td> <td style="font-size:11px; padding: 2px;">{{ mb_strtoupper(trim($application->tesis_sorumlusu ?? $application->institution?->tesis_sorumlusu_adi ?? 'Yetkili Görevli'), 'UTF-8') }}</td></tr>
             <tr><td class="font-bold" style="padding: 2px;">TELEFON</td> <td style="font-size:11px; padding: 2px;">{{ $application->applicant_phone ?? '-' }}</td></tr>
             <tr><td class="font-bold" style="padding: 2px;">İMZA</td> <td style="height: 12px; padding: 0px;"></td></tr>
             

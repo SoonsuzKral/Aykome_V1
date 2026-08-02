@@ -19,14 +19,19 @@ use App\Models\PermitSetting;
 use App\Services\ApplicationService;
 use App\Services\AuditLogger;
 use App\Services\DocumentRenderer;
+use App\Services\DocumentTemplateService;
 use App\Services\LicenseService;
 use App\Services\MapDrawingService;
 use App\Services\PricingService;
+use App\Services\ProcessEngine;
+use App\Services\SignatoryEngine;
 use App\Services\TaskTransferService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
@@ -50,7 +55,7 @@ class ApplicationsController extends Controller
         if ($user->hasRole('field-team')) {
             // Saha personeli: sadece kendisine atanmış görevlerdeki başvurular
             $query->whereHas('fieldTasks', fn ($q) => $q->where('assigned_to', $user->id));
-        } elseif (! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])) {
+        } elseif (! $user->isMunicipalityPersonel()) {
             // Kurum çalışanı: sadece kendi kurumunun başvuruları
             $query->where('institution_id', $user->institution_id);
             $filters['institution_id'] = (string) $user->institution_id;
@@ -75,7 +80,7 @@ class ApplicationsController extends Controller
             $filters['status'] = '';
         }
 
-        if ($filters['institution_id'] !== '' && $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])) {
+        if ($filters['institution_id'] !== '' && $user->isMunicipalityPersonel()) {
             $institutionId = (int) $filters['institution_id'];
             if ($institutionId > 0) {
                 $query->where('institution_id', $institutionId);
@@ -90,7 +95,7 @@ class ApplicationsController extends Controller
             'applications' => $query->paginate(15)->withQueryString(),
             'filters' => $filters,
             'statuses' => ApplicationStatus::cases(),
-            'institutions' => $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
+            'institutions' => $user->isMunicipalityPersonel()
                 ? Institution::query()->orderBy('name')->get(['id', 'name'])
                 : collect(),
         ]);
@@ -101,7 +106,7 @@ class ApplicationsController extends Controller
         $this->authorize('create', Application::class);
 
         $user = $request->user();
-        $isInstitutionUser = ! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff']);
+        $isInstitutionUser = ! $user->isMunicipalityPersonel();
 
         $institutions = $isInstitutionUser
             ? Institution::query()->where('id', $user->institution_id)->get(['id', 'name', 'slug', 'color_code', 'is_municipality', 'tax_number', 'phone'])
@@ -139,6 +144,11 @@ class ApplicationsController extends Controller
             'isInstitutionUser' => $isInstitutionUser,
             'applicantPrefill' => $applicantPrefill,
             'institutionPrefill' => $institutionPrefill,
+            'processes' => \App\Models\ProcessDefinition::query()
+                ->where('is_active', true)
+                ->orderByDesc('is_default')
+                ->orderBy('name')
+                ->get(['id', 'name', 'description']),
         ]);
     }
 
@@ -150,7 +160,7 @@ class ApplicationsController extends Controller
         // Request'ten gelen applicant alanları tamamen görmezden gelinir;
         // zorunlu olarak oturum açan kullanıcının kendi bilgileri yazılır.
         $user = $request->user();
-        if (! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])) {
+        if (! $user->isMunicipalityPersonel()) {
             $nationalId = preg_replace('/\D+/', '', (string) ($user->national_id ?? '')) ?: null;
             $nameParts = preg_split('/\s+/', trim((string) $user->name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
             $validated['applicant_first_name'] = mb_convert_case((string) (array_shift($nameParts) ?: ''), MB_CASE_TITLE, 'UTF-8');
@@ -214,7 +224,7 @@ class ApplicationsController extends Controller
             ->select(['applicant_first_name', 'applicant_last_name', 'applicant_national_id', 'applicant_phone', 'address_text'])
             ->where('applicant_national_id', $identityNo);
 
-        if (! $request->user()->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])) {
+        if (! $request->user()->isMunicipalityPersonel()) {
             $applicationQuery->where('institution_id', $request->user()->institution_id);
         }
 
@@ -239,7 +249,7 @@ class ApplicationsController extends Controller
             ->select(['name', 'phone', 'national_id'])
             ->where('national_id', $identityNo);
 
-        if (! $request->user()->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])) {
+        if (! $request->user()->isMunicipalityPersonel()) {
             $userQuery->where(function (Builder $query) use ($request): void {
                 $query
                     ->whereNull('institution_id')
@@ -294,25 +304,60 @@ class ApplicationsController extends Controller
             'extraPermits',
         ]);
 
+        // Görevi devret listesi → tüm Eyyübiye merkez kullanıcıları
+        // (memur/şef/admin/makam vb. + saha personeli), alt kurum kullanıcıları hariç.
         $fieldUsers = User::query()
-            ->role('field-team')
             ->where('is_active', true)
+            ->where(function ($q) {
+                $q->role([
+                    'super-admin',
+                    'municipality-admin',
+                    'municipality-staff',
+                    'municipality-buro',
+                    'municipality-sef',
+                    'municipality-mudur',
+                    'municipality-makam',
+                    'field-team',
+                ]);
+            })
+            ->where(function ($q) {
+                $q->whereNull('institution_id')
+                    ->orWhereHas('institution', fn ($institutionQuery) => $institutionQuery->where('is_municipality', true));
+            })
             ->orderBy('name')
             ->get(['id', 'name', 'email']);
 
         $surfaceTypes = SurfaceType::query()->orderBy('name')->get(['id', 'name', 'price_per_m2']);
 
+        $institutions = $request->user()->can('transferToInstitution', $application)
+            ? Institution::query()->where('is_municipality', false)->whereKeyNot($application->institution_id)->orderBy('name')->get(['id', 'name'])
+            : collect();
+
+        $engine = app(ProcessEngine::class);
+        $currentStep = $engine->currentStep($application);
+
         return view('admin.applications.show', [
             'application' => $application,
             'fieldUsers' => $fieldUsers,
             'surfaceTypes' => $surfaceTypes,
+            'institutions' => $institutions,
             'googleMapsApiKey' => config('services.google_maps.api_key') ?: config('aykome.google_maps_api_key'),
+            'processCurrentStep' => $currentStep,
+            'processCurrentStepIsFinal' => $currentStep ? $engine->isLastStep($application) : false,
+            'approvalLog' => $application->approval_log ?? [],
             'can' => [
                 'update' => $request->user()->can('update', $application),
                 'approve_pre_excavation' => $request->user()->can('approvePreExcavation', $application),
+                'approve_staff' => $request->user()->can('approveStaff', $application),
+                'approve_director' => $request->user()->can('approveDirector', $application),
+                'approve_vice_mayor' => $request->user()->can('approveViceMayor', $application),
+                'approve_current' => $request->user()->can('approvePreExcavation', $application)
+                    && $currentStep !== null
+                    && $engine->roleCanApproveStep($currentStep, $request->user()),
                 'approve_price' => $request->user()->can('approvePrice', $application),
                 'approve_receipt' => $request->user()->can('approveReceipt', $application),
                 'transfer' => $request->user()->can('transferTask', $application),
+                'transfer_institution' => $request->user()->can('transferToInstitution', $application),
                 'reject_receipt' => $request->user()->can('approveReceipt', $application),
             ],
         ]);
@@ -327,11 +372,11 @@ class ApplicationsController extends Controller
         $application->load(['surfaceLines.surfaceType']);
         $area = $application->excavationAreas->sortByDesc('updated_at')->first();
 
-        $institutions = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
+        $institutions = $user->isMunicipalityPersonel()
             ? Institution::query()->orderBy('name')->get(['id', 'name', 'slug', 'color_code', 'is_municipality', 'tax_number', 'phone'])
             : Institution::query()->where('id', $user->institution_id)->get(['id', 'name', 'slug', 'color_code', 'is_municipality', 'tax_number', 'phone']);
 
-        $isInstitutionUser = ! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff']);
+        $isInstitutionUser = ! $user->isMunicipalityPersonel();
         $nameParts = preg_split('/\s+/', trim((string) $user->name), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $applicantPrefill = [
             'first_name' => mb_convert_case((string) (array_shift($nameParts) ?: ''), MB_CASE_TITLE, 'UTF-8'),
@@ -458,7 +503,7 @@ class ApplicationsController extends Controller
         $data['applicant_last_name'] ??= $data['applicant_first_name'] ?? '';
 
         $user = $request->user();
-        if (! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])) {
+        if (! $user->isMunicipalityPersonel()) {
             unset($data['institution_id']);
         }
 
@@ -582,23 +627,48 @@ class ApplicationsController extends Controller
 
     public function approvePreExcavation(Request $request, Application $application, ApplicationService $service): RedirectResponse
     {
-        $this->authorize('approvePreExcavation', $application);
+        $stage = $application->approval_stage ?? 'staff';
 
-        if ($request->has('vice_mayor_name') && !empty($request->input('vice_mayor_name'))) {
-            $application->update(['vice_mayor_name' => $request->input('vice_mayor_name')]);
+        $this->authorize(match ($stage) {
+            'director'   => 'approveDirector',
+            'vice_mayor' => 'approveViceMayor',
+            default      => 'approveStaff',
+        }, $application);
+
+        $viceMayorName = $stage === 'vice_mayor' ? trim((string) $request->input('vice_mayor_name')) : null;
+
+        // Başkan Yrd. adı boş bırakılırsa global makam ayarından çekilir;
+        // ayar da yoksa boş string ile onay zorla ilerletilir (onay asla bloke olmaz).
+        if ($stage === 'vice_mayor' && $viceMayorName === '') {
+            $setting = SignatoryEngine::resolve('pre_permit', $application->institution_id, 'belediye_baskan_yardimcisi');
+            $viceMayorName = $setting?->ad_soyad ?? '';
         }
 
-        $service->approvePreExcavation($request->user(), $application);
+        $service->advanceApproval($request->user(), $application, $viceMayorName);
 
-        AuditLogger::log('pre_excavation.approve', "Ön kazı izni onaylandı: {$application->application_no}", 'Application', $application->id);
-        return back()->with('success', 'Ön kazı izni onaylandı.');
+        $message = match ($stage) {
+            'staff'      => 'Onay alındı. Başvuru Müdür onayına gönderildi.',
+            'director'   => 'Müdür onayı alındı. Başvuru Başkan Yardımcısı onayına gönderildi.',
+            default      => 'Ön kazı izni onaylandı.',
+        };
+
+        AuditLogger::log('pre_excavation.approve', "Ön kazı onay akışı ilerledi: {$application->application_no} ({$stage})", 'Application', $application->id);
+        return back()->with('success', $message);
     }
 
     public function downloadPrePermit(Application $application)
     {
         $this->authorize('view', $application);
+        if ($resp = $this->signedResponseOrNull($application, 'pre_permit')) {
+            return $resp;
+        }
+        if ($html = DocumentTemplateService::renderFor('on_kazi', $application)) {
+            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        }
         $application->load(['institution', 'creator']);
         $settings = PreExcavationPermitSetting::first();
+
+        $signatories = SignatoryEngine::roleMap('pre_permit', $application);
 
         $data = [
             'belediye' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI',
@@ -610,8 +680,8 @@ class ApplicationsController extends Controller
             'ilgi_tarih' => $application->created_at?->format('d.m.Y') ?? now()->format('d.m.Y'),
             'ilgi_sayi' => str_pad($application->id, 7, '0', STR_PAD_LEFT),
             'metin' => self::buildPrePermitText($application),
-            'imza_ad' => $application->vice_mayor_name ?: 'Mustafa Kemal KARATAŞ',
-            'imza_unvan' => 'Belediye Başkan Yardımcısı',
+            'imza_ad' => $signatories['belediye_baskan_yardimcisi']['ad_soyad'],
+            'imza_unvan' => $signatories['belediye_baskan_yardimcisi']['unvan'],
             'takip_adresi' => 'https://www.turkiye.gov.tr/eyyubiye-belediyesi-ebys',
             'adres' => $settings->address ?? 'Eyyüpnebi mh. 3554. Sk. Eski Ptt Binası Eyyübiye / Şanlıurfa',
             'bilgi_kisi' => $settings->signer_name ?? 'Zeynelabidin AKTAŞOĞLU',
@@ -628,6 +698,12 @@ class ApplicationsController extends Controller
     public function downloadCoverLetter(Application $application)
     {
         $this->authorize('view', $application);
+        if ($resp = $this->signedResponseOrNull($application, 'cover_letter')) {
+            return $resp;
+        }
+        if ($html = DocumentTemplateService::renderFor('cover_letter', $application)) {
+            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        }
         $application->load(['institution', 'creator', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
 
         $signerName = $application->creator?->name ?? 'Yetkili';
@@ -672,6 +748,12 @@ class ApplicationsController extends Controller
     public function downloadRuhsat(Application $application)
     {
         $this->authorize('view', $application);
+        if ($resp = $this->signedResponseOrNull($application, 'ruhsat')) {
+            return $resp;
+        }
+        if ($html = DocumentTemplateService::renderFor('ruhsat', $application)) {
+            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
 
         $d = (float)($application->deposit_amount ?? 0);
@@ -703,6 +785,7 @@ class ApplicationsController extends Controller
         return view('admin.pdf.ruhsat', [
             'application' => $application,
             'surfaceRows' => $surfaceRows,
+            'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
             'calculated_kdv' => number_format($kdv, 2, ',', '.'),
             'calculated_license_fee' => number_format($ruhsatHarci, 2, ',', '.'),
             'calculated_discovery_fee' => number_format($kesifBedeli, 2, ',', '.'),
@@ -712,7 +795,7 @@ class ApplicationsController extends Controller
             'total_miktar' => number_format($totalMiktar, 2, ',', '.'),
             'total_tutar' => number_format($totalTutar, 2, ',', '.'),
             'talep_sahibi' => mb_strtoupper(
-                trim(($application->applicant_first_name ?? '') . ' ' . ($application->applicant_last_name ?? '') ?: 'YETKİLİ'),
+                trim($application->tesis_sorumlusu ?? $application->institution?->tesis_sorumlusu_adi ?? 'Yetkili Görevli'),
                 'UTF-8'
             ),
         ]);
@@ -721,6 +804,9 @@ class ApplicationsController extends Controller
     public function downloadMetraj(Application $application)
     {
         $this->authorize('view', $application);
+        if ($resp = $this->signedResponseOrNull($application, 'metraj')) {
+            return $resp;
+        }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
 
         $rows = self::buildMetrajRows($application);
@@ -729,11 +815,22 @@ class ApplicationsController extends Controller
             $toplamM2 += (float) str_replace(['.', ','], ['', '.'], $r['m2']);
         }
 
+        $projeKodu = $application->project_code ?? '';
+        $isAdi = $application->work_type ?? '';
+        $combinedParts = [];
+        if ($projeKodu !== '') {
+            $combinedParts[] = 'Kod: ' . $projeKodu;
+        }
+        if ($isAdi !== '') {
+            $combinedParts[] = 'İş Cinsi: ' . $isAdi;
+        }
+
         $data = [
             'kurum' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ', 'UTF-8'),
             'birim' => 'PROJE TESİS YÖNETİCİLİĞİ',
             'alici' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ',
-            'proje_kodu' => $application->project_code ?? '',
+            'signatories' => SignatoryEngine::roleMap('metraj', $application),
+            'proje_kodu' => implode(' / ', $combinedParts),
             'tarih' => now()->format('d.m.Y'),
             'rows' => $rows,
             'toplam_m2' => number_format($toplamM2, 2, ',', '.'),
@@ -741,7 +838,7 @@ class ApplicationsController extends Controller
             'firma' => mb_strtoupper($application->institution?->name ?? 'KURUM', 'UTF-8'),
             'is_cinsi' => $application->description ?? '',
             'talep_sahibi' => mb_strtoupper(
-                trim($application->tesis_sorumlusu ?? $application->institution?->engineer_name ?? 'Yetkili Görevli'),
+                trim($application->tesis_sorumlusu ?? $application->institution?->tesis_sorumlusu_adi ?? 'Yetkili Görevli'),
                 'UTF-8'
             ),
         ];
@@ -752,9 +849,17 @@ class ApplicationsController extends Controller
     public function downloadTahakkuk(Application $application)
     {
         $this->authorize('view', $application);
+        if ($resp = $this->signedResponseOrNull($application, 'tahakkuk')) {
+            return $resp;
+        }
+        if ($html = DocumentTemplateService::renderFor('tahakkuk', $application)) {
+            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        }
         $application->load(['institution', 'creator']);
 
         $d = number_format((float)($application->deposit_amount ?? 0), 2, ',', '.');
+
+        $tahakkukSignatories = SignatoryEngine::roleMap('tahakkuk', $application);
 
         $data = [
             'belediye' => 'EYYÜBİYE BELEDİYESİ',
@@ -776,7 +881,7 @@ class ApplicationsController extends Controller
             'ztb_toplam' => number_format((float)($application->deposit_amount ?? 0) * 1.21, 2, ',', '.'),
             'teminat' => '0,00',
             'genel_toplam' => number_format((float)($application->deposit_amount ?? 0) * 1.21, 2, ',', '.'),
-            'duzenleyen' => $application->creator?->name ?? 'Zeynelabidin AKTAŞOĞLU',
+            'duzenleyen' => $tahakkukSignatories['onay_imzaci']['ad_soyad'],
             'mukellef' => mb_strtoupper(
                 trim(($application->applicant_first_name ?? '') . ' ' . ($application->applicant_last_name ?? '') ?: 'YETKİLİ'),
                 'UTF-8'
@@ -790,6 +895,9 @@ class ApplicationsController extends Controller
     public function downloadTahsilatFisi(Application $application)
     {
         $this->authorize('view', $application);
+        if ($resp = $this->signedResponseOrNull($application, 'makbuz')) {
+            return $resp;
+        }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
 
         $app = $application;
@@ -834,7 +942,9 @@ class ApplicationsController extends Controller
             'basvuru_no' => $app->application_no,
             'adres' => ($app->project_code ?? '') . ' ' . ($app->address_text ?? ''),
             'ilce' => $app->district ?? 'EYYÜBİYE',
-            'is_adi' => $app->work_type ?? $app->description ?? '',
+            'is_adi' => trim(
+                ($app->project_code ? 'Kod: ' . $app->project_code . ' / ' : '') . ($app->work_type ? 'İş Cinsi: ' . $app->work_type : '')
+            ) ?: ($app->description ?? '—'),
             'vergino' => $app->applicant_national_id ?? '—',
             'metraj_satirlari' => $surfaceRows,
             'tahrip_bedeli' => number_format($d, 2, ',', '.'),
@@ -981,9 +1091,51 @@ class ApplicationsController extends Controller
         return back()->with('success', "Başvuru {$assignee->name} kullanıcısına devredildi.");
     }
 
+    public function transferToInstitution(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('transferToInstitution', $application);
+
+        $validated = $request->validate([
+            'institution_id' => 'required|exists:institutions,id',
+            'transfer_reason' => 'nullable|string|max:500',
+        ]);
+
+        $newInstitution = Institution::query()->findOrFail($validated['institution_id']);
+        $oldInstitution = $application->institution;
+
+        if ($application->institution_id === $newInstitution->id) {
+            return back()->with('error', 'Başvuru zaten bu kuruma ait.');
+        }
+
+        $application->update([
+            'institution_id' => $newInstitution->id,
+        ]);
+
+        $meta = [
+            'old_institution' => $oldInstitution?->name,
+            'new_institution' => $newInstitution->name,
+            'reason' => $validated['transfer_reason'] ?? null,
+        ];
+
+        $application->timelineLogs()->create([
+            'user_id' => $request->user()->id,
+            'action' => 'institution.transferred',
+            'meta' => $meta,
+            'message' => "Başvuru {$oldInstitution?->name} kurumundan {$newInstitution->name} kurumuna devredildi.",
+        ]);
+
+        AuditLogger::log('application.transfer_institution', "Başvuru kuruma devredildi: {$application->application_no} → {$newInstitution->name}", 'Application', $application->id, $meta);
+
+        return back()->with('success', "Başvuru {$newInstitution->name} kurumuna devredildi.");
+    }
+
     public function downloadLicense(Request $request, Application $application)
     {
         $this->authorize('view', $application);
+
+        if ($resp = $this->signedResponseOrNull($application, 'ruhsat')) {
+            return $resp;
+        }
 
         if (! $application->license_document_path || ! Storage::disk('local')->exists($application->license_document_path)) {
             abort(404);
@@ -1002,6 +1154,10 @@ class ApplicationsController extends Controller
     public function generatePaymentReceipt(Application $application): Response
     {
         $this->authorize('view', $application);
+
+        if ($resp = $this->signedResponseOrNull($application, 'makbuz')) {
+            return $resp;
+        }
 
         $application->load(['institution']);
 
@@ -1026,6 +1182,10 @@ class ApplicationsController extends Controller
     {
         $this->authorize('view', $application);
 
+        if ($resp = $this->signedResponseOrNull($application, 'ruhsat')) {
+            return $resp;
+        }
+
         $application->load([
             'institution',
             'creator',
@@ -1035,8 +1195,10 @@ class ApplicationsController extends Controller
             'receiptApprover',
         ]);
 
-        $pdf = Pdf::loadView('admin.pdf.ruhsat', compact('application'))
-            ->setPaper('a4', 'portrait');
+        $pdf = Pdf::loadView('admin.pdf.ruhsat', [
+            'application' => $application,
+            'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
+        ])->setPaper('a4', 'portrait');
 
         AuditLogger::log(
             'permit.downloaded',
@@ -1102,18 +1264,21 @@ class ApplicationsController extends Controller
         ]);
 
         $user = $request->user();
-        $isMunicipality = $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])
+        $isMunicipality = $user->isMunicipalityPersonel()
             || empty($user->institution_id);
         $side = $isMunicipality ? 'belediye' : 'kurum';
 
         $file = $request->file('file');
         $module = $request->input('module');
 
-        $safeAppNo = $application->application_no ?? (string) $application->id;
+        $year = now()->year;
+        $appId = $application->id;
+        $dir = "documents/{$year}-{$appId}";
+        Storage::disk('public')->makeDirectory($dir);
         $storedPath = Storage::disk('public')->putFileAs(
-            'module-documents',
+            $dir,
             $file,
-            sprintf('%s-%s-%s-%s.%s', $module, $side, $safeAppNo, now()->format('YmdHis'), $file->getClientOriginalExtension())
+            sprintf('%s-%s_%s_imzali.%s', $year, $appId, $module, $file->getClientOriginalExtension())
         );
 
         if (!$storedPath) {
@@ -1140,6 +1305,40 @@ class ApplicationsController extends Controller
         return response()->json(['message' => 'Belge başarıyla yüklendi.', 'path' => Storage::disk('public')->url($storedPath)]);
     }
 
+    /**
+     * İmzalı belgeyi öncelikli gösterir (file swap).
+     * E-imza / ping-pong ile yüklenen imzalı dosya varsa SAF (temiz) dosya yerine O döner.
+     */
+    public function viewModuleDocument(Request $request, Application $application, string $module): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        $this->authorize('view', $application);
+
+        $path = $application->moduleSignedPath($module);
+        if (! $path) {
+            abort(404, 'İmzalı belge bulunamadı.');
+        }
+
+        return response()->file(Storage::disk('public')->path($path), [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . basename($path) . '"',
+        ]);
+    }
+
+    /**
+     * Belge indirme istekleri için signed öncelik: imzalı dosya varsa onu döndür.
+     */
+    private function signedResponseOrNull(Application $application, string $module): ?\Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        if ($path = $application->moduleSignedPath($module)) {
+            return response()->file(Storage::disk('public')->path($path), [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="imzali-' . basename($path) . '"',
+            ]);
+        }
+
+        return null;
+    }
+
     public function data(Request $request): \Illuminate\Http\JsonResponse
     {
         $this->authorize('viewAny', Application::class);
@@ -1152,7 +1351,7 @@ class ApplicationsController extends Controller
         // ── Data isolation ────────────────────────────────────────────────
         if ($user->hasRole('field-team')) {
             $query->whereHas('fieldTasks', fn ($q) => $q->where('assigned_to', $user->id));
-        } elseif (! $user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])) {
+        } elseif (! $user->isMunicipalityPersonel()) {
             $query->where('institution_id', $user->institution_id);
         }
 
@@ -1163,7 +1362,7 @@ class ApplicationsController extends Controller
 
         // Institution filter (super-admin / municipality only)
         if ($instId = $request->input('institution_id')) {
-            if ($user->hasRole(['super-admin', 'municipality-admin', 'municipality-staff'])) {
+            if ($user->isMunicipalityPersonel()) {
                 $query->where('institution_id', (int) $instId);
             }
         }
@@ -1339,22 +1538,9 @@ class ApplicationsController extends Controller
         };
     }
 
-    private static function buildPrePermitText(Application $app): string
+    public static function buildPrePermitText(Application $app): string
     {
-        $inst = $app->institution?->name ?? 'Kurum';
-        $projectCode = $app->project_code ?? 'C-26-1100-1063-0012';
-
-        return "
-        <p>İlgi sayılı yazı ile; {$inst} Şanlıurfa Tesis Yöneticiliği {$projectCode}
-        Proje Numarasıyla Eyyübiye İlçesi Hayati Akşemsettin Mahallesi Huzur Sokak
-        1 Adet Trafo Bölgesi AGOG Tesis Yapım İşi çalışması için kazı izni talep edilmektedir.</p>
-        <p>&quot;Altyapı Tesisi Açım Ruhsatı&quot; iş ve işlemlerinin kazı kesin metrajlarının tespit edilmesinden
-        sonra tamamlanması, Yapılacak çalışmanın AYKOME Çalışma Usul ve Esasları Uygulama yönetmeliğine
-        uygun olarak yapılması, çalışma yapılacak cadde ve sokakların kazı öncesinde Eyyübiye Belediyesi Fen
-        işleri Müdürlüğü AYKOME Birimimize haber verilmesi ve diğer altyapı kuruluşlarının (AKSA Şanlıurfa
-        Doğalgaz A.Ş. Telekom İl Müdürlüğü, SUSKİ Genel Müdürlüğü, v.b.) mevcut tesislerine zarar
-        verilmesinin önlenmesi için bu kuruluşlara da yapılacak calışma hakkında bilgi verilmesi koşulu ile kazı</p>
-        ";
+        return \App\Services\DocumentRenderer::prePermitMetin($app);
     }
 
     private static function buildCoverLetterParagraphs(Application $app): array
@@ -1471,7 +1657,7 @@ class ApplicationsController extends Controller
         ];
     }
 
-    private static function buildMetrajSatirlari(Application $app): array
+    public static function buildMetrajSatirlari(Application $app): array
     {
         $d = (float)($app->deposit_amount ?? 0);
         return [
@@ -1500,11 +1686,14 @@ class ApplicationsController extends Controller
         $ilce = $app->district ?? 'EYYÜBİYE';
         $projeKodu = $app->project_code ?? '';
         $isAdi = $app->work_type ?? '';
-        if ($projeKodu && $isAdi && $projeKodu !== $isAdi) {
-            $projeKodu = $projeKodu . ' / ' . $isAdi;
-        } elseif (!$projeKodu && $isAdi) {
-            $projeKodu = $isAdi;
+        $combinedParts = [];
+        if ($projeKodu !== '') {
+            $combinedParts[] = 'Kod: ' . $projeKodu;
         }
+        if ($isAdi !== '') {
+            $combinedParts[] = 'İş Cinsi: ' . $isAdi;
+        }
+        $projeKodu = implode(' / ', $combinedParts);
         $tarih = $app->start_date?->format('d.m.Y') ?? '';
 
         $mahalleList = [];
@@ -1566,5 +1755,70 @@ class ApplicationsController extends Controller
         }
 
         return $rows;
+    }
+
+    public function geocodeProxy(Request $request): JsonResponse
+    {
+        $query = $request->query('q');
+        if (! $query) {
+            return response()->json(['success' => false]);
+        }
+
+        // AUTCOMPLETE LİST MODU — Nominatim çoklu sonuç (adres öneri dropdown'ı)
+        if ($request->query('list')) {
+            try {
+                $listResponse = Http::withHeaders([
+                    'User-Agent' => 'Aykome-Eyyubiye-GIS-Backend/1.0', // Zorunludur OSM kızmaz.
+                ])->get('https://nominatim.openstreetmap.org/search', [
+                    'format' => 'json', 'q' => $query, 'countrycodes' => 'tr', 'limit' => $request->query('limit', 6), 'addressdetails' => 0,
+                ]);
+
+                if ($listResponse->successful()) {
+                    return response()->json(['success' => true, 'list' => $listResponse->json()]);
+                }
+            } catch (\Exception $e) {
+                // Nominatim istek hatası — sessizce geç
+            }
+
+            return response()->json(['success' => false]);
+        }
+
+        $apiKey = 'b7500431-b7c9-4c6b-bcb3-fcd91b3a7339'; // NİHAİ ANAHTAR!
+
+        // 1. AŞAMA: SERVER-TO-SERVER YANDEX VURUŞU!
+        try {
+            $url = "https://geocode-maps.yandex.ru/1.x/?apikey={$apiKey}&format=json&geocode=".urlencode($query).'&results=1';
+            $yandexResponse = Http::get($url);
+            if ($yandexResponse->successful()) {
+                $pos = $yandexResponse->json('response.GeoObjectCollection.featureMember.0.GeoObject.Point.pos');
+                if ($pos) {
+                    $coords = explode(' ', $pos);
+
+                    return response()->json(['success' => true, 'lat' => $coords[1], 'lon' => $coords[0]]);
+                }
+            }
+        } catch (\Exception $e) {
+            // Yandex istek hatası — Nominatim fallback'ine geç
+        }
+
+        // 2. AŞAMA: NOMINATIM FALLBACK (BACKENDDEN GİDERKEN BAN YEMEMEK İÇİN GÜÇLÜ USER-AGENT!)
+        try {
+            $osmQuery = str_ireplace([' sokak', ' sok.', ' cadde'], '', $query); // Basit parse
+            $osmResponse = Http::withHeaders([
+                'User-Agent' => 'Aykome-Eyyubiye-GIS-Backend/1.0', // Zorunludur OSM kızmaz.
+            ])->get('https://nominatim.openstreetmap.org/search', [
+                'format' => 'json', 'q' => $osmQuery, 'countrycodes' => 'tr', 'limit' => 1,
+            ]);
+
+            if ($osmResponse->successful() && count($osmResponse->json()) > 0) {
+                $item = $osmResponse->json()[0];
+
+                return response()->json(['success' => true, 'lat' => $item['lat'], 'lon' => $item['lon']]);
+            }
+        } catch (\Exception $e) {
+            // Nominatim istek hatası — sessizce geç
+        }
+
+        return response()->json(['success' => false]);
     }
 }

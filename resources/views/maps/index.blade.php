@@ -863,7 +863,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
                 <!-- Satır 5: Çalışma Türü + Adres -->
                 <div style="display:flex;gap:10px;margin-bottom:10px;">
                     <div style="flex:1;">
-                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">Çalışma Türü</label>
+                        <label style="font-size:11px;color:#475569;font-weight:600;display:block;margin-bottom:3px;">İşin Adı (Cinsi)</label>
                         <input type="text" id="bs-work-type" placeholder="Kazı / Altyapı / Onarım" style="width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;box-sizing:border-box;">
                     </div>
                     <div style="flex:1;">
@@ -1518,7 +1518,7 @@ function _buildOzet(){
     html+='<tr><td style="padding:3px 6px;color:#64748b;">TCKN</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-tckn')+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Telefon</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-phone')+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">İşin Adı</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-excavation-reason')+'</td></tr>';
-    html+='<tr><td style="padding:3px 6px;color:#64748b;">Çalışma Türü</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-work-type')+'</td></tr>';
+    html+='<tr><td style="padding:3px 6px;color:#64748b;">İşin Adı (Cinsi)</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-work-type')+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Adres</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-address')+'</td></tr>';
     html+='<tr><td style="padding:3px 6px;color:#64748b;">Tarih</td><td style="padding:3px 6px;font-weight:600;">'+v('bs-start-date')+' → '+v('bs-end-date')+'</td></tr>';
     var drawType=document.getElementById('bs-drawing-type')?.value||'';

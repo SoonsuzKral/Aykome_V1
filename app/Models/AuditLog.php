@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AuditLog extends Model
 {
-    public $timestamps = false;          // only created_at, managed by DB default
+    public const UPDATED_AT = null;        // only created_at (managed by Eloquent)
 
     protected $fillable = [
         'user_id',

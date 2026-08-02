@@ -74,8 +74,15 @@
         <td class="value">{{ $application->excavation_reason ?? '—' }}</td>
     </tr>
     <tr>
-        <td class="label">Çalışma Türü</td>
-        <td class="value">{{ $application->work_type ?? '—' }}</td>
+        <td class="label">İşin Adı (Cinsi)</td>
+        <td class="value">
+            @php
+                $isParts = [];
+                if ($application->project_code) $isParts[] = 'Kod: ' . $application->project_code;
+                if ($application->work_type) $isParts[] = 'İş Cinsi: ' . $application->work_type;
+            @endphp
+            {{ $isParts ? implode(' / ', $isParts) : ($application->work_type ?? '—') }}
+        </td>
     </tr>
     <tr>
         <td class="label">Adres</td>

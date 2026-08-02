@@ -185,8 +185,13 @@ body {
     <tr>
         <th>Ödeme Açıklaması</th>
         <td>Altyapı Kazı Bedeli
-            @if($application->work_type || $application->excavation_reason)
-                — {{ $application->work_type ?? $application->excavation_reason }}
+            @if($application->project_code || $application->work_type)
+                @php
+                    $muzbIsParts = [];
+                    if ($application->project_code) $muzbIsParts[] = 'Kod: ' . $application->project_code;
+                    if ($application->work_type) $muzbIsParts[] = 'İş Cinsi: ' . $application->work_type;
+                @endphp
+                — {{ $muzbIsParts ? implode(' / ', $muzbIsParts) : $application->excavation_reason }}
             @endif
         </td>
     </tr>

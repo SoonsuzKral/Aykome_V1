@@ -71,7 +71,7 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #00
 </div>
 
 <div class="paragraf">
-    {!! $metin !!}
+    {!! $metin ?? '' !!}
 </div>
 
 <div class="paragraf" style="margin-top:15px;">
@@ -83,7 +83,7 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #00
 </div>
 
 <div class="imza">
-    <div class="ad">{{ $imza_ad ?? 'Mustafa Kemal KARATAŞ' }}</div>
+    <div class="ad">{{ $imza_ad ?? 'Yetkili' }}</div>
     <div class="unvan">{{ $imza_unvan ?? 'Belediye Başkan Yardımcısı' }}</div>
     <div class="vekalet">V.</div>
     <div style="margin-top:2px;">Başkan a.</div>

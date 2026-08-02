@@ -92,20 +92,30 @@
         </div>
     </div>
 
-    {{-- Tesis Kontrol Mühendisi --}}
-    <div>
-        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Tesis Kontrol Mühendisi</label>
-        <input type="text" name="engineer_name" maxlength="255"
+    {{-- Tesis Sorumlusu --}}
+    <div class="sm:col-span-2">
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Tesis Sorumlusu (Adı Soyadı)</label>
+        <input type="text" name="tesis_sorumlusu_adi" maxlength="255"
             class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/40"
-            placeholder="Ad Soyad">
+            placeholder="Tesis sorumlusunun adı soyadı">
+        <p class="mt-1 text-xs text-slate-400">Ruhsat ve Kazı Metraj raporunda imza sahibi olarak kullanılır.</p>
     </div>
 
-    {{-- İl Müdür Yrd / Kurum Yetkilisi --}}
-    <div>
-        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">İl Müdür Yrd / Yetkili</label>
-        <input type="text" name="manager_name" maxlength="255"
+    {{-- Kurum Yetkili Müdürü — Ünvan (üstte) --}}
+    <div class="sm:col-span-2">
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Müdürlük Ünvanı</label>
+        <input type="text" name="mudur_unvani" maxlength="255"
             class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/40"
-            placeholder="Ad Soyad">
+            placeholder="Örn: İl Müdür Yrd / Bölge Yöneticisi">
+    </div>
+
+    {{-- Kurum Yetkili Müdürü — Ad Soyad (hemen ünvanın altında) --}}
+    <div class="sm:col-span-2">
+        <label class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">Müdür Adı Soyadı</label>
+        <input type="text" name="mudur_adi" maxlength="255"
+            class="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 shadow-sm focus:border-sky-400 focus:outline-none focus:ring-1 focus:ring-sky-400/40"
+            placeholder="Kurum yetkili müdürünün adı soyadı">
+        <p class="mt-1 text-xs text-slate-400">Üst yazıda MÜDÜR bölümüne <b>Ünvanı</b> üstte, <b>Adı Soyadı</b> altta yazdırılır.</p>
     </div>
 
 </div>

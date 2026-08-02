@@ -10,5 +10,6 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(AykomeSeeder::class);
         $this->call(ApplicationSeeder::class);
+        $this->call(ProcessFlowSeeder::class);
     }
 }

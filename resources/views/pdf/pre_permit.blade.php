@@ -155,7 +155,7 @@ table { border-collapse: collapse; }
             @if($signB64)
                 <img src="{{ $signB64 }}" style="max-height:45px;max-width:200px;" alt="İmza"><br>
             @endif
-            <div class="signature-line">Mustafa Kemal KARATAŞ</div>
+            <div class="signature-line">Mehmet ELĞÜN</div>
             <div class="signature-title">Belediye Başkan Yardımcısı V.</div>
             <div class="signature-title" style="font-size:10px;">Başkan a.</div>
         </td>

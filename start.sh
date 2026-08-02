@@ -19,12 +19,12 @@ kill_files() {
 }
 kill_files
 
-# 2. Docker container'ları başlat (Oracle + Redis + Adminer)
+# 2. Docker container'ları başlat (Oracle + Redis)
 echo ""
 echo "[1/4] Docker container'lar başlatılıyor..."
 if command -v docker &> /dev/null; then
     docker compose up -d 2>&1 | tail -3
-    echo "  → Container'lar başlatıldı (Oracle, Redis, Adminer)"
+    echo "  → Container'lar başlatıldı (Oracle, Redis)"
     echo "  → Oracle'ın hazır olması bekleniyor... (30sn)"
     # Oracle'ın hazır olmasını bekle (30sn timeout)
     for i in $(seq 1 30); do
@@ -35,7 +35,8 @@ if command -v docker &> /dev/null; then
         sleep 1
     done
 else
-    echo "  ⚠️  Docker bulunamadı, SQLite ile devam ediliyor..."
+    echo "  ❌ Docker bulunamadı! Oracle gereklidir."
+    exit 1
 fi
 
 # 3. Laravel hazırlık

@@ -91,7 +91,7 @@
                         <tr>
                             <td>
                                 {{ $talep_sahibi ?: 'Kurum Sorumlusu' }}<br>
-                                <span style="font-size: 11px; font-weight:normal;">İl Tesis Mühendisi</span>
+                                <span style="font-size: 11px; font-weight:normal;">{{ $signatories['tesis_sorumlusu']['unvan'] ?? 'İl Tesis Mühendisi' }}</span>
                             </td>
                         </tr>
                     </table>
@@ -101,8 +101,8 @@
                         <tr><th>AYKOME BİRİMİ</th></tr>
                         <tr>
                             <td>
-                                Mahmut DOĞAN<br>
-                                <span style="font-size: 11px; font-weight:normal;">Aykome Birim Sorumlusu</span>
+                                {{ $signatories['aykome_sorumlusu']['ad_soyad'] ?? 'Yetkili' }}<br>
+                                <span style="font-size: 11px; font-weight:normal;">{{ $signatories['aykome_sorumlusu']['unvan'] ?? 'Aykome Birim Sorumlusu' }}</span>
                             </td>
                         </tr>
                     </table>

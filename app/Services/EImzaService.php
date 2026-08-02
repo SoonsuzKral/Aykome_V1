@@ -48,6 +48,7 @@ class EImzaService
             'taahhutname' => 'admin.pdf.pre_permit',
             'metraj' => 'admin.pdf.metraj',
             'tahakkuk' => 'admin.pdf.tahakkuk',
+            'makbuz' => 'admin.pdf.tahsilat_makbuzu',
             'cover_letter' => 'admin.pdf.cover_letter',
             default => throw new \InvalidArgumentException("Geçersiz PDF türü: {$pdfType}"),
         };
@@ -56,7 +57,12 @@ class EImzaService
             'application' => $application,
             'appNo' => $application->application_no,
             'institution' => $application->institution,
+            'signatories' => SignatoryEngine::roleMap($pdfType, $application),
         ]);
+
+        if ($pdfType === 'pre_permit') {
+            $data['metin'] = DocumentRenderer::prePermitMetin($application);
+        }
 
         if ($pdfType === 'metraj') {
             $rows = $this->buildMetrajRows($application);
@@ -168,14 +174,22 @@ class EImzaService
         $path = "{$dizin}/imzali.pdf";
         Storage::disk('public')->put($path, $imzaliPdfContent);
 
+        // Kanonik kopya: storage/app/public/documents/YIL-ID/ → imzalı dosya ana dosya olur
+        $application = $transaction->application;
+        $year = now()->year;
+        $appId = $application->id;
+        $canonicalDir = "documents/{$year}-{$appId}";
+        Storage::disk('public')->makeDirectory($canonicalDir);
+        $signedCanonical = "{$canonicalDir}/{$year}-{$appId}_{$transaction->pdf_type}_imzali.pdf";
+        Storage::disk('public')->put($signedCanonical, $imzaliPdfContent);
+
         $transaction->update([
             'status' => 'completed',
-            'imzali_pdf' => $path,
+            'imzali_pdf' => $signedCanonical,
             'imzalayan_info' => $imzalayanInfo,
             'completed_at' => now(),
         ]);
 
-        $application = $transaction->application;
         $moduleDocs = $application->module_documents ?? [];
         $pdfTypeLabels = [
             'ruhsat' => 'Ruhsat',
@@ -183,6 +197,7 @@ class EImzaService
             'taahhutname' => 'Taahhütname',
             'metraj' => 'Kazı Metraj',
             'tahakkuk' => 'Tahakkuk',
+            'makbuz' => 'Tahsilat Makbuzu',
             'cover_letter' => 'Üst Yazı',
         ];
         $pdfTypeLabel = $pdfTypeLabels[$transaction->pdf_type] ?? $transaction->pdf_type;
@@ -193,9 +208,9 @@ class EImzaService
                 'sertifika' => $imzalayanInfo['sertifika_turu'] ?? '',
                 'tarih' => now()->toIso8601String(),
                 'durum' => 'completed',
+                'signed_path' => $signedCanonical,
             ],
-            'belediye_path' => $path,
-            'belediye_url' => route('e-imza.indir', ['transactionId' => $transaction->transaction_id], false),
+            'belediye_path' => $signedCanonical,
             'belediye_uploaded_at' => now()->toDateTimeString(),
             'status' => 'completed',
         ];

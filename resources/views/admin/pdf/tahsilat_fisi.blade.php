@@ -79,7 +79,7 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
             <td class="value">{{ $ilce ?? 'EYYÜBİYE' }}</td>
         </tr>
         <tr>
-            <td class="label">İşin Adı</td>
+            <td class="label">İşin Adı (Cinsi)</td>
             <td class="value">{{ $is_adi ?? '—' }}</td>
         </tr>
         <tr>
