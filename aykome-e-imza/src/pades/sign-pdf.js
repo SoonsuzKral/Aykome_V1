@@ -1,17 +1,30 @@
 const forge = require('node-forge');
-const { plainAddPlaceholder, findByteRange, removeTrailingNewLine } = require('node-signpdf');
-const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+const { findByteRange, removeTrailingNewLine } = require('node-signpdf');
+const readPdf = require('node-signpdf/dist/helpers/plainAddPlaceholder/readPdf').default;
+const getPageRef = require('node-signpdf/dist/helpers/plainAddPlaceholder/getPageRef').default;
+const getIndexFromRef = require('node-signpdf/dist/helpers/plainAddPlaceholder/getIndexFromRef').default;
+const createBufferRootWithAcroform = require('node-signpdf/dist/helpers/plainAddPlaceholder/createBufferRootWithAcroform').default;
+const createBufferPageWithAnnotation = require('node-signpdf/dist/helpers/plainAddPlaceholder/createBufferPageWithAnnotation').default;
+const createBufferTrailer = require('node-signpdf/dist/helpers/plainAddPlaceholder/createBufferTrailer').default;
+const PDFObject = require('node-signpdf/dist/helpers/pdfkit/pdfobject').default;
+const ReferenceMock = require('node-signpdf/dist/helpers/pdfkitReferenceMock').default;
+const { DEFAULT_SIGNATURE_LENGTH, SUBFILTER_ADOBE_PKCS7_DETACHED } = require('node-signpdf/dist/helpers/const');
 
 const OID_ECDSA_SHA384 = '1.2.840.10045.4.3.3';
 const OID_SIGNED_DATA = '1.2.840.113549.1.7.2';
 const OID_DATA = '1.2.840.113549.1.7.1';
 const OID_SHA384 = '2.16.840.1.101.3.4.2.2';
 
-function sanitizeTurkish(text) {
+// Sadece WinAnsi/Helvetica'da karsiligi olmayan karakterleri duzelt
+// (c, g, u, s, o ve buyukleri base14 fontta mevcut; I/istina)
+function normalizeLatin(text) {
   return text
-    .replace(/İ/g, 'I').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
-    .replace(/ü/g, 'u').replace(/Ü/g, 'U').replace(/ş/g, 's').replace(/Ş/g, 'S')
-    .replace(/ö/g, 'o').replace(/Ö/g, 'O').replace(/ç/g, 'c').replace(/Ç/g, 'C');
+    .replace(/İ/g, 'I')
+    .replace(/ı/g, 'i');
+}
+
+function escapePdfString(text) {
+  return text.replace(/[()\\]/g, (c) => '\\' + c);
 }
 
 function derLen(n) {
@@ -123,42 +136,119 @@ function buildCms(contentBytes, certDer, signCallback) {
   );
 }
 
-async function addVisualSignatureText(pdfBuffer, cnName) {
-  const doc = await PDFDocument.load(pdfBuffer);
-  const firstPage = doc.getPages()[0];
-  const helvetica = await doc.embedFont(StandardFonts.Helvetica);
-  const helveticaBold = await doc.embedFont(StandardFonts.HelveticaBold);
-
+function buildVisualStream(cnName) {
   const now = new Date();
-  const dateStr = sanitizeTurkish(now.toLocaleDateString('tr-TR', {
+  const dateStr = normalizeLatin(now.toLocaleDateString('tr-TR', {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
   }));
-
-  firstPage.drawText('Bu belge Aykome E-Imza ile imzalanmistir', {
-    x: 50, y: 50, size: 9, font: helveticaBold, color: rgb(0.2, 0.2, 0.2),
-  });
-  firstPage.drawText(`${cnName} - ${dateStr}`, {
-    x: 50, y: 38, size: 8, font: helvetica, color: rgb(0.4, 0.4, 0.4),
-  });
-
-  return Buffer.from(await doc.save({ useObjectStreams: false }));
+  const title = normalizeLatin('Bu belge Aykome E-Imza ile imzalanmistir');
+  const signer = normalizeLatin(cnName);
+  const lines = [
+    `BT /F1 11 Tf 8 74 Td (${escapePdfString(title)}) Tj ET`,
+    `BT /F1 9 Tf 8 56 Td (${escapePdfString('Imzalayan: ' + signer)}) Tj ET`,
+    `BT /F1 9 Tf 8 40 Td (${escapePdfString('Tarih: ' + dateStr)}) Tj ET`,
+  ];
+  return lines.join('\n');
 }
 
-async function buildPades(pdfBuffer, certDer, cnName, signCallback) {
+function findPageMediaBox(pdf) {
+  const m = /\/MediaBox\s*\[\s*([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s*\]/.exec(pdf.toString());
+  if (m) return { W: parseFloat(m[3]), H: parseFloat(m[4]) };
+  return { W: 595, H: 842 };
+}
+
+// plainAddPlaceholder'in aynisi + widget'a /AP (gorsel imza) ve gercek /Rect
+function addPlaceholderWithVisual(pdfBuffer, cnName) {
+  let pdf = removeTrailingNewLine(pdfBuffer);
+  const info = readPdf(pdf);
+  const pageRef = getPageRef(pdf, info);
+  const pageIndex = getIndexFromRef(info.xref, pageRef);
+  const addedReferences = new Map();
+
+  const pdfKitMock = {
+    ref: (input, additionalIndex) => {
+      info.xref.maxIndex += 1;
+      const index = additionalIndex != null ? additionalIndex : info.xref.maxIndex;
+      addedReferences.set(index, pdf.length + 1);
+      pdf = Buffer.concat([pdf, Buffer.from('\n'), Buffer.from(`${index} 0 obj\n`), Buffer.from(PDFObject.convert(input)), Buffer.from('\nendobj\n')]);
+      return new ReferenceMock(info.xref.maxIndex);
+    },
+    page: {
+      dictionary: new ReferenceMock(pageIndex, { data: { Annots: [] } }),
+    },
+    _root: { data: {} },
+  };
+
+  const { W } = findPageMediaBox(pdf);
+  const bw = Math.min(330, Math.max(200, W - 80));
+  const bh = 95;
+  const bx = 40;
+  const by = 40;
+
+  const appearance = pdfKitMock.ref({
+    Type: 'XObject',
+    Subtype: 'Form',
+    FormType: 1,
+    BBox: [0, 0, bw, bh],
+    Matrix: [1, 0, 0, 1, 0, 0],
+    Resources: { Font: { F1: 'Helvetica' } },
+    stream: buildVisualStream(cnName),
+  });
+
+  const signature = pdfKitMock.ref({
+    Type: 'Sig',
+    Filter: 'Adobe.PPKLite',
+    SubFilter: SUBFILTER_ADOBE_PKCS7_DETACHED,
+    ByteRange: [0, '**********', '**********', '**********'],
+    Contents: Buffer.from(String.fromCharCode(0).repeat(DEFAULT_SIGNATURE_LENGTH)),
+    Reason: new String('Aykome E-Imza'),
+    M: new Date(),
+    ContactInfo: new String('aykome@local'),
+    Name: new String('Aykome E-Imza'),
+    Location: new String('Sanliurfa'),
+  });
+
+  const widget = pdfKitMock.ref({
+    Type: 'Annot',
+    Subtype: 'Widget',
+    FT: 'Sig',
+    Rect: [bx, by, bx + bw, by + bh],
+    V: signature,
+    AP: { N: appearance },
+    T: new String('Signature1'),
+    F: 4,
+    P: pdfKitMock.page.dictionary,
+  });
+  pdfKitMock.page.dictionary.data.Annots = [widget];
+
+  const form = pdfKitMock.ref({
+    Type: 'AcroForm',
+    SigFlags: 3,
+    Fields: [widget],
+  });
+  pdfKitMock._root.data.AcroForm = form;
+
+  const isContainBufferRootWithAcroform = /\/AcroForm\s+\d+\s+\d+\s+R/.test(pdf.toString());
+  if (!isContainBufferRootWithAcroform) {
+    const rootIndex = getIndexFromRef(info.xref, info.rootRef);
+    addedReferences.set(rootIndex, pdf.length + 1);
+    pdf = Buffer.concat([pdf, Buffer.from('\n'), createBufferRootWithAcroform(pdf, info, form)]);
+  }
+
+  addedReferences.set(pageIndex, pdf.length + 1);
+  pdf = Buffer.concat([pdf, Buffer.from('\n'), createBufferPageWithAnnotation(pdf, info, pageRef, widget)]);
+  pdf = Buffer.concat([pdf, Buffer.from('\n'), createBufferTrailer(pdf, info, addedReferences)]);
+  return pdf;
+}
+
+function buildPades(pdfBuffer, certDer, cnName, signCallback) {
   let pdf = removeTrailingNewLine(pdfBuffer);
 
-  pdf = await addVisualSignatureText(pdf, sanitizeTurkish(cnName));
-
-  pdf = plainAddPlaceholder({
-    pdfBuffer: pdf,
-    reason: 'Aykome E-Imza',
-    location: 'Sanliurfa',
-    name: 'Imzalayan',
-  });
+  pdf = addPlaceholderWithVisual(pdf, cnName);
 
   const { byteRangePlaceholder } = findByteRange(pdf);
   if (!byteRangePlaceholder) {
@@ -178,7 +268,6 @@ async function buildPades(pdfBuffer, certDer, cnName, signCallback) {
   const region2Start = gapStart + gapSize;
   const region2Size = pdf.length - region2Start;
 
-  // PAdES standardina uygun ByteRange: bolge1=[0,b) bolge2=[b+c, b+c+d)
   const byteRange = [0, gapStart, gapSize, region2Size];
 
   let actualByteRange = `/ByteRange [${byteRange.join(' ')}]`;
