@@ -807,6 +807,9 @@ class ApplicationsController extends Controller
         if ($resp = $this->signedResponseOrNull($application, 'metraj')) {
             return $resp;
         }
+        if ($html = DocumentTemplateService::renderFor('metraj', $application)) {
+            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
 
         $rows = self::buildMetrajRows($application);
@@ -897,6 +900,9 @@ class ApplicationsController extends Controller
         $this->authorize('view', $application);
         if ($resp = $this->signedResponseOrNull($application, 'makbuz')) {
             return $resp;
+        }
+        if ($html = DocumentTemplateService::renderFor('tahsilat_fisi', $application)) {
+            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
 
@@ -1159,6 +1165,19 @@ class ApplicationsController extends Controller
             return $resp;
         }
 
+        if ($html = DocumentTemplateService::renderFor('makbuz', $application)) {
+            AuditLogger::log(
+                'payment_receipt.downloaded',
+                "Tahsilat makbuzu indirildi: {$application->application_no}",
+                'Application',
+                $application->id,
+            );
+
+            return Pdf::loadHTML($html)
+                ->setPaper('a4', 'portrait')
+                ->download('tahsilat-makbuzu-' . $application->application_no . '.pdf');
+        }
+
         $application->load(['institution']);
 
         $pdf = Pdf::loadView('admin.pdf.tahsilat_makbuzu', compact('application'))
@@ -1184,6 +1203,12 @@ class ApplicationsController extends Controller
 
         if ($resp = $this->signedResponseOrNull($application, 'ruhsat')) {
             return $resp;
+        }
+
+        if ($html = DocumentTemplateService::renderFor('ruhsat', $application)) {
+            return Pdf::loadHTML($html)
+                ->setPaper('a4', 'portrait')
+                ->download('ruhsat-' . $application->application_no . '.pdf');
         }
 
         $application->load([
@@ -1679,7 +1704,7 @@ class ApplicationsController extends Controller
         ];
     }
 
-    private static function buildMetrajRows(Application $app): array
+    public static function buildMetrajRows(Application $app): array
     {
         $rows = [];
         $sira = 0;

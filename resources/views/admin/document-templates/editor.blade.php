@@ -227,9 +227,20 @@
             var editor = null;
             var INITIAL_CONTENT = {!! json_encode($hydratedContent) !!};
 
+            // WATCHDOG: 8 sn içinde editör kurulamadıysa boş ekranı önle
+            setTimeout(function () {
+                var el = document.getElementById('doc-editor');
+                if (el && el.style.visibility !== 'visible' && !editor) {
+                    el.style.visibility = 'visible';
+                    el.innerHTML = '<div style="padding:24px;color:#b91c1c;font-family:sans-serif;">'
+                        + '<b>⚠ Editör yüklenemedi (timeout).</b> CDN erişimi kontrol edilip sayfa yenilenmelidir.</div>';
+                }
+            }, 8000);
+
             tinymce.init({
                 selector: '#doc-editor',
                 language: 'tr',
+                language_url: 'https://cdn.jsdelivr.net/npm/tinymce-i18n@26.7.13/langs6/tr.js',
                 height: 950,
                 menubar: false,
                 branding: false,
@@ -252,19 +263,36 @@
                 toolbar: 'undo redo | formatselect fontselect fontsizeselect | bold italic underline strikethrough forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | table | link image removeformat',
                 table_default_attributes: { border: '1' },
 
-                // ═══ DIRECTİF 2 — İFRAME = GÖRSEL A4 KAĞIDI ═══
+                // ═══ DIRECTİF 2 — İFRAME = GÖRSEL A4 KAĞIDI (LOGO + TABLO KORUMASI) ═══
                 content_style: [
-                    "body { font-family: 'Times New Roman', Times, serif, 'DejaVu Sans', Arial, sans-serif !important; font-size: 13px !important; margin: 40px !important; background-color: #ffffff; color: #000000; min-height: 1000px; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }",
-                    "table { border-collapse: collapse; width: 100%; }",
-                    "td { vertical-align: top; padding: 4px; }"
+                    "body { font-family: 'Times New Roman', Arial, sans-serif; font-size: 14px; color: black; line-height: 1.5; background: #ffffff; padding: 20px; margin: 0 !important; min-height: 1000px; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }",
+                    "table { width: 100% !important; border-collapse: collapse !important; border: none; }",
+                    "td, th { vertical-align: top !important; padding: 3px !important; }",
+                    "img { max-height: 100px; max-width: auto; object-fit: contain; }"
                 ].join('\n'),
 
                 setup: function (ed) {
                     editor = ed;
+                    // İçeriği editör tam hazır olduğunda yükle (boş div açılışı engellenir)
+                    ed.on('init', function () {
+                        if (INITIAL_CONTENT && INITIAL_CONTENT.length) {
+                            ed.setContent(INITIAL_CONTENT);
+                        }
+                    });
                 },
                 init_instance_callback: function (ed) {
                     var el = document.getElementById('doc-editor');
                     if (el) el.style.visibility = 'visible';
+                },
+                // FAIL-SAFE: dil paketi / CDN hata verirse editörü boş ekranda bırakma
+                onError: function (ed, err) {
+                    console.error('TinyMCE init hatası:', err);
+                    var el = document.getElementById('doc-editor');
+                    if (el) {
+                        el.style.visibility = 'visible';
+                        el.innerHTML = '<div style="padding:24px;color:#b91c1c;font-family:sans-serif;">'
+                            + '<b>⚠ Editör yüklenemedi.</b> Bağlantınızı kontrol edip sayfayı yenileyin. (CDN hatası)</div>';
+                    }
                 }
             });
         </script>
@@ -272,12 +300,28 @@
         <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@4.9.11/dist/jsuites.min.css">
         <script src="https://cdn.jsdelivr.net/npm/jsuites@4.9.11/dist/jsuites.min.js"></script>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jspreadsheet@4.7.1/dist/jspreadsheet.min.css">
-        <script src="https://cdn.jsdelivr.net/npm/jspreadsheet@4.7.1/dist/jspreadsheet.min.js"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jexcel@4.6.1/dist/jexcel.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/jexcel@4.6.1/dist/jexcel.min.js"></script>
         <script>
-            var GRID_DATA = {!! json_encode(json_decode($initialContent, true) ?: []) !!};
-            $(function () {
-                $('#excel-spreadsheet').jexcel({
+            // Excel (Jexcel) hücre tablosu — beyaz ekranı önlemek için CDN + DOM mount try-catch
+            var GRID_DATA = null;
+            try {
+                GRID_DATA = {!! json_encode(json_decode($initialContent, true) ?: []) !!};
+            } catch (e) {
+                console.error('[AykomeExcel] GRID_DATA parse hatası:', e);
+                GRID_DATA = [];
+            }
+            if (!Array.isArray(GRID_DATA)) GRID_DATA = [];
+
+            var excelInstance = null;
+
+            function mountExcel() {
+                var node = document.getElementById('excel-spreadsheet');
+                if (!node) { throw new Error('Excel DOM düğümü bulunamadı'); }
+                if (typeof $ === 'undefined' || typeof $.fn.jexcel !== 'function') {
+                    throw new Error('Jexcel kütüphanesi yüklenemedi (CDN engeli?)');
+                }
+                excelInstance = $('#excel-spreadsheet').jexcel({
                     data: GRID_DATA,
                     minDimensions: [5, 10],
                     tableOverflow: true,
@@ -290,7 +334,26 @@
                     allowDeleteRow: true,
                     allowDeleteColumn: true
                 });
-            });
+            }
+
+            function waitAndMount(retries) {
+                var node = document.getElementById('excel-spreadsheet');
+                if (!node) { throw new Error('Excel DOM düğümü bulunamadı'); }
+                try {
+                    mountExcel();
+                } catch (err) {
+                    console.warn('[AykomeExcel] ilk deneme başarısız:', err.message);
+                    if (retries > 0) {
+                        setTimeout(function () { waitAndMount(retries - 1); }, 200);
+                    } else {
+                        node.innerHTML = '<div style="padding:24px;color:#b91c1c;font-family:sans-serif;">'
+                            + '<b>⚠ Excel düzenleyici yüklenemedi.</b> Kütüphane CDN erişimini kontrol edip sayfayı yenileyin.<br>'
+                            + '<small>Hata: ' + (err && err.message ? err.message : 'Bilinmeyen') + '</small></div>';
+                    }
+                }
+            }
+
+            $(function () { waitAndMount(5); });
         </script>
     @endif
 
@@ -317,8 +380,15 @@
                 if (!editor) throw new Error('Editör hazır değil');
                 return editor.getContent();
             }
-            var data = $('#excel-spreadsheet').jexcel('getData');
-            return JSON.stringify(data);
+            try {
+                var data = excelInstance && typeof excelInstance.jexcel === 'function'
+                    ? excelInstance.jexcel('getData')
+                    : ($('#excel-spreadsheet').length ? $('#excel-spreadsheet').jexcel('getData') : GRID_DATA);
+                return JSON.stringify(data || []);
+            } catch (e) {
+                console.error('[AykomeExcel] getData hatası:', e);
+                return JSON.stringify(GRID_DATA || []);
+            }
         }
 
         function saveDoc() {
@@ -362,7 +432,10 @@
 
         function excelAction(method) {
             try {
-                $('#excel-spreadsheet').jexcel(method, 0);
+                var node = $('#excel-spreadsheet');
+                if (node.length && typeof node.jexcel === 'function') {
+                    node.jexcel(method, 0);
+                }
             } catch (e) {
                 console.warn(e);
             }

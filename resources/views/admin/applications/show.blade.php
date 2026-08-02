@@ -358,6 +358,7 @@
                     </a>
 
                     {{-- Kazı Metraj Cetveli -- her zaman göster --}}
+                    <div class="relative">
                     <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
                        class="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-center transition hover:border-indigo-300 hover:bg-indigo-50/70 hover:shadow-sm group">
                         <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 group-hover:bg-indigo-200 transition">
@@ -366,6 +367,10 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-indigo-800">Metraj</span>
                         <span class="text-[9px] text-slate-400">Cetveli</span>
                     </a>
+                    @if($canEditTemplate)
+                    <a href="{{ route('admin.applications.edit-document', [$application, 'metraj']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
+                    @endif
+                    </div>
 
                     {{-- Tahakkuk Fişi -- her zaman göster --}}
                     <div class="relative">

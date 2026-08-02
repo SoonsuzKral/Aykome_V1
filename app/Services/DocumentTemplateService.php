@@ -55,6 +55,34 @@ class DocumentTemplateService
             'icon'  => '🧾',
             'pdf_title' => 'ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI',
         ],
+        'metraj' => [
+            'label' => 'Kazı Metraj',
+            'full'  => 'Kazı Metraj Cetveli (Excel)',
+            'desc'  => 'Kazı Metraj Cetveli ve Onay — yatay (landscape) A4 düzen, hücre hücre düzenlenebilir tablo',
+            'editor'=> 'excel',
+            'blade' => 'admin.pdf.metraj',
+            'icon'  => '📐',
+            'pdf_title' => 'KAZI METRAJ CETVELİ VE ONAY',
+            'landscape' => true,
+        ],
+        'tahsilat_fisi' => [
+            'label' => 'Tahsilat Fişi',
+            'full'  => 'Tahsilat Fişi (Word)',
+            'desc'  => 'Kazı İzni Tahsilat Fişi — düzenlenebilir fiş',
+            'editor'=> 'word',
+            'blade' => 'admin.pdf.tahsilat_fisi',
+            'icon'  => '🧾',
+            'pdf_title' => 'KAZI İZNİ TAHSİLAT FİŞİ',
+        ],
+        'makbuz' => [
+            'label' => 'Tahsilat Makbuzu',
+            'full'  => 'Tahsilat Makbuzu (Word)',
+            'desc'  => 'Vezne Tahsilat Belgesi — düzenlenebilir makbuz',
+            'editor'=> 'word',
+            'blade' => 'admin.pdf.tahsilat_makbuzu',
+            'icon'  => '🧾',
+            'pdf_title' => 'ALTYAPI KAZI HARCI TAHSİLAT BELGESİ',
+        ],
     ];
 
     /** Standalone PDF sarmalayıcısı için temel A4 + yazdırma çubuğu CSS'i. */
@@ -67,6 +95,18 @@ body { background: #e5e7eb; padding-top: 56px; display: flex; justify-content: c
 .print-bar .btn-print { background: #2563eb; color: #fff; border: none; padding: 8px 20px; border-radius: 5px; font-weight: 700; cursor: pointer; }
 @media print { body { background: #fff; padding: 0; display: block; } .print-bar { display: none !important; } .a4-container { width: 100% !important; box-shadow: none; padding: 0 !important; margin: 0; min-height: auto; } }
 @page { size: A4; margin: 15mm; }
+CSS;
+
+    /** Landscape (metraj) A4 sarmalayıcı CSS'i. */
+    protected const LAYOUT_CSS_LANDSCAPE = <<<'CSS'
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #e5e7eb; padding-top: 56px; display: flex; justify-content: center; font-family: 'Times New Roman', Times, serif; }
+.a4-container { background: #fff; width: 297mm; min-height: 210mm; padding: 12mm 14mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 16px auto; box-sizing: border-box; }
+.print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: #1e293b; color: #fff; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
+.print-bar .title { font-size: 14px; font-weight: 600; }
+.print-bar .btn-print { background: #2563eb; color: #fff; border: none; padding: 8px 20px; border-radius: 5px; font-weight: 700; cursor: pointer; }
+@media print { body { background: #fff; padding: 0; display: block; } .print-bar { display: none !important; } .a4-container { width: 100% !important; box-shadow: none; padding: 0 !important; margin: 0; min-height: auto; } }
+@page { size: A4 landscape; margin: 8mm; }
 CSS;
 
     /* ─── Tür yardımcıları ─────────────────────────────────────────────── */
@@ -111,6 +151,11 @@ CSS;
         $sample->total_area_m2 = 650;
         $sample->mudur_adi = 'KURUM MÜDÜRÜ';
         $sample->mudur_unvani = 'İl Müdürü';
+        $sample->district = 'EYYÜBİYE';
+        $sample->work_type = 'ENH TESİS YAPIM İŞİ';
+        $sample->created_at = \Illuminate\Support\Carbon::now();
+        $sample->deposit_amount = 54580;
+        $sample->discovery_amount = 545.8;
 
         $sample->setRelation('institution', null);
         $sample->setRelation('creator', null);
@@ -118,13 +163,26 @@ CSS;
         return $sample;
     }
 
+    /** Global editör için gerçekçi örnek metraj satırları. */
+    protected static function sampleMetrajSatirlari(): array
+    {
+        return [
+            ['ad' => 'ASFALT (SICAK KARIŞIM)', 'birim' => 'm2', 'miktar' => '545,80', 'birim_fiyat' => '100,00', 'tutar' => '54.580,00'],
+            ['ad' => 'ASFALT (SOĞUK ASFALT)',  'birim' => 'm2', 'miktar' => '0,00',   'birim_fiyat' => '0,00',      'tutar' => '0,00'],
+            ['ad' => 'PARKE',                    'birim' => 'm2', 'miktar' => '0,00',   'birim_fiyat' => '0,00',      'tutar' => '0,00'],
+            ['ad' => 'BETON',                    'birim' => 'm2', 'miktar' => '0,00',   'birim_fiyat' => '0,00',      'tutar' => '0,00'],
+            ['ad' => 'STABİLİZE',                'birim' => 'm2', 'miktar' => '0,00',   'birim_fiyat' => '0,00',      'tutar' => '0,00'],
+            ['ad' => 'TRETUAR (PARKE PRİZM)',   'birim' => 'm2', 'miktar' => '0,00',   'birim_fiyat' => '0,00',      'tutar' => '0,00'],
+            ['ad' => 'BORDÜR (BETON)',           'birim' => 'm',  'miktar' => '0,00',   'birim_fiyat' => '0,00',      'tutar' => '0,00'],
+            ['ad' => 'ÇİM',                      'birim' => 'm2', 'miktar' => '0,00',   'birim_fiyat' => '0,00',      'tutar' => '0,00'],
+        ];
+    }
+
     /** Belge tipine göre blade verisi üretir ($app null ise global örnek veri). */
     protected static function bladeData(string $type, ?Application $app): array
     {
         if ($type === 'on_kazi') {
-            if (! $app) {
-                return [];
-            }
+            $app = $app ?? self::sampleApp();
             $settings = \App\Models\PreExcavationPermitSetting::first();
             $signatories = SignatoryEngine::roleMap('pre_permit', $app);
 
@@ -172,6 +230,58 @@ CSS;
             return ['logo_base64' => $logoBase64, 'application' => $app];
         }
 
+        if ($type === 'metraj') {
+            $app = $app ?? self::sampleApp();
+            $rows = $app->id > 0 ? ApplicationsController::buildMetrajRows($app) : self::sampleMetrajRows();
+            $toplamM2 = 0;
+            foreach ($rows as $r) {
+                $toplamM2 += (float) str_replace(['.', ','], ['', '.'], $r['m2'] ?? '0');
+            }
+
+            return [
+                'kurum' => mb_strtoupper($app->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş.', 'UTF-8'),
+                'birim' => 'PROJE TESİS YÖNETİCİLİĞİ',
+                'alici' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ',
+                'signatories' => SignatoryEngine::roleMap('metraj', $app),
+                'proje_kodu' => $app->project_code ?? '',
+                'tarih' => now()->format('d.m.Y'),
+                'rows' => $rows,
+                'toplam_m2' => number_format($toplamM2, 2, ',', '.'),
+                'ilce' => $app->district ?? 'EYYÜBİYE',
+                'firma' => mb_strtoupper($app->institution?->name ?? 'KURUM', 'UTF-8'),
+                'is_cinsi' => $app->description ?? '',
+                'talep_sahibi' => mb_strtoupper(trim($app->tesis_sorumlusu ?? 'Yetkili Görevli'), 'UTF-8'),
+            ];
+        }
+
+        if ($type === 'tahsilat_fisi') {
+            $app = $app ?? self::sampleApp();
+            $metraj = $app->id > 0 ? ApplicationsController::buildMetrajSatirlari($app) : self::sampleMetrajSatirlari();
+            $d = (float) ($app->deposit_amount ?? 54580);
+
+            return [
+                'belediye' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI',
+                'mudurluk' => 'Fen İşleri Müdürlüğü',
+                'birim' => 'AYKOME BİRİMİ',
+                'altbaslik' => 'TAHSİLAT FİŞİ',
+                'fis_no' => 'F-' . str_pad((string) $app->id, 6, '0', STR_PAD_LEFT),
+                'talep_sahibi' => mb_strtoupper($app->institution?->name ?? 'DİCLE ELEKTRİK', 'UTF-8'),
+                'metraj_satirlari' => $metraj,
+                'tahrip_bedeli' => number_format($d, 2, ',', '.'),
+                'kdv' => number_format($d * 0.2, 2, ',', '.'),
+                'ruhsat_harci' => number_format($d * 0.18, 2, ',', '.'),
+                'kesif_bedeli' => number_format(max($d * 0.01, 1), 2, ',', '.'),
+                'ztb_toplam' => number_format($d * 1.2, 2, ',', '.'),
+                'teminat' => '0,00',
+                'genel_toplam' => number_format($d * 1.4, 2, ',', '.'),
+                'signatories' => SignatoryEngine::roleMap('tahakkuk', $app),
+            ];
+        }
+
+        if ($type === 'makbuz') {
+            return ['application' => $app ?? self::sampleApp()];
+        }
+
         return [];
     }
 
@@ -194,7 +304,7 @@ CSS;
         return str_replace(['<style>', '</style>'], '', $css);
     }
 
-    /** HTML içindeki .a4-container divinin iç HTML'ini çıkarır (iç içe div güvenli). */
+    /** HTML içindeki A4 container divinin iç HTML'ini çıkarır (iç içe div güvenli). */
     protected static function extractA4Fragment(string $html): string
     {
         if ($html === '') {
@@ -207,21 +317,32 @@ CSS;
 
         $container = null;
         foreach ($doc->getElementsByTagName('div') as $div) {
-            if (str_contains((string) $div->getAttribute('class'), 'a4-container')) {
+            $class = (string) $div->getAttribute('class');
+            if (str_contains($class, 'a4-container') || str_contains($class, 'a4-landscape-container')) {
                 $container = $div;
                 break;
             }
         }
-        if (! $container) {
-            return $html;
+
+        if ($container) {
+            $fragment = '';
+            foreach ($container->childNodes as $child) {
+                $fragment .= $doc->saveHTML($child);
+            }
+            return $fragment;
         }
 
-        $fragment = '';
-        foreach ($container->childNodes as $child) {
-            $fragment .= $doc->saveHTML($child);
+        // Container'sız blade (örn. tahsilat_makbuzu): body çocuklarını içerik al
+        $body = $doc->getElementsByTagName('body')->item(0);
+        if ($body) {
+            $fragment = '';
+            foreach ($body->childNodes as $child) {
+                $fragment .= $doc->saveHTML($child);
+            }
+            return trim($fragment) !== '' ? $fragment : $html;
         }
 
-        return $fragment;
+        return $html;
     }
 
     /* ─── Kaynak çözümleme (override → global → null) ─────────────────── */
@@ -378,6 +499,47 @@ CSS;
         return array_merge($info, [$header], $rows, $totals);
     }
 
+    public static function buildMetrajGrid(?Application $app): array
+    {
+        $app = $app ?? self::sampleApp();
+        $rows = $app->id > 0 ? ApplicationsController::buildMetrajRows($app) : self::metrajRowsFromSample();
+
+        $header = ['SIRA', 'İLÇE', 'MAHALLE', 'CADDE VE SOKAK', 'KAZI BAŞLANGIÇ TARİHİ', 'GENİŞLİK', 'UZUNLUK', 'M² / M', 'ZEMİN CİNSİ', 'PROJE / İŞİN ADI'];
+
+        $gridRows = [];
+        foreach ($rows as $r) {
+            $gridRows[] = [
+                $r['sira'] ?? '',
+                $r['ilce'] ?? '',
+                $r['mahalle'] ?? '',
+                $r['cadde'] ?? '',
+                $r['tarih'] ?? '',
+                $r['genislik'] ?? '',
+                $r['uzunluk'] ?? '',
+                $r['m2'] ?? '',
+                $r['zemin'] ?? '',
+                $r['proje_kodu'] ?? '',
+            ];
+        }
+
+        $info = [
+            ['KURUM', mb_strtoupper($app->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş.', 'UTF-8'), '', '', '', '', '', '', '', ''],
+            ['ALICI', 'EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ', '', '', '', '', '', '', '', ''],
+        ];
+
+        return array_merge($info, [$header], $gridRows);
+    }
+
+    /** Global örnek veri için metraj row yapısında satırlar. */
+    protected static function metrajRowsFromSample(): array
+    {
+        return [
+            ['sira' => 1, 'ilce' => 'EYYÜBİYE', 'mahalle' => 'EYYÜPNEBİ MAH.', 'cadde' => '3554. SOKAK', 'tarih' => '09.06.2026', 'genislik' => '0,50', 'uzunluk' => '60,00', 'm2' => '30,00', 'zemin' => 'ASFALT (SICAK KARIŞIM)', 'proje_kodu' => 'C-26-1100-1063-0019'],
+            ['sira' => 2, 'ilce' => 'EYYÜBİYE', 'mahalle' => 'EYYÜPNEBİ MAH.', 'cadde' => '3554. SOKAK', 'tarih' => '09.06.2026', 'genislik' => '0,50', 'uzunluk' => '90,00', 'm2' => '45,00', 'zemin' => 'ASFALT (SICAK KARIŞIM)', 'proje_kodu' => 'C-26-1100-1063-0019'],
+            ['sira' => 3, 'ilce' => 'EYYÜBİYE', 'mahalle' => 'EYYÜPNEBİ MAH.', 'cadde' => '3554. SOKAK', 'tarih' => '09.06.2026', 'genislik' => '0,50', 'uzunluk' => '30,00', 'm2' => '15,00', 'zemin' => 'PARKE', 'proje_kodu' => 'C-26-1100-1063-0019'],
+        ];
+    }
+
     public static function gridFor(string $type, ?Application $app): array
     {
         if ($type === 'ruhsat') {
@@ -385,6 +547,9 @@ CSS;
         }
         if ($type === 'tahakkuk') {
             return self::buildTahakkukGrid($app);
+        }
+        if ($type === 'metraj') {
+            return self::buildMetrajGrid($app);
         }
 
         return [];
@@ -422,7 +587,7 @@ CSS;
     /* ─── PDF çizim (override / global varsa) ──────────────────────────── */
 
     /** Belge için kaynak şablon varsa tam HTML döner, yoksa null (normal blade akışı). */
-    public static function renderFor(string $type, Application $app): ?string
+    public static function renderFor(string $type, Application $app, bool $withStamp = true): ?string
     {
         $content = self::resolveContent($type, $app);
         if ($content === null || trim($content) === '') {
@@ -438,7 +603,7 @@ CSS;
             $html = self::renderExcelPage($type, $content);
         }
 
-        return self::applyEImzaStamp($html, $app);
+        return $withStamp ? self::applyEImzaStamp($html, $app) : $html;
     }
 
     /**
@@ -512,9 +677,12 @@ CSS;
     protected static function wrapStandalone(string $type, string $docCss, string $bodyHtml): string
     {
         $title = self::TYPES[$type]['pdf_title'] ?? self::label($type);
+        $layoutCss = ! empty(self::TYPES[$type]['landscape'])
+            ? self::LAYOUT_CSS_LANDSCAPE
+            : self::LAYOUT_CSS;
 
         return '<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><title>' . e($title) . '</title>'
-            . '<style>' . self::LAYOUT_CSS . '</style>'
+            . '<style>' . $layoutCss . '</style>'
             . '<style>' . $docCss . '</style>'
             . '</head><body>'
             . '<div class="print-bar no-print"><span class="title">' . e($title) . '</span>'

@@ -42,6 +42,26 @@ class EImzaService
             'gisCizimleri.yolIliskileri',
         ]);
 
+        // Önce editörde düzenlenen şablonu (override → global) kullan; yoksa blade akışına düş
+        $map = [
+            'ruhsat'       => 'ruhsat',
+            'pre_permit'   => 'on_kazi',
+            'taahhutname'  => 'on_kazi',
+            'metraj'       => 'metraj',
+            'tahakkuk'     => 'tahakkuk',
+            'makbuz'       => 'makbuz',
+            'cover_letter' => 'cover_letter',
+        ];
+        $mapped = $map[$pdfType] ?? null;
+        if ($mapped !== null) {
+            $html = DocumentTemplateService::renderFor($mapped, $application, false);
+            if ($html !== null) {
+                $paper = ! empty(DocumentTemplateService::TYPES[$mapped]['landscape']) ? 'landscape' : 'portrait';
+
+                return Pdf::loadHTML($html)->setPaper('a4', $paper);
+            }
+        }
+
         $view = match ($pdfType) {
             'ruhsat' => 'admin.pdf.ruhsat',
             'pre_permit' => 'admin.pdf.pre_permit',
@@ -59,6 +79,22 @@ class EImzaService
             'institution' => $application->institution,
             'signatories' => SignatoryEngine::roleMap($pdfType, $application),
         ]);
+
+        if ($pdfType === 'cover_letter') {
+            $logoBase64 = null;
+            if ($application->institution && $application->institution->logo_path) {
+                try {
+                    $fileContent = \Illuminate\Support\Facades\Storage::disk('public')->get($application->institution->logo_path);
+                    if ($fileContent) {
+                        $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($application->institution->logo_path);
+                        $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($fileContent);
+                    }
+                } catch (\Exception $e) {
+                    $logoBase64 = null;
+                }
+            }
+            $data['logo_base64'] = $logoBase64;
+        }
 
         if ($pdfType === 'pre_permit') {
             $data['metin'] = DocumentRenderer::prePermitMetin($application);
