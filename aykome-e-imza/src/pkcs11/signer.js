@@ -14,7 +14,7 @@ async function executeSign(pdfBuffer, pkcs11Path, pin, certSerial) {
   const forgeCert = buildForgeCert(certDer);
   const certInfo = extractCertInfo(forgeCert);
 
-  const signedPdf = await buildPades(pdfBuffer, forgeCert, (hash) => {
+  const signedPdf = await buildPades(pdfBuffer, certDer, certInfo.commonName, (hash) => {
     return bridge.signData(pin, hash);
   });
 

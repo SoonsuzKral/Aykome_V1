@@ -1,9 +1,158 @@
 const forge = require('node-forge');
-const { plainAddPlaceholder, findByteRange, DEFAULT_BYTE_RANGE_PLACEHOLDER, removeTrailingNewLine } = require('node-signpdf');
+const { plainAddPlaceholder, findByteRange, removeTrailingNewLine } = require('node-signpdf');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 
-async function buildPades(pdfBuffer, forgeCert, signCallback) {
+const OID_ECDSA_SHA384 = '1.2.840.10045.4.3.3';
+const OID_SIGNED_DATA = '1.2.840.113549.1.7.2';
+const OID_DATA = '1.2.840.113549.1.7.1';
+const OID_SHA384 = '2.16.840.1.101.3.4.2.2';
+
+function sanitizeTurkish(text) {
+  return text
+    .replace(/İ/g, 'I').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+    .replace(/ü/g, 'u').replace(/Ü/g, 'U').replace(/ş/g, 's').replace(/Ş/g, 'S')
+    .replace(/ö/g, 'o').replace(/Ö/g, 'O').replace(/ç/g, 'c').replace(/Ç/g, 'C');
+}
+
+function derLen(n) {
+  if (n < 128) return Buffer.from([n]);
+  if (n < 256) return Buffer.from([0x81, n]);
+  if (n < 65536) return Buffer.from([0x82, n >> 8, n & 0xff]);
+  throw new Error('DER length too big');
+}
+
+function der(tag, content) {
+  return Buffer.concat([Buffer.from([tag]), derLen(content.length), content]);
+}
+
+const derSeq = (...parts) => der(0x30, Buffer.concat(parts));
+const derSet = (...parts) => der(0x31, Buffer.concat(parts));
+const derInt = (b) => der(0x02, b);
+const derOct = (b) => der(0x04, b);
+const derNull = () => Buffer.from([0x05, 0x00]);
+
+function derOid(oid) {
+  return der(0x06, Buffer.from(forge.asn1.oidToDer(oid).getBytes(), 'binary'));
+}
+
+function derUtcTime(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  const s = `${p(d.getUTCFullYear() % 100)}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}` +
+    `${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`;
+  return der(0x17, Buffer.from(s, 'ascii'));
+}
+
+function tlvAt(data, off) {
+  const tag = data.charCodeAt(off);
+  const lb = data.charCodeAt(off + 1);
+  let len;
+  let hdr = 2;
+  if (lb & 0x80) {
+    const n = lb & 0x7f;
+    len = 0;
+    for (let i = 0; i < n; i++) len = (len << 8) | data.charCodeAt(off + 2 + i);
+    hdr += n;
+  } else {
+    len = lb;
+  }
+  return { tag, len, hdr, valOff: off + hdr };
+}
+
+function certIssuerAndSerial(certDer) {
+  const s = certDer.toString('binary');
+  let off = 0;
+  const cert = tlvAt(s, off); off = cert.valOff;
+  const tbs = tlvAt(s, off); off = tbs.valOff;
+  const ver = tlvAt(s, off); off += ver.hdr + ver.len;
+  const ser = tlvAt(s, off);
+  const serialRaw = s.slice(ser.valOff, ser.valOff + ser.len);
+  off += ser.hdr + ser.len;
+  const alg = tlvAt(s, off); off += alg.hdr + alg.len;
+  const iss = tlvAt(s, off);
+  const issuerRaw = s.slice(iss.valOff, iss.valOff + iss.len);
+  return {
+    issuerDer: der(0x30, Buffer.from(issuerRaw, 'binary')),
+    serialDer: der(0x02, Buffer.from(serialRaw, 'binary')),
+  };
+}
+
+function derAttr(oid, ...values) {
+  return derSeq(derOid(oid), derSet(...values));
+}
+
+function sha384Bytes(data) {
+  const md = forge.md.sha384.create();
+  md.update(data.toString('binary'));
+  return Buffer.from(md.digest().getBytes(), 'binary');
+}
+
+function buildCms(contentBytes, certDer, signCallback) {
+  const { issuerDer, serialDer } = certIssuerAndSerial(certDer);
+  const contentDigest = sha384Bytes(contentBytes);
+
+  const attrsContent = Buffer.concat([
+    derAttr(forge.pki.oids.contentType, derOid(OID_DATA)),
+    derAttr(forge.pki.oids.signingTime, derUtcTime(new Date())),
+    derAttr(forge.pki.oids.messageDigest, derOct(contentDigest)),
+  ]);
+  const signedAttrs = der(0xA0, attrsContent);
+
+  const attrsDigest = sha384Bytes(der(0x31, attrsContent));
+  const signatureDer = signCallback(attrsDigest);
+
+  const signerInfo = derSeq(
+    derInt(Buffer.from([1])),
+    derSeq(issuerDer, serialDer),
+    derSeq(derOid(OID_SHA384), derNull()),
+    signedAttrs,
+    derSeq(derOid(OID_ECDSA_SHA384)),
+    derOct(signatureDer),
+  );
+
+  const signedData = derSeq(
+    derInt(Buffer.from([1])),
+    derSet(derSeq(derOid(OID_SHA384), derNull())),
+    derSeq(derOid(OID_DATA)),
+    der(0xA0, certDer),
+    derSet(signerInfo),
+  );
+
+  return derSeq(
+    derOid(OID_SIGNED_DATA),
+    der(0xA0, signedData),
+  );
+}
+
+async function addVisualSignatureText(pdfBuffer, cnName) {
+  const doc = await PDFDocument.load(pdfBuffer);
+  const firstPage = doc.getPages()[0];
+  const helvetica = await doc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await doc.embedFont(StandardFonts.HelveticaBold);
+
+  const now = new Date();
+  const dateStr = sanitizeTurkish(now.toLocaleDateString('tr-TR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }));
+
+  firstPage.drawText('Bu belge Aykome E-Imza ile imzalanmistir', {
+    x: 50, y: 50, size: 9, font: helveticaBold, color: rgb(0.2, 0.2, 0.2),
+  });
+  firstPage.drawText(`${cnName} - ${dateStr}`, {
+    x: 50, y: 38, size: 8, font: helvetica, color: rgb(0.4, 0.4, 0.4),
+  });
+
+  return Buffer.from(await doc.save({ useObjectStreams: false }));
+}
+
+async function buildPades(pdfBuffer, certDer, cnName, signCallback) {
   let pdf = removeTrailingNewLine(pdfBuffer);
+
+  pdf = await addVisualSignatureText(pdf, sanitizeTurkish(cnName));
+
   pdf = plainAddPlaceholder({
     pdfBuffer: pdf,
     reason: 'Aykome E-Imza',
@@ -24,10 +173,13 @@ async function buildPades(pdfBuffer, forgeCert, signCallback) {
   const placeholderLengthWithBrackets = placeholderEnd + 1 - placeholderPos;
   const placeholderLength = placeholderLengthWithBrackets - 2;
 
-  const byteRange = [0, 0, 0, 0];
-  byteRange[1] = placeholderPos;
-  byteRange[2] = byteRange[1] + placeholderLengthWithBrackets;
-  byteRange[3] = pdf.length - byteRange[2];
+  const gapStart = placeholderPos;
+  const gapSize = placeholderLengthWithBrackets;
+  const region2Start = gapStart + gapSize;
+  const region2Size = pdf.length - region2Start;
+
+  // PAdES standardina uygun ByteRange: bolge1=[0,b) bolge2=[b+c, b+c+d)
+  const byteRange = [0, gapStart, gapSize, region2Size];
 
   let actualByteRange = `/ByteRange [${byteRange.join(' ')}]`;
   actualByteRange += ' '.repeat(byteRangePlaceholder.length - actualByteRange.length);
@@ -38,79 +190,28 @@ async function buildPades(pdfBuffer, forgeCert, signCallback) {
     pdf.slice(byteRangeEnd),
   ]);
 
-  pdf = Buffer.concat([
-    pdf.slice(0, byteRange[1]),
-    pdf.slice(byteRange[2], byteRange[2] + byteRange[3]),
+  const signedContent = Buffer.concat([
+    pdf.slice(0, gapStart),
+    pdf.slice(region2Start),
   ]);
 
-  const p7 = forge.pkcs7.createSignedData();
-  p7.content = forge.util.createBuffer(pdf.toString('binary'));
-  p7.addCertificate(forgeCert);
-
-  const fakeKey = {
-    sign: function (md) {
-      const hash = md.digest().getBytes();
-      const sig = signCallback(Buffer.from(hash, 'binary'));
-      return sig.toString('binary');
-    },
-  };
-
-  p7.addSigner({
-    key: fakeKey,
-    certificate: forgeCert,
-    digestAlgorithm: forge.pki.oids.sha384,
-    authenticatedAttributes: [
-      { type: forge.pki.oids.contentType, value: forge.pki.oids.data },
-      { type: forge.pki.oids.signingTime, value: new Date() },
-      { type: forge.pki.oids.messageDigest },
-    ],
-  });
-
-  p7.sign({ detached: true });
-
-  const raw = forge.asn1.toDer(p7.toAsn1()).getBytes();
+  const cms = buildCms(signedContent, certDer, signCallback);
   const expectedLen = Math.floor(placeholderLength / 2);
 
-  if (raw.length > expectedLen) {
-    throw new Error(`Signature too long: ${raw.length} > ${expectedLen}`);
+  if (cms.length > expectedLen) {
+    throw new Error(`Signature too long: ${cms.length} > ${expectedLen}`);
   }
 
-  let signatureHex = Buffer.from(raw, 'binary').toString('hex');
+  let signatureHex = cms.toString('hex');
   signatureHex += '0'.repeat(placeholderLength - signatureHex.length);
 
   pdf = Buffer.concat([
-    pdf.slice(0, byteRange[1]),
+    pdf.slice(0, gapStart),
     Buffer.from(`<${signatureHex}>`),
-    pdf.slice(byteRange[1]),
+    pdf.slice(gapStart + gapSize),
   ]);
 
-  const doc = await PDFDocument.load(pdf);
-  const pages = doc.getPages();
-  const firstPage = pages[0];
-  const helvetica = await doc.embedFont(StandardFonts.Helvetica);
-  const helveticaBold = await doc.embedFont(StandardFonts.HelveticaBold);
-
-  const cnName = (forgeCert.subject.getField('CN')?.value || 'Imzalayan')
-    .replace(/İ/g, 'I').replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
-    .replace(/ü/g, 'u').replace(/Ü/g, 'U').replace(/ş/g, 's').replace(/Ş/g, 'S')
-    .replace(/ö/g, 'o').replace(/Ö/g, 'O').replace(/ç/g, 'c').replace(/Ç/g, 'C');
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('tr-TR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-
-  firstPage.drawText('Bu belge Aykome E-Imza ile imzalanmistir', {
-    x: 50, y: 50, size: 9, font: helveticaBold, color: rgb(0.2, 0.2, 0.2),
-  });
-  firstPage.drawText(`${cnName} - ${dateStr}`, {
-    x: 50, y: 38, size: 8, font: helvetica, color: rgb(0.4, 0.4, 0.4),
-  });
-
-  return await doc.save();
+  return pdf;
 }
 
 module.exports = { buildPades };

@@ -3,6 +3,7 @@ node-x64/
 dist/
 build/
 *.exe
+!x64-worker/Pkcs11Bridge.exe
 *.dmg
 *.zip
 .DS_Store
