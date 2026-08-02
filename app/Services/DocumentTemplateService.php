@@ -83,6 +83,15 @@ class DocumentTemplateService
             'icon'  => '🧾',
             'pdf_title' => 'ALTYAPI KAZI HARCI TAHSİLAT BELGESİ',
         ],
+        'taahhutname' => [
+            'label' => 'Taahhütname',
+            'full'  => 'Taahhütname (Sözleşme)',
+            'desc'  => 'Altyapı Tesisleri Açım Ruhsatı Taahhütnamesi — e-Devlet standartlarında 20 maddelik sözleşme',
+            'editor'=> 'word',
+            'blade' => 'admin.pdf.taahhutname',
+            'icon'  => '📝',
+            'pdf_title' => 'TAAHHÜTNAME',
+        ],
     ];
 
     /** Standalone PDF sarmalayıcısı için temel A4 + yazdırma çubuğu CSS'i. */
@@ -232,7 +241,7 @@ CSS;
 
         if ($type === 'metraj') {
             $app = $app ?? self::sampleApp();
-            $rows = $app->id > 0 ? ApplicationsController::buildMetrajRows($app) : self::sampleMetrajRows();
+            $rows = $app->id > 0 ? ApplicationsController::buildMetrajRows($app) : self::metrajRowsFromSample();
             $toplamM2 = 0;
             foreach ($rows as $r) {
                 $toplamM2 += (float) str_replace(['.', ','], ['', '.'], $r['m2'] ?? '0');
@@ -280,6 +289,49 @@ CSS;
 
         if ($type === 'makbuz') {
             return ['application' => $app ?? self::sampleApp()];
+        }
+
+        if ($type === 'taahhutname') {
+            return ['application' => $app ?? self::sampleApp()];
+        }
+
+        if ($type === 'ruhsat') {
+            $app = $app ?? self::sampleApp();
+            $app->loadMissing(['institution', 'surfaceLines.surfaceType', 'creator', 'priceApprover', 'receiptApprover']);
+
+            return [
+                'application' => $app,
+                'isim' => trim(($app->applicant_first_name ?? '') . ' ' . ($app->applicant_last_name ?? '')),
+                'signatories' => SignatoryEngine::roleMap('ruhsat', $app),
+            ];
+        }
+
+        if ($type === 'tahakkuk') {
+            $app = $app ?? self::sampleApp();
+            $metraj = $app->id > 0 ? ApplicationsController::buildMetrajSatirlari($app) : self::sampleMetrajSatirlari();
+            $d = (float) ($app->deposit_amount ?? 0);
+
+            return [
+                'belediye' => 'EYYÜBİYE BELEDİYESİ',
+                'mudurluk' => 'FEN İŞLERİ MÜDÜRLÜĞÜ',
+                'birim' => 'AYKOME BİRİMİ',
+                'altbaslik' => 'ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI',
+                'talep_sahibi' => mb_strtoupper($app->institution?->name ?? 'DİCLE ELEKTRİK', 'UTF-8'),
+                'ilce' => $app->district ?? 'EYYÜBİYE',
+                'adres' => trim(($app->project_code ?? '') . ' ' . ($app->district ?? '')),
+                'firma' => mb_strtoupper($app->institution?->name ?? 'KURUM', 'UTF-8'),
+                'is_cinsi' => $app->description ?? '',
+                'vergino' => '-',
+                'metraj_satirlari' => $metraj,
+                'toplam_miktar' => '545,80',
+                'genel_tutar' => number_format($d, 2, ',', '.'),
+                'tahrip_bedeli' => number_format($d, 2, ',', '.'),
+                'kdv' => number_format($d * 0.2, 2, ',', '.'),
+                'kesif_bedeli' => number_format(max($d * 0.01, 1), 2, ',', '.'),
+                'ztb_toplam' => number_format($d * 1.2, 2, ',', '.'),
+                'teminat' => '0,00',
+                'genel_toplam' => number_format($d * 1.2, 2, ',', '.'),
+            ];
         }
 
         return [];
@@ -564,24 +616,21 @@ CSS;
      */
     public static function editorSource(string $type, ?Application $app): array
     {
-        $isWord = self::editor($type) === 'word';
-
-        if ($isWord) {
-            $content = self::resolveContent($type, $app);
-            if ($content === null) {
-                $content = self::extractA4Fragment(self::renderBlade($type, $app));
-            }
-            $css = self::extractStyles(self::renderBlade($type, $app));
-
-            return ['editor' => 'word', 'content' => $content, 'css' => $css];
-        }
-
+        // Tüm tipler (word + excel) artık orijinal A4 HTML + contenteditable olarak açılır.
+        // Harici JS kütüphaneleri (TinyMCE/Jexcel) kaldırıldı; blade'in zengin A4 yapısı (üst
+        // başlıklar, imzalar) asla bozulmaz; sadece editörde contenteditable ile düzenlenir.
         $content = self::resolveContent($type, $app);
+        $rendered = null;
         if ($content === null) {
-            $content = json_encode(self::gridFor($type, $app), JSON_UNESCAPED_UNICODE);
+            $rendered = self::renderBlade($type, $app);
+            $content = self::extractA4Fragment($rendered);
+        } else {
+            // CSS için blade render'a ihtiyaç var (content zaten kayıtlı şablondan geldi)
+            $rendered = self::renderBlade($type, $app);
         }
+        $css = self::extractStyles($rendered);
 
-        return ['editor' => 'excel', 'content' => $content, 'css' => ''];
+        return ['editor' => 'contenteditable', 'content' => $content, 'css' => $css];
     }
 
     /* ─── PDF çizim (override / global varsa) ──────────────────────────── */
@@ -595,11 +644,14 @@ CSS;
         }
 
         $isWord = self::editor($type) === 'word';
+        $looksLikeJsonGrid = str_starts_with(trim($content), '[') || str_starts_with(trim($content), '{');
 
-        if ($isWord) {
+        if ($isWord || ! $looksLikeJsonGrid) {
+            // Word tipleri + contenteditable ile kaydedilmiş (artık HTML olan) excel tipleri
             $css = self::extractStyles(self::renderBlade($type, $app));
             $html = self::wrapStandalone($type, $css, $content);
         } else {
+            // Eski JSON grid kayıtları (uyumluluk) — HTML tabloya çevrilir
             $html = self::renderExcelPage($type, $content);
         }
 

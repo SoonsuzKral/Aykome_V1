@@ -37,6 +37,7 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::resource('applications', ApplicationsController::class)->except(['destroy']);
         Route::delete('applications/{application}', [ApplicationsController::class, 'destroy'])->name('applications.destroy');
         Route::post('applications/bulk-destroy',    [ApplicationsController::class, 'bulkDestroy'])->name('applications.bulk-destroy');
+        Route::post('applications/{application}/create-additional-permit', [ApplicationsController::class, 'createAdditionalPermit'])->name('applications.create-additional-permit');
         Route::match(['GET', 'POST'], 'applications/{application}/submit', [ApplicationsController::class, 'submit'])->name('applications.submit');
         Route::post('applications/{application}/approve-pre-excavation', [ApplicationsController::class, 'approvePreExcavation'])->name('applications.approve-pre-excavation');
 
@@ -53,6 +54,7 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::get('applications/{application}/payment-receipt', [ApplicationsController::class, 'generatePaymentReceipt'])->name('applications.payment-receipt');
         Route::get('applications/{application}/pdf/cover-letter', [ApplicationsController::class, 'downloadCoverLetter'])->name('applications.pdf.cover-letter');
         Route::get('applications/{application}/pdf/pre-permit',   [ApplicationsController::class, 'downloadPrePermit']   )->name('applications.pdf.pre-permit');
+        Route::get('applications/{application}/pdf/taahhutname',  [ApplicationsController::class, 'downloadTaahhutname'] )->name('applications.pdf.taahhutname');
         Route::get('applications/{application}/pdf/ruhsat',       [ApplicationsController::class, 'downloadRuhsat']     )->name('applications.pdf.ruhsat');
         Route::get('applications/{application}/pdf/metraj',       [ApplicationsController::class, 'downloadMetraj']     )->name('applications.pdf.metraj');
         Route::get('applications/{application}/pdf/tahakkuk',     [ApplicationsController::class, 'downloadTahakkuk']   )->name('applications.pdf.tahakkuk');

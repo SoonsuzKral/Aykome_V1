@@ -46,7 +46,7 @@ class EImzaService
         $map = [
             'ruhsat'       => 'ruhsat',
             'pre_permit'   => 'on_kazi',
-            'taahhutname'  => 'on_kazi',
+            'taahhutname'  => 'taahhutname',
             'metraj'       => 'metraj',
             'tahakkuk'     => 'tahakkuk',
             'makbuz'       => 'makbuz',
@@ -65,7 +65,7 @@ class EImzaService
         $view = match ($pdfType) {
             'ruhsat' => 'admin.pdf.ruhsat',
             'pre_permit' => 'admin.pdf.pre_permit',
-            'taahhutname' => 'admin.pdf.pre_permit',
+            'taahhutname' => 'admin.pdf.taahhutname',
             'metraj' => 'admin.pdf.metraj',
             'tahakkuk' => 'admin.pdf.tahakkuk',
             'makbuz' => 'admin.pdf.tahsilat_makbuzu',

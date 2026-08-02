@@ -441,6 +441,19 @@
                 @php $extraPermitCount = $application->extraPermits?->count() ?? 0; @endphp
                 <p class="mb-3 text-xs text-slate-500">Bu başvuruya ek kazı ruhsatı tanımlayabilir veya mevcut ek ruhsatları görüntüleyebilirsiniz.</p>
                 <div class="flex flex-wrap gap-2">
+                    @php
+                        $isInstAppHere = $application->institution_id && ! $application->institution?->is_municipality;
+                    @endphp
+                    @if(! $isInstAppHere && $canEditTemplate)
+                    <form method="POST" action="{{ route('admin.applications.create-additional-permit', $application) }}">
+                        @csrf
+                        <button type="submit"
+                                class="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 transition">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            + Ek Ruhsat Süreci Oluştur
+                        </button>
+                    </form>
+                    @endif
                     <a href="{{ route('admin.extra-permits.create', $application) }}"
                        class="inline-flex items-center gap-1.5 rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-800 transition">
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>

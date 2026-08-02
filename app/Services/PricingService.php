@@ -58,7 +58,9 @@ class PricingService
         $ruhsatHarci = round($areaM2 * 9, 2);
         $kesifBedeli = round(361 + ($discovery * 0.01), 2);
         $ztbToplam = round($discovery + $kdv + $ruhsatHarci + $kesifBedeli, 2);
-        $teminat = round($discovery * 0.50, 2);
+        // Ek Ruhsat (Additional Permit) kuralı: TEMİNAT DAİMA 0 TL — kesilmez.
+        // Asıl başvuruda teminat alınır; ek ruhsatta fiyat farkı/ceza için teminat istenmez.
+        $teminat = ($application->is_additional_permit ?? false) ? 0.0 : round($discovery * 0.50, 2);
         $genelToplam = round($ztbToplam + $teminat, 2);
 
         $application->update([

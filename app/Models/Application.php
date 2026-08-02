@@ -17,6 +17,8 @@ class Application extends Model implements HasMedia
 
     protected $fillable = [
         'application_no',
+        'parent_id',
+        'is_additional_permit',
         'institution_id',
         'created_by',
         'status',
@@ -34,6 +36,12 @@ class Application extends Model implements HasMedia
         'total_area_m2',
         'total_price',
         'discovery_amount',
+        'kdv_amount',
+        'ruhsat_harci',
+        'kesif_bedeli',
+        'ztb_toplam',
+        'teminat_tutari',
+        'genel_toplam',
         'width_m',
         'length_m',
         'deposit_amount',
@@ -88,6 +96,12 @@ class Application extends Model implements HasMedia
             'total_area_m2' => 'decimal:4',
             'total_price' => 'decimal:3',
             'discovery_amount' => 'decimal:3',
+            'kdv_amount' => 'decimal:2',
+            'ruhsat_harci' => 'decimal:2',
+            'kesif_bedeli' => 'decimal:2',
+            'ztb_toplam' => 'decimal:2',
+            'teminat_tutari' => 'decimal:2',
+            'genel_toplam' => 'decimal:2',
             'width_m' => 'decimal:3',
             'length_m' => 'decimal:3',
             'deposit_amount' => 'decimal:3',
@@ -100,6 +114,7 @@ class Application extends Model implements HasMedia
             'vice_mayor_approved_at' => 'datetime',
             'deposit_refunded_at' => 'datetime',
             'is_deposit_refunded' => 'boolean',
+            'is_additional_permit' => 'boolean',
             'licensed_at' => 'datetime',
             'status' => ApplicationStatus::class,
             'address_components' => 'array',
@@ -218,6 +233,18 @@ class Application extends Model implements HasMedia
     public function extraPermits(): HasMany
     {
         return $this->hasMany(ExtraPermit::class);
+    }
+
+    /** Asıl başvuru (Ek Ruhsat'ın üstü). */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    /** Bu başvurudan üretilen Ek Ruhsatlar. */
+    public function additionalPermits(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
     }
 
     /**

@@ -37,9 +37,11 @@
 <body>
 
     <!-- BACKEND HESABINI DİNLİYORUZ! Blade matematigi YAPILMIYOR -->
-    @php 
+    @php
         $sl = collect($application->surfaceLines)->keyBy(function($item) { return trim(mb_strtoupper($item->surfaceType->name ?? '', 'UTF-8')); });
-        function sv($sl, $isim) { return isset($sl[$isim]) ? $sl[$isim] : null; }
+        if (! function_exists('sv')) {
+            function sv($sl, $isim) { return isset($sl[$isim]) ? $sl[$isim] : null; }
+        }
     @endphp
 
     <div class="print-bar no-print"><button onclick="window.print()" class="print-btn">🖨️ Yazdır / Kaydet</button></div>

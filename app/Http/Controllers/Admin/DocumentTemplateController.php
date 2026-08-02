@@ -55,6 +55,7 @@ class DocumentTemplateController extends Controller
             'scope' => 'global',
             'applicationId' => null,
             'editorType' => $src['editor'],
+            'editorGridType' => self::gridType($documentType),
             'initialContent' => $src['content'],
             'docCss' => $src['css'],
             'saveUrl' => route('admin.document-templates.update', $documentType),
@@ -89,6 +90,7 @@ class DocumentTemplateController extends Controller
             'scope' => 'application',
             'applicationId' => $application->id,
             'editorType' => $src['editor'],
+            'editorGridType' => self::gridType($documentType),
             'initialContent' => $src['content'],
             'docCss' => $src['css'],
             'saveUrl' => route('admin.applications.edit-document.save', [$application, $documentType]),
@@ -124,5 +126,11 @@ class DocumentTemplateController extends Controller
     protected function editorView(array $data): View
     {
         return view('admin.document-templates.editor', $data);
+    }
+
+    /** Excel/Grid tabanlı şablon tipi mi? (satır ekle/sil butonları için) */
+    protected static function gridType(string $documentType): bool
+    {
+        return DocumentTemplateService::editor($documentType) === 'excel';
     }
 }

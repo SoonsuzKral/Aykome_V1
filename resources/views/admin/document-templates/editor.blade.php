@@ -30,23 +30,27 @@
         .save-btn:disabled { opacity: .6; cursor: wait; }
 
         /* ── Çalışma alanı ── */
-        .editor-wrap { position: fixed; top: 58px; left: 0; right: 0; bottom: 0; overflow: auto; padding: 0 0 40px; }
+        .editor-wrap { position: fixed; top: 58px; left: 0; right: 0; bottom: 0; overflow: auto; padding: 24px 0 60px; background: #eef1f5; }
 
-        /* ── Word: CKEditor A4 kağıt ── */
-        .ck.ck-editor { border: none !important; max-width: 220mm; margin: 24px auto 40px; }
-        .ck.ck-editor__main { background: transparent; }
-        .ck.ck-editor__main > .ck-editor__editable {
-            min-height: 295mm; background: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.45);
-            padding: 18mm 20mm; font-family: 'Times New Roman', Times, serif; border: 1px solid #cbd5e1;
+        /* ── ContentEditable A4 kağıt ── */
+        #doc-editor {
+            max-width: 220mm;
+            margin: 0 auto;
+            background: #fff;
+            box-shadow: 0 6px 20px rgba(0,0,0,.35);
+            min-height: 297mm;
+            padding: 18mm 20mm;
+            border: 1px solid #cbd5e1;
+            outline: none;
+            font-family: 'Times New Roman', Times, serif;
         }
-        .ck.ck-toolbar { background: #1e293b !important; border: none !important; border-radius: 8px 8px 0 0 !important; padding: 6px 8px; }
-        .ck.ck-toolbar .ck-button { color: #e2e8f0; }
-        .ck.ck-toolbar .ck-button:hover, .ck.ck-toolbar .ck-button.ck-on { color: #fff; background: #334155; }
-        .ck.ck-toolbar .ck-toolbar__separator { background: #475569; }
-
-        /* ── Excel: Jexcel ── */
-        .excel-stage { background: #eef1f5; min-height: 100%; padding: 24px 16px 60px; }
-        #excel-spreadsheet { max-width: 1200px; margin: 0 auto; background: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+        /* Düzenlenebilir hücre/metin odak stili */
+        #doc-editor [contenteditable="true"] { border-radius: 2px; transition: box-shadow .15s, background .15s; }
+        #doc-editor [contenteditable="true"]:hover { box-shadow: inset 0 0 0 1px rgba(37,99,235,.35); }
+        #doc-editor [contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px rgba(37,99,235,.6); background: rgba(37,99,235,.04); outline: none; }
+        #doc-editor img { max-height: 100px; max-width: auto; object-fit: contain; }
+        #doc-editor table { width: 100% !important; border-collapse: collapse !important; }
+        #doc-editor td, #doc-editor th { vertical-align: top !important; padding: 3px !important; }
 
         /* ── Toast ── */
         #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2000; background: #0f172a; color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; box-shadow: 0 6px 18px rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .25s; }
@@ -55,17 +59,10 @@
         #toast.err { background: #dc2626; }
 
         .hidden { display: none !important; }
-
-        /* ── Word: TinyMCE A4 kağıt ── */
-        #doc-editor { visibility: hidden; }
-        .tox-tinymce { border-radius: 10px !important; border: none !important; box-shadow: 0 6px 20px rgba(0,0,0,.35); max-width: 220mm; margin: 24px auto; }
-        .tox .tox-toolbar, .tox .tox-toolbar__primary, .tox .tox-menubar { background: #f8fafc !important; }
-        .tox .tox-statusbar { border-top: none !important; }
     </style>
 
-    @if($editorType === 'word')
-        <style>{!! $docCss !!}</style>
-    @endif
+    {{-- Belgenin kendi CSS'i (A4 görünümünü korur) --}}
+    <style>{!! $docCss !!}</style>
 
     @php
         /*
@@ -76,7 +73,7 @@
          * kaydedilen içerik sonradan PDF/e-imza'da renderlanırken de ezilmez.
          */
         $hydratedContent = $initialContent;
-        if ($editorType === 'word' && $initialContent !== '' && $docCss !== '') {
+        if ($initialContent !== '' && $docCss !== '') {
             try {
                 $rules = [];
                 preg_match_all('/([^{}]+)\{([^}]+)\}/', $docCss, $matches, PREG_SET_ORDER);
@@ -184,15 +181,13 @@
         </div>
 
         <div class="ribbon-center">
-            <span class="chip">{{ $editorType === 'word' ? '📄 Word — A4 Düzen' : '📊 Excel — Hücre Düzen' }}</span>
+            <span class="chip">📄 A4 Belge Düzenle</span>
         </div>
 
         <div class="ribbon-right">
-            @if($editorType === 'excel')
-                <button type="button" class="tool-btn" onclick="excelAction('insertRow')">＋ Satır</button>
-                <button type="button" class="tool-btn" onclick="excelAction('insertColumn')">＋ Sütun</button>
-                <button type="button" class="tool-btn" onclick="excelAction('deleteRow')">－ Satır</button>
-                <button type="button" class="tool-btn" onclick="excelAction('deleteColumn')">－ Sütun</button>
+            @if(!empty($editorGridType))
+                <button type="button" class="tool-btn" onclick="excelAction('insertRow')">＋ Satır Ekle</button>
+                <button type="button" class="tool-btn" onclick="excelAction('deleteRow')">－ Satır Sil</button>
             @endif
             @if($scope === 'application' && $resetUrl)
                 <button type="button" class="reset-btn" onclick="resetOverride()">↺ Varsayılana Dön</button>
@@ -202,17 +197,9 @@
         </div>
     </div>
 
-    @if($editorType === 'word')
-        <div class="editor-wrap">
-            <div id="doc-editor"></div>
-        </div>
-    @else
-        <div class="editor-wrap">
-            <div class="excel-stage">
-                <div id="excel-spreadsheet"></div>
-            </div>
-        </div>
-    @endif
+    <div class="editor-wrap">
+        <div id="doc-editor"></div>
+    </div>
 
     <div id="toast"></div>
 
@@ -221,147 +208,30 @@
         @method('DELETE')
     </form>
 
-    @if($editorType === 'word')
-        <script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.2/tinymce.min.js"></script>
-        <script>
-            var editor = null;
-            var INITIAL_CONTENT = {!! json_encode($hydratedContent) !!};
-
-            // WATCHDOG: 8 sn içinde editör kurulamadıysa boş ekranı önle
-            setTimeout(function () {
-                var el = document.getElementById('doc-editor');
-                if (el && el.style.visibility !== 'visible' && !editor) {
-                    el.style.visibility = 'visible';
-                    el.innerHTML = '<div style="padding:24px;color:#b91c1c;font-family:sans-serif;">'
-                        + '<b>⚠ Editör yüklenemedi (timeout).</b> CDN erişimi kontrol edilip sayfa yenilenmelidir.</div>';
-                }
-            }, 8000);
-
-            tinymce.init({
-                selector: '#doc-editor',
-                language: 'tr',
-                language_url: 'https://cdn.jsdelivr.net/npm/tinymce-i18n@26.7.13/langs6/tr.js',
-                height: 950,
-                menubar: false,
-                branding: false,
-                promotion: false,
-
-                // ═══ DIRECTİF 1 — HTML KORUMA (hiçbir tag/attribute ezilmesin) ═══
-                verify_html: false,                     // temizlik yapma (legacy, zararsız)
-                valid_elements: '*[*]',                 // NE VAR NE YOK HTML'e izin ver (style dahil)
-                extended_valid_elements: '*[*]',
-                valid_children: '+body[style],+div[div],+div[table],+div[p]',
-                valid_styles: { '*': '*' },             // tüm CSS özellikleri kalsın
-                keep_styles: true,
-                paste_auto_cleanup_on_paste: false,     // yapıştırırken silme
-                paste_remove_styles: false,
-                paste_remove_styles_if_webkit: false,
-                paste_strip_class_attributes: 'none',
-
-                // ═══ PLUGIN + TOOLBAR (Tablo plugini mutlaka AÇIK) ═══
-                plugins: 'table image link media paste lists',
-                toolbar: 'undo redo | formatselect fontselect fontsizeselect | bold italic underline strikethrough forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | outdent indent | table | link image removeformat',
-                table_default_attributes: { border: '1' },
-
-                // ═══ DIRECTİF 2 — İFRAME = GÖRSEL A4 KAĞIDI (LOGO + TABLO KORUMASI) ═══
-                content_style: [
-                    "body { font-family: 'Times New Roman', Arial, sans-serif; font-size: 14px; color: black; line-height: 1.5; background: #ffffff; padding: 20px; margin: 0 !important; min-height: 1000px; box-shadow: 0 6px 20px rgba(0,0,0,0.25); }",
-                    "table { width: 100% !important; border-collapse: collapse !important; border: none; }",
-                    "td, th { vertical-align: top !important; padding: 3px !important; }",
-                    "img { max-height: 100px; max-width: auto; object-fit: contain; }"
-                ].join('\n'),
-
-                setup: function (ed) {
-                    editor = ed;
-                    // İçeriği editör tam hazır olduğunda yükle (boş div açılışı engellenir)
-                    ed.on('init', function () {
-                        if (INITIAL_CONTENT && INITIAL_CONTENT.length) {
-                            ed.setContent(INITIAL_CONTENT);
-                        }
-                    });
-                },
-                init_instance_callback: function (ed) {
-                    var el = document.getElementById('doc-editor');
-                    if (el) el.style.visibility = 'visible';
-                },
-                // FAIL-SAFE: dil paketi / CDN hata verirse editörü boş ekranda bırakma
-                onError: function (ed, err) {
-                    console.error('TinyMCE init hatası:', err);
-                    var el = document.getElementById('doc-editor');
-                    if (el) {
-                        el.style.visibility = 'visible';
-                        el.innerHTML = '<div style="padding:24px;color:#b91c1c;font-family:sans-serif;">'
-                            + '<b>⚠ Editör yüklenemedi.</b> Bağlantınızı kontrol edip sayfayı yenileyin. (CDN hatası)</div>';
-                    }
-                }
-            });
-        </script>
-    @else
-        <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jsuites@4.9.11/dist/jsuites.min.css">
-        <script src="https://cdn.jsdelivr.net/npm/jsuites@4.9.11/dist/jsuites.min.js"></script>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jexcel@4.6.1/dist/jexcel.min.css">
-        <script src="https://cdn.jsdelivr.net/npm/jexcel@4.6.1/dist/jexcel.min.js"></script>
-        <script>
-            // Excel (Jexcel) hücre tablosu — beyaz ekranı önlemek için CDN + DOM mount try-catch
-            var GRID_DATA = null;
-            try {
-                GRID_DATA = {!! json_encode(json_decode($initialContent, true) ?: []) !!};
-            } catch (e) {
-                console.error('[AykomeExcel] GRID_DATA parse hatası:', e);
-                GRID_DATA = [];
-            }
-            if (!Array.isArray(GRID_DATA)) GRID_DATA = [];
-
-            var excelInstance = null;
-
-            function mountExcel() {
-                var node = document.getElementById('excel-spreadsheet');
-                if (!node) { throw new Error('Excel DOM düğümü bulunamadı'); }
-                if (typeof $ === 'undefined' || typeof $.fn.jexcel !== 'function') {
-                    throw new Error('Jexcel kütüphanesi yüklenemedi (CDN engeli?)');
-                }
-                excelInstance = $('#excel-spreadsheet').jexcel({
-                    data: GRID_DATA,
-                    minDimensions: [5, 10],
-                    tableOverflow: true,
-                    columnSorting: false,
-                    wordWrap: true,
-                    defaultColWidth: 150,
-                    rowResize: true,
-                    allowInsertRow: true,
-                    allowInsertColumn: true,
-                    allowDeleteRow: true,
-                    allowDeleteColumn: true
-                });
-            }
-
-            function waitAndMount(retries) {
-                var node = document.getElementById('excel-spreadsheet');
-                if (!node) { throw new Error('Excel DOM düğümü bulunamadı'); }
-                try {
-                    mountExcel();
-                } catch (err) {
-                    console.warn('[AykomeExcel] ilk deneme başarısız:', err.message);
-                    if (retries > 0) {
-                        setTimeout(function () { waitAndMount(retries - 1); }, 200);
-                    } else {
-                        node.innerHTML = '<div style="padding:24px;color:#b91c1c;font-family:sans-serif;">'
-                            + '<b>⚠ Excel düzenleyici yüklenemedi.</b> Kütüphane CDN erişimini kontrol edip sayfayı yenileyin.<br>'
-                            + '<small>Hata: ' + (err && err.message ? err.message : 'Bilinmeyen') + '</small></div>';
-                    }
-                }
-            }
-
-            $(function () { waitAndMount(5); });
-        </script>
-    @endif
-
     <script>
         var CSRF_TOKEN = @json(csrf_token());
         var SAVE_URL = @json($saveUrl);
         var BACK_URL = @json($backUrl);
-        var EDITOR_TYPE = @json($editorType);
+        var INITIAL_CONTENT = {!! json_encode($hydratedContent) !!};
+
+        // ── Editör başlatma: orijinal A4 HTML'i bas + contenteditable uygula ──
+        function initEditor() {
+            var el = document.getElementById('doc-editor');
+            if (!el) return;
+            el.innerHTML = INITIAL_CONTENT || '';
+
+            // Metin/hücre elemanlarını contenteditable yap (A4 yapısı asla bozulmaz)
+            var editable = el.querySelectorAll('td, th, p, h1, h2, h3, h4, li, .imza .ad, .imza .unvan');
+            for (var i = 0; i < editable.length; i++) {
+                editable[i].setAttribute('contenteditable', 'true');
+            }
+        }
+
+        function collectContent() {
+            var el = document.getElementById('doc-editor');
+            if (!el) throw new Error('Editör hazır değil');
+            return el.innerHTML;
+        }
 
         function toast(msg, type) {
             var el = document.getElementById('toast');
@@ -373,22 +243,6 @@
 
         function goBack() {
             window.location.href = BACK_URL;
-        }
-
-        function collectContent() {
-            if (EDITOR_TYPE === 'word') {
-                if (!editor) throw new Error('Editör hazır değil');
-                return editor.getContent();
-            }
-            try {
-                var data = excelInstance && typeof excelInstance.jexcel === 'function'
-                    ? excelInstance.jexcel('getData')
-                    : ($('#excel-spreadsheet').length ? $('#excel-spreadsheet').jexcel('getData') : GRID_DATA);
-                return JSON.stringify(data || []);
-            } catch (e) {
-                console.error('[AykomeExcel] getData hatası:', e);
-                return JSON.stringify(GRID_DATA || []);
-            }
         }
 
         function saveDoc() {
@@ -430,16 +284,39 @@
             document.getElementById('reset-form').submit();
         }
 
+        // ── Excel satır ekle/sil (contenteditable tablo üzerinde) ──
         function excelAction(method) {
-            try {
-                var node = $('#excel-spreadsheet');
-                if (node.length && typeof node.jexcel === 'function') {
-                    node.jexcel(method, 0);
+            var el = document.getElementById('doc-editor');
+            if (!el) return;
+            // Seçili hücreyi bul (seçim varsa)
+            var sel = window.getSelection && window.getSelection();
+            var anchor = sel && sel.anchorNode;
+            var cell = anchor && anchor.nodeType === 3 ? anchor.parentElement : anchor;
+            while (cell && cell.tagName && cell.tagName.toLowerCase() !== 'td' && cell.tagName.toLowerCase() !== 'th') {
+                cell = cell.parentElement;
+            }
+            if (!cell) { toast('Önce bir tablo hücresine tıklayın', 'err'); return; }
+
+            var row = cell.parentElement; // tr
+            var tbody = row.parentElement; // tbody veya table
+
+            if (method === 'insertRow') {
+                var clone = row.cloneNode(true);
+                var cells = clone.querySelectorAll('td, th');
+                for (var i = 0; i < cells.length; i++) {
+                    cells[i].textContent = '';
                 }
-            } catch (e) {
-                console.warn(e);
+                tbody.insertBefore(clone, row.nextSibling);
+                toast('Satır eklendi', 'ok');
+            } else if (method === 'deleteRow') {
+                if (tbody.querySelectorAll('tr').length <= 1) { toast('En az bir satır kalmalı', 'err'); return; }
+                row.remove();
+                toast('Satır silindi', 'ok');
             }
         }
+
+        // Başlat
+        initEditor();
 
         document.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {

@@ -197,6 +197,30 @@ class ApplicationsController extends Controller
             ->with('success', 'Başvuru taslak olarak kaydedildi.');
     }
 
+    /** EK RUHSAT Süreci — asıl başvurudan klon üretir. */
+    public function createAdditionalPermit(Application $application)
+    {
+        $this->authorize('update', $application);
+
+        // Ek Ruhsat yalnızca merkez belediye / vatandaş (kurum olmayan) için çıkarılır.
+        $isInstitution = $application->institution_id && ! $application->institution?->is_municipality;
+        abort_if($isInstitution, 403, 'Ek Ruhsat yalnızca merkez belediye / vatandaş başvuruları için oluşturulabilir.');
+
+        $additional = app(\App\Services\ApplicationService::class)
+            ->createAdditionalPermit(auth()->user(), $application);
+
+        AuditLogger::log(
+            'additional_permit.created',
+            "Ek Ruhsat oluşturuldu: {$additional->application_no} (asıl: {$application->application_no})",
+            'Application',
+            $additional->id,
+        );
+
+        return redirect()
+            ->route('admin.applications.edit', $additional)
+            ->with('success', 'Ek Ruhsat başvurusu oluşturuldu. Metraj ve fiyat bilgilerini işleyin.');
+    }
+
     public function checkApplicant(Request $request)
     {
         $request->validate([
@@ -847,6 +871,22 @@ class ApplicationsController extends Controller
         ];
 
         return view('admin.pdf.metraj', $data);
+    }
+
+    public function downloadTaahhutname(Application $application)
+    {
+        $this->authorize('view', $application);
+        if ($resp = $this->signedResponseOrNull($application, 'taahhutname')) {
+            return $resp;
+        }
+        if ($html = DocumentTemplateService::renderFor('taahhutname', $application)) {
+            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        }
+        $application->load(['institution', 'creator']);
+
+        $data = ['application' => $application];
+
+        return view('admin.pdf.taahhutname', $data);
     }
 
     public function downloadTahakkuk(Application $application)

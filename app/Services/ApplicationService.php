@@ -107,6 +107,73 @@ class ApplicationService
     }
 
     /**
+     * EK RUHSAT (Additional Permit) — asıl başvurudan KLON üretir.
+     * Adres, kurum, başvuru sahibi ve iş bilgileri birebir kopyalanır;
+     * yeni bir draft başvuru oluşur ve parent_id ile asıl başvuruya bağlanır.
+     * Teminat kuralı: Ek Ruhsatta teminat kesilmez (PricingService'te is_additional_permit ile sıfırlanır).
+     */
+    public function createAdditionalPermit(User $user, Application $parent): Application
+    {
+        $parent->loadMissing(['institution', 'excavationAreas', 'surfaceLines.surfaceType']);
+
+        return DB::transaction(function () use ($user, $parent) {
+            $application = Application::query()->create([
+                'application_no' => null,
+                'parent_id' => $parent->id,
+                'is_additional_permit' => true,
+                'institution_id' => $parent->institution_id,
+                'created_by' => $user->id,
+                'status' => ApplicationStatus::Draft,
+                'applicant_first_name' => $parent->applicant_first_name,
+                'applicant_last_name' => $parent->applicant_last_name,
+                'applicant_national_id' => $parent->applicant_national_id,
+                'tc_no' => $parent->tc_no,
+                'identity_no' => $parent->identity_no,
+                'applicant_phone' => $parent->applicant_phone,
+                'excavation_reason' => $parent->excavation_reason,
+                'work_type' => $parent->work_type,
+                'project_code' => $parent->project_code,
+                'application_type' => 'ek_ruhsat',
+                'description' => 'EK RUHSAT — ' . ($parent->description ?? 'Altyapı kazısı'),
+                'start_date' => $parent->start_date,
+                'end_date' => $parent->end_date,
+                'address_text' => $parent->address_text,
+                'address_components' => $parent->address_components,
+                'vice_mayor_name' => $parent->vice_mayor_name,
+                'process_id' => $parent->process_id,
+                'tesis_sorumlusu' => $parent->tesis_sorumlusu,
+                'mudur_adi' => $parent->mudur_adi,
+                'mudur_unvani' => $parent->mudur_unvani,
+            ]);
+
+            $year = now()->year;
+            $application->update([
+                'application_no' => sprintf('%s-%04d', $year, $application->id),
+            ]);
+
+            // Kazı alanını kopyala
+            $primaryArea = $parent->excavationAreas->first();
+            if ($primaryArea) {
+                $this->mapDrawingService->syncPrimaryArea($application, [
+                    'polygon_geojson' => $primaryArea->polygon_geojson,
+                    'total_area_m2' => $primaryArea->total_area_m2,
+                    'center_lat' => $primaryArea->center_lat,
+                    'center_lng' => $primaryArea->center_lng,
+                    'address_text' => $primaryArea->address_text,
+                ]);
+            }
+
+            $application->update([
+                'total_area_m2' => $parent->total_area_m2 ?? $application->excavationAreas()->first()?->total_area_m2 ?? 0,
+            ]);
+
+            $this->log($application, $user, 'application.additional_permit_created', [], 'Asıl başvurudan Ek Ruhsat oluşturuldu');
+
+            return $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
+        });
+    }
+
+    /**
      * Süreç & Onay Rotası motoru üzerinden onay silsilesini ilerletir.
      * Adım bilgisi process_steps tablosundan okunur; legacy kolonlar
      * (staff/director/vice_mayor) default süreç için eşzamanlı doldurulur.
