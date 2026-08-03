@@ -159,7 +159,7 @@ $legendItems = $applications->map(fn($r) => ['name' => $r['institution']['name']
 @endsection
 
 @push('styles')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
 <style>
 #map-canvas { position:relative;z-index:1; }
 #map-canvas .leaflet-container { border-radius:0; }
@@ -173,7 +173,7 @@ $legendItems = $applications->map(fn($r) => ['name' => $r['institution']['name']
 @endpush
 
 @push('scripts')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ asset('assets/vendor/leaflet/leaflet.js') }}"></script>
 <script>
 function initMaps(){
     var el = document.getElementById('map-canvas');

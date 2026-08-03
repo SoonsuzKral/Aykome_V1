@@ -39,4 +39,8 @@ return [
         'api_key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
+    'yandex' => [
+        'api_key' => env('YANDEX_GEOCODER_API_KEY', ''),
+    ],
+
 ];

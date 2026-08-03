@@ -1848,31 +1848,12 @@ class ApplicationsController extends Controller
             return response()->json(['success' => false]);
         }
 
-        $apiKey = 'b7500431-b7c9-4c6b-bcb3-fcd91b3a7339'; // NİHAİ ANAHTAR!
-
-        // 1. AŞAMA: SERVER-TO-SERVER YANDEX VURUŞU!
+        // 1. AŞAMA: NOMINATIM (OSM) — Türkiye adreslerinde en isabetli kaynak
         try {
-            $url = "https://geocode-maps.yandex.ru/1.x/?apikey={$apiKey}&format=json&geocode=".urlencode($query).'&results=1';
-            $yandexResponse = Http::get($url);
-            if ($yandexResponse->successful()) {
-                $pos = $yandexResponse->json('response.GeoObjectCollection.featureMember.0.GeoObject.Point.pos');
-                if ($pos) {
-                    $coords = explode(' ', $pos);
-
-                    return response()->json(['success' => true, 'lat' => $coords[1], 'lon' => $coords[0]]);
-                }
-            }
-        } catch (\Exception $e) {
-            // Yandex istek hatası — Nominatim fallback'ine geç
-        }
-
-        // 2. AŞAMA: NOMINATIM FALLBACK (BACKENDDEN GİDERKEN BAN YEMEMEK İÇİN GÜÇLÜ USER-AGENT!)
-        try {
-            $osmQuery = str_ireplace([' sokak', ' sok.', ' cadde'], '', $query); // Basit parse
             $osmResponse = Http::withHeaders([
                 'User-Agent' => 'Aykome-Eyyubiye-GIS-Backend/1.0', // Zorunludur OSM kızmaz.
             ])->get('https://nominatim.openstreetmap.org/search', [
-                'format' => 'json', 'q' => $osmQuery, 'countrycodes' => 'tr', 'limit' => 1,
+                'format' => 'json', 'q' => $query, 'countrycodes' => 'tr', 'limit' => 1,
             ]);
 
             if ($osmResponse->successful() && count($osmResponse->json()) > 0) {
@@ -1881,7 +1862,43 @@ class ApplicationsController extends Controller
                 return response()->json(['success' => true, 'lat' => $item['lat'], 'lon' => $item['lon']]);
             }
         } catch (\Exception $e) {
-            // Nominatim istek hatası — sessizce geç
+            // Nominatim istek hatası — Yandex fallback'ine geç
+        }
+
+        // 2. AŞAMA: PHOTON (komoot) — API key gerektirmez, Nominatim rate limit'e takılırsa devreye girer
+        try {
+            $photonResponse = Http::withHeaders([
+                'User-Agent' => 'Aykome-Eyyubiye-GIS-Backend/1.0',
+            ])->get('https://photon.komoot.io/api/', [
+                'q' => $query, 'limit' => 1,
+            ]);
+
+            if ($photonResponse->successful() && count($photonResponse->json('features', [])) > 0) {
+                $coords = $photonResponse->json('features.0.geometry.coordinates'); // [lng, lat]
+
+                return response()->json(['success' => true, 'lat' => $coords[1], 'lon' => $coords[0]]);
+            }
+        } catch (\Exception $e) {
+            // Photon istek hatası — Yandex fallback'ine geç
+        }
+
+        // 3. AŞAMA: YANDEX — Photon da boş dönerse üçüncü deneme
+        $apiKey = config('services.yandex.api_key');
+        if ($apiKey) {
+            try {
+                $url = "https://geocode-maps.yandex.ru/1.x/?apikey={$apiKey}&format=json&geocode=".urlencode($query).'&results=1';
+                $yandexResponse = Http::get($url);
+                if ($yandexResponse->successful()) {
+                    $pos = $yandexResponse->json('response.GeoObjectCollection.featureMember.0.GeoObject.Point.pos');
+                    if ($pos) {
+                        $coords = explode(' ', $pos);
+
+                        return response()->json(['success' => true, 'lat' => $coords[1], 'lon' => $coords[0]]);
+                    }
+                }
+            } catch (\Exception $e) {
+                // Yandex istek hatası — sessizce geç
+            }
         }
 
         return response()->json(['success' => false]);

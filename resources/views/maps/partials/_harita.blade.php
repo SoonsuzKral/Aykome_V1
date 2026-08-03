@@ -26,9 +26,9 @@
     ];
 @endphp
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
 @if($drawingEnabled && !$readOnly)
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.draw.css') }}" />
 @endif
 
 <div id="{{ $canvasId }}-wrapper" style="position:relative;width:100%;height:{{ $height }};border-radius:8px;overflow:hidden;border:1px solid #e2e8f0;background:#f1f5f9;">
@@ -54,9 +54,9 @@
     </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ asset('assets/vendor/leaflet/leaflet.js') }}"></script>
 @if($drawingEnabled && !$readOnly)
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="{{ asset('assets/vendor/leaflet/leaflet.draw.js') }}"></script>
 @endif
 
 <script>

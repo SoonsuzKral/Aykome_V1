@@ -85,7 +85,7 @@
             </tr>
             <tr>
                 <td class="font-bold">TANZİM EDEN</td>
-                <td class="font-bold">: {{ mb_strtoupper($application->user?->name ?? 'GÖREVLİ', 'UTF-8') }}</td>
+                <td class="font-bold">: {{ mb_strtoupper($application->creator?->name ?? 'GÖREVLİ', 'UTF-8') }}</td>
                 <td class="font-bold text-right" style="border-right:none;">TANZİM TARİHİ</td>
                 <td class="font-bold text-left" style="border-left:none;">: {{ date('d.m.Y') }}</td>
             </tr>

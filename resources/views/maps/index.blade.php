@@ -7,8 +7,8 @@
 @endprepend
 
 @push('styles')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+<link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
+<link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.draw.css') }}" />
 <style>
 .maps-page #admin-sidebar { z-index: 1002; }
 .maps-page #app-content,
@@ -1022,9 +1022,9 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 @endsection
 
 @push('scripts')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
+<script src="{{ asset('assets/vendor/leaflet/leaflet.js') }}"></script>
+<script src="{{ asset('assets/vendor/leaflet/leaflet.draw.js') }}"></script>
+<script src="{{ asset('assets/vendor/leaflet/leaflet-rotate.js') }}"></script>
 
 <script>
 (function() {

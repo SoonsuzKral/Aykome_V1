@@ -3,8 +3,8 @@
 @section('page-heading', 'Yeni başvuru')
 
 @push('styles')
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.draw.css') }}" />
     <style>
         #application-drawing-map { min-height: 500px; position: relative; z-index: 1; }
         #application-drawing-map .leaflet-container { border-radius: 0.75rem; }
@@ -13,7 +13,7 @@
         .row-tooltip { background: #1e293b !important; color: #fff !important; border: none !important; border-radius: 4px !important; padding: 2px 8px !important; font-size: 11px !important; font-weight: 600 !important; box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important; }
         .row-tooltip::before { border-top-color: #1e293b !important; }
         .leaflet-draw-toolbar a {
-            background-image: url('https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/images/spritesheet.png') !important;
+            background-image: url('{{ asset('assets/vendor/leaflet/images/spritesheet.png') }}') !important;
             background-size: 300px 30px !important;
             transition: filter 0.15s;
         }
@@ -910,7 +910,7 @@
             var _lngStr = centerLngInput?.value?.trim() || '';
             var initLat = _latStr ? Number(_latStr) : NaN;
             var initLng = _lngStr ? Number(_lngStr) : NaN;
-            var defaultCenter = Number.isFinite(initLat) && Number.isFinite(initLng) ? [initLat, initLng] : [39.0, 35.0];
+            var defaultCenter = Number.isFinite(initLat) && Number.isFinite(initLng) ? [initLat, initLng] : [37.1598, 38.7969];
 
             var normalizeColor = function (inst) {
                 if (!inst || typeof inst !== 'object') return '#DC2626';
