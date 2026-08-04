@@ -694,9 +694,12 @@ class ApplicationsController extends Controller
             'Bu işlem yalnızca kurum tarafından gerçekleştirilebilir.'
         );
 
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
         abort_unless(
-            \App\Enums\ApplicationStatus::tryFrom($application->status)?->label() !== null
-                && in_array($application->status, ['pre_excavation_approved', 'pre_approved', 'measurement_done', 'approved'], true),
+            in_array($currentStatus, ['pre_excavation_approved', 'pre_approved', 'measurement_done', 'approved'], true),
             422,
             'Başvuru bu aşamada saha kazı tamamlamaya uygun değil.'
         );
