@@ -333,7 +333,11 @@
                 <h2 class="mb-4 text-sm font-semibold text-slate-800">📦 Belge Arşivi / Dökümler</h2>
                 <p class="mb-3 text-xs text-slate-500">Başvuru sürecinde oluşturulmuş tüm belgelere buradan erişebilirsiniz.</p>
                 @php
-                    $canEditTemplate = auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']);
+                    // CELL-BASED AUTH: Belediye yönetimi her başvuruyu düzenleyebilir;
+                    // alt kurum personeli YALNIZCA kendi kurumunun başvurusunda butonu görür.
+                    $user = auth()->user();
+                    $canEditTemplate = $user->isMunicipalityPersonel()
+                        || ($user->institution_id && (int) $user->institution_id === (int) $application->institution_id);
                 @endphp
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                     {{-- Üst Yazı (Dilekçe) -- her zaman göster --}}

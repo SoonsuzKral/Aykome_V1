@@ -48,11 +48,16 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
 @endsection
 
 @section('content')
+@php
+    // CELL-BASED AUTH: Belediye başlığı/ilçe hücreleri altkuruma kilitli;
+    // talep sahibi/firma/metraj satırları iki tarafa açık kalır.
+    $isMuni = auth()->check() && auth()->user()->isMunicipalityPersonel();
+@endphp
 <div class="baslik">
-    <div class="belediye" contenteditable="true">{{ $belediye ?? 'EYYÜBİYE BELEDİYESİ' }}</div>
-    <div class="mudurluk" contenteditable="true">{{ $mudurluk ?? 'FEN İŞLERİ MÜDÜRLÜĞÜ' }}</div>
-    <div class="birim" contenteditable="true">{{ $birim ?? 'AYKOME BİRİMİ' }}</div>
-    <div class="altbaslik" contenteditable="true">{{ $altbaslik ?? 'ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI' }}</div>
+    <div class="belediye" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $belediye ?? 'EYYÜBİYE BELEDİYESİ' }}</div>
+    <div class="mudurluk" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $mudurluk ?? 'FEN İŞLERİ MÜDÜRLÜĞÜ' }}</div>
+    <div class="birim" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $birim ?? 'AYKOME BİRİMİ' }}</div>
+    <div class="altbaslik" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $altbaslik ?? 'ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI' }}</div>
 </div>
 
 <div class="bilgi-grid">

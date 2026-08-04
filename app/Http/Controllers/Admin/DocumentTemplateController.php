@@ -13,11 +13,25 @@ class DocumentTemplateController extends Controller
 {
     protected function guardAccess(): void
     {
-        abort_unless(
-            auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']),
-            403,
-            'Şablon yönetimi için yetkiniz yok.'
-        );
+        $user = auth()->user();
+
+        // Alt kurum personeli (institution-manager/staff) yalnızca KENDİ kurumunun
+        // Üst Yazı şablonunu düzenleyebilir. Diğer tüm erişim belediye yönetimi içindir.
+        if (! $user->isMunicipalityPersonel()) {
+            abort_unless(
+                $user->institution_id && $user->hasAnyRole(['institution-manager', 'institution-staff', 'institution-admin']),
+                403,
+                'Şablon yönetimi için yetkiniz yok.'
+            );
+        }
+    }
+
+    /** Alt kurum kullanıcısı mı? (yalnızca Üst Yazı ve kendi kurumu) */
+    protected function isInstitutionScope(): bool
+    {
+        $user = auth()->user();
+
+        return ! $user->isMunicipalityPersonel() && $user->institution_id;
     }
 
     /** 📝 Taslak / Şablon Yönetimi — 4 kutu. */
@@ -25,20 +39,37 @@ class DocumentTemplateController extends Controller
     {
         $this->guardAccess();
 
+        $user = auth()->user();
+        $institutionScope = $this->isInstitutionScope();
+
         $types = [];
         foreach (DocumentTemplateService::TYPES as $key => $t) {
+            // Alt kurum yalnızca Üst Yazı şablonunu görür
+            if ($institutionScope && $key !== 'cover_letter') {
+                continue;
+            }
+
+            $content = $institutionScope
+                ? DocumentTemplateService::institutionContent($user->institution_id, $key)
+                : DocumentTemplateService::globalContent($key);
+
             $types[] = [
                 'key' => $key,
                 'label' => $t['full'],
                 'desc' => $t['desc'],
                 'editor' => $t['editor'],
                 'icon' => $t['icon'],
-                'hasTemplate' => DocumentTemplateService::globalContent($key) !== null,
+                'hasTemplate' => $content !== null,
                 'editUrl' => route('admin.document-templates.edit', $key),
+                'scope' => $institutionScope ? 'institution' : 'global',
             ];
         }
 
-        return view('admin.document-templates.index', ['types' => $types]);
+        return view('admin.document-templates.index', [
+            'types' => $types,
+            'institutionScope' => $institutionScope,
+            'institution' => $institutionScope ? $user->institution : null,
+        ]);
     }
 
     /** Global (master) şablonu düzenle — tam ekran Word/Excel editörü. */
@@ -47,19 +78,24 @@ class DocumentTemplateController extends Controller
         $this->guardAccess();
         $t = DocumentTemplateService::type($documentType) ?: abort(404, 'Bilinmeyen belge tipi.');
 
-        $src = DocumentTemplateService::editorSource($documentType, null);
+        $institutionScope = $this->isInstitutionScope();
+        if ($institutionScope && $documentType !== 'cover_letter') {
+            abort(403, 'Alt kurumlar yalnızca Üst Yazı şablonunu düzenleyebilir.');
+        }
+
+        $src = DocumentTemplateService::editorSource($documentType, null, $institutionScope ? (int) auth()->user()->institution_id : null);
 
         return $this->editorView([
             'docType' => $documentType,
             'docLabel' => $t['full'],
-            'scope' => 'global',
+            'scope' => $institutionScope ? 'institution' : 'global',
             'applicationId' => null,
             'editorType' => $src['editor'],
             'editorGridType' => self::gridType($documentType),
             'initialContent' => $src['content'],
             'docCss' => $src['css'],
             'saveUrl' => route('admin.document-templates.update', $documentType),
-            'resetUrl' => null,
+            'resetUrl' => $institutionScope ? route('admin.document-templates.destroy-institution', $documentType) : null,
             'backUrl' => route('admin.document-templates.index'),
             'title' => $t['full'],
         ]);
@@ -70,15 +106,61 @@ class DocumentTemplateController extends Controller
         $this->guardAccess();
         abort_unless(DocumentTemplateService::isValid($documentType), 404);
 
-        DocumentTemplateService::saveGlobal($documentType, (string) $request->input('content_data'));
+        $user = auth()->user();
+        $content = (string) $request->input('content_data');
+
+        if ($this->isInstitutionScope()) {
+            if ($documentType !== 'cover_letter') {
+                abort(403, 'Alt kurumlar yalnızca Üst Yazı şablonunu düzenleyebilir.');
+            }
+            DocumentTemplateService::saveInstitution((int) $user->institution_id, $documentType, $content);
+        } else {
+            DocumentTemplateService::saveGlobal($documentType, $content);
+        }
 
         return response()->json(['ok' => true]);
+    }
+
+    /** Kuruma özel şablonu sil (yalnızca alt kurum kendi üst yazısı için). */
+    public function destroyInstitution(string $documentType)
+    {
+        $this->guardAccess();
+        abort_unless(DocumentTemplateService::isValid($documentType), 404);
+
+        $user = auth()->user();
+        if ($this->isInstitutionScope()) {
+            if ($documentType !== 'cover_letter') {
+                abort(403);
+            }
+            DocumentTemplateService::deleteInstitution((int) $user->institution_id, $documentType);
+        }
+
+        return back()->with('success', 'Kurum şablonu kaldırıldı. Varsayılan şablona dönüldü.');
+    }
+
+    /** Başvuruya özel taslak düzenleme: belediye personeli VEYA başvurunun kendi kurumunun personeli. */
+    protected function guardApplicationScope(Application $application): void
+    {
+        $user = auth()->user();
+
+        // Belediye personeli her başvuruyu düzenleyebilir.
+        if ($user->isMunicipalityPersonel()) {
+            return;
+        }
+
+        // Alt kurum personeli yalnızca KENDİ kurumunun başvurusunu düzenleyebilir.
+        // (CELL-BASED AUTH: hücre kilitleri blade'de zaten belediye makam bölgelerini korur.)
+        abort_unless(
+            $user->institution_id && (int) $user->institution_id === (int) $application->institution_id,
+            403,
+            'Yalnızca kendi kurumunuzun başvuru belgelerini düzenleyebilirsiniz.'
+        );
     }
 
     /** Başvuru bazlı override taslağı düzenle. */
     public function editApplication(Application $application, string $documentType): View
     {
-        $this->guardAccess();
+        $this->guardApplicationScope($application);
         $this->authorize('view', $application);
         $t = DocumentTemplateService::type($documentType) ?: abort(404, 'Bilinmeyen belge tipi.');
 
@@ -94,7 +176,7 @@ class DocumentTemplateController extends Controller
             'initialContent' => $src['content'],
             'docCss' => $src['css'],
             'saveUrl' => route('admin.applications.edit-document.save', [$application, $documentType]),
-            'resetUrl' => route('admin.applications.edit-document.destroy', [$application, $documentType]),
+            'resetUrl' => $userCanReset = auth()->user()->isMunicipalityPersonel() ? route('admin.applications.edit-document.destroy', [$application, $documentType]) : null,
             'backUrl' => route('admin.applications.show', $application),
             'title' => $t['label'] . ' — ' . $application->application_no,
         ]);
@@ -102,7 +184,7 @@ class DocumentTemplateController extends Controller
 
     public function saveApplication(Request $request, Application $application, string $documentType): JsonResponse
     {
-        $this->guardAccess();
+        $this->guardApplicationScope($application);
         $this->authorize('view', $application);
         abort_unless(DocumentTemplateService::isValid($documentType), 404);
 
@@ -111,10 +193,10 @@ class DocumentTemplateController extends Controller
         return response()->json(['ok' => true]);
     }
 
-    /** Başvuruya özel taslağı sil → global/varsayılan akışa dön. */
+    /** Başvuruya özel taslağı sil → global/varsayılan akışa dön. (Yalnızca belediye.) */
     public function destroyApplication(Application $application, string $documentType)
     {
-        $this->guardAccess();
+        abort_unless(auth()->user()->isMunicipalityPersonel(), 403, 'Şablon yönetimi için yetkiniz yok.');
         $this->authorize('view', $application);
         abort_unless(DocumentTemplateService::isValid($documentType), 404);
 

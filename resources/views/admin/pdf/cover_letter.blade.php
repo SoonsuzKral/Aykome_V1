@@ -60,6 +60,11 @@
         <button onclick="window.print()" class="print-btn">🖨️ YAZDIR</button>
         <button onclick="window.print()" class="print-btn">💾 ŞABLONU DÜZENLE (KAYDET)</button>
     </div>
+    @php
+        // CELL-BASED AUTH: Üst Yazı (Dilekçe) altkurumun kendi başvuru evrakı olduğundan
+        // tüm alanlar iki tarafa açıktır; helper tutarlılık için tanımlıdır.
+        $isMuni = auth()->check() && auth()->user()->isMunicipalityPersonel();
+    @endphp
     <div class="a4-container">
 
         @if(($application->status instanceof \BackedEnum ? $application->status->value : $application->status) === 'cancelled')
