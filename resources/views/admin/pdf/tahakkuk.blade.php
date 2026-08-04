@@ -63,7 +63,7 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
         </tr>
         <tr>
             <td class="label">ilçe</td>
-            <td class="value" contenteditable="true">{{ $ilce ?? '' }}</td>
+            <td class="value" contenteditable="true">{{ $application->district_name }}</td>
         </tr>
         <tr>
             <td class="label">Adres / Proje Adı</td>
