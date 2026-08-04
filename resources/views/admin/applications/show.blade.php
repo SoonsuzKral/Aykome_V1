@@ -147,6 +147,9 @@
                         @elseif($alertKaStage === 'ruhsat_sent')
                             <p class="text-sm font-bold text-blue-900">Ruhsat Kuruma Gönderildi</p>
                             <p class="mt-0.5 text-xs text-blue-700">Alt kurum ruhsatı görüntüleyip saha çalışmasına geçebilir.</p>
+                        @elseif($alertKaStage === 'receipt_pending' && $latestReceipt && $latestReceipt->status !== 'approved')
+                            <p class="text-sm font-bold text-blue-900">🧾 Ödeme Evrakları Geldi — Onay Bekleniyor</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Alt kurum ödeme dekontunu yükledi; belediye makbuzu onaylayınca Taahhütname modülü açılır.</p>
                         @else
                             <p class="text-sm font-bold text-blue-900">Ön Kazı Onaylı — Kazı Yapılabilir</p>
                             <p class="mt-0.5 text-xs text-blue-700">Kurum kazı çalışmalarını tamamlayınca belediye ileri modülleri manuel açacaktır.</p>
@@ -992,7 +995,7 @@
                                     @endif
 
                                     {{-- Tahsilat Fişi & Makbuz --}}
-                                    @if(in_array($st, ['awaiting_payment', 'receipt_pending', 'pre_approved', 'measurement_done', 'tahakkuk_pending', 'tahakkuk_sent', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
+                                    @if(in_array($st, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'awaiting_payment', 'receipt_pending', 'pre_approved', 'measurement_done', 'tahakkuk_pending', 'tahakkuk_sent', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
                                         <a href="{{ route('admin.applications.pdf.tahsilat-fisi', $application) }}"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-amber-400 bg-amber-50 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -1094,9 +1097,10 @@
                                             📄 Üst Yazı (Dilekçe) Görüntüle / İndir (PDF)
                                         </a>
 
-                                        {{-- GÖREV 2: Word/Editör butonu YALNIZCA DRAFT durumunda (alt kurum, submit öncesi).
-                                             Submit sonrası tamamen render edilmez. Belediye reddi (rejected) → tekrar düzenlenebilir. --}}
-                                        @if(in_array($st, ['draft', 'rejected']) && $canEditTemplate)
+                                        {{-- GÖREV 3: Word/Editör butonu YALNIZCA DRAFT durumunda (alt kurum, submit öncesi).
+                                             submitted ve sonrası (belediye devraldığı an) HTML'den TAMAMEN render edilmez;
+                                             alt kurum salt "Üst Yazı (Dilekçe) PDF Görüntüle/İndir" flat butonunu görür. --}}
+                                        @if($st === 'draft' && $canEditTemplate)
                                         <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -1187,7 +1191,7 @@
                                         {{-- Tahakkuk/makbuz/taahhüt formları KESİNLİKLE bu karta sarkmaz --}}
 
                                         {{-- Ön Kazı İzin Belgesi (PDF) Görüntüle / İndir --}}
-                                        @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
+                                        @if(in_array($st, ['pre_approved', 'excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'field_work', 'completed']))
                                         <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}" target="_blank"
                                            class="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100 mb-2">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
@@ -1214,7 +1218,7 @@
                                              statüyü FieldWork'a çekip sahte/ileri kilit açabiliyordu; bu yapıda kullanılmıyor. --}}
 
                                         {{-- Belediye personeli için metraj PDF ve düzenleme --}}
-                                        @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
+                                        @if(in_array($st, ['pre_approved', 'excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'field_work', 'completed']))
                                         <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
                                            class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 mb-2">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
@@ -1432,14 +1436,18 @@
                                         // KALICI olarak alt kuruma görünür. Taahhütname kilitleri (taahhutname_*) de bu
                                         // listeye eklendi — çünkü openTaahhutname status'ü taahhutname_pending/sent'e
                                         // çevirir ve alt kurumun Step 4 evrakını görmeye devam etmesi gerekir.
-                                        $tahakkukGeldi = in_array($st, ['tahakkuk_sent', 'accrued', 'approved',
+                                        // GÖREV 4: Alt kurumun ÖDEME DEKONTU yükleyebilmesi için kart,
+                                        // fiyatlandırma (awaiting_payment) ve makbuz bekleme (receipt_pending)
+                                        // anlarından itibaren görünür olmalıdır — aksi halde dekont girişi imkânsız olur.
+                                        $tahakkukGeldi = in_array($st, ['awaiting_payment', 'receipt_pending',
+                                            'tahakkuk_sent', 'accrued', 'approved',
                                             'payment_completed', 'taahhutname_pending', 'taahhutname_sent',
                                             'licensed', 'field_work', 'completed']);
                                     @endphp
                                     @if($isUserInstitution && !$tahakkukGeldi)
                                         {{-- Alt kurum: Tahakkuk henüz hazır değil — bu adım gizli (d-none eşdeğeri) --}}
                                         <p class="text-xs text-slate-400 text-center py-4">Bu adım belediye tahakkuk&nbsp;&amp;&nbsp;makbuz bilgilerini hazırladıktan sonra aktif olacaktır.</p>
-                                    @elseif($isCurrent || $isPast)
+                                    @elseif(($isCurrent || $isPast) || ($isUserInstitution && in_array($st, ['awaiting_payment', 'receipt_pending'])))
                                         {{-- GÖREV 2: ZTB/Teminat makbuz parametreleri ARTIK BURADA YOK; onlar Step 6 (Ruhsat)
                                              modülüne taşındı çünkü doğrudan Ruhsat belgesinin üstüne basılırlar. --}}
 
@@ -1462,6 +1470,45 @@
                                         {{-- İmzalı Tahakkuk + İmzalı Tahsilat (ping-pong) — "Yükle ve Gönder" / "E-imzala ve Gönder" --}}
                                         @include('admin.applications._signed_document_upload', ['module' => 'tahakkuk', 'label' => 'İmzalı Tahakkuk'])
                                         @include('admin.applications._signed_document_upload', ['module' => 'makbuz', 'label' => 'İmzalı Tahsilat Makbuzu'])
+
+                                        {{-- GÖREV 4: ALT KURUM ÖDEME DEKONTU (MAKBUZ) YÜKLEME FORMÜ — banka dekontu / e-devlet
+                                             tahsilat belgesi alt kurum tarafından buradan yüklenip belediyeye gönderilir.
+                                             Dosya yüklenince storeReceipt → addReceipt → status ReceiptPending'e geçer ve
+                                             belediyenin tepesindeki "Ödeme Evrakları Geldi / TAAHHÜTNAME MODÜLÜNÜ AÇ" kiliti serbest kalır. --}}
+                                        @if($isUserInstitution && ($can['update'] ?? false) && in_array($st, ['awaiting_payment', 'receipt_pending', 'tahakkuk_sent', 'accrued', 'approved', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent']))
+                                        <div class="mt-2 rounded-lg border-2 border-dashed border-emerald-300 bg-emerald-50/40 p-3">
+                                            <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-emerald-700">🧾 Ödeme Makbuzunu (Dekont) Yükle / Gönder</p>
+
+                                            @if($latestReceipt)
+                                                <div class="mb-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] text-slate-600">
+                                                    Son makbuz durumu:
+                                                    @if($latestReceipt->status === 'approved')
+                                                        <span class="font-semibold text-emerald-700">✅ Onaylandı</span>
+                                                    @elseif($latestReceipt->status === 'rejected')
+                                                        <span class="font-semibold text-rose-700">❌ Reddedildi</span>
+                                                    @else
+                                                        <span class="font-semibold text-amber-700">⏳ Belediye onayı bekliyor</span>
+                                                    @endif
+                                                    @if($latestReceipt->review_notes)
+                                                        <span class="block text-rose-600 mt-0.5">Not: {{ $latestReceipt->review_notes }}</span>
+                                                    @endif
+                                                </div>
+                                            @endif
+
+                                            <form method="POST" action="{{ route('admin.applications.receipts.store', $application) }}"
+                                                  enctype="multipart/form-data" class="space-y-2">
+                                                @csrf
+                                                <input type="file" name="receipt_file" required accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                                       class="block w-full text-sm text-slate-600 border border-slate-300 rounded-lg cursor-pointer bg-white file:mr-3 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 transition-colors shadow-sm">
+                                                <input type="text" name="notes" placeholder="Açıklama (örn: banka dekont no, ödeme tutarı...)"
+                                                       class="block w-full rounded-lg border border-slate-300 px-3 py-2 text-xs placeholder-slate-400 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200">
+                                                <button type="submit" class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 py-2.5 text-sm font-bold text-white shadow-md hover:bg-emerald-800 transition">
+                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                                    ⬆️ Dekontu Belediyeye Gönder
+                                                </button>
+                                            </form>
+                                        </div>
+                                        @endif
                                     @endif
                                 @endif
 

@@ -1,8 +1,18 @@
 @php
     $moduleDocs = $application->module_documents ?? [];
     $docData = $moduleDocs[$module] ?? [];
-    $belediyePath = $docData['belediye_path'] ?? null;
-    $kurumPath = $docData['kurum_path'] ?? null;
+
+    // GÖREV 2: "Kurum İmzaladı / Belediye İmzaladı" Görüntüle satırları, modülün
+    // eş anlamlısı olan *_signed anahtarına (alt kurum işlem tabı) da bakar.
+    // Örn: belediye 'metraj' anahtarına yükler, alt kurum 'metraj_signed' anahtarına yükler;
+    // hangi tarafta açılırsa açılsın diğer tarafın imzalı nüshası görünür kalmalıdır.
+    $baseKey = str_replace('_signed', '', $module);
+    $syncData = ($baseKey !== $module && isset($moduleDocs[$baseKey]))
+        ? $moduleDocs[$baseKey]
+        : null;
+
+    $belediyePath = $docData['belediye_path'] ?? ($syncData['belediye_path'] ?? null);
+    $kurumPath = $docData['kurum_path'] ?? ($syncData['kurum_path'] ?? null);
     $hasBelediye = !empty($belediyePath);
     $hasKurum = !empty($kurumPath);
     $eImzaDone = !empty($docData['e_imza']['durum'] ?? null);
@@ -10,16 +20,18 @@
     $uniqId = 'sdoc-' . $module . '-' . $application->id;
 
     // İmzalı dosya (file swap): imzalı varsa O GÖSTERİLİR, saf hali değil
-    $signedFile = $application->moduleSignedPath($module);
+    // Anahtar hangi tarafta açılırsa açılsın, imzalı/signed dosya ana modül anahtarında da aranır.
+    $signedFile = $application->moduleSignedPath($module)
+        ?? ($syncData ? $application->moduleSignedPath($baseKey) : null);
     $viewUrl = $signedFile
         ? route('admin.applications.module-document', [$application->id, $module])
         : null;
 
-    $belediyeUrl = $docData['belediye_url'] ?? null;
+    $belediyeUrl = $docData['belediye_url'] ?? ($syncData['belediye_url'] ?? null);
     if (!$belediyeUrl && $belediyePath && preg_match('#e-imza/([^/]+)/#', $belediyePath, $m)) {
         $belediyeUrl = route('e-imza.indir', ['transactionId' => $m[1]], false);
     }
-    $kurumUrl = $docData['kurum_url'] ?? null;
+    $kurumUrl = $docData['kurum_url'] ?? ($syncData['kurum_url'] ?? null);
     if (!$kurumUrl && $kurumPath && preg_match('#e-imza/([^/]+)/#', $kurumPath, $m)) {
         $kurumUrl = route('e-imza.indir', ['transactionId' => $m[1]], false);
     }
@@ -41,14 +53,14 @@
     <div class="mb-1 flex items-center gap-1.5 text-[10px] text-slate-600">
         <svg class="h-3 w-3 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span>Belediye imzaladı</span>
-        <a href="{{ $viewUrl ?: ($belediyeUrl ?: \Illuminate\Support\Facades\Storage::disk('public')->url($belediyePath)) }}" target="_blank" class="ml-auto font-medium text-cyan-700 hover:underline">Görüntüle</a>
+        <a href="{{ $belediyeUrl ?: \Illuminate\Support\Facades\Storage::disk('public')->url($belediyePath) }}" target="_blank" class="ml-auto font-medium text-cyan-700 hover:underline">📄 Görüntüle</a>
     </div>
     @endif
     @if($hasKurum)
     <div class="mb-1 flex items-center gap-1.5 text-[10px] text-slate-600">
         <svg class="h-3 w-3 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span>Kurum imzaladı</span>
-        <a href="{{ $viewUrl ?: ($kurumUrl ?: \Illuminate\Support\Facades\Storage::disk('public')->url($kurumPath)) }}" target="_blank" class="ml-auto font-medium text-cyan-700 hover:underline">Görüntüle</a>
+        <a href="{{ $kurumUrl ?: \Illuminate\Support\Facades\Storage::disk('public')->url($kurumPath) }}" target="_blank" class="ml-auto font-medium text-cyan-700 hover:underline">📄 Görüntüle</a>
     </div>
     @endif
 
