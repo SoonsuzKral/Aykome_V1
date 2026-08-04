@@ -44,8 +44,9 @@ class DocumentTemplateController extends Controller
 
         $types = [];
         foreach (DocumentTemplateService::TYPES as $key => $t) {
-            // Alt kurum yalnızca Üst Yazı şablonunu görür
-            if ($institutionScope && $key !== 'cover_letter') {
+            // GÖREV 3.1: Alt kurum "Ön Kazı Şablonu" kartını GÖRMEZ — Ön Kazı belediyeye aittir.
+            // Diğer tüm şablonlar açıktır.
+            if ($institutionScope && $key === 'on_kazi') {
                 continue;
             }
 
@@ -79,8 +80,9 @@ class DocumentTemplateController extends Controller
         $t = DocumentTemplateService::type($documentType) ?: abort(404, 'Bilinmeyen belge tipi.');
 
         $institutionScope = $this->isInstitutionScope();
-        if ($institutionScope && $documentType !== 'cover_letter') {
-            abort(403, 'Alt kurumlar yalnızca Üst Yazı şablonunu düzenleyebilir.');
+        // GÖREV 3.1: Alt kurum Ön Kazı şablonunu düzenleyemez (belediye yetkisi).
+        if ($institutionScope && $documentType === 'on_kazi') {
+            abort(403, 'Ön Kazı şablonu belediye yetkisindedir.');
         }
 
         $src = DocumentTemplateService::editorSource($documentType, null, $institutionScope ? (int) auth()->user()->institution_id : null);
@@ -110,8 +112,9 @@ class DocumentTemplateController extends Controller
         $content = (string) $request->input('content_data');
 
         if ($this->isInstitutionScope()) {
-            if ($documentType !== 'cover_letter') {
-                abort(403, 'Alt kurumlar yalnızca Üst Yazı şablonunu düzenleyebilir.');
+            // GÖREV 3.1: Alt kurum Ön Kazı şablonunu kaydedemez (belediye yetkisi).
+            if ($documentType === 'on_kazi') {
+                abort(403, 'Ön Kazı şablonu belediye yetkisindedir.');
             }
             DocumentTemplateService::saveInstitution((int) $user->institution_id, $documentType, $content);
         } else {
@@ -129,7 +132,8 @@ class DocumentTemplateController extends Controller
 
         $user = auth()->user();
         if ($this->isInstitutionScope()) {
-            if ($documentType !== 'cover_letter') {
+            // GÖREV 3.1: Alt kurum Ön Kazı şablonunu silemez (belediye yetkisi).
+            if ($documentType === 'on_kazi') {
                 abort(403);
             }
             DocumentTemplateService::deleteInstitution((int) $user->institution_id, $documentType);
@@ -207,6 +211,10 @@ class DocumentTemplateController extends Controller
 
     protected function editorView(array $data): View
     {
+        // GÖREV 2 (CELL-BASED AUTH): Editöre oturum rolünü ilet — alt kurum oturumunda
+        // belediye makam hücreleri JS tarafında kilitli kalır (contenteditable="false").
+        $data['isMuni'] = auth()->user()->isMunicipalityPersonel();
+
         return view('admin.document-templates.editor', $data);
     }
 

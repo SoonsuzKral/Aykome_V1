@@ -214,31 +214,114 @@
         var CSRF_TOKEN = @json(csrf_token());
         var SAVE_URL = @json($saveUrl);
         var BACK_URL = @json($backUrl);
+        // GÖREV 2 (CELL-BASED AUTH): Alt kurum oturumunda (IS_MUNI=false) belediye
+        // makam hücreleri KESİN kilitlenir; hiçbir JS kod yolu bunları "true" yapamaz.
+        var IS_MUNI = @json($isMuni ?? true);
         var INITIAL_CONTENT = {!! json_encode($hydratedContent) !!};
 
         // ── Editör başlatma: orijinal A4 HTML'i bas + contenteditable uygula ──
+        // CELL-BASED AUTH (Güvenlik Duvarı):
+        //  - contenteditable="true"  → serbest düzenleme (altkuruma açık hücreler)
+        //  - contenteditable="false" → KESİN KİLİT: hiçbir JS burayı "true" yapamaz,
+        //    tıklama/yazma preventDefault ile engellenir. (Belediye makam hücreleri)
+        var EDITABLE_SELECTOR = 'td, th, p, h1, h2, h3, h4, li, .imza .ad, .imza .unvan';
+
         function initEditor() {
             var el = document.getElementById('doc-editor');
             if (!el) return;
             el.innerHTML = INITIAL_CONTENT || '';
 
-            // CELL-BASED AUTH (Güvenlik Duvarı): Yalnızca blade'de contenteditable="true"
-            // verilmiş hücreler düzenlenebilir. Altkurum oturumunda belediye makam hücreleri
-            // contenteditable="false" gelir — burada ASLA yeniden "true" yapılmaz.
-            var editable = el.querySelectorAll('td, th, p, h1, h2, h3, h4, li, .imza .ad, .imza .unvan');
+            var editable = el.querySelectorAll(EDITABLE_SELECTOR);
             for (var i = 0; i < editable.length; i++) {
                 var cur = editable[i].getAttribute('contenteditable');
-                // "false" veya null olan hücreler kilitli kalır; yalnızca "true" olanlar etkinleşir.
                 if (cur === 'true') {
-                    // editör içinde görünür tıklanabilir kalsın; değer zaten "true"
                     editable[i].setAttribute('contenteditable', 'true');
+                } else {
+                    // "false" veya belirtilmemiş → kilitli kalır; DOM normalize sonrası
+                    // öznitelik düşmüşse yeniden "false" olarak zorla yazılır.
+                    editable[i].setAttribute('contenteditable', 'false');
+                    editable[i].setAttribute('data-locked-cell', '1');
+                    editable[i].style.userSelect = 'none';
                 }
+            }
+            lockProtectedCells(el);
+            if (IS_MUNI === false) {
+                // GÖREV 2: Alt kurum oturumunda belediye makam bölgeleri (data-muni="1"
+                // işaretli hücreler) contenteditable="true" bile gelse mutlak kilitlenir.
+                forceLockMuniOwned(el);
+            }
+        }
+
+        // Belediye makam hücreleri alt kurum için mutlak kilitli kalır.
+        function forceLockMuniOwned(root) {
+            var m = root.querySelectorAll('[data-muni="1"], [data-muni="true"]');
+            for (var i = 0; i < m.length; i++) {
+                m[i].setAttribute('contenteditable', 'false');
+                m[i].setAttribute('data-locked-cell', '1');
+                m[i].style.userSelect = 'none';
+            }
+        }
+
+        // Kilitli hücrelerde tıklama/metin girişi/hamle iptal edilir.
+        function lockProtectedCells(root) {
+            root.addEventListener('mousedown', onProtectedDown, true);
+            root.addEventListener('mouseup', onProtectedDown, true);
+            root.addEventListener('keydown', onProtectedKey, true);
+            root.addEventListener('keypress', onProtectedKey, true);
+            root.addEventListener('beforeinput', onProtectedKey, true);
+            root.addEventListener('dblclick', onProtectedDown, true);
+        }
+
+        function isLockedCell(node) {
+            if (!node) return false;
+            // Metin düğümleriyse parent elementine bak, aksi takdirde kilit aşılabilir (zafiyet onarımı)
+            var p = node.nodeType === 3 ? node.parentNode : node;
+            
+            while (p && p !== document.getElementById('doc-editor')) {
+                if (p.nodeType === 1 && p.getAttribute && (p.getAttribute('contenteditable') === 'false' || p.getAttribute('data-locked-cell') === '1')) {
+                    return true;
+                }
+                p = p.parentNode;
+            }
+            return false;
+        }
+
+        function onProtectedDown(e) {
+            if (isLockedCell(e.target)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+        }
+
+        function onProtectedKey(e) {
+            var t = e.target;
+            if (isLockedCell(t)) {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }
+            // Seçim kilitli bir hücreye kayıyorsa da engelle
+            var sel = window.getSelection && window.getSelection();
+            var anchor = sel && sel.anchorNode;
+            var focus = sel && sel.focusNode;
+            if ((anchor && isLockedCell(anchor.nodeType === 3 ? anchor.parentNode : anchor)) ||
+                (focus && isLockedCell(focus.nodeType === 3 ? focus.parentNode : focus))) {
+                e.preventDefault();
+                e.stopPropagation();
             }
         }
 
         function collectContent() {
             var el = document.getElementById('doc-editor');
             if (!el) throw new Error('Editör hazır değil');
+
+            // GÜVENLİK: Kaydetmeden önce kilitli hücrelerin contenteditable="false" olduğunu
+            // garanti et — tarayıcı/DOM bir şekilde "true" yapmışsa bile geri kilitlenir.
+            var locked = el.querySelectorAll('[data-locked-cell]');
+            for (var i = 0; i < locked.length; i++) {
+                locked[i].setAttribute('contenteditable', 'false');
+            }
             return el.innerHTML;
         }
 
@@ -305,6 +388,11 @@
                 cell = cell.parentElement;
             }
             if (!cell) { toast('Önce bir tablo hücresine tıklayın', 'err'); return; }
+            // GÜVENLİK: Kilitli (belediye makam) hücre/ satırda satır ekleme-silme yasak.
+            if (isLockedCell(cell)) {
+                toast('Bu alan kilitli — belediye yetkisindedir.', 'err');
+                return;
+            }
 
             var row = cell.parentElement; // tr
             var tbody = row.parentElement; // tbody veya table
