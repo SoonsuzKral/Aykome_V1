@@ -27,6 +27,7 @@
             'receipt_pending'        => ['label' => 'Makbuz Bekliyor',        'class' => 'bg-orange-100 text-orange-700'],
             'excavation_completed'   => ['label' => 'Kazı Tamamlandı',        'class' => 'bg-blue-100 text-blue-700'],
             'metrage_pending'        => ['label' => 'Metraj Açıldı',          'class' => 'bg-sky-100 text-sky-700'],
+            'metrage_sent'           => ['label' => 'Metraj Kurum Onayında',  'class' => 'bg-indigo-100 text-indigo-700'],
             'metrage_revision'       => ['label' => 'Metraj Revizyon',        'class' => 'bg-rose-100 text-rose-700'],
             'metrage_approved'       => ['label' => 'Metraj Onaylı',          'class' => 'bg-emerald-100 text-emerald-700'],
             'tahakkuk_pending'       => ['label' => 'Tahakkuk & Makbuz Açıldı','class' => 'bg-indigo-100 text-indigo-700'],
@@ -101,7 +102,7 @@
             $alertViewerIsMuni = auth()->user()->isMunicipalityPersonel();
             $alertKaStage = $st;
         @endphp
-        @if(in_array($alertKaStage, ['excavation_completed', 'metrage_pending', 'metrage_revision', 'metrage_approved', 'tahakkuk_pending', 'payment_completed', 'approved', 'pre_excavation_approved', 'pre_approved']))
+        @if(in_array($alertKaStage, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'tahakkuk_pending', 'payment_completed', 'approved', 'pre_excavation_approved', 'pre_approved']))
         <div class="mb-6 rounded-2xl border border-blue-300 bg-gradient-to-r from-blue-50 to-sky-50 p-4 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-start gap-3">
@@ -113,6 +114,9 @@
                         @elseif($alertKaStage === 'metrage_pending')
                             <p class="text-sm font-bold text-blue-900">Saha Metraj Modülü Açık</p>
                             <p class="mt-0.5 text-xs text-blue-700">Belediye metrajı doldurup kuruma gönderecek; kurum onayı bekleniyor.</p>
+                        @elseif($alertKaStage === 'metrage_sent')
+                            <p class="text-sm font-bold text-blue-900">Saha Metraj Kurum Onayında</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Belediye metrajı kuruma gönderdi; alt kurum onayı/reddini bekliyor.</p>
                         @elseif($alertKaStage === 'metrage_revision')
                             <p class="text-sm font-bold text-blue-900">Kurum Metrajı Kabul Etmedi — Revizyon Gerekli</p>
                             <p class="mt-0.5 text-xs text-blue-700">Belediye metrajı yeniden düzenleyip tekrar göndermelidir.</p>
@@ -864,8 +868,23 @@
                     }
 
                     $stepId = 'step-panel-' . $num;
+
+                    // GÖREV 1 (Gecikmeli Visibility): Belediye metrajı henüz kuruma göndermediyse
+                    // (metrage_pending / metrage_revision) alt kurum kullanıcısı Step 3 (Saha Metraj)
+                    // kartını ASLA görmez — d-none ile tamamen gizlenir.
+                    $hideStep3FromKurum = $num === 3
+                        && $isUserInstitution
+                        && $application->isInstitutionApplication()
+                        && in_array($st, ['metrage_pending', 'metrage_revision']);
+
+                    // GÖREV 2/3 (Ruhsat hazırlık): Belediye, ZTB/Teminat parametrelerini doldurabilmesi
+                    // için Ruhsat (Step 6) modülünü tahakkuk_pending/payment_completed/approved anından
+                    // itibaren açık görür; alt kurum ise yalnızca licensed sonrası görür.
+                    if ($num === 6 && !$isUserInstitution && $application->isInstitutionApplication() && in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved'])) {
+                        $expanded = true;
+                    }
                 @endphp
-                <div class="rounded-2xl border shadow-sm transition {{ $cardClass }}">
+                <div class="rounded-2xl border shadow-sm transition {{ $cardClass }}{{ $hideStep3FromKurum ? ' hidden' : '' }}">
                     <button type="button"
                             onclick="toggleStep('{{ $stepId }}')"
                             class="flex w-full items-center gap-3 px-4 py-3 text-left transition">
@@ -1214,7 +1233,15 @@
                                     {{-- UYARI: Bu kartta ASLA tahakkuk formu, makbuz veya tahsilat no bilgisi İSTENMEZ; onlar STEP 4'tedir. --}}
                                     {{-- GÖREV 2 KATI STATÜ DUVARI: excavation_completed ve öncesinde kart TAMAMEN render EDİLMEZ;
                                          modül ancak belediye metrage_pending kilidini açınca görünür. --}}
-                                    @if(($isCurrent || $isPast) && in_array($st, ['metrage_pending', 'metrage_revision', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']))
+                                    {{-- GÖREV 1 (Gecikmeli Visibility): Alt kurum kullanıcısı Step 3'ü yalnızca
+                                         statü metrage_sent (belediye "Kuruma Gönder" dediğinde) ve sonrasında görür;
+                                         metrage_pending/metrage_revision anında belediye çalışması gizlidir. --}}
+                                    @php
+                                        $step3KurumGorebilir = in_array($st, ['metrage_sent', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
+                                        $step3BelediyeGorebilir = in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
+                                        $step3Gorunur = ($isUserInstitution && $step3KurumGorebilir) || (!$isUserInstitution && $step3BelediyeGorebilir);
+                                    @endphp
+                                    @if(($isCurrent || $isPast) && $step3Gorunur)
                                         {{-- Metraj (PDF) Görüntüle / İndir — her iki taraf --}}
                                         @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'approved', 'licensed', 'completed']))
                                         <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
@@ -1226,7 +1253,7 @@
 
                                         {{-- GÖREV 3 PİNG-PONG Kontrol Paneli (Alt kurum / taşeron): onay + red (zorunlu not) --}}
                                         {{-- Vatandaş/Merkez (isInstitution=false) için eski akış (approve-price) korunur. --}}
-                                        @if($isUserInstitution && $isCurrent && $application->isInstitutionApplication() && in_array($st, ['metrage_pending', 'metrage_revision']))
+                                        @if($isUserInstitution && $isCurrent && $application->isInstitutionApplication() && $st === 'metrage_sent')
                                         <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 space-y-2 mb-2">
                                             <p class="text-xs font-semibold text-indigo-800">📋 Metraj Onay Kontrolü (Kurum)</p>
                                             <form method="POST" action="{{ route('admin.applications.approve-metrage', $application) }}">
@@ -1270,12 +1297,12 @@
                                             @endif
 
                                             @if(($can['approve_price'] ?? false) && auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']))
-                                            @if($application->isInstitutionApplication())
+                                            @if($application->isInstitutionApplication() && in_array($st, ['metrage_pending', 'metrage_revision']))
                                             <form method="POST" action="{{ route('admin.applications.send-metrage', $application) }}" class="mb-2">
                                                 @csrf
-                                                <button type="submit" class="w-full rounded-lg bg-emerald-700 py-2.5 text-sm font-medium text-white hover:bg-emerald-800">Metrajı Kuruma Gönder (Onay İçin)</button>
+                                                <button type="submit" class="w-full rounded-lg bg-emerald-700 py-2.5 text-sm font-medium text-white hover:bg-emerald-800">🟦 Saha Metrajı Alt Kurumun Onayına Gönder</button>
                                             </form>
-                                            @else
+                                            @elseif(!$application->isInstitutionApplication())
                                             <form method="POST" action="{{ route('admin.applications.approve-price', $application) }}" class="mb-2">
                                                 @csrf
                                                 <button type="submit" class="w-full rounded-lg bg-emerald-700 py-2.5 text-sm font-medium text-white hover:bg-emerald-800">Metrajı Onayla &amp; Kuruma Gönder</button>
@@ -1386,34 +1413,26 @@
                                         {{-- Alt kurum: Tahakkuk henüz hazır değil — bu adım gizli (d-none eşdeğeri) --}}
                                         <p class="text-xs text-slate-400 text-center py-4">Bu adım belediye tahakkuk&nbsp;&amp;&nbsp;makbuz bilgilerini hazırladıktan sonra aktif olacaktır.</p>
                                     @elseif($isCurrent || $isPast)
-                                        {{-- ZTB Makbuz No + Teminat Makbuz No — Yalnızca belediye personeli doldurur --}}
-                                        @if(!$isUserInstitution)
-                                        <form method="POST" action="{{ route('admin.applications.save-receipt-info', $application) }}" class="space-y-3">
-                                            @csrf
-                                            @method('PUT')
-                                            <div>
-                                                <label class="block text-xs font-medium text-slate-600 mb-1">ZTB Makbuz No ve Tarihi:</label>
-                                                <input type="text" name="ztb_receipt_info" value="{{ old('ztb_receipt_info', $application->ztb_receipt_info) }}"
-                                                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                                                       placeholder="Örn: 22.07.2026-0938547">
-                                            </div>
-                                            <div>
-                                                <label class="block text-xs font-medium text-slate-600 mb-1">Teminat Makbuz No ve Tarihi:</label>
-                                                <input type="text" name="deposit_receipt_info"
-                                                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                                                       value="{{ old('deposit_receipt_info', $application->deposit_receipt_info) }}"
-                                                       placeholder="Örn: 22.07.2026-0938547">
-                                            </div>
-                                            <button type="submit"
-                                                    class="w-full rounded-lg bg-cyan-600 py-2 text-sm font-bold text-white hover:bg-cyan-500 transition">
-                                                Makbuzları Kaydet
-                                            </button>
-                                        </form>
-                                        @else
-                                        <p class="text-xs text-slate-400 text-center py-2">Tahakkuk &amp; makbuz bilgileri belediye tarafından doldurulur. Alt kurum teminat muafiyetli olduğu için ZTB makbuz numarasını belediye girer.</p>
-                                        @endif
+                                        {{-- GÖREV 2: ZTB/Teminat makbuz parametreleri ARTIK BURADA YOK; onlar Step 6 (Ruhsat)
+                                             modülüne taşındı çünkü doğrudan Ruhsat belgesinin üstüne basılırlar. --}}
 
-                                        {{-- İmzalı Tahakkuk + İmzalı Tahsilat (ping-pong) --}}
+                                        {{-- GÖREV 3: Tahakkuk & Tahsilat belgelerini A4 olarak görüntüle/yazdır —
+                                             Belediye (ve kurum onay aşamasında Altkurum) evraka bakmadan imzalayıp
+                                             "Yükle ve Gönder" yapamaz. --}}
+                                        <div class="mb-2 grid gap-2">
+                                            <a href="{{ route('admin.applications.pdf.tahakkuk', $application) }}" target="_blank"
+                                               class="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100">
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
+                                                📄 Tahakkuk Fişini Görüntüle (A4 Düzenle)
+                                            </a>
+                                            <a href="{{ route('admin.applications.pdf.tahsilat-fisi', $application) }}" target="_blank"
+                                               class="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100">
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
+                                                📄 Tahsilat Fişini Görüntüle (A4 Düzenle)
+                                            </a>
+                                        </div>
+
+                                        {{-- İmzalı Tahakkuk + İmzalı Tahsilat (ping-pong) — "Yükle ve Gönder" / "E-imzala ve Gönder" --}}
                                         @include('admin.applications._signed_document_upload', ['module' => 'tahakkuk', 'label' => 'İmzalı Tahakkuk'])
                                         @include('admin.applications._signed_document_upload', ['module' => 'makbuz', 'label' => 'İmzalı Tahsilat Makbuzu'])
                                     @endif
@@ -1473,9 +1492,15 @@
                                 @php
                                     $makbuzlarDoluStep6 = $application->ztb_receipt_info && $application->deposit_receipt_info;
                                     $isLicensedStep6 = $st === 'licensed';
-                                    // GÖREV 2 KATI STATÜ DUVARI: Ruhsat modülü ancak belediye open-ruhsat
-                                    // kilidini açıp licensed yapınca ve sonrasında görünür.
-                                    $ruhsatAdimiAcik = in_array($st, ['licensed', 'field_work', 'completed']);
+                                    // GÖREV 2/3 KATI STATÜ DUVARI (viewer-bazlı):
+                                    // - Belediye: ZTB/Teminat makbuz parametrelerini (Ruhsat belgesine basılan)
+                                    //   doldurup ruhsatı hazırlayabilmesi için modül tahakkuk_pending/payment_completed/
+                                    //   approved anından itibaren açıktır.
+                                    // - Alt kurum: Ruhsat modülünü ancak belediye open-ruhsat ile licensed yapınca görür.
+                                    $ruhsatMuniPrep = !$isUserInstitution && $application->isInstitutionApplication() && in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved']);
+                                    $ruhsatAdimiAcik = $isUserInstitution
+                                        ? in_array($st, ['licensed', 'field_work', 'completed'])
+                                        : in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
                                 @endphp
 
                                 {{-- KURAL: Alt kurum Ruhsat adımını asla düzenleyemez. Edit butonu gizli. --}}
@@ -1488,9 +1513,9 @@
                                     </a>
                                 @endif
 
-                                @if($isCurrent || $isPast)
+                                @if(($isCurrent || $isPast) || $ruhsatMuniPrep)
                                     @if($makbuzlarDoluStep6 || $isLicensedStep6)
-{{-- GÖREV 2 KATI STATÜ DUVARI: licensed olmadan bu içerik gösterilmez --}}
+{{-- GÖREV 2 KATI STATÜ DUVARI: licensed olmadan (alt kurum için) bu içerik gösterilmez; belediye hazırlıkta görür --}}
 @if($ruhsatAdimiAcik)
                                         <div class="mt-2 mb-2">
                                         <a target="_blank" href="{{ route('admin.applications.pdf.ruhsat', $application) }}" class="flex items-center justify-center gap-2 w-full bg-sky-600 hover:bg-sky-700 text-white text-[14px] md:text-[15px] font-bold py-3.5 px-4 rounded-xl shadow-md transition-colors text-center border-0 leading-tight">

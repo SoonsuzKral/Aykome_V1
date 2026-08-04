@@ -749,7 +749,8 @@ class ApplicationsController extends Controller
 
     /**
      * KATI ADIM KAPISI: Belediye metraj formunu doldurup Kuruma gönderir.
-     * Statü metrage_pending kalır; kurum inceleyecektir.
+     * metrage_pending/metrage_revision → metrage_sent (Kurumda).
+     * ALT KURUM Step 3'ü YALNIZCA bu andan itibaren görür (gecikmeli visibility).
      */
     public function sendMetrageToInstitution(Request $request, Application $application): RedirectResponse
     {
@@ -764,8 +765,7 @@ class ApplicationsController extends Controller
 
         abort_unless(in_array($currentStatus, ['metrage_pending', 'metrage_revision'], true), 422, 'Metraj henüz kuruma gönderilemez.');
 
-        // Statü değişmez; kurum inceleyeceği aşamada beklemede kalır.
-        $application->update(['status' => \App\Enums\ApplicationStatus::MetragePending]);
+        $application->update(['status' => \App\Enums\ApplicationStatus::MetrageSent]);
 
         AuditLogger::log(
             'application.metrage_sent_institution',
@@ -791,7 +791,7 @@ class ApplicationsController extends Controller
             ? $application->status->value
             : (string) $application->status;
 
-        abort_unless(in_array($currentStatus, ['metrage_pending', 'metrage_revision'], true), 422, 'Metraj şu anda onaylanamaz.');
+        abort_unless(in_array($currentStatus, ['metrage_sent'], true), 422, 'Metraj şu anda onaylanamaz.');
 
         $application->update(['status' => \App\Enums\ApplicationStatus::MetrageApproved]);
 
@@ -819,7 +819,7 @@ class ApplicationsController extends Controller
             ? $application->status->value
             : (string) $application->status;
 
-        abort_unless(in_array($currentStatus, ['metrage_pending', 'metrage_revision'], true), 422, 'Metraj şu anda geri gönderilemez.');
+        abort_unless(in_array($currentStatus, ['metrage_sent'], true), 422, 'Metraj şu anda geri gönderilemez.');
 
         $request->validate([
             'reject_note' => ['required', 'string', 'max:1000'],
@@ -1783,6 +1783,7 @@ class ApplicationsController extends Controller
             ApplicationStatus::ReceiptPending->value => ['label' => 'Makbuz bekliyor', 'class' => 'bg-orange-100 text-orange-700'],
             ApplicationStatus::ExcavationCompleted->value => ['label' => 'Kazı tamamlandı', 'class' => 'bg-blue-100 text-blue-700'],
             ApplicationStatus::MetragePending->value => ['label' => 'Metraj açıldı', 'class' => 'bg-sky-100 text-sky-700'],
+            ApplicationStatus::MetrageSent->value => ['label' => 'Metraj kurumda', 'class' => 'bg-indigo-100 text-indigo-700'],
             ApplicationStatus::MetrageRevision->value => ['label' => 'Metraj revizyon', 'class' => 'bg-rose-100 text-rose-700'],
             ApplicationStatus::MetrageApproved->value => ['label' => 'Metraj onaylı', 'class' => 'bg-emerald-100 text-emerald-700'],
             ApplicationStatus::TahakkukPending->value => ['label' => 'Tahakkuk & makbuz açıldı', 'class' => 'bg-indigo-100 text-indigo-700'],

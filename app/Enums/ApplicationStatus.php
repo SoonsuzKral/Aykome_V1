@@ -17,6 +17,8 @@ enum ApplicationStatus: string
     // KATI ADIM KAPISI ara durumları (belediye yetkisiyle manuel modül açma)
     case ExcavationCompleted = 'excavation_completed';
     case MetragePending = 'metrage_pending';
+    // Belediye metrajı hazırlayıp "Kuruma Gönder" dediğinde geçilir → alt kurum Step 3'ü ilk kez burada görür
+    case MetrageSent = 'metrage_sent';
     case MetrageRevision = 'metrage_revision';
     case MetrageApproved = 'metrage_approved';
     case TahakkukPending = 'tahakkuk_pending';
@@ -44,6 +46,7 @@ enum ApplicationStatus: string
             self::ReceiptPending         => 'Makbuz Bekliyor',
             self::ExcavationCompleted    => 'Kazı Tamamlandı',
             self::MetragePending         => 'Metraj Açıldı',
+            self::MetrageSent            => 'Metraj Kurum Onayında',
             self::MetrageRevision        => 'Metraj Revizyon',
             self::MetrageApproved        => 'Metraj Onaylı',
             self::TahakkukPending        => 'Tahakkuk & Makbuz Açıldı',
@@ -70,6 +73,7 @@ enum ApplicationStatus: string
                 'measurement_done' => ['step' => 2, 'label' => 'Kazı Metraj Bilgi',        'icon' => '📐', 'module' => 'metraj'],
                 'excavation_completed',
                 'metrage_pending',
+                'metrage_sent',
                 'metrage_revision',
                 'metrage_approved' => ['step' => 2, 'label' => 'Kazı Metraj Bilgi',        'icon' => '📐', 'module' => 'metraj'],
                 'accrued',
@@ -95,6 +99,7 @@ enum ApplicationStatus: string
             'excavation_completed'
                                  => ['step' => 2, 'label' => 'Ön Kazı',               'icon' => '⛏️', 'module' => 'on-kazi'],
             'metrage_pending',
+            'metrage_sent',
             'metrage_revision',
             'metrage_approved',
             'measurement_done',
