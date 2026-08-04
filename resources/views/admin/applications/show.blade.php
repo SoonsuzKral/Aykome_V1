@@ -92,6 +92,29 @@
         {{-- LEFT COL --}}
         <div class="space-y-6 lg:col-span-2">
 
+            {{-- ❌ İPTAL EDİLDİ — iptal sebebi her zaman görünür --}}
+            @if($st === 'cancelled')
+            <div class="rounded-2xl border-2 border-rose-300 bg-rose-50 p-6 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </span>
+                    <div>
+                        <h2 class="text-sm font-bold text-rose-800">Başvuru İptal Edildi</h2>
+                        <p class="mt-1 text-xs text-rose-600">{{ $application->updated_at?->format('d.m.Y H:i') ?? '—' }}</p>
+                        @if($application->rejection_reason)
+                        <div class="mt-3 rounded-xl border border-rose-200 bg-white p-4">
+                            <p class="text-xs font-semibold uppercase tracking-wider text-rose-500">İptal Sebebi</p>
+                            <p class="mt-1 text-sm font-medium text-slate-800">{{ $application->rejection_reason }}</p>
+                        </div>
+                        @else
+                        <p class="mt-3 text-sm text-rose-700">Bu başvuru iptal edilmiştir. İptal sebebi bildirilmemiştir.</p>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            @endif
+
             {{-- Application Info --}}
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="mb-4 text-sm font-semibold text-slate-800">Başvuru Bilgileri</h2>
@@ -192,6 +215,12 @@
                 </dl>
             </div>
 
+            {{-- Normal Çizim Haritası (çizilen alan net görünür) --}}
+            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 class="mb-4 text-sm font-semibold text-slate-800">🗺️ Çizim Alanı (Normal Harita)</h2>
+                <div id="app-normal-map" class="w-full rounded-xl border border-slate-200 bg-slate-50" style="height:350px"></div>
+            </div>
+
             {{-- CBS Referans Haritası --}}
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="mb-4 text-sm font-semibold text-slate-800">📍 CBS Harita Konumu</h2>
@@ -203,30 +232,23 @@
                     'height' => '350px',
                     'readOnly' => true,
                     'application' => $application,
+                    'areas' => $application->excavationAreas->pluck('polygon_geojson')->filter()->values(),
                 ])
             </div>
 
             {{-- ZEMİN SATIRLARI & HESAPLAMALAR (Read-Only) --}}
             @php
+                // TEK MUHASEBE KAYNAĞI: Tüm tutarlar Model accessor'larından gelir (calcFigures).
                 $surfaceLines = $application->surfaceLines;
-                $isDicle = $application->institution?->tax_number === '2950368442';
-                $isInstApp = $application->institution_id && !$application->institution?->is_municipality;
-
-                $toplamMiktar = 0;
-                $ztb = 0;
-                foreach ($surfaceLines as $line) {
-                    $q = max((float)($line->quantity ?? 0), 0);
-                    $up = max((float)($line->surfaceType?->price_per_m2 ?? 0), 0);
-                    $toplamMiktar += $q;
-                    $ztb += $q * $up;
-                }
-
-                $kdv = $ztb * 0.20;
-                $ruhsatHarci = $isDicle ? 0 : $toplamMiktar * 9;
-                $kesifBedeli = 361 + ($ztb * 0.01);
-                $ztbToplam = $ztb + $kdv + $ruhsatHarci + $kesifBedeli;
-                $teminat = $isInstApp ? 0 : $ztb * 0.50;
-                $genelToplam = $ztbToplam + $teminat;
+                $cf = $application->calcFigures();
+                $toplamMiktar = (float) $cf['toplam_miktar'];
+                $ztb = (float) $cf['ztb_amount'];
+                $kdv = (float) $cf['kdv_amount'];
+                $ruhsatHarci = (float) $cf['license_fee'];
+                $kesifBedeli = (float) $cf['discovery_fee'];
+                $ztbToplam = (float) $cf['ztb_total'];
+                $teminat = (float) $cf['teminat'];
+                $genelToplam = (float) $cf['general_total'];
             @endphp
 
             @if($surfaceLines->isNotEmpty())
@@ -305,7 +327,8 @@
             </div>
             @endif
 
-            {{-- BELGE ARŞİVİ / DÖKÜMLER (Tüm aşamaların PDF'leri) --}}
+            {{-- BELGE ARŞİVİ / DÖKÜMLER (Tüm aşamaların PDF'leri) — yalnızca belediye personeli --}}
+            @if(auth()->user()->isMunicipalityPersonel())
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="mb-4 text-sm font-semibold text-slate-800">📦 Belge Arşivi / Dökümler</h2>
                 <p class="mb-3 text-xs text-slate-500">Başvuru sürecinde oluşturulmuş tüm belgelere buradan erişebilirsiniz.</p>
@@ -434,15 +457,17 @@
                     @endif
                 </div>
             </div>
+            @endif
 
-            {{-- Ek Ruhsat Modülü --}}
+            {{-- Ek Ruhsat Modülü — yalnızca belediye personeli --}}
+            @if(auth()->user()->isMunicipalityPersonel())
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="mb-4 text-sm font-semibold text-slate-800">📋 Ek Ruhsatlar</h2>
                 @php $extraPermitCount = $application->extraPermits?->count() ?? 0; @endphp
                 <p class="mb-3 text-xs text-slate-500">Bu başvuruya ek kazı ruhsatı tanımlayabilir veya mevcut ek ruhsatları görüntüleyebilirsiniz.</p>
                 <div class="flex flex-wrap gap-2">
                     @php
-                        $isInstAppHere = $application->institution_id && ! $application->institution?->is_municipality;
+                        $isInstAppHere = $application->isInstitutionApplication();
                     @endphp
                     @if(! $isInstAppHere && $canEditTemplate)
                     <form method="POST" action="{{ route('admin.applications.create-additional-permit', $application) }}">
@@ -468,6 +493,7 @@
                     @endif
                 </div>
             </div>
+            @endif
 
             {{-- Yüklenen Belgeler --}}
             @if($application->documents->isNotEmpty())
@@ -1037,6 +1063,11 @@
                                     {{-- MUNICIPALITY STEP 3: TAAHHÜTNAME --}}
                                     @if($isCurrent || $isPast)
                                         <p class="mb-2 text-xs text-slate-500">Taahhütname belgesini buradan yükleyin.</p>
+                                        <a href="{{ route('admin.applications.pdf.taahhutname', $application) }}" target="_blank"
+                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
+                                            📄 Taahhütname (PDF) Görüntüle
+                                        </a>
                                         @if($can['update'] ?? false)
                                         <form method="POST" action="{{ route('admin.applications.save-receipt-info', $application) }}" class="mb-2 p-2 rounded-lg border border-slate-200 bg-white">
                                             @csrf
@@ -1188,7 +1219,11 @@
                                     {{-- INSTITUTION STEP 4: TAAHHÜTNAME --}}
                                     @if($isCurrent || $isPast)
                                         <p class="mb-2 text-xs text-slate-500">Taahhütname belgesini buradan yükleyin.</p>
-
+                                        <a href="{{ route('admin.applications.pdf.taahhutname', $application) }}" target="_blank"
+                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
+                                            📄 Taahhütname (PDF) Görüntüle
+                                        </a>
                                         @if($can['update'] ?? false)
                                         <form method="POST" action="{{ route('admin.applications.save-receipt-info', $application) }}" class="mb-2 p-2 rounded-lg border border-slate-200 bg-white">
                                             @csrf
@@ -1549,6 +1584,60 @@
     if (drawnItems.getLayers().length) {
         setTimeout(function () { map.fitBounds(drawnItems.getBounds().pad(0.1), { maxZoom: 18 }); }, 500);
     }
+})();
+</script>
+<script>
+// ── Normal (OSM) Çizim Haritası ────────────────────────────────────────
+(function () {
+    var el = document.getElementById('app-normal-map');
+    if (!el) return;
+
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.imagePath = '{{ asset('assets/vendor/leaflet/images') }}';
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: '{{ asset('assets/vendor/leaflet/images/marker-icon-2x.png') }}',
+        iconUrl: '{{ asset('assets/vendor/leaflet/images/marker-icon.png') }}',
+        shadowUrl: '{{ asset('assets/vendor/leaflet/images/marker-shadow.png') }}'
+    });
+
+    var center = @json([
+        'lat' => (float)($application->center_lat ?? 37.1598),
+        'lng' => (float)($application->center_lng ?? 38.7969),
+    ]);
+
+    var nMap = L.map(el, {
+        center: [center.lat, center.lng],
+        zoom: 16,
+        scrollWheelZoom: false,
+        attributionControl: false,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 22, maxNativeZoom: 19,
+    }).addTo(nMap);
+
+    var nDrawn = new L.FeatureGroup();
+    nMap.addLayer(nDrawn);
+
+    var areas = @json($application->excavationAreas->pluck('polygon_geojson')->filter()->values());
+    if (areas && areas.length) {
+        areas.forEach(function (raw) {
+            try {
+                var p = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                if (p && p.features && p.features.length) {
+                    L.geoJSON(p, {
+                        style: { color: '#E87722', weight: 2.5, fillOpacity: 0.15 },
+                        pointToLayer: function (f, ll) { return L.marker(ll); },
+                    }).addTo(nDrawn);
+                }
+            } catch (e) { /* skip */ }
+        });
+    }
+
+    if (nDrawn.getLayers().length) {
+        setTimeout(function () { nMap.fitBounds(nDrawn.getBounds().pad(0.15), { maxZoom: 18 }); }, 400);
+    }
+    setTimeout(function () { nMap.invalidateSize(); }, 400);
 })();
 </script>
 <script>

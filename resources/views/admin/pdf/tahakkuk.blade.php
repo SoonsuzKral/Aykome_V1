@@ -49,37 +49,37 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
 
 @section('content')
 <div class="baslik">
-    <div class="belediye">{{ $belediye ?? 'EYYÜBİYE BELEDİYESİ' }}</div>
-    <div class="mudurluk">{{ $mudurluk ?? 'FEN İŞLERİ MÜDÜRLÜĞÜ' }}</div>
-    <div class="birim">{{ $birim ?? 'AYKOME BİRİMİ' }}</div>
-    <div class="altbaslik">{{ $altbaslik ?? 'ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI' }}</div>
+    <div class="belediye" contenteditable="true">{{ $belediye ?? 'EYYÜBİYE BELEDİYESİ' }}</div>
+    <div class="mudurluk" contenteditable="true">{{ $mudurluk ?? 'FEN İŞLERİ MÜDÜRLÜĞÜ' }}</div>
+    <div class="birim" contenteditable="true">{{ $birim ?? 'AYKOME BİRİMİ' }}</div>
+    <div class="altbaslik" contenteditable="true">{{ $altbaslik ?? 'ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI' }}</div>
 </div>
 
 <div class="bilgi-grid">
     <table>
         <tr>
             <td class="label">Talep sahibi</td>
-            <td class="value">{{ $talep_sahibi ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ' }}</td>
+            <td class="value" contenteditable="true">{{ $talep_sahibi ?? '' }}</td>
         </tr>
         <tr>
             <td class="label">ilçe</td>
-            <td class="value">{{ $ilce ?? 'EYYÜBİYE' }}</td>
+            <td class="value" contenteditable="true">{{ $ilce ?? '' }}</td>
         </tr>
         <tr>
             <td class="label">Adres / Proje Adı</td>
-            <td class="value">{{ $adres ?? 'C-26-1100-1063-0019 EYYÜPNEBİ ADA: PARSEL: EV' }}</td>
+            <td class="value" contenteditable="true">{{ $application->isMuhtelif() ? 'MUHTELİF CADDE VE SOKAK' : ($adres ?? '') }}</td>
         </tr>
         <tr>
             <td class="label">Firma</td>
-            <td class="value">{{ $firma ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ' }}</td>
+            <td class="value" contenteditable="true">{{ $firma ?? '' }}</td>
         </tr>
         <tr>
             <td class="label">İş Cinsi</td>
-            <td class="value">{{ $is_cinsi ?? 'ENH TESİS YAPIM İŞİ' }}</td>
+            <td class="value" contenteditable="true">{{ $is_cinsi ?? '' }}</td>
         </tr>
         <tr>
             <td class="label">V. No / Telefon no:</td>
-            <td class="value">{{ $vergino ?? '2950368442-04742868630' }}</td>
+            <td class="value" contenteditable="true">{{ $vergino ?? '' }}</td>
         </tr>
     </table>
 </div>
@@ -87,23 +87,39 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
 <table class="tablo">
     <thead>
         <tr>
-            <th style="width:28%;">ZEMİN CİNSİ</th>
-            <th style="width:8%;">BİRİM</th>
-            <th style="width:12%;">MİKTAR</th>
-            <th style="width:14%;">BİRİM FİYAT</th>
-            <th style="width:16%;">TUTAR</th>
+            <th style="width:28%;" contenteditable="true">ZEMİN CİNSİ</th>
+            <th style="width:8%;" contenteditable="true">BİRİM</th>
+            <th style="width:12%;" contenteditable="true">MİKTAR</th>
+            <th style="width:14%;" contenteditable="true">BİRİM FİYAT</th>
+            <th style="width:16%;" contenteditable="true">TUTAR</th>
         </tr>
     </thead>
     <tbody>
-        @foreach($metraj_satirlari ?? [] as $satir)
-        <tr>
-            <td class="l">{{ $satir['ad'] }}</td>
-            <td>{{ $satir['birim'] ?? 'm2' }}</td>
-            <td class="num">{{ $satir['miktar'] ?? '0,00' }}</td>
-            <td class="num">{{ $satir['birim_fiyat'] ?? '0,00' }}</td>
-            <td class="num">{{ $satir['tutar'] ?? '0,00' }}</td>
-        </tr>
-        @endforeach
+        @php $loopZemin = (isset($metraj_satirlari) && ! empty($metraj_satirlari)) ? $metraj_satirlari : $application->surfaceLines; @endphp
+        @forelse($loopZemin as $zeminSatir)
+            @php
+                $zeminAd  = trim((string)($zeminSatir['ad'] ?? ($zeminSatir->surfaceType->name ?? '')));
+                $birim    = trim((string)($zeminSatir['birim'] ?? 'm2'));
+                $miktar   = (string)($zeminSatir['miktar'] ?? (number_format((float)($zeminSatir->quantity ?? 0), 2, ',', '.')));
+                $birimFiyat = (string)($zeminSatir['birim_fiyat'] ?? (number_format((float)($zeminSatir->surfaceType->price_per_m2 ?? 0), 2, ',', '.')));
+                $tutar    = (string)($zeminSatir['tutar'] ?? (number_format((float)($zeminSatir->amount ?? 0), 2, ',', '.')));
+            @endphp
+            <tr>
+                <td class="l" contenteditable="true">{{ $zeminAd }}</td>
+                <td contenteditable="true">{{ $birim }}</td>
+                <td class="num" contenteditable="true">{{ $miktar }}</td>
+                <td class="num" contenteditable="true">{{ $birimFiyat }}</td>
+                <td class="num" contenteditable="true">{{ $tutar }}</td>
+            </tr>
+        @empty
+            <tr>
+                <td class="l" contenteditable="true">—</td>
+                <td contenteditable="true">—</td>
+                <td class="num" contenteditable="true">0,00</td>
+                <td class="num" contenteditable="true">0,00</td>
+                <td class="num" contenteditable="true">0,00</td>
+            </tr>
+        @endforelse
     </tbody>
 </table>
 
@@ -111,38 +127,26 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
     <table>
         <tr>
             <td class="label">Toplam Miktar</td>
-            <td class="value">{{ $toplam_miktar ?? '545,80' }}</td>
+            <td class="value" contenteditable="true">{{ $application->toplam_miktar }}</td>
         </tr>
         <tr>
-            <td class="label">Toplam Tutar</td>
-            <td class="value">{{ $genel_tutar ?? '493.403,20' }} TL</td>
+            <td class="label">Zemin Tahrip Bedeli</td>
+            <td class="value" contenteditable="true">{{ $application->ztb_amount }} TL</td>
         </tr>
     </table>
 </div>
 
-@if(!empty($tahakkuk_satirlari))
 <div class="toplamlar" style="margin-top:5pt;">
     <table>
-        @foreach($tahakkuk_satirlari as $satir)
-        <tr>
-            <td class="label">{{ $satir['ad'] }}</td>
-            <td class="value">{{ $satir['tutar'] }} TL</td>
-        </tr>
-        @endforeach
+        <tr><td class="label">Zemin Tahrip Bedeli</td><td class="value" contenteditable="true">{{ $application->ztb_amount }} TL</td></tr>
+        <tr><td class="label">K.D.V. (%20)</td><td class="value" contenteditable="true">{{ $application->kdv_amount }} TL</td></tr>
+        <tr><td class="label">Ruhsat Harcı</td><td class="value" contenteditable="true">{{ $application->license_fee }} TL</td></tr>
+        <tr><td class="label">Keşif Bedeli</td><td class="value" contenteditable="true">{{ $application->discovery_fee }} TL</td></tr>
+        <tr><td class="label">ZTB Toplam</td><td class="value" contenteditable="true">{{ $application->ztb_total }} TL</td></tr>
+        <tr><td class="label">Teminat</td><td class="value" contenteditable="true">{{ $application->teminat_amount }} TL</td></tr>
+        <tr style="font-weight:bold;"><td class="label">Genel Toplam</td><td class="value" contenteditable="true">{{ $application->general_total }} TL</td></tr>
     </table>
 </div>
-@else
-<div class="toplamlar" style="margin-top:5pt;">
-    <table>
-        <tr><td class="label">Zemin Tahrip Bedeli</td><td class="value">{{ $tahrip_bedeli ?? '493.403,20' }} TL</td></tr>
-        <tr><td class="label">K.D.V. (%20)</td><td class="value">{{ $kdv ?? '98.680,64' }} TL</td></tr>
-        <tr><td class="label">Keşif Bedeli</td><td class="value">{{ $kesif_bedeli ?? '5.295,03' }} TL</td></tr>
-        <tr><td class="label">ZTB Toplam</td><td class="value">{{ $ztb_toplam ?? '597.378,87' }} TL</td></tr>
-        <tr><td class="label">Teminat</td><td class="value">{{ $teminat ?? '0,00' }} TL</td></tr>
-        <tr style="font-weight:bold;"><td class="label">Genel Toplam</td><td class="value">{{ $genel_toplam ?? '597.378,87' }} TL</td></tr>
-    </table>
-</div>
-@endif
 
 @if(isset($arsiv_kodu))
 <div class="footer">

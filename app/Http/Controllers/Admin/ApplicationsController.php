@@ -707,10 +707,10 @@ class ApplicationsController extends Controller
             'imza_ad' => $signatories['belediye_baskan_yardimcisi']['ad_soyad'],
             'imza_unvan' => $signatories['belediye_baskan_yardimcisi']['unvan'],
             'takip_adresi' => 'https://www.turkiye.gov.tr/eyyubiye-belediyesi-ebys',
-            'adres' => $settings->address ?? 'Eyyüpnebi mh. 3554. Sk. Eski Ptt Binası Eyyübiye / Şanlıurfa',
-            'bilgi_kisi' => $settings->signer_name ?? 'Zeynelabidin AKTAŞOĞLU',
-            'telefon' => $settings->phone ?? '()',
-            'fax' => $settings->fax ?? '()',
+            'adres' => $settings->address ?? '',
+            'bilgi_kisi' => $settings->signer_name ?? '',
+            'telefon' => $settings->phone ?? '',
+            'fax' => $settings->fax ?? '',
             'eposta' => $application->institution?->email ?? $settings->email ?? '-',
             'web' => $settings->website ?? '-',
             'kep_adresi' => $application->institution?->email ?? 'eyyubiye@hs03.kep.tr',
@@ -725,26 +725,22 @@ class ApplicationsController extends Controller
         if ($resp = $this->signedResponseOrNull($application, 'cover_letter')) {
             return $resp;
         }
+        $application->load(['institution', 'creator', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
+
+        $logoBase64 = $this->institutionLogoBase64($application);
+
         if ($html = DocumentTemplateService::renderFor('cover_letter', $application)) {
+            if ($logoBase64 && str_contains($html, '<div class="a4-container">')) {
+                $logoBlock = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">'
+                    . '<img src="' . $logoBase64 . '" alt="Kurum Logosu" style="max-height:85px;width:auto;">'
+                    . '</div>';
+                $html = str_replace('<div class="a4-container">', '<div class="a4-container">' . $logoBlock, $html);
+            }
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
-        $application->load(['institution', 'creator', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
 
         $signerName = $application->creator?->name ?? 'Yetkili';
         $signerShort = mb_substr($signerName, 0, mb_strrpos($signerName, ' ') ?: mb_strlen($signerName));
-
-        $logoBase64 = null;
-        if ($application->institution && $application->institution->logo_path) {
-            try {
-                $fileContent = \Illuminate\Support\Facades\Storage::disk('public')->get($application->institution->logo_path);
-                if ($fileContent) {
-                    $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($application->institution->logo_path);
-                    $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($fileContent);
-                }
-            } catch (\Exception $e) {
-                $logoBase64 = null;
-            }
-        }
 
         $data = [
             'logo_base64' => $logoBase64,
@@ -761,8 +757,8 @@ class ApplicationsController extends Controller
             'muhendis' => $application->applicant_first_name && $application->applicant_last_name
                 ? mb_strtoupper(trim($application->applicant_first_name . ' ' . $application->applicant_last_name), 'UTF-8')
                 : 'Kurum Yetkilisi',
-            'telefon' => '0541 762 29 57',
-            'kazı_miktari' => $application->total_area_m2 ?? '650',
+            'telefon' => $application->creator?->phone ?? $application->applicant_phone ?? '',
+            'kazı_miktari' => $application->total_area_m2 ?? '',
             'application' => $application,
         ];
 
@@ -780,44 +776,25 @@ class ApplicationsController extends Controller
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
 
-        $d = (float)($application->deposit_amount ?? 0);
-        $disc = (float)($application->discovery_amount ?? 0);
-
+        // TEK MUHASEBE KAYNAĞI: Tutarlar Model accessor'larından gelir (calcFigures).
+        // Controller içinde KDV/ruhsat harcı/keşif/teminat asla yeniden hesaplanmaz.
         $surfaceRows = [];
-        $totalMiktar = 0;
-        $totalTutar = 0;
         foreach ($application->surfaceLines ?? [] as $sl) {
-            if (!$sl->surfaceType) continue;
-            $miktar = (float)($sl->quantity ?? 0);
-            $tutar = $miktar * (float)($sl->surfaceType->price_per_m2 ?? 0);
-            $totalMiktar += $miktar;
-            $totalTutar += $tutar;
+            if (! $sl->surfaceType) {
+                continue;
+            }
             $surfaceRows[] = [
                 'ad' => $sl->surfaceType->name,
                 'birim' => 'm2',
-                'miktar' => number_format($miktar, 2, ',', '.'),
-                'tutar' => number_format($tutar, 2, ',', '.'),
+                'miktar' => number_format((float) ($sl->quantity ?? 0), 2, ',', '.'),
+                'tutar' => number_format((float) ($sl->amount ?? 0), 2, ',', '.'),
             ];
         }
-
-        $kdv = $d * 0.2;
-        $ruhsatHarci = $d * 0.18;
-        $kesifBedeli = $disc ?: $d * 0.01;
-        $ztbToplam = $d + $kdv;
-        $genelToplam = $ztbToplam + $ruhsatHarci + $kesifBedeli;
 
         return view('admin.pdf.ruhsat', [
             'application' => $application,
             'surfaceRows' => $surfaceRows,
             'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
-            'calculated_kdv' => number_format($kdv, 2, ',', '.'),
-            'calculated_license_fee' => number_format($ruhsatHarci, 2, ',', '.'),
-            'calculated_discovery_fee' => number_format($kesifBedeli, 2, ',', '.'),
-            'calculated_ztb_total' => number_format($ztbToplam, 2, ',', '.'),
-            'calculated_deposit' => number_format($d, 2, ',', '.'),
-            'calculated_general_total' => number_format($genelToplam, 2, ',', '.'),
-            'total_miktar' => number_format($totalMiktar, 2, ',', '.'),
-            'total_tutar' => number_format($totalTutar, 2, ',', '.'),
             'talep_sahibi' => mb_strtoupper(
                 trim($application->tesis_sorumlusu ?? $application->institution?->tesis_sorumlusu_adi ?? 'Yetkili Görevli'),
                 'UTF-8'
@@ -846,10 +823,10 @@ class ApplicationsController extends Controller
         $isAdi = $application->work_type ?? '';
         $combinedParts = [];
         if ($projeKodu !== '') {
-            $combinedParts[] = 'Kod: ' . $projeKodu;
+            $combinedParts[] = $projeKodu;
         }
         if ($isAdi !== '') {
-            $combinedParts[] = 'İş Cinsi: ' . $isAdi;
+            $combinedParts[] = $isAdi;
         }
 
         $data = [
@@ -898,10 +875,10 @@ class ApplicationsController extends Controller
         if ($html = DocumentTemplateService::renderFor('tahakkuk', $application)) {
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
-        $application->load(['institution', 'creator']);
+        $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
 
-        $d = number_format((float)($application->deposit_amount ?? 0), 2, ',', '.');
-
+        // TEK MUHASEBE KAYNAĞI: Tutarlar Model accessor'larından gelir (calcFigures).
+        // Controller/Blade içinde KDV/keşif/teminat asla yeniden hesaplanmaz.
         $tahakkukSignatories = SignatoryEngine::roleMap('tahakkuk', $application);
 
         $data = [
@@ -909,26 +886,19 @@ class ApplicationsController extends Controller
             'mudurluk' => 'Fen İşleri Müdürlüğü',
             'birim' => 'AYKOME BİRİMİ',
             'altbaslik' => 'ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI',
-            'talep_sahibi' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ', 'UTF-8'),
-            'ilce' => $application->district ?? 'EYYÜBİYE',
-            'adres' => ($application->project_code ?? 'C-26-1100-1063-0019') . ' ' . ($application->district ?? ''),
-            'firma' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ', 'UTF-8'),
-            'is_cinsi' => $application->description ?? 'ENH TESİS YAPIM İŞİ',
-            'vergino' => $application->applicant_national_id ?? '2950368442-04742868630',
+            'talep_sahibi' => mb_strtoupper($application->institution?->name ?? '', 'UTF-8'),
+            'ilce' => $application->district ?? '',
+            'adres' => ($application->project_code ?? '') . ' ' . ($application->district ?? ''),
+            'firma' => mb_strtoupper($application->institution?->name ?? '', 'UTF-8'),
+            'is_cinsi' => $application->description ?? '',
+            'vergino' => $application->applicant_national_id ?? '',
             'metraj_satirlari' => self::buildMetrajSatirlari($application),
-            'toplam_miktar' => '545,80',
-            'genel_tutar' => $d,
-            'tahrip_bedeli' => $d,
-            'kdv' => number_format((float)($application->deposit_amount ?? 0) * 0.2, 2, ',', '.'),
-            'kesif_bedeli' => number_format((float)($application->deposit_amount ?? 0) * 0.01, 2, ',', '.'),
-            'ztb_toplam' => number_format((float)($application->deposit_amount ?? 0) * 1.21, 2, ',', '.'),
-            'teminat' => '0,00',
-            'genel_toplam' => number_format((float)($application->deposit_amount ?? 0) * 1.21, 2, ',', '.'),
             'duzenleyen' => $tahakkukSignatories['onay_imzaci']['ad_soyad'],
             'mukellef' => mb_strtoupper(
                 trim(($application->applicant_first_name ?? '') . ' ' . ($application->applicant_last_name ?? '') ?: 'YETKİLİ'),
                 'UTF-8'
             ),
+            'application' => $application,
             'aciklama' => '',
         ];
 
@@ -946,27 +916,20 @@ class ApplicationsController extends Controller
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
 
+        // TEK MUHASEBE KAYNAĞI: Tüm tutarlar Model accessor'larından okunur.
         $app = $application;
-        $d = (float)($app->deposit_amount ?? 0);
-        $disc = (float)($app->discovery_amount ?? 0);
-        $kdv = round($d * 0.20, 2);
-        $ruhsatHarci = round($d * 0.18, 2);
-        $kesifBedeli = $disc ?: round(361 + ($d * 0.01), 2);
-        $ztbToplam = round($d + $kdv + $ruhsatHarci + $kesifBedeli, 2);
-        $genelToplam = round($ztbToplam + $d * 0.50, 2);
 
         $surfaceRows = [];
         foreach ($app->surfaceLines ?? [] as $sl) {
-            if (!$sl->surfaceType) continue;
-            $qty = (float)($sl->quantity ?? 0);
-            $unit = (float)($sl->surfaceType->price_per_m2 ?? 0);
-            $tutar = round($qty * $unit, 2);
+            if (! $sl->surfaceType) {
+                continue;
+            }
             $surfaceRows[] = [
                 'ad' => $sl->surfaceType->name,
                 'birim' => 'm2',
-                'miktar' => number_format($qty, 2, ',', '.'),
-                'birim_fiyat' => number_format($unit, 2, ',', '.'),
-                'tutar' => number_format($tutar, 2, ',', '.'),
+                'miktar' => number_format((float) ($sl->quantity ?? 0), 2, ',', '.'),
+                'birim_fiyat' => number_format((float) ($sl->surfaceType->price_per_m2 ?? 0), 2, ',', '.'),
+                'tutar' => number_format((float) ($sl->amount ?? 0), 2, ',', '.'),
             ];
         }
 
@@ -993,13 +956,6 @@ class ApplicationsController extends Controller
             ) ?: ($app->description ?? '—'),
             'vergino' => $app->applicant_national_id ?? '—',
             'metraj_satirlari' => $surfaceRows,
-            'tahrip_bedeli' => number_format($d, 2, ',', '.'),
-            'kdv' => number_format($kdv, 2, ',', '.'),
-            'ruhsat_harci' => number_format($ruhsatHarci, 2, ',', '.'),
-            'kesif_bedeli' => number_format($kesifBedeli, 2, ',', '.'),
-            'ztb_toplam' => number_format($ztbToplam, 2, ',', '.'),
-            'teminat' => number_format($d * 0.50, 2, ',', '.'),
-            'genel_toplam' => number_format($genelToplam, 2, ',', '.'),
             'duzenleyen' => $app->creator?->name ?? 'Yetkili',
         ];
 
@@ -1237,7 +1193,7 @@ class ApplicationsController extends Controller
      * Dynamically generate permit PDF using current PermitSettings (logo, signature, stamp).
      * Called from the "Ruhsat Belgesi Al" button — always fresh, reflects latest admin settings.
      */
-    public function downloadPermitLive(Application $application): Response
+    public function downloadPermitLive(Application $application): \Symfony\Component\HttpFoundation\Response
     {
         $this->authorize('view', $application);
 
@@ -1610,13 +1566,37 @@ class ApplicationsController extends Controller
 
     private static function buildCoverLetterParagraphs(Application $app): array
     {
+        $proje = trim((string) ($app->project_code ?? ''));
+        $yil = (int) date('Y');
+
+        // Lokasyon adresi — GIS ilişkilerinden, yoksa address'in ilk satırından.
+        $mahalle = '';
+        $sokak = '';
+        $cizim = $app->gisCizimleri?->first();
+        $yol = $cizim?->yolIliskileri?->first();
+        if ($yol) {
+            $mahalle = mb_strtoupper(trim((string) ($yol->mahalle ?? '')), 'UTF-8');
+            $sokak = mb_strtoupper(trim((string) ($yol->yol_adi ?? '')), 'UTF-8');
+        }
+        if (! $mahalle && ! empty($app->address_text)) {
+            $mahalle = mb_strtoupper(trim(explode("\n", $app->address_text)[0]), 'UTF-8');
+        }
+
+        $isAdi = mb_strtoupper(trim((string) ($app->work_type ?? $app->description ?? '')), 'UTF-8');
+        $yuklenici = mb_strtoupper(trim((string) ($app->institution?->name ?? '')), 'UTF-8');
+
+        $projeMetni = $proje !== '' ? " {$proje} pyp referans numarasıyla" : '';
+        $mahalleMetni = $mahalle !== '' ? " {$mahalle}" : '';
+        $sokakMetni = $sokak !== '' ? ", {$sokak}" : '';
+        $isMetni = $isAdi !== '' ? " {$isAdi}" : '';
+        $yukleniciMetni = $yuklenici !== '' ? "{$yuklenici} firmasının taahhüdünde kalmıştır" : 'taahhüdünde kalmıştır';
+
         return [
             'İlgi sayılı yazınız ile; Şirketimizden kazı izni sokaklarının mahalle isimleri güncellenmiştir.',
-            "Şirketimiz 2026 yılı yatırım programında {$app->project_code} pyp numarası ile yer alan SANLIURFA İLİ
-            EYYÜBİYE İLÇESİ AKŞEMSETTİN MAHALLESİ HUZUR SOKAK 1 ADET TRAFO BÖLGESİ AGOG TESİS YAPIM İŞİ
-            ’nin ihale süreci tamamlanmış olup, söz konusu iş DİCLE KÖK A.Ş. firmasının taahhüdünde kalmıştır. Sanlıurfa
-            EYYÜBİYE Belediyesi sorumluluğunda bulunan cadde ve sokakların kazı izinleri belediyenizce verilmesi
-            gerekmektedir.",
+            "Şirketimiz {$yil} yılı yatırım programında{$projeMetni} yer alan ŞANLIURFA İLİ
+            EYYÜBİYE İLÇESİ{$mahalleMetni}{$sokakMetni}{$isMetni} altyapı tesisi açım işinin ihale
+            süreci tamamlanmış olup, söz konusu iş {$yukleniciMetni}. Eyyübiye Belediyesi sorumluluğunda
+            bulunan cadde ve sokakların kazı izinleri belediyenizce verilmesi gerekmektedir.",
             'Elektrik şebekesi tesis çalışmaları yapılması planlanan cadde ve sokak isimleri aşağıdaki listede sunulmuştur.',
             'Gerekli kazı izninin verilmesi hususunda,',
             'Gereğini arz ederim.',
@@ -1724,28 +1704,35 @@ class ApplicationsController extends Controller
 
     public static function buildMetrajSatirlari(Application $app): array
     {
-        $d = (float)($app->deposit_amount ?? 0);
-        return [
-            ['ad' => 'ASFALT (SICAK KARIŞIM)', 'birim' => 'm2', 'miktar' => '545,80', 'birim_fiyat' => number_format($d / max(545.8, 1), 2, ',', '.'), 'tutar' => number_format($d, 2, ',', '.')],
-            ['ad' => 'ASFALT (SOĞUK ASFALT)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'PARKE', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'BETON', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'STABİLİZE', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'TRETUAR (PARKE PRİZM)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'TRETUAR (KARO)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'TRETUAR (MERMER)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'TRETUAR (BAZALT)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'BORDÜR (BETON)', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'BORDÜR (BAZALT)', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'ÇİM', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'TOPRAK', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'BETON YOL OLUĞU', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'GÖRME ENGELLİ KARO', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-        ];
+        $app->loadMissing(['surfaceLines.surfaceType', 'institution']);
+
+        $lines = $app->surfaceLines ?? [];
+        if ($lines->isEmpty()) {
+            // Zemin satırı yoksa bile tek tipik boş satır üretilir — hesap yok, 0 gösterilir.
+            return [['ad' => '—', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00']];
+        }
+
+        $rows = [];
+        foreach ($lines as $sl) {
+            if (! $sl->surfaceType) {
+                continue;
+            }
+            $rows[] = [
+                'ad' => mb_strtoupper($sl->surfaceType->name, 'UTF-8'),
+                'birim' => in_array(mb_strtoupper($sl->surfaceType->name, 'UTF-8'), ['BORDÜR (BETON)', 'BORDÜR (BAZALT)', 'GÖRME ENGELLİ KARO']) ? 'm' : 'm2',
+                'miktar' => number_format((float) ($sl->quantity ?? 0), 2, ',', '.'),
+                'birim_fiyat' => number_format((float) ($sl->surfaceType->price_per_m2 ?? 0), 2, ',', '.'),
+                'tutar' => number_format((float) ($sl->amount ?? 0), 2, ',', '.'),
+            ];
+        }
+
+        return $rows;
     }
 
     public static function buildMetrajRows(Application $app): array
     {
+        $app->loadMissing(['institution', 'creator', 'surfaceLines.surfaceType', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
+
         $rows = [];
         $sira = 0;
         $ilce = $app->district ?? 'EYYÜBİYE';
@@ -1753,10 +1740,10 @@ class ApplicationsController extends Controller
         $isAdi = $app->work_type ?? '';
         $combinedParts = [];
         if ($projeKodu !== '') {
-            $combinedParts[] = 'Kod: ' . $projeKodu;
+            $combinedParts[] = $projeKodu;
         }
         if ($isAdi !== '') {
-            $combinedParts[] = 'İş Cinsi: ' . $isAdi;
+            $combinedParts[] = $isAdi;
         }
         $projeKodu = implode(' / ', $combinedParts);
         $tarih = $app->start_date?->format('d.m.Y') ?? '';
@@ -1809,7 +1796,7 @@ class ApplicationsController extends Controller
                 'sira' => 1,
                 'ilce' => $ilce,
                 'mahalle' => $mahalle,
-                'cadde' => $cadde ?: ($app->address_text ?: ''),
+                'cadde' => $cadde,
                 'tarih' => $tarih,
                 'genislik' => '0,00',
                 'uzunluk' => '0,00',
@@ -1902,5 +1889,25 @@ class ApplicationsController extends Controller
         }
 
         return response()->json(['success' => false]);
+    }
+
+    /** Başvuruya ait kurum logosunu data URI (base64) olarak döndürür; yoksa null. */
+    private function institutionLogoBase64(Application $application): ?string
+    {
+        if (! $application->institution || ! $application->institution->logo_path) {
+            return null;
+        }
+        try {
+            $disk = \Illuminate\Support\Facades\Storage::disk('public');
+            $fileContent = $disk->get($application->institution->logo_path);
+            if (! $fileContent) {
+                return null;
+            }
+            $mime = $disk->mimeType($application->institution->logo_path) ?: 'image/png';
+
+            return 'data:' . $mime . ';base64,' . base64_encode($fileContent);
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 }

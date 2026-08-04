@@ -143,40 +143,41 @@ CSS;
     /* ─── Blade derleme yardımcıları ───────────────────────────────────── */
 
     /** Global (örnek) editör verisi için dolu ama varsayılanlı örnek başvuru. */
-    protected static function sampleApp(): Application
+    protected static function sampleApp(?int $institutionId = null): Application
     {
         $sample = new Application();
         $sample->id = 0;
-        $sample->institution_id = null;
+        $sample->institution_id = $institutionId;
         $sample->created_by = null;
-        $sample->applicant_first_name = 'DİCLE ELEKTRİK';
-        $sample->applicant_last_name = 'DAĞITIM A.Ş.';
-        $sample->project_code = 'C-26-1100-1063-0019';
-        $sample->excavation_reason = 'ALTYAPI TESİS';
-        $sample->description = 'ENH TESİS YAPIM İŞİ';
-        $sample->address_text = 'Eyyüpnebi Mah. 3554 Sk. Eyyübiye / Şanlıurfa';
-        $sample->tesis_sorumlusu = 'YETKİLİ TESİS SORUMLUSU';
-        $sample->applicant_phone = '0541 762 29 57';
-        $sample->total_area_m2 = 650;
-        $sample->mudur_adi = 'KURUM MÜDÜRÜ';
-        $sample->mudur_unvani = 'İl Müdürü';
-        $sample->district = 'EYYÜBİYE';
-        $sample->work_type = 'ENH TESİS YAPIM İŞİ';
-        $sample->created_at = \Illuminate\Support\Carbon::now();
-        $sample->deposit_amount = 54580;
-        $sample->discovery_amount = 545.8;
+        $sample->applicant_first_name = '';
+        $sample->applicant_last_name = '';
+        $sample->application_no = '';
+        $sample->project_code = '';
+        $sample->excavation_reason = '';
+        $sample->description = '';
+        $sample->address_text = '';
+        $sample->tesis_sorumlusu = '';
+        $sample->applicant_phone = '';
+        $sample->total_area_m2 = 0;
+        $sample->mudur_adi = '';
+        $sample->mudur_unvani = '';
+        $sample->district = '';
+        $sample->work_type = '';
+        $sample->created_at = null;
+        $sample->deposit_amount = 0;
+        $sample->discovery_amount = 0;
 
-        $sample->setRelation('institution', null);
+        $sample->setRelation('institution', $institutionId ? \App\Models\Institution::query()->find($institutionId) : null);
         $sample->setRelation('creator', null);
 
         return $sample;
     }
 
-    /** Global editör için gerçekçi örnek metraj satırları. */
+    /** Global editör için boş örnek metraj satırları (rakamlar sıfır). */
     protected static function sampleMetrajSatirlari(): array
     {
         return [
-            ['ad' => 'ASFALT (SICAK KARIŞIM)', 'birim' => 'm2', 'miktar' => '545,80', 'birim_fiyat' => '100,00', 'tutar' => '54.580,00'],
+            ['ad' => 'ASFALT (SICAK KARIŞIM)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
             ['ad' => 'ASFALT (SOĞUK ASFALT)',  'birim' => 'm2', 'miktar' => '0,00',   'birim_fiyat' => '0,00',      'tutar' => '0,00'],
             ['ad' => 'PARKE',                    'birim' => 'm2', 'miktar' => '0,00',   'birim_fiyat' => '0,00',      'tutar' => '0,00'],
             ['ad' => 'BETON',                    'birim' => 'm2', 'miktar' => '0,00',   'birim_fiyat' => '0,00',      'tutar' => '0,00'],
@@ -188,38 +189,41 @@ CSS;
     }
 
     /** Belge tipine göre blade verisi üretir ($app null ise global örnek veri). */
-    protected static function bladeData(string $type, ?Application $app): array
+    protected static function bladeData(string $type, ?Application $app, ?int $institutionId = null): array
     {
         if ($type === 'on_kazi') {
-            $app = $app ?? self::sampleApp();
+            $app = $app ?? self::sampleApp($institutionId);
             $settings = \App\Models\PreExcavationPermitSetting::first();
-            $signatories = SignatoryEngine::roleMap('pre_permit', $app);
+            $signatories = $app->id > 0 ? SignatoryEngine::roleMap('pre_permit', $app) : [];
 
             return [
                 'belediye' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI',
                 'mudurluk' => 'Fen İşleri Müdürlüğü',
-                'sayi' => 'E-' . ($settings->document_prefix ?? '18790261') . '-' . str_pad($app->id, 6, '0', STR_PAD_LEFT),
-                'tarih' => $app->created_at?->format('d.m.Y') ?? now()->format('d.m.Y'),
-                'konu' => mb_strtoupper($app->description ?? 'Kazı İzni Hk.', 'UTF-8'),
-                'kurum' => mb_strtoupper($app->institution?->name ?? 'KURUM', 'UTF-8'),
-                'ilgi_tarih' => $app->created_at?->format('d.m.Y') ?? now()->format('d.m.Y'),
-                'ilgi_sayi' => str_pad($app->id, 7, '0', STR_PAD_LEFT),
+                'sayi' => 'E-' . ($settings->document_prefix ?? '') . ($app->id > 0 ? '-' . str_pad($app->id, 6, '0', STR_PAD_LEFT) : ''),
+                'tarih' => $app->created_at?->format('d.m.Y') ?? '',
+                'konu' => mb_strtoupper($app->description ?? $app->excavation_reason ?? '', 'UTF-8'),
+                'kurum' => mb_strtoupper($app->institution?->name ?? $app->applicant_first_name . ' ' . $app->applicant_last_name, 'UTF-8'),
+                'ilgi_tarih' => $app->created_at?->format('d.m.Y') ?? '',
+                'ilgi_sayi' => $app->id > 0 ? str_pad($app->id, 7, '0', STR_PAD_LEFT) : '',
                 'metin' => ApplicationsController::buildPrePermitText($app),
-                'imza_ad' => $signatories['belediye_baskan_yardimcisi']['ad_soyad'] ?? 'Yetkili',
-                'imza_unvan' => $signatories['belediye_baskan_yardimcisi']['unvan'] ?? 'Belediye Başkan Yardımcısı',
-                'adres' => $settings->address ?? 'Eyyüpnebi mh. 3554. Sk. Eski Ptt Binası Eyyübiye / Şanlıurfa',
-                'bilgi_kisi' => $settings->signer_name ?? 'Zeynelabidin AKTAŞOĞLU',
-                'telefon' => $settings->phone ?? '()',
-                'fax' => $settings->fax ?? '()',
-                'eposta' => $app->institution?->email ?? $settings->email ?? '-',
-                'web' => $settings->website ?? '-',
-                'kep_adresi' => $app->institution?->email ?? 'eyyubiye@hs03.kep.tr',
+                'imza_ad' => $signatories['belediye_baskan_yardimcisi']['ad_soyad'] ?? '',
+                'imza_unvan' => $signatories['belediye_baskan_yardimcisi']['unvan'] ?? '',
+                'adres' => $app->address_text ?? $settings->address ?? '',
+                'bilgi_kisi' => $settings->signer_name ?? '',
+                'telefon' => $settings->phone ?? '',
+                'fax' => $settings->fax ?? '',
+                'eposta' => $app->institution?->email ?? $settings->email ?? '',
+                'web' => $settings->website ?? '',
+                'kep_adresi' => $app->institution?->email ?? '',
             ];
         }
 
         if ($type === 'cover_letter') {
             if (! $app) {
-                return ['logo_base64' => null, 'application' => self::sampleApp()];
+                $app = self::sampleApp($institutionId);
+                if ($app->institution) {
+                    $app->setRelation('creator', null);
+                }
             }
             $app->loadMissing(['institution', 'creator', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
 
@@ -240,7 +244,10 @@ CSS;
         }
 
         if ($type === 'metraj') {
-            $app = $app ?? self::sampleApp();
+            $app = $app ?? self::sampleApp($institutionId);
+            if ($app->id > 0) {
+                $app->loadMissing(['institution', 'creator', 'surfaceLines.surfaceType', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
+            }
             $rows = $app->id > 0 ? ApplicationsController::buildMetrajRows($app) : self::metrajRowsFromSample();
             $toplamM2 = 0;
             foreach ($rows as $r) {
@@ -248,25 +255,25 @@ CSS;
             }
 
             return [
-                'kurum' => mb_strtoupper($app->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş.', 'UTF-8'),
+                'kurum' => mb_strtoupper($app->institution?->name ?? $app->applicant_first_name . ' ' . $app->applicant_last_name, 'UTF-8'),
                 'birim' => 'PROJE TESİS YÖNETİCİLİĞİ',
                 'alici' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ',
-                'signatories' => SignatoryEngine::roleMap('metraj', $app),
+                'signatories' => $app->id > 0 ? SignatoryEngine::roleMap('metraj', $app) : [],
                 'proje_kodu' => $app->project_code ?? '',
-                'tarih' => now()->format('d.m.Y'),
+                'tarih' => $app->start_date?->format('d.m.Y') ?? '',
                 'rows' => $rows,
                 'toplam_m2' => number_format($toplamM2, 2, ',', '.'),
-                'ilce' => $app->district ?? 'EYYÜBİYE',
-                'firma' => mb_strtoupper($app->institution?->name ?? 'KURUM', 'UTF-8'),
-                'is_cinsi' => $app->description ?? '',
-                'talep_sahibi' => mb_strtoupper(trim($app->tesis_sorumlusu ?? 'Yetkili Görevli'), 'UTF-8'),
+                'ilce' => $app->district ?? '',
+                'firma' => mb_strtoupper($app->institution?->name ?? '', 'UTF-8'),
+                'is_cinsi' => $app->description ?? $app->excavation_reason ?? '',
+                'talep_sahibi' => $app->id > 0 ? mb_strtoupper(trim($app->tesis_sorumlusu ?? ''), 'UTF-8') : '',
             ];
         }
 
         if ($type === 'tahsilat_fisi') {
-            $app = $app ?? self::sampleApp();
+            $app = $app ?? self::sampleApp($institutionId);
+            $app->loadMissing(['institution', 'surfaceLines.surfaceType']);
             $metraj = $app->id > 0 ? ApplicationsController::buildMetrajSatirlari($app) : self::sampleMetrajSatirlari();
-            $d = (float) ($app->deposit_amount ?? 54580);
 
             return [
                 'belediye' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI',
@@ -276,13 +283,7 @@ CSS;
                 'fis_no' => 'F-' . str_pad((string) $app->id, 6, '0', STR_PAD_LEFT),
                 'talep_sahibi' => mb_strtoupper($app->institution?->name ?? 'DİCLE ELEKTRİK', 'UTF-8'),
                 'metraj_satirlari' => $metraj,
-                'tahrip_bedeli' => number_format($d, 2, ',', '.'),
-                'kdv' => number_format($d * 0.2, 2, ',', '.'),
-                'ruhsat_harci' => number_format($d * 0.18, 2, ',', '.'),
-                'kesif_bedeli' => number_format(max($d * 0.01, 1), 2, ',', '.'),
-                'ztb_toplam' => number_format($d * 1.2, 2, ',', '.'),
-                'teminat' => '0,00',
-                'genel_toplam' => number_format($d * 1.4, 2, ',', '.'),
+                'application' => $app,
                 'signatories' => SignatoryEngine::roleMap('tahakkuk', $app),
             ];
         }
@@ -296,7 +297,7 @@ CSS;
         }
 
         if ($type === 'ruhsat') {
-            $app = $app ?? self::sampleApp();
+            $app = $app ?? self::sampleApp($institutionId);
             $app->loadMissing(['institution', 'surfaceLines.surfaceType', 'creator', 'priceApprover', 'receiptApprover']);
 
             return [
@@ -307,44 +308,37 @@ CSS;
         }
 
         if ($type === 'tahakkuk') {
-            $app = $app ?? self::sampleApp();
+            $app = $app ?? self::sampleApp($institutionId);
+            $app->loadMissing(['institution', 'surfaceLines.surfaceType']);
             $metraj = $app->id > 0 ? ApplicationsController::buildMetrajSatirlari($app) : self::sampleMetrajSatirlari();
-            $d = (float) ($app->deposit_amount ?? 0);
 
             return [
                 'belediye' => 'EYYÜBİYE BELEDİYESİ',
                 'mudurluk' => 'FEN İŞLERİ MÜDÜRLÜĞÜ',
                 'birim' => 'AYKOME BİRİMİ',
                 'altbaslik' => 'ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI',
-                'talep_sahibi' => mb_strtoupper($app->institution?->name ?? 'DİCLE ELEKTRİK', 'UTF-8'),
-                'ilce' => $app->district ?? 'EYYÜBİYE',
+                'talep_sahibi' => mb_strtoupper($app->institution?->name ?? '', 'UTF-8'),
+                'ilce' => $app->district ?? '',
                 'adres' => trim(($app->project_code ?? '') . ' ' . ($app->district ?? '')),
-                'firma' => mb_strtoupper($app->institution?->name ?? 'KURUM', 'UTF-8'),
+                'firma' => mb_strtoupper($app->institution?->name ?? '', 'UTF-8'),
                 'is_cinsi' => $app->description ?? '',
-                'vergino' => '-',
+                'vergino' => '',
                 'metraj_satirlari' => $metraj,
-                'toplam_miktar' => '545,80',
-                'genel_tutar' => number_format($d, 2, ',', '.'),
-                'tahrip_bedeli' => number_format($d, 2, ',', '.'),
-                'kdv' => number_format($d * 0.2, 2, ',', '.'),
-                'kesif_bedeli' => number_format(max($d * 0.01, 1), 2, ',', '.'),
-                'ztb_toplam' => number_format($d * 1.2, 2, ',', '.'),
-                'teminat' => '0,00',
-                'genel_toplam' => number_format($d * 1.2, 2, ',', '.'),
+                'application' => $app,
             ];
         }
 
         return [];
     }
 
-    protected static function renderBlade(string $type, ?Application $app): string
+    protected static function renderBlade(string $type, ?Application $app, ?int $institutionId = null): string
     {
         $blade = self::TYPES[$type]['blade'] ?? null;
         if (! $blade) {
             return '';
         }
 
-        return view($blade, self::bladeData($type, $app))->render();
+        return view($blade, self::bladeData($type, $app, $institutionId))->render();
     }
 
     /** HTML içindeki tüm <style> bloklarının birleştirilmiş CSS'i. */
@@ -406,6 +400,20 @@ CSS;
         return $row?->content_data;
     }
 
+    /** Kuruma özel şablon içeriği. */
+    public static function institutionContent(?int $institutionId, string $type): ?string
+    {
+        if (! $institutionId) {
+            return null;
+        }
+
+        $row = \App\Models\InstitutionDocumentTemplate::where('institution_id', $institutionId)
+            ->where('document_type', $type)
+            ->first();
+
+        return $row?->content_data;
+    }
+
     public static function overrideContent(Application $app, string $type): ?string
     {
         $row = ApplicationDocumentOverride::where('application_id', $app->id)
@@ -429,6 +437,12 @@ CSS;
             if ($ov !== null) {
                 return $ov;
             }
+
+            // Kurum bazlı şablon (AKSA, Dicle Elektrik vb. kendi üst yazısı)
+            $inst = self::institutionContent($app->institution_id, $type);
+            if ($inst !== null) {
+                return $inst;
+            }
         }
 
         return self::globalContent($type);
@@ -442,6 +456,23 @@ CSS;
             ['document_type' => $type],
             ['content_data' => $content, 'editor_type' => self::editor($type)]
         );
+    }
+
+    /** Kuruma özel şablonu kaydet. */
+    public static function saveInstitution(int $institutionId, string $type, string $content): void
+    {
+        \App\Models\InstitutionDocumentTemplate::updateOrCreate(
+            ['institution_id' => $institutionId, 'document_type' => $type],
+            ['content_data' => $content, 'editor_type' => self::editor($type)]
+        );
+    }
+
+    /** Kuruma özel şablonu sil → global/varsayılan akışa dön. */
+    public static function deleteInstitution(int $institutionId, string $type): void
+    {
+        \App\Models\InstitutionDocumentTemplate::where('institution_id', $institutionId)
+            ->where('document_type', $type)
+            ->delete();
     }
 
     public static function saveOverride(Application $app, string $type, string $content): void
@@ -463,9 +494,6 @@ CSS;
 
     public static function buildRuhsatGrid(?Application $app): array
     {
-        $d = $app ? (float) ($app->deposit_amount ?? 0) : 0;
-        $disc = $app ? (float) ($app->discovery_amount ?? 0) : 0;
-
         $surfaceRows = [];
         if ($app) {
             $app->loadMissing(['institution', 'surfaceLines.surfaceType']);
@@ -473,23 +501,24 @@ CSS;
                 if (! $sl->surfaceType) {
                     continue;
                 }
-                $miktar = (float) ($sl->quantity ?? 0);
                 $surfaceRows[] = [
                     $sl->surfaceType->name,
                     'm2',
-                    number_format($miktar, 2, ',', '.'),
-                    number_format($miktar * (float) ($sl->surfaceType->price_per_m2 ?? 0), 2, ',', '.'),
+                    number_format((float) ($sl->quantity ?? 0), 2, ',', '.'),
+                    number_format((float) ($sl->amount ?? 0), 2, ',', '.'),
                     '',
                     '',
                 ];
             }
         }
 
-        $kdv = $d * 0.2;
-        $ruhsatHarci = $d * 0.18;
-        $kesifBedeli = $disc ?: $d * 0.01;
-        $ztbToplam = $d + $kdv;
-        $genelToplam = $ztbToplam + $ruhsatHarci + $kesifBedeli;
+        // TEK MUHASEBE KAYNAĞI: KDV/harç/keşif/teminat Model accessor'larından okunur.
+        $kdv = $app ? $app->kdv_amount : '0,00';
+        $ruhsatHarci = $app ? $app->license_fee : '0,00';
+        $kesifBedeli = $app ? $app->discovery_fee : '0,00';
+        $ztbToplam = $app ? $app->ztb_total : '0,00';
+        $teminat = $app ? $app->teminat_amount : '0,00';
+        $genelToplam = $app ? $app->general_total : '0,00';
 
         $info = [
             ['TALEP SAHİBİ', $app?->institution?->name ?? 'KURUM ADI', '', '', '', ''],
@@ -500,12 +529,12 @@ CSS;
         $header = ['AÇILACAK ZEMİN', 'BİRİM', 'MİKTAR', 'TUTAR', 'DİĞER BEDELLER', 'TOPLAM'];
 
         $fees = [
-            ['', '', '', '', 'KDV (%20)', number_format($kdv, 2, ',', '.') . ' TL'],
-            ['', '', '', '', 'RUHSAT HARCI', number_format($ruhsatHarci, 2, ',', '.') . ' TL'],
-            ['', '', '', '', 'KEŞİF BEDELİ', number_format($kesifBedeli, 2, ',', '.') . ' TL'],
-            ['', '', '', '', 'ZTB TOPLAM', number_format($ztbToplam, 2, ',', '.') . ' TL'],
-            ['', '', '', '', 'TEMİNAT', '0,00 TL'],
-            ['', '', '', '', 'GENEL TOPLAM', number_format($genelToplam, 2, ',', '.') . ' TL'],
+            ['', '', '', '', 'KDV (%20)', $kdv . ' TL'],
+            ['', '', '', '', 'RUHSAT HARCI', $ruhsatHarci . ' TL'],
+            ['', '', '', '', 'KEŞİF BEDELİ', $kesifBedeli . ' TL'],
+            ['', '', '', '', 'ZTB TOPLAM', $ztbToplam . ' TL'],
+            ['', '', '', '', 'TEMİNAT', $teminat . ' TL'],
+            ['', '', '', '', 'GENEL TOPLAM', $genelToplam . ' TL'],
         ];
 
         return array_merge($info, [$header], $surfaceRows, $fees);
@@ -514,7 +543,6 @@ CSS;
     public static function buildTahakkukGrid(?Application $app): array
     {
         $metraj = $app ? ApplicationsController::buildMetrajSatirlari($app) : [];
-        $d = $app ? (float) ($app->deposit_amount ?? 0) : 0;
 
         $rows = [];
         foreach ($metraj as $s) {
@@ -537,15 +565,17 @@ CSS;
 
         $header = ['ZEMİN CİNSİ', 'BİRİM', 'MİKTAR', 'BİRİM FİYAT', 'TUTAR'];
 
+        // TEK MUHASEBE KAYNAĞI: Tüm tutarlar Model accessor'larından okunur.
         $totals = [
-            ['Toplam Miktar', '', '', '', '545,80'],
-            ['Toplam Tutar', '', '', '', number_format($d, 2, ',', '.') . ' TL'],
-            ['Zemin Tahrip Bedeli', '', '', '', number_format($d, 2, ',', '.') . ' TL'],
-            ['K.D.V. (%20)', '', '', '', number_format($d * 0.2, 2, ',', '.') . ' TL'],
-            ['Keşif Bedeli', '', '', '', number_format($d * 0.01, 2, ',', '.') . ' TL'],
-            ['ZTB Toplam', '', '', '', number_format($d * 1.21, 2, ',', '.') . ' TL'],
-            ['Teminat', '', '', '', '0,00 TL'],
-            ['Genel Toplam', '', '', '', number_format($d * 1.21, 2, ',', '.') . ' TL'],
+            ['Toplam Miktar', '', '', '', $app ? $app->toplam_miktar : '0,00'],
+            ['Toplam Tutar', '', '', '', ($app ? $app->ztb_amount : '0,00') . ' TL'],
+            ['Zemin Tahrip Bedeli', '', '', '', ($app ? $app->ztb_amount : '0,00') . ' TL'],
+            ['K.D.V. (%20)', '', '', '', ($app ? $app->kdv_amount : '0,00') . ' TL'],
+            ['Ruhsat Harcı', '', '', '', ($app ? $app->license_fee : '0,00') . ' TL'],
+            ['Keşif Bedeli', '', '', '', ($app ? $app->discovery_fee : '0,00') . ' TL'],
+            ['ZTB Toplam', '', '', '', ($app ? $app->ztb_total : '0,00') . ' TL'],
+            ['Teminat', '', '', '', ($app ? $app->teminat_amount : '0,00') . ' TL'],
+            ['Genel Toplam', '', '', '', ($app ? $app->general_total : '0,00') . ' TL'],
         ];
 
         return array_merge($info, [$header], $rows, $totals);
@@ -554,6 +584,9 @@ CSS;
     public static function buildMetrajGrid(?Application $app): array
     {
         $app = $app ?? self::sampleApp();
+        if ($app->id > 0) {
+            $app->loadMissing(['institution', 'creator', 'surfaceLines.surfaceType', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
+        }
         $rows = $app->id > 0 ? ApplicationsController::buildMetrajRows($app) : self::metrajRowsFromSample();
 
         $header = ['SIRA', 'İLÇE', 'MAHALLE', 'CADDE VE SOKAK', 'KAZI BAŞLANGIÇ TARİHİ', 'GENİŞLİK', 'UZUNLUK', 'M² / M', 'ZEMİN CİNSİ', 'PROJE / İŞİN ADI'];
@@ -575,20 +608,20 @@ CSS;
         }
 
         $info = [
-            ['KURUM', mb_strtoupper($app->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş.', 'UTF-8'), '', '', '', '', '', '', '', ''],
             ['ALICI', 'EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ', '', '', '', '', '', '', '', ''],
         ];
 
         return array_merge($info, [$header], $gridRows);
     }
 
-    /** Global örnek veri için metraj row yapısında satırlar. */
+    /** Global örnek veri için metraj row yapısında boş satırlar (rakamlar sıfır). */
     protected static function metrajRowsFromSample(): array
     {
         return [
-            ['sira' => 1, 'ilce' => 'EYYÜBİYE', 'mahalle' => 'EYYÜPNEBİ MAH.', 'cadde' => '3554. SOKAK', 'tarih' => '09.06.2026', 'genislik' => '0,50', 'uzunluk' => '60,00', 'm2' => '30,00', 'zemin' => 'ASFALT (SICAK KARIŞIM)', 'proje_kodu' => 'C-26-1100-1063-0019'],
-            ['sira' => 2, 'ilce' => 'EYYÜBİYE', 'mahalle' => 'EYYÜPNEBİ MAH.', 'cadde' => '3554. SOKAK', 'tarih' => '09.06.2026', 'genislik' => '0,50', 'uzunluk' => '90,00', 'm2' => '45,00', 'zemin' => 'ASFALT (SICAK KARIŞIM)', 'proje_kodu' => 'C-26-1100-1063-0019'],
-            ['sira' => 3, 'ilce' => 'EYYÜBİYE', 'mahalle' => 'EYYÜPNEBİ MAH.', 'cadde' => '3554. SOKAK', 'tarih' => '09.06.2026', 'genislik' => '0,50', 'uzunluk' => '30,00', 'm2' => '15,00', 'zemin' => 'PARKE', 'proje_kodu' => 'C-26-1100-1063-0019'],
+            ['sira' => 1, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'zemin' => '', 'proje_kodu' => ''],
+            ['sira' => 2, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'zemin' => '', 'proje_kodu' => ''],
+            ['sira' => 3, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'zemin' => '', 'proje_kodu' => ''],
+            ['sira' => 4, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'zemin' => '', 'proje_kodu' => ''],
         ];
     }
 
@@ -614,23 +647,47 @@ CSS;
      * word  : ['editor'=>'word',  'content'=>fragment, 'css'=>doc css]
      * excel : ['editor'=>'excel', 'content'=>json grid]
      */
-    public static function editorSource(string $type, ?Application $app): array
+    public static function editorSource(string $type, ?Application $app, ?int $institutionId = null): array
     {
         // Tüm tipler (word + excel) artık orijinal A4 HTML + contenteditable olarak açılır.
         // Harici JS kütüphaneleri (TinyMCE/Jexcel) kaldırıldı; blade'in zengin A4 yapısı (üst
         // başlıklar, imzalar) asla bozulmaz; sadece editörde contenteditable ile düzenlenir.
-        $content = self::resolveContent($type, $app);
+        $content = self::resolveContentFor($type, $app, $institutionId);
         $rendered = null;
         if ($content === null) {
-            $rendered = self::renderBlade($type, $app);
+            $rendered = self::renderBlade($type, $app, $institutionId);
             $content = self::extractA4Fragment($rendered);
         } else {
             // CSS için blade render'a ihtiyaç var (content zaten kayıtlı şablondan geldi)
-            $rendered = self::renderBlade($type, $app);
+            $rendered = self::renderBlade($type, $app, $institutionId);
         }
         $css = self::extractStyles($rendered);
 
         return ['editor' => 'contenteditable', 'content' => $content, 'css' => $css];
+    }
+
+    /**
+     * İçerik çözümleme — başvuru override'ı → kurum şablonu → global → null.
+     * $institutionId verilirse o kurumun şablonu aranır.
+     */
+    public static function resolveContentFor(string $type, ?Application $app, ?int $institutionId = null): ?string
+    {
+        if ($app) {
+            $ov = self::overrideContent($app, $type);
+            if ($ov !== null) {
+                return $ov;
+            }
+        }
+
+        $ofScope = $institutionId ?: ($app?->institution_id ?? null);
+        if ($ofScope) {
+            $inst = self::institutionContent((int) $ofScope, $type);
+            if ($inst !== null) {
+                return $inst;
+            }
+        }
+
+        return self::globalContent($type);
     }
 
     /* ─── PDF çizim (override / global varsa) ──────────────────────────── */

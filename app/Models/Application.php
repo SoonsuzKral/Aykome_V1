@@ -96,12 +96,6 @@ class Application extends Model implements HasMedia
             'total_area_m2' => 'decimal:4',
             'total_price' => 'decimal:3',
             'discovery_amount' => 'decimal:3',
-            'kdv_amount' => 'decimal:2',
-            'ruhsat_harci' => 'decimal:2',
-            'kesif_bedeli' => 'decimal:2',
-            'ztb_toplam' => 'decimal:2',
-            'teminat_tutari' => 'decimal:2',
-            'genel_toplam' => 'decimal:2',
             'width_m' => 'decimal:3',
             'length_m' => 'decimal:3',
             'deposit_amount' => 'decimal:3',
@@ -248,6 +242,129 @@ class Application extends Model implements HasMedia
     }
 
     /**
+     * Başvuruya bağlı cadde/sokak listesini normalize eder.
+     * Öncelik: address_components (create/edit ekranından gelen {mahalle, streets}),
+     * yoksa GIS ilişkileri (gisCizimleri.yolIliskileri + gisNoktalari).
+     * Dönen yapı: [['mahalle' => ..., 'yol' => ...], ...] — büyük harfe çevrilmiş,
+     * boşluklar temizlenmiş, tekrarlar elenmiş.
+     */
+    public function streetLines(): array
+    {
+        $this->loadMissing(['gisCizimleri.yolIliskileri', 'gisNoktalari']);
+
+        $rows = [];
+
+        // 1) address_components: [ {mahalle, streets:[...]}, ... ]
+        $components = $this->address_components ?? [];
+        if (is_array($components)) {
+            foreach ($components as $adres) {
+                $mahalle = mb_strtoupper(trim((string) ($adres['mahalle'] ?? '')), 'UTF-8');
+                $streets = $adres['streets'] ?? [];
+                if (is_string($streets)) {
+                    $streets = array_filter(array_map('trim', explode("\n", $streets)));
+                }
+                foreach ((array) $streets as $sokak) {
+                    $sokak = trim((string) $sokak);
+                    if ($sokak === '') continue;
+                    $rows[] = [
+                        'mahalle' => $mahalle !== '' ? $mahalle : 'BELİRTİLMEMİŞ MAHALLE',
+                        'yol' => mb_strtoupper($sokak, 'UTF-8'),
+                    ];
+                }
+            }
+        }
+
+        // 2) GIS çizimleri → yol ilişkileri
+        if (empty($rows) && $this->relationLoaded('gisCizimleri')) {
+            foreach ($this->gisCizimleri as $cizim) {
+                foreach ($cizim->yolIliskileri ?? collect() as $yol) {
+                    $sokak = trim((string) ($yol->yol_adi ?? ''));
+                    if ($sokak === '') continue;
+                    $rows[] = [
+                        'mahalle' => $yol->mahalle
+                            ? mb_strtoupper(trim((string) $yol->mahalle), 'UTF-8')
+                            : 'BELİRTİLMEMİŞ MAHALLE',
+                        'yol' => mb_strtoupper($sokak, 'UTF-8'),
+                    ];
+                }
+            }
+        }
+
+        // 3) GIS noktaları (parsel bazlı adres)
+        if (empty($rows) && $this->relationLoaded('gisNoktalari')) {
+            foreach ($this->gisNoktalari as $nokta) {
+                if (empty($nokta->parsel)) continue;
+                $mahalle = $nokta->mahalle
+                    ? mb_strtoupper(trim((string) $nokta->mahalle), 'UTF-8')
+                    : 'BELİRTİLMEMİŞ MAHALLE';
+                $parselAdi = 'PARSEL: ' . ($nokta->ada ? $nokta->ada . '/' : '') . $nokta->parsel;
+                $rows[] = ['mahalle' => $mahalle, 'yol' => mb_strtoupper($parselAdi, 'UTF-8')];
+            }
+        }
+
+        // 4) Yedek: address_text ilk satırı
+        if (empty($rows) && ! empty($this->address_text)) {
+            $ilkSatir = trim(explode("\n", $this->address_text)[0] ?? '');
+            if ($ilkSatir !== '') {
+                $rows[] = [
+                    'mahalle' => 'BELİRTİLMEMİŞ MAHALLE',
+                    'yol' => mb_strtoupper($ilkSatir, 'UTF-8'),
+                ];
+            }
+        }
+
+        // Dedupe (mahalle + yol ikilisi)
+        $seen = [];
+        $unique = [];
+        foreach ($rows as $r) {
+            $key = $r['mahalle'] . '|' . $r['yol'];
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true;
+            $unique[] = $r;
+        }
+
+        return $unique;
+    }
+
+    /** Geçerli (boş olmayan) sokak sayısı. */
+    public function streetCount(): int
+    {
+        return count($this->streetLines());
+    }
+
+    /** MUHTELİF kuralı: 3'ten fazla cadde/sokak varsa true. */
+    public function isMuhtelif(): bool
+    {
+        return $this->streetCount() > 3;
+    }
+
+    /** Vatandaş/başvuran tam adı (ilk + soyisim). */
+    public function getApplicantNameAttribute(): ?string
+    {
+        return trim(($this->applicant_first_name ?? '') . ' ' . ($this->applicant_last_name ?? '')) ?: null;
+    }
+
+    /** İlçe adı — başvuru/bağlı GIS verisinden. */
+    public function getDistrictNameAttribute(): ?string
+    {
+        $d = trim((string) ($this->district ?? ''));
+
+        return $d !== '' ? $d : 'EYYÜBİYE';
+    }
+
+    /** EK-1 sayfası için mahalle bazında gruplanmış sokak listesi. */
+    public function streetLinesGroupedByMahalle(): array
+    {
+        $grouped = [];
+        foreach ($this->streetLines() as $r) {
+            $grouped[$r['mahalle']][] = $r['yol'];
+        }
+        ksort($grouped);
+
+        return $grouped;
+    }
+
+    /**
      * Belirli bir belge modülü için en güncel imzalı dosya yolunu döndürür.
      * Öncelik: e-imza canonical kopyası → belediye yüklemesi → kurum yüklemesi.
      * Dosya yoksa null döner (hard-coded isim/makam içermez).
@@ -280,5 +397,146 @@ class Application extends Model implements HasMedia
         $docs = $this->module_documents ?? [];
 
         return ! empty($docs[$module]['e_imza']['durum'] ?? null);
+    }
+
+    protected ?array $calcFiguresCache = null;
+
+    /** Başvuru kurumunun Dicle Elektrik olup olmadığı (ad bazlı, vergi no'ya bağımlı değil). */
+    public function isDicle(): bool
+    {
+        // strtolower ASCII-only olduğundan İ/ı/i/I Türkçe karakter sorunlarını
+        // tamamen bypass eder: 'Dicle Elektrik' içinde İ/ı yoktur.
+        $name = strtolower(trim((string) ($this->institution?->name ?? '')));
+
+        return str_contains($name, 'dicle elektrik');
+    }
+
+    /** KURAL 1: Alt kurum başvurusu mu? (Merkez Belediye DEĞİL ve kurum atanmış) */
+    public function isInstitutionApplication(): bool
+    {
+        return (bool) $this->institution_id && ! (bool) ($this->institution?->is_municipality ?? false);
+    }
+
+    /**
+     * TEK MUHASEBE KAYNAĞI (Single Source of Truth).
+     * Dashboard, PDF/Ruhsat/Tahakkuk fişleri ve şablon servisleri buradan okur.
+     * Blade/Controller içinde asla fiyat biçilmez — değer burada üretilir.
+     *
+     * Kurallar (business):
+     *  - KURAL 1: Alt kurum (Merkez Bld/Vatandaş DEĞİL) başvurusu ise TEMİNAT = 0 olur.
+     *  - KURAL 2: Başvuru kurumu "Dicle Elektrik Dağıtım A.Ş." ise ayrıca RUHSAT HARCI = 0 olur.
+     *  - Ek Ruhsat (is_additional_permit) ise de TEMİNAT = 0 olur.
+     */
+    public function calcFigures(): array
+    {
+        if ($this->calcFiguresCache !== null) {
+            return $this->calcFiguresCache;
+        }
+
+        $this->loadMissing(['surfaceLines.surfaceType', 'institution']);
+
+        $toplamMiktar = 0.0;
+        $ztb = 0.0;
+        foreach ($this->surfaceLines ?? [] as $line) {
+            $q = max((float) ($line->quantity ?? 0), 0);
+            $p = max((float) ($line->surfaceType?->price_per_m2 ?? 0), 0);
+            $toplamMiktar += $q;
+            $ztb += $q * $p;
+        }
+
+        $isDicle = $this->isDicle();
+        $isInstApp = $this->isInstitutionApplication();
+
+        $kdv = $ztb * 0.20;
+        $licenseFee = $isDicle ? 0.0 : $toplamMiktar * 9;
+        $discoveryFee = 361 + ($ztb * 0.01);
+        $teminat = ($isInstApp || (bool) ($this->is_additional_permit ?? false)) ? 0.0 : $ztb * 0.50;
+        $ztbTotal = $ztb + $kdv + $licenseFee + $discoveryFee;
+        $generalTotal = $ztbTotal + $teminat;
+
+        return $this->calcFiguresCache = [
+            'toplam_miktar' => $toplamMiktar,
+            'ztb_amount'    => $ztb,
+            'kdv_amount'    => $kdv,
+            'license_fee'   => $licenseFee,
+            'discovery_fee' => $discoveryFee,
+            'ztb_total'     => $ztbTotal,
+            'teminat'       => $teminat,
+            'general_total' => $generalTotal,
+        ];
+    }
+
+    /** Toplam kazı miktarı (m²). */
+    public function getToplamMiktarAttribute(): string
+    {
+        return number_format($this->calcFigures()['toplam_miktar'], 2, '.', '');
+    }
+
+    /** Zemin Tahrip Bedeli (ZTB). */
+    public function getZtbAmountAttribute(): string
+    {
+        return number_format($this->calcFigures()['ztb_amount'], 2, '.', '');
+    }
+
+    /** K.D.V. (%20). */
+    public function getKdvAmountAttribute(): string
+    {
+        return number_format($this->calcFigures()['kdv_amount'], 2, '.', '');
+    }
+
+    /** Ruhsat Harcı — Dicle Elektrik için kural gereği 0. */
+    public function getLicenseFeeAttribute(): string
+    {
+        return number_format($this->calcFigures()['license_fee'], 2, '.', '');
+    }
+
+    /** Keşif Bedeli. */
+    public function getDiscoveryFeeAttribute(): string
+    {
+        return number_format($this->calcFigures()['discovery_fee'], 2, '.', '');
+    }
+
+    /** ZTB Toplam (ZTB + KDV + Ruhsat Harcı + Keşif). */
+    public function getZtbTotalAttribute(): string
+    {
+        return number_format($this->calcFigures()['ztb_total'], 2, '.', '');
+    }
+
+    /** Teminat — kurum başvurularında kural gereği 0. */
+    public function getTeminatAmountAttribute(): string
+    {
+        return number_format($this->calcFigures()['teminat'], 2, '.', '');
+    }
+
+    /** Genel Toplam (tüm kurallar sonrası ödenecek tutar). */
+    public function getGeneralTotalAttribute(): string
+    {
+        return number_format($this->calcFigures()['general_total'], 2, '.', '');
+    }
+
+    // DB kolon adlarıyla uyumlu takma adlar (şablon/belgeler için).
+    public function getRuhsatHarciAttribute(): string
+    {
+        return $this->license_fee;
+    }
+
+    public function getKesifBedeliAttribute(): string
+    {
+        return $this->discovery_fee;
+    }
+
+    public function getZtbToplamAttribute(): string
+    {
+        return $this->ztb_total;
+    }
+
+    public function getTeminatTutariAttribute(): string
+    {
+        return $this->teminat_amount;
+    }
+
+    public function getGenelToplamAttribute(): string
+    {
+        return $this->general_total;
     }
 }

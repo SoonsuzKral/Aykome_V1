@@ -40,7 +40,7 @@ class PricingService
 
     public function recalculateTotals(Application $application): void
     {
-        $application->load(['surfaceLines.surfaceType', 'excavationAreas']);
+        $application->load(['surfaceLines.surfaceType', 'excavationAreas', 'institution']);
 
         $areaM2 = (float) ($application->excavationAreas->first()?->total_area_m2 ?? $application->total_area_m2);
 
@@ -55,12 +55,18 @@ class PricingService
         }
 
         $kdv = round($discovery * 0.20, 2);
-        $ruhsatHarci = round($areaM2 * 9, 2);
+
+        // KURAL 2: Başvuru kurumu "Dicle Elektrik Dağıtım A.Ş." ise Ruhsat Harcı 0 TL.
+        $isDicle = $application->isDicle();
+        $ruhsatHarci = $isDicle ? 0.0 : round($areaM2 * 9, 2);
+
         $kesifBedeli = round(361 + ($discovery * 0.01), 2);
         $ztbToplam = round($discovery + $kdv + $ruhsatHarci + $kesifBedeli, 2);
         // Ek Ruhsat (Additional Permit) kuralı: TEMİNAT DAİMA 0 TL — kesilmez.
         // Asıl başvuruda teminat alınır; ek ruhsatta fiyat farkı/ceza için teminat istenmez.
-        $teminat = ($application->is_additional_permit ?? false) ? 0.0 : round($discovery * 0.50, 2);
+        // KURAL 1: Alt kurum (merkez belediye değil) başvurularında da TEMİNAT 0 TL olur.
+        $isInstApp = $application->isInstitutionApplication();
+        $teminat = ($application->is_additional_permit ?? false || $isInstApp) ? 0.0 : round($discovery * 0.50, 2);
         $genelToplam = round($ztbToplam + $teminat, 2);
 
         $application->update([
