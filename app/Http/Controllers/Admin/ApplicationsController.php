@@ -876,7 +876,9 @@ class ApplicationsController extends Controller
 
     /**
      * KATI ADIM KAPISI / SON YETKİ: Belediye "RUHSAT MODÜLÜNÜ AÇ" tuşuna basar.
-     * payment_completed → licensed + ruhsat PDF üretilir (Step 6 render edilir).
+     * payment_completed / approved → licensed + ruhsat PDF üretilir (Step 6 render edilir).
+     * GÖREV 4: Taahhütname (taahhutname_sent) gönderilir gönderilmez Ruhsat hazırdır —
+     * alt kurum onayı OLMADIĞI için belediye aynı anda açar.
      */
     public function openRuhsat(Request $request, Application $application, LicenseService $licenseService): RedirectResponse
     {
@@ -889,7 +891,7 @@ class ApplicationsController extends Controller
             ? $application->status->value
             : (string) $application->status;
 
-        abort_unless(in_array($currentStatus, ['payment_completed', 'approved'], true), 422, 'Ruhsat modülü bu aşamada açılamaz.');
+        abort_unless(in_array($currentStatus, ['payment_completed', 'approved', 'taahhutname_sent'], true), 422, 'Ruhsat modülü bu aşamada açılamaz.');
 
         $result = $licenseService->generateExcavationPermitPdf($application);
 

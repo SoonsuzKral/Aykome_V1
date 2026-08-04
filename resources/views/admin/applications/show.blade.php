@@ -136,8 +136,8 @@
                             <p class="text-sm font-bold text-blue-900">Taahhütname Belediye Hazırlığında</p>
                             <p class="mt-0.5 text-xs text-blue-700">Belediye taahhütnameyi hazırlayıp kuruma göndermeli; kurum e-imzalayacak.</p>
                         @elseif($alertKaStage === 'taahhutname_sent')
-                            <p class="text-sm font-bold text-blue-900">Taahhütname Kurum Onayında</p>
-                            <p class="mt-0.5 text-xs text-blue-700">Alt kurumdan taahhütname e-imzası / onayı bekleniyor.</p>
+                            <p class="text-sm font-bold text-blue-900">Taahhütname Gönderildi — Ruhsat Hazır</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Taahhütname &amp; Ruhsat belediyede birlikte hazırdır; belediye Ruhsat modülünü açabilir.</p>
                         @elseif($alertKaStage === 'approved')
                             <p class="text-sm font-bold text-blue-900">Ödeme Tamamlandı — Ruhsat Hazırlığı</p>
                             <p class="mt-0.5 text-xs text-blue-700">Ruhsat modülü kapalıdır; belediye kilidi ile açılacaktır.</p>
@@ -167,7 +167,7 @@
                             <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 TAHAKKUK VE MAKBUZ MODÜLÜNÜ AÇ</button>
                         </form>
                     @endif
-                    @if($alertViewerIsMuni && $alertKaStage === 'payment_completed')
+                    @if($alertViewerIsMuni && in_array($alertKaStage, ['payment_completed', 'approved']))
                         <form method="POST" action="{{ route('admin.applications.open-taahhutname', $application) }}">
                             @csrf
                             <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 TAAHHÜTNAME MODÜLÜNÜ AÇ</button>
@@ -185,10 +185,10 @@
                             <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-sky-700">📤 Taahhütnameyi Kuruma Gönder</button>
                         </form>
                     @endif
-                    @if($alertViewerIsMuni && $alertKaStage === 'approved')
+                    @if($alertViewerIsMuni && in_array($alertKaStage, ['approved', 'taahhutname_sent']))
                         <form method="POST" action="{{ route('admin.applications.open-ruhsat', $application) }}">
                             @csrf
-                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 RUHSAT MODÜLÜNÜ AÇ</button>
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 RUHSAT MODÜLÜNÜ AÇ (FİNAL)</button>
                         </form>
                     @endif
                     @if($alertViewerIsMuni && $alertKaStage === 'licensed')
@@ -474,7 +474,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-cyan-800">Üst Yazı</span>
                         <span class="text-[9px] text-slate-400">Dilekçe</span>
                     </a>
-                    @if($canEditTemplate)
+                    @if($canEditTemplate && auth()->user()->isMunicipalityPersonel())
                     <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -491,7 +491,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-cyan-800">Ön Kazı</span>
                         <span class="text-[9px] text-slate-400">İzin Belgesi</span>
                     </a>
-                    @if($canEditTemplate)
+                    @if($canEditTemplate && auth()->user()->isMunicipalityPersonel())
                     <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -517,7 +517,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-indigo-800">Metraj</span>
                         <span class="text-[9px] text-slate-400">Cetveli</span>
                     </a>
-                    @if($canEditTemplate)
+                    @if($canEditTemplate && auth()->user()->isMunicipalityPersonel())
                     <a href="{{ route('admin.applications.edit-document', [$application, 'metraj']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -532,7 +532,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-rose-800">Tahakkuk</span>
                         <span class="text-[9px] text-slate-400">Fişi</span>
                     </a>
-                    @if($canEditTemplate)
+                    @if($canEditTemplate && auth()->user()->isMunicipalityPersonel())
                     <a href="{{ route('admin.applications.edit-document', [$application, 'tahakkuk']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -992,7 +992,7 @@
                                     @endif
 
                                     {{-- Tahsilat Fişi & Makbuz --}}
-                                    @if(in_array($st, ['awaiting_payment', 'receipt_pending', 'pre_approved', 'measurement_done', 'approved', 'licensed', 'completed']))
+                                    @if(in_array($st, ['awaiting_payment', 'receipt_pending', 'pre_approved', 'measurement_done', 'tahakkuk_pending', 'tahakkuk_sent', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
                                         <a href="{{ route('admin.applications.pdf.tahsilat-fisi', $application) }}"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-amber-400 bg-amber-50 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -1082,9 +1082,31 @@
                 @else
                                     {{-- ===== INSTITUTION: ÜST YAZI (Step 1) ===== --}}
 
-                                    {{-- DURUM: draft/submitted (ön kazı henüz oluşturulmamış) --}}
-                                    @if(in_array($st, ['draft', 'submitted']))
+                                    {{-- GÖREV 1 + GÖREV 2: Üst Yazı evrakı KALICI görünür.
+                                         - Kurum uygulamasında Üst Yazı (Dilekçe) PDF'i her durumda görüntülenir.
+                                         - Editör (World) butonu YALNIZCA draft durumunda; submit/devralma sonrası tamamen silinir.
+                                         - Ön kazı işleme alındıysa (draft/submitted değilse) Ön Kazı İzin PDF'i de KALICI görünür. --}}
+                                    @if($isAltKurum)
+                                        {{-- Üst Yazı (Dilekçe) Görüntüle / İndir — KALICI --}}
+                                        <a href="{{ route('admin.applications.pdf.cover-letter', $application) }}" target="_blank"
+                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
+                                            📄 Üst Yazı (Dilekçe) Görüntüle / İndir (PDF)
+                                        </a>
 
+                                        {{-- GÖREV 2: Word/Editör butonu YALNIZCA DRAFT durumunda (alt kurum, submit öncesi).
+                                             Submit sonrası tamamen render edilmez. Belediye reddi (rejected) → tekrar düzenlenebilir. --}}
+                                        @if(in_array($st, ['draft', 'rejected']) && $canEditTemplate)
+                                        <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
+                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            ✏️ Taslağı Aç ve Başvuruya Özel Düzenle (World)
+                                        </a>
+                                        @endif
+                                    @endif
+
+                                    {{-- draft/submitted: gönder ile onay rotası (yalnızca bu statülerde) --}}
+                                    @if(in_array($st, ['draft', 'submitted']))
                                         @if($st === 'draft')
                                             <form method="POST" action="{{ route('admin.applications.submit', $application) }}" class="mb-3">
                                                 @csrf
@@ -1093,24 +1115,6 @@
                                         @endif
 
                                         @if($isAltKurum)
-                                            {{-- ALT KURUM: Üst Yazı görüntüleme --}}
-                                            <a href="{{ route('admin.applications.pdf.cover-letter', $application) }}" target="_blank"
-                                               class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
-                                                📄 Üst Yazı (Dilekçe) Görüntüle
-                                            </a>
-
-                                            {{-- KURAL: Alt kurum Edit butonunu YALNIZCA DRAFT durumunda görür (GÖREV 2);
-                                                 submitted/in_progress/approval statülerinde YALNIZCA "Üst Yazı Görüntüle" PDF görür.
-                                                 Ön Kazı işleme alınmışsa ($onKaziIslendi) veya belediye reddettiyse güncellenir. --}}
-                                            @if($st === 'draft' && $canEditTemplate && (!$onKaziIslendi || $belediyeReddetti))
-                                            <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
-                                               class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                                ✏️ Belgeyi Düzenle (Kaydet)
-                                            </a>
-                                            @endif
-
                                             @php $onayStage = $application->approval_stage ?? ($processCurrentStep?->role_key ?? 'staff'); @endphp
 
                                             {{-- Süreç & Onay Rotası: rolü rotada olan kullanıcı tuşu görür --}}
@@ -1148,10 +1152,10 @@
                                                 Ön Kazı Belge Ayarları
                                             </a>
                                         @endif
+                                    @endif
 
-                                    {{-- DURUM: pre_approved veya sonrası (ön kazı işleme alınmış) --}}
-                                    {{-- Alt kurum YALNIZCA görüntüleme/indirme yapabilir --}}
-                                    @elseif(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'pre_excavation_approved', 'completed']))
+                                    {{-- GÖREV 1: Ön kazı işleme alındıysa Belediyenin Ön Kazı İzin PDF'i KALICI görünür --}}
+                                    @if($isAltKurum && !in_array($st, ['draft', 'submitted']))
                                         <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
@@ -1161,7 +1165,8 @@
                                     @endif
 
                                     {{-- BÜYÜK YASA: Üst Yazı adımı aktif/bekliyor ise alt kuruma işlem tabı --}}
-                                    @if($isAltKurum && ($isCurrent || ($isPast && in_array($st, ['submitted']))))
+                                    {{-- GÖREV 1: adım aşıldıysa (past) imzalı nüsha kutusu KALICI görünür --}}
+                                    @if($isAltKurum && ($isCurrent || $isPast))
                                     <div class="mt-3 rounded-xl border border-blue-200 bg-blue-50/60 p-3 space-y-2">
                                         <p class="text-xs font-semibold text-blue-800 mb-1">📋 İşlem Tabı</p>
                                         <div>
@@ -1182,7 +1187,7 @@
                                         {{-- Tahakkuk/makbuz/taahhüt formları KESİNLİKLE bu karta sarkmaz --}}
 
                                         {{-- Ön Kazı İzin Belgesi (PDF) Görüntüle / İndir --}}
-                                        @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'approved', 'licensed', 'completed']))
+                                        @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
                                         <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}" target="_blank"
                                            class="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100 mb-2">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
@@ -1209,7 +1214,7 @@
                                              statüyü FieldWork'a çekip sahte/ileri kilit açabiliyordu; bu yapıda kullanılmıyor. --}}
 
                                         {{-- Belediye personeli için metraj PDF ve düzenleme --}}
-                                        @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'approved', 'licensed', 'completed']))
+                                        @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
                                         <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
                                            class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 mb-2">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
@@ -1264,13 +1269,13 @@
                                          statü metrage_sent (belediye "Kuruma Gönder" dediğinde) ve sonrasında görür;
                                          metrage_pending/metrage_revision anında belediye çalışması gizlidir. --}}
                                     @php
-                                        $step3KurumGorebilir = in_array($st, ['metrage_sent', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
-                                        $step3BelediyeGorebilir = in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
+                                        $step3KurumGorebilir = in_array($st, ['metrage_sent', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'field_work', 'completed']);
+                                        $step3BelediyeGorebilir = in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'field_work', 'completed']);
                                         $step3Gorunur = ($isUserInstitution && $step3KurumGorebilir) || (!$isUserInstitution && $step3BelediyeGorebilir);
                                     @endphp
                                     @if(($isCurrent || $isPast) && $step3Gorunur)
                                         {{-- Metraj (PDF) Görüntüle / İndir — her iki taraf --}}
-                                        @if(in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'approved', 'licensed', 'field_work', 'completed']))
+                                        @if(in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'pre_approved', 'awaiting_payment', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'receipt_pending', 'measurement_done', 'approved', 'licensed', 'field_work', 'completed']))
                                         <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
@@ -1423,7 +1428,13 @@
                                         // open-tahakkuk kilidini açınca (tahakkuk_pending) belediye hazırlar;
                                         // GÖREV 4 GLOBAL SENT-MODEL: Alt kurum Tahakkuk & Makbuz kartını yalnızca
                                         // belediye "tahakkuk_sent" gönderimi yaptıktan SONRA görür.
-                                        $tahakkukGeldi = in_array($st, ['tahakkuk_sent', 'accrued', 'approved', 'payment_completed', 'licensed', 'field_work', 'completed']);
+                                        // GÖREV 3: Tahakkuk & Makbuz evrakı belediye "tahakkuk_sent" gönderimiyle
+                                        // KALICI olarak alt kuruma görünür. Taahhütname kilitleri (taahhutname_*) de bu
+                                        // listeye eklendi — çünkü openTaahhutname status'ü taahhutname_pending/sent'e
+                                        // çevirir ve alt kurumun Step 4 evrakını görmeye devam etmesi gerekir.
+                                        $tahakkukGeldi = in_array($st, ['tahakkuk_sent', 'accrued', 'approved',
+                                            'payment_completed', 'taahhutname_pending', 'taahhutname_sent',
+                                            'licensed', 'field_work', 'completed']);
                                     @endphp
                                     @if($isUserInstitution && !$tahakkukGeldi)
                                         {{-- Alt kurum: Tahakkuk henüz hazır değil — bu adım gizli (d-none eşdeğeri) --}}
