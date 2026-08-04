@@ -95,7 +95,12 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
         </tr>
     </thead>
     <tbody>
-        @php $loopZemin = (isset($metraj_satirlari) && ! empty($metraj_satirlari)) ? $metraj_satirlari : $application->surfaceLines; @endphp
+        @php
+            // MATBU YASA: Tüm zemin listesi (buildMetrajSatirlari → SurfaceType::all()).
+            $loopZemin = (isset($metraj_satirlari) && ! empty($metraj_satirlari))
+                ? $metraj_satirlari
+                : $application->surfaceLines;
+        @endphp
         @forelse($loopZemin as $zeminSatir)
             @php
                 $zeminAd  = trim((string)($zeminSatir['ad'] ?? ($zeminSatir->surfaceType->name ?? '')));

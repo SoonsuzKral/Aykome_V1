@@ -1702,28 +1702,63 @@ class ApplicationsController extends Controller
         ];
     }
 
+    /**
+     * TAHAKKUK MATBU YASA: Belgede sistemdeki TÜM Zemin Tipleri alt alta bastırılır;
+     * kazılan/seçilen zeminin hizasına gerçek miktar/fiyat/tutar gelir, başvuruda
+     * yer almayan zeminler "0,00" kalır. Zemin listesi dinamiktir (SurfaceType::all()),
+     * asla hard-code string dizi kullanılmaz.
+     */
     public static function buildMetrajSatirlari(Application $app): array
     {
         $app->loadMissing(['surfaceLines.surfaceType', 'institution']);
 
-        $lines = $app->surfaceLines ?? [];
-        if ($lines->isEmpty()) {
-            // Zemin satırı yoksa bile tek tipik boş satır üretilir — hesap yok, 0 gösterilir.
-            return [['ad' => '—', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00']];
+        $lines = $app->surfaceLines ?? collect();
+        if (! $lines instanceof \Illuminate\Support\Collection) {
+            $lines = collect($lines);
         }
 
+        // Başvuru satırlarını ad bazlı (büyük-küçük duyarsız) indexle — contains/where mantığı.
+        $appLinesByName = $lines->filter(fn ($sl) => $sl->surfaceType)
+            ->mapWithKeys(function ($sl) {
+                $key = mb_strtolower(trim((string) $sl->surfaceType->name), 'UTF-8');
+
+                return [$key => $sl];
+            });
+
         $rows = [];
-        foreach ($lines as $sl) {
-            if (! $sl->surfaceType) {
-                continue;
+        foreach (\App\Models\SurfaceType::query()->orderBy('id')->get() as $st) {
+            $stName = trim((string) $st->name);
+            $stKey = mb_strtolower($stName, 'UTF-8');
+            $matched = $appLinesByName->get($stKey);
+
+            // Birim: bordür / görme engelli karo gibi hat işlerinde "m", diğerlerinde "m²".
+            // strtolower ASCII-only olduğundan İ/ı/i/I Türkçe karakter farkını bypass eder.
+            $ust = strtolower($stName);
+            $birim = (str_contains($ust, 'bordür') || str_contains($ust, 'bordur') || str_contains($ust, 'görme engell') || str_contains($ust, 'gorme engell') || str_contains($ust, 'olugu') || str_contains($ust, 'oluğu')) ? 'm' : 'm2';
+
+            if ($matched) {
+                $rows[] = [
+                    'ad' => mb_strtoupper($stName, 'UTF-8'),
+                    'birim' => $birim,
+                    'miktar' => number_format((float) ($matched->quantity ?? 0), 2, ',', '.'),
+                    'birim_fiyat' => number_format((float) ($matched->surfaceType->price_per_m2 ?? 0), 2, ',', '.'),
+                    'tutar' => number_format((float) ($matched->amount ?? 0), 2, ',', '.'),
+                ];
+            } else {
+                // Başvuruda bu zemin yok — sıfır satırı (model birim fiyatı gösterilir, miktar/tutar 0).
+                $rows[] = [
+                    'ad' => mb_strtoupper($stName, 'UTF-8'),
+                    'birim' => $birim,
+                    'miktar' => '0,00',
+                    'birim_fiyat' => number_format((float) ($st->price_per_m2 ?? 0), 2, ',', '.'),
+                    'tutar' => '0,00',
+                ];
             }
-            $rows[] = [
-                'ad' => mb_strtoupper($sl->surfaceType->name, 'UTF-8'),
-                'birim' => in_array(mb_strtoupper($sl->surfaceType->name, 'UTF-8'), ['BORDÜR (BETON)', 'BORDÜR (BAZALT)', 'GÖRME ENGELLİ KARO']) ? 'm' : 'm2',
-                'miktar' => number_format((float) ($sl->quantity ?? 0), 2, ',', '.'),
-                'birim_fiyat' => number_format((float) ($sl->surfaceType->price_per_m2 ?? 0), 2, ',', '.'),
-                'tutar' => number_format((float) ($sl->amount ?? 0), 2, ',', '.'),
-            ];
+        }
+
+        // Zemin satırı hiç yoksa bile tipik boş satır üretilir — hesap yok, 0 gösterilir.
+        if (empty($rows)) {
+            $rows[] = ['ad' => '—', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'];
         }
 
         return $rows;
