@@ -50,6 +50,12 @@ class DocumentTemplateController extends Controller
                 continue;
             }
 
+            // GÖREV 3a: "Tahsilat Makbuzu (Word)" şablon kartı index'ten tamamen kaldırıldı;
+            // yalnızca fiş (Tahsilat Fişi) listelenir. (makbuz e-imza üretiminde kalır, kart gizlenir.)
+            if ($key === 'makbuz') {
+                continue;
+            }
+
             $content = $institutionScope
                 ? DocumentTemplateService::institutionContent($user->institution_id, $key)
                 : DocumentTemplateService::globalContent($key);

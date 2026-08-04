@@ -42,6 +42,7 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::post('applications/{application}/approve-pre-excavation', [ApplicationsController::class, 'approvePreExcavation'])->name('applications.approve-pre-excavation');
 
         Route::match(['GET', 'POST'], 'applications/{application}/approve-price', [ApplicationsController::class, 'approvePrice'])->name('applications.approve-price');
+        Route::post('applications/{application}/complete-field-work', [ApplicationsController::class, 'completeFieldWork'])->name('applications.complete-field-work');
         Route::match(['GET', 'POST'], 'applications/{application}/approve-receipt', [ApplicationsController::class, 'approveReceipt'])->name('applications.approve-receipt');
         Route::post('applications/{application}/reject-receipt', [ApplicationsController::class, 'rejectReceipt'])->name('applications.reject-receipt');
         Route::post('applications/{application}/field-tasks', [ApplicationsController::class, 'transfer'])->name('applications.field-tasks.store');

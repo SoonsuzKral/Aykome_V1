@@ -723,6 +723,42 @@
 
         {{-- RIGHT SIDEBAR --}}
         <div class="space-y-4">
+            {{-- BAŞVURU AŞAMALARI (Application Actions / Status) — GÖREV 4 --}}
+            @php
+                $appActionsIsMuni = auth()->user()->isMunicipalityPersonel();
+                $appActionsAltKurum = !$appActionsIsMuni && !empty($application->institution_id);
+                $appActionsSahaAktif = in_array($st, ['pre_excavation_approved', 'pre_approved', 'measurement_done', 'approved']);
+                $appActionsSahaBitti = in_array($st, ['field_work', 'completed']);
+            @endphp
+            @if($appActionsAltKurum)
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="mb-2 flex items-center gap-2">
+                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-50 to-orange-50 text-sm">🚧</span>
+                    <div>
+                        <h2 class="text-xs font-bold uppercase tracking-wide text-slate-700">Başvuru Aşamaları</h2>
+                        <p class="text-[10px] text-slate-400">Application Status / Actions</p>
+                    </div>
+                </div>
+                @if($appActionsSahaAktif)
+                    <form method="POST" action="{{ route('admin.applications.complete-field-work', $application) }}">
+                        @csrf
+                        <button type="submit" onclick="return confirm('Saha kazı çalışmalarınızı tamamladığınızı onaylıyor musunuz?')"
+                                class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 text-sm shadow-sm transition">
+                            ✅ Saha Kazı Çalışmalarını Tamamladım
+                        </button>
+                    </form>
+                @elseif($appActionsSahaBitti)
+                    <span class="inline-flex w-full items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                        ✅ Saha kazı çalışmaları tamamlandı.
+                    </span>
+                @else
+                    <span class="inline-flex w-full items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                        ⏳ Saha kazı için uygun aşama değil.
+                    </span>
+                @endif
+            </div>
+            @endif
+
             {{-- Workflow Step Navigation — Collapsible Accordion --}}
             @php
                 $isMunicipality = $application->institution?->is_municipality ?? false;
@@ -872,30 +908,30 @@
                                     {{-- Makbuz Yükleme ve Onay --}}
                                     @if(in_array($st, ['awaiting_payment', 'receipt_pending']) && $isCurrent)
                                         @if($can['approve_receipt'] ?? false)
-                                            <form id="receipt-upload-form" method="POST"
+                                            <form id="muni-receipt-upload-form" method="POST"
                                                   action="{{ route('admin.applications.approve-receipt', $application) }}"
                                                   enctype="multipart/form-data" novalidate class="mb-2">
                                                 @csrf
                                                 @if(!$latestReceipt || $latestReceipt->status !== 'approved')
                                                 <div class="mb-2 rounded-lg border border-dashed border-slate-300 bg-white p-2">
                                                     <p class="mb-1 text-xs font-medium text-slate-600">Makbuz yükle</p>
-                                                    <div id="receipt-drop-zone" class="relative flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-2 py-3 text-center transition hover:border-emerald-400 hover:bg-emerald-50/30"
-                                                         onclick="document.getElementById('receipt_file_input').click()">
+                                                    <div id="muni-receipt-drop-zone" class="relative flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 px-2 py-3 text-center transition hover:border-emerald-400 hover:bg-emerald-50/30"
+                                                         onclick="document.getElementById('muni-receipt_file_input').click()">
                                                         <svg class="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
                                                         </svg>
                                                         <p class="text-xs text-slate-500"><span class="font-semibold text-emerald-700">Dosya seç</span></p>
                                                     </div>
-                                                    <input type="file" id="receipt_file_input" name="receipt_file"
+                                                    <input type="file" id="muni-receipt_file_input" name="receipt_file"
                                                            accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png,image/jpg" class="sr-only">
-                                                    <div id="receipt-file-preview" class="mt-1.5 hidden items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
+                                                    <div id="muni-receipt-file-preview" class="mt-1.5 hidden items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs text-emerald-800">
                                                         <svg class="h-3.5 w-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                                        <span id="receipt-file-name" class="truncate"></span>
-                                                        <button type="button" id="receipt-file-clear" class="ml-auto text-[10px] font-medium text-rose-600 hover:underline">Kaldır</button>
+                                                        <span id="muni-receipt-file-name" class="truncate"></span>
+                                                        <button type="button" id="muni-receipt-file-clear" class="ml-auto text-[10px] font-medium text-rose-600 hover:underline">Kaldır</button>
                                                     </div>
                                                 </div>
                                                 @endif
-                                                <button type="submit" id="receipt-submit-btn"
+                                                <button type="submit" id="muni-receipt-submit-btn"
                                                         class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-800 py-2.5 text-sm font-medium text-white hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60">
                                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                                     Makbuz Onayla
@@ -944,15 +980,6 @@
                 @else
                                     {{-- ===== INSTITUTION: ÜST YAZI (Step 1) ===== --}}
 
-                                    {{-- Belediye admin/super-admin: Ön Kazı taslak düzenleme butonu --}}
-                                    @if(auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']))
-                                        <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" target="_blank"
-                                           class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
-                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                            ✏️ Taslağı Aç & Bu Başvuruya Özel Düzenle (Word)
-                                        </a>
-                                    @endif
-
                                     {{-- DURUM: draft/submitted (ön kazı henüz oluşturulmamış) --}}
                                     @if(in_array($st, ['draft', 'submitted']))
 
@@ -971,10 +998,10 @@
                                                 📄 Üst Yazı (Dilekçe) Görüntüle
                                             </a>
 
-                                            {{-- KURAL: Alt kurum Edit butonunu YALNIZCA taslak/gönderildi durumunda görür.
-                                                 Ön Kazı işleme alınmışsa (pre_approved vb.) edit butonu GİZLENİR;
-                                                 belediye reddettiyse ($belediyeReddetti) tekrar açılır. --}}
-                                            @if($canEditTemplate && (!$onKaziIslendi || $belediyeReddetti))
+                                            {{-- KURAL: Alt kurum Edit butonunu YALNIZCA DRAFT durumunda görür (GÖREV 2);
+                                                 submitted/in_progress/approval statülerinde YALNIZCA "Üst Yazı Görüntüle" PDF görür.
+                                                 Ön Kazı işleme alınmışsa ($onKaziIslendi) veya belediye reddettiyse güncellenir. --}}
+                                            @if($st === 'draft' && $canEditTemplate && (!$onKaziIslendi || $belediyeReddetti))
                                             <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
                                                class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
                                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>

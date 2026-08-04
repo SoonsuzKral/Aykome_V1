@@ -680,6 +680,41 @@ class ApplicationsController extends Controller
         return back()->with('success', $message);
     }
 
+    /**
+     * GÖREV 4: Kurum, saha kazı çalışmalarını tamamladığını bildirir.
+     * → durum 'field_work' (Saha İşi). Yalnızca alt kurum personeli; ön kazı izni verilmiş başvurularda.
+     */
+    public function completeFieldWork(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless(
+            ! $request->user()->isMunicipalityPersonel() && $application->institution_id,
+            403,
+            'Bu işlem yalnızca kurum tarafından gerçekleştirilebilir.'
+        );
+
+        abort_unless(
+            \App\Enums\ApplicationStatus::tryFrom($application->status)?->label() !== null
+                && in_array($application->status, ['pre_excavation_approved', 'pre_approved', 'measurement_done', 'approved'], true),
+            422,
+            'Başvuru bu aşamada saha kazı tamamlamaya uygun değil.'
+        );
+
+        $application->update([
+            'status' => \App\Enums\ApplicationStatus::FieldWork->value,
+        ]);
+
+        AuditLogger::log(
+            'application.field_work_completed',
+            "Kurum saha kazı çalışmalarını tamamladı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '✅ Saha kazı çalışmaları tamamlandı olarak işaretlendi.');
+    }
+
     public function downloadPrePermit(Application $application)
     {
         $this->authorize('view', $application);
@@ -1280,7 +1315,9 @@ class ApplicationsController extends Controller
         $this->authorize('update', $application);
 
         $request->validate([
-            'module' => 'required|string|in:tahakkuk,metraj,ruhsat,taahhutname,pre_permit',
+            // GÖREV 5: "İmzalı Yükle" (signed-doc-upload) bileşeninin gönderdiği tüm modül anahtarları.
+            // E-imza data-pdf-type ile birebir aynı sette olmalı; aksi halde upload 422 ile reddedilir.
+            'module' => 'required|string|in:tahakkuk,metraj,ruhsat,taahhutname,pre_permit,makbuz,cover_letter_signed,on_kazi_signed,metraj_signed,taahhutname_imzali,ruhsat_teslim',
             'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
         ]);
 
