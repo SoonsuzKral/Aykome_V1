@@ -681,8 +681,8 @@ class ApplicationsController extends Controller
     }
 
     /**
-     * GÖREV 4: Kurum, saha kazı çalışmalarını tamamladığını bildirir.
-     * → durum 'field_work' (Saha İşi). Yalnızca alt kurum personeli; ön kazı izni verilmiş başvurularda.
+     * KATI ADIM KAPISI: Kurum, saha kazı çalışmalarını tamamladığını bildirir (Ping).
+     * → durum 'excavation_completed'. İLERİ MODÜLLER AÇILMAZ; belediye manuel olarak açar.
      */
     public function completeFieldWork(Request $request, Application $application): RedirectResponse
     {
@@ -699,23 +699,215 @@ class ApplicationsController extends Controller
             : (string) $application->status;
 
         abort_unless(
-            in_array($currentStatus, ['pre_excavation_approved', 'pre_approved', 'measurement_done', 'approved'], true),
+            in_array($currentStatus, ['pre_excavation_approved', 'pre_approved'], true),
             422,
             'Başvuru bu aşamada saha kazı tamamlamaya uygun değil.'
         );
 
         $application->update([
-            'status' => \App\Enums\ApplicationStatus::FieldWork->value,
+            'status' => \App\Enums\ApplicationStatus::ExcavationCompleted,
         ]);
 
         AuditLogger::log(
-            'application.field_work_completed',
+            'application.excavation_completed',
             "Kurum saha kazı çalışmalarını tamamladı: {$application->application_no}",
             'Application',
             $application->id
         );
 
-        return back()->with('success', '✅ Saha kazı çalışmaları tamamlandı olarak işaretlendi.');
+        return back()->with('success', '✅ Saha kazı çalışmaları tamamlandı. Belediye Saha Metraj modülünü açacak.');
+    }
+
+    /**
+     * KATI ADIM KAPISI: Belediye "KAZI METRAJ MODÜLÜNÜ AÇ" tuşuna basar.
+     * excavation_completed → metrage_pending (yalnızca belediye, yalnızca alt kurum).
+     */
+    public function openMetraj(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'excavation_completed', 422, 'Saha Metraj modülü bu aşamada açılamaz.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::MetragePending]);
+
+        AuditLogger::log(
+            'application.metrage_opened',
+            "Belediye Saha Metraj modülünü açtı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '🔓 Saha Metraj modülü açıldı.');
+    }
+
+    /**
+     * KATI ADIM KAPISI: Belediye metraj formunu doldurup Kuruma gönderir.
+     * Statü metrage_pending kalır; kurum inceleyecektir.
+     */
+    public function sendMetrageToInstitution(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(in_array($currentStatus, ['metrage_pending', 'metrage_revision'], true), 422, 'Metraj henüz kuruma gönderilemez.');
+
+        // Statü değişmez; kurum inceleyeceği aşamada beklemede kalır.
+        $application->update(['status' => \App\Enums\ApplicationStatus::MetragePending]);
+
+        AuditLogger::log(
+            'application.metrage_sent_institution',
+            "Belediye Saha Metrajı kurum onayına gönderdi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', 'Metraj kurum onayına gönderildi.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / PİNG-PONG: Kurum metrajı onaylar → metrage_approved.
+     * Belediyenin tepesindeki "TAHAKKUK AÇ" kilidi böylece belirir.
+     */
+    public function approveMetrage(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless(! $request->user()->isMunicipalityPersonel() && $application->institution_id, 403, 'Bu işlem kurum tarafından yapılır.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(in_array($currentStatus, ['metrage_pending', 'metrage_revision'], true), 422, 'Metraj şu anda onaylanamaz.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::MetrageApproved]);
+
+        AuditLogger::log(
+            'application.metrage_approved',
+            "Kurum Saha Metrajı onayladı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '✅ Kazı metraj formu onaylandı.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / PİNG-PONG: Kurum metrajı kabul etmez, belediyeye geri gönderir.
+     * → metrage_revision (belediye yeniden düzenler). Zorunlu açıklama timeline'a işlenir.
+     */
+    public function rejectMetrage(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless(! $request->user()->isMunicipalityPersonel() && $application->institution_id, 403, 'Bu işlem kurum tarafından yapılır.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(in_array($currentStatus, ['metrage_pending', 'metrage_revision'], true), 422, 'Metraj şu anda geri gönderilemez.');
+
+        $request->validate([
+            'reject_note' => ['required', 'string', 'max:1000'],
+        ]);
+        $note = trim($request->input('reject_note'));
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::MetrageRevision]);
+
+        $application->timelineLogs()->create([
+            'user_id' => $request->user()->id,
+            'action' => 'application.metrage_rejected',
+            'meta' => ['note' => $note],
+            'message' => 'Alt Kurum metrajı şu nedenle kabul etmedi: '.$note,
+        ]);
+
+        AuditLogger::log(
+            'application.metrage_rejected',
+            "Kurum metrajı reddetti: {$application->application_no} — {$note}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '❌ Metraj belediyeye geri gönderildi (revizyon).');
+    }
+
+    /**
+     * KATI ADIM KAPISI: Belediye "TAHAKKUK VE MAKBUZ MODÜLÜNÜ AÇ" tuşuna basar.
+     * metrage_approved → tahakkuk_pending (Step 4 iki tarafa açılır).
+     */
+    public function openTahakkuk(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'metrage_approved', 422, 'Tahakkuk & Makbuz modülü bu aşamada açılamaz.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::TahakkukPending]);
+
+        AuditLogger::log(
+            'application.tahakkuk_opened',
+            "Belediye Tahakkuk & Makbuz modülünü açtı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '🔓 Tahakkuk & Makbuz modülü açıldı.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / SON YETKİ: Belediye "RUHSAT MODÜLÜNÜ AÇ" tuşuna basar.
+     * payment_completed → licensed + ruhsat PDF üretilir (Step 6 render edilir).
+     */
+    public function openRuhsat(Request $request, Application $application, LicenseService $licenseService): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(in_array($currentStatus, ['payment_completed', 'approved'], true), 422, 'Ruhsat modülü bu aşamada açılamaz.');
+
+        $result = $licenseService->generateExcavationPermitPdf($application);
+
+        $application->update([
+            'status' => \App\Enums\ApplicationStatus::Licensed,
+            'licensed_at' => now(),
+            'license_document_path' => $result['path'] ?? $application->license_document_path,
+            'approval_status' => 'licensed',
+        ]);
+
+        AuditLogger::log(
+            'application.ruhsat_opened',
+            "Belediye Ruhsat modülünü açtı, ruhsat PDF üretildi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '🔓 Ruhsat modülü açıldı. Ruhsat PDF üretildi.');
     }
 
     public function downloadPrePermit(Application $application)
@@ -1589,6 +1781,12 @@ class ApplicationsController extends Controller
             ApplicationStatus::Priced->value => ['label' => 'Fiyatlandı', 'class' => 'bg-indigo-100 text-indigo-700'],
             ApplicationStatus::AwaitingPayment->value => ['label' => 'Ödeme bekliyor', 'class' => 'bg-amber-100 text-amber-700'],
             ApplicationStatus::ReceiptPending->value => ['label' => 'Makbuz bekliyor', 'class' => 'bg-orange-100 text-orange-700'],
+            ApplicationStatus::ExcavationCompleted->value => ['label' => 'Kazı tamamlandı', 'class' => 'bg-blue-100 text-blue-700'],
+            ApplicationStatus::MetragePending->value => ['label' => 'Metraj açıldı', 'class' => 'bg-sky-100 text-sky-700'],
+            ApplicationStatus::MetrageRevision->value => ['label' => 'Metraj revizyon', 'class' => 'bg-rose-100 text-rose-700'],
+            ApplicationStatus::MetrageApproved->value => ['label' => 'Metraj onaylı', 'class' => 'bg-emerald-100 text-emerald-700'],
+            ApplicationStatus::TahakkukPending->value => ['label' => 'Tahakkuk & makbuz açıldı', 'class' => 'bg-indigo-100 text-indigo-700'],
+            ApplicationStatus::PaymentCompleted->value => ['label' => 'Ödeme tamamlandı', 'class' => 'bg-teal-100 text-teal-700'],
             ApplicationStatus::Approved->value => ['label' => 'Onaylandı', 'class' => 'bg-emerald-100 text-emerald-700'],
             ApplicationStatus::Licensed->value => ['label' => 'Ruhsatlı', 'class' => 'bg-green-100 text-green-700'],
             ApplicationStatus::FieldWork->value => ['label' => 'Saha işi', 'class' => 'bg-blue-100 text-blue-700'],

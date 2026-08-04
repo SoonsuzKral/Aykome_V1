@@ -43,6 +43,12 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
 
         Route::match(['GET', 'POST'], 'applications/{application}/approve-price', [ApplicationsController::class, 'approvePrice'])->name('applications.approve-price');
         Route::post('applications/{application}/complete-field-work', [ApplicationsController::class, 'completeFieldWork'])->name('applications.complete-field-work');
+        Route::post('applications/{application}/open-metraj',           [ApplicationsController::class, 'openMetraj']           )->name('applications.open-metraj');
+        Route::post('applications/{application}/send-metrage',          [ApplicationsController::class, 'sendMetrageToInstitution'])->name('applications.send-metrage');
+        Route::post('applications/{application}/approve-metrage',       [ApplicationsController::class, 'approveMetrage']       )->name('applications.approve-metrage');
+        Route::post('applications/{application}/reject-metrage',        [ApplicationsController::class, 'rejectMetrage']        )->name('applications.reject-metrage');
+        Route::post('applications/{application}/open-tahakkuk',         [ApplicationsController::class, 'openTahakkuk']         )->name('applications.open-tahakkuk');
+        Route::post('applications/{application}/open-ruhsat',           [ApplicationsController::class, 'openRuhsat']           )->name('applications.open-ruhsat');
         Route::match(['GET', 'POST'], 'applications/{application}/approve-receipt', [ApplicationsController::class, 'approveReceipt'])->name('applications.approve-receipt');
         Route::post('applications/{application}/reject-receipt', [ApplicationsController::class, 'rejectReceipt'])->name('applications.reject-receipt');
         Route::post('applications/{application}/field-tasks', [ApplicationsController::class, 'transfer'])->name('applications.field-tasks.store');

@@ -25,6 +25,12 @@
             'priced'                 => ['label' => 'Fiyatlandı',             'class' => 'bg-indigo-100 text-indigo-700'],
             'awaiting_payment'       => ['label' => 'Ödeme Bekliyor',         'class' => 'bg-amber-100 text-amber-700'],
             'receipt_pending'        => ['label' => 'Makbuz Bekliyor',        'class' => 'bg-orange-100 text-orange-700'],
+            'excavation_completed'   => ['label' => 'Kazı Tamamlandı',        'class' => 'bg-blue-100 text-blue-700'],
+            'metrage_pending'        => ['label' => 'Metraj Açıldı',          'class' => 'bg-sky-100 text-sky-700'],
+            'metrage_revision'       => ['label' => 'Metraj Revizyon',        'class' => 'bg-rose-100 text-rose-700'],
+            'metrage_approved'       => ['label' => 'Metraj Onaylı',          'class' => 'bg-emerald-100 text-emerald-700'],
+            'tahakkuk_pending'       => ['label' => 'Tahakkuk & Makbuz Açıldı','class' => 'bg-indigo-100 text-indigo-700'],
+            'payment_completed'      => ['label' => 'Ödeme Tamamlandı',       'class' => 'bg-teal-100 text-teal-700'],
             'approved'               => ['label' => 'Onaylandı',              'class' => 'bg-emerald-100 text-emerald-700'],
             'licensed'               => ['label' => 'Ruhsatlı',               'class' => 'bg-green-100 text-green-700'],
             'field_work'             => ['label' => 'Saha İşi',               'class' => 'bg-blue-100 text-blue-700'],
@@ -87,6 +93,77 @@
                class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50">← Listeye dön</a>
         </div>
     </div>
+
+    {{-- ══════════ GÖREV 1: BAŞVURU TEPESİ BELEDİYE MANUEL YETKİ KİLİT MEKANİZMASI (Alert Bar) ══════════ --}}
+    {{-- Yalnızca alt kurum (taşeron) başvurularında. Vatandaş/Merkez akışı baypas edilir. --}}
+    @if($application->isInstitutionApplication())
+        @php
+            $alertViewerIsMuni = auth()->user()->isMunicipalityPersonel();
+            $alertKaStage = $st;
+        @endphp
+        @if(in_array($alertKaStage, ['excavation_completed', 'metrage_pending', 'metrage_revision', 'metrage_approved', 'tahakkuk_pending', 'payment_completed', 'approved', 'pre_excavation_approved', 'pre_approved']))
+        <div class="mb-6 rounded-2xl border border-blue-300 bg-gradient-to-r from-blue-50 to-sky-50 p-4 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-start gap-3">
+                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700 text-lg">🔐</span>
+                    <div>
+                        @if($alertKaStage === 'excavation_completed')
+                            <p class="text-sm font-bold text-blue-900">Kurum Kazı Çalışmalarını Tamamladı, Saha Metraj Aşamasında</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Metraj modülü kapalıdır. Modül ancak belediye yetkilisinin kilit açmasıyla görüntülenir.</p>
+                        @elseif($alertKaStage === 'metrage_pending')
+                            <p class="text-sm font-bold text-blue-900">Saha Metraj Modülü Açık</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Belediye metrajı doldurup kuruma gönderecek; kurum onayı bekleniyor.</p>
+                        @elseif($alertKaStage === 'metrage_revision')
+                            <p class="text-sm font-bold text-blue-900">Kurum Metrajı Kabul Etmedi — Revizyon Gerekli</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Belediye metrajı yeniden düzenleyip tekrar göndermelidir.</p>
+                        @elseif($alertKaStage === 'metrage_approved')
+                            <p class="text-sm font-bold text-blue-900">Kurum Saha Metrajını Onayladı</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Tahakkuk &amp; Makbuz modülü kapalıdır; belediye kilidi ile açılacaktır.</p>
+                        @elseif($alertKaStage === 'tahakkuk_pending' || $alertKaStage === 'payment_completed')
+                            <p class="text-sm font-bold text-blue-900">Tahakkuk &amp; Makbuz Aşaması</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Belediye makbuz bilgilerini doldurup onaylar; Ruhsat modülü belediye kilidi ile açılacaktır.</p>
+                        @elseif($alertKaStage === 'approved')
+                            <p class="text-sm font-bold text-blue-900">Ödeme Tamamlandı</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Ruhsat modülü kapalıdır; belediye kilidi ile açılacaktır.</p>
+                        @else
+                            <p class="text-sm font-bold text-blue-900">Ön Kazı Onaylı — Kazı Yapılabilir</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Kurum kazı çalışmalarını tamamlayınca belediye ileri modülleri manuel açacaktır.</p>
+                        @endif
+                    </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    {{-- BELEDİYE: manuel kilit açma butonları --}}
+                    @if($alertViewerIsMuni && $alertKaStage === 'excavation_completed')
+                        <form method="POST" action="{{ route('admin.applications.open-metraj', $application) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 KAZI METRAJ MODÜLÜNÜ AÇ</button>
+                        </form>
+                    @endif
+                    @if($alertViewerIsMuni && $alertKaStage === 'metrage_approved')
+                        <form method="POST" action="{{ route('admin.applications.open-tahakkuk', $application) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 TAHAKKUK VE MAKBUZ MODÜLÜNÜ AÇ</button>
+                        </form>
+                    @endif
+                    @if($alertViewerIsMuni && $alertKaStage === 'payment_completed')
+                        <form method="POST" action="{{ route('admin.applications.open-ruhsat', $application) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 RUHSAT MODÜLÜNÜ AÇ</button>
+                        </form>
+                    @endif
+                    {{-- KURUM: saha kazı tamamla (Ping) --}}
+                    @if(!$alertViewerIsMuni && in_array($alertKaStage, ['pre_excavation_approved', 'pre_approved']))
+                        <form method="POST" action="{{ route('admin.applications.complete-field-work', $application) }}"
+                              onsubmit="return confirm('Saha kazı çalışmalarınızı tamamladığınızı onaylıyor musunuz?');">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-emerald-700">✅ Saha Kazı Çalışmalarını Tamamladım</button>
+                        </form>
+                    @endif
+                </div>
+            </div>
+        </div>
+        @endif
+    @endif
 
     <div class="grid gap-6 lg:grid-cols-3">
         {{-- LEFT COL --}}
@@ -723,42 +800,6 @@
 
         {{-- RIGHT SIDEBAR --}}
         <div class="space-y-4">
-            {{-- BAŞVURU AŞAMALARI (Application Actions / Status) — GÖREV 4 --}}
-            @php
-                $appActionsIsMuni = auth()->user()->isMunicipalityPersonel();
-                $appActionsAltKurum = !$appActionsIsMuni && !empty($application->institution_id);
-                $appActionsSahaAktif = in_array($st, ['pre_excavation_approved', 'pre_approved', 'measurement_done', 'approved']);
-                $appActionsSahaBitti = in_array($st, ['field_work', 'completed']);
-            @endphp
-            @if($appActionsAltKurum)
-            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div class="mb-2 flex items-center gap-2">
-                    <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-50 to-orange-50 text-sm">🚧</span>
-                    <div>
-                        <h2 class="text-xs font-bold uppercase tracking-wide text-slate-700">Başvuru Aşamaları</h2>
-                        <p class="text-[10px] text-slate-400">Application Status / Actions</p>
-                    </div>
-                </div>
-                @if($appActionsSahaAktif)
-                    <form method="POST" action="{{ route('admin.applications.complete-field-work', $application) }}">
-                        @csrf
-                        <button type="submit" onclick="return confirm('Saha kazı çalışmalarınızı tamamladığınızı onaylıyor musunuz?')"
-                                class="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 text-sm shadow-sm transition">
-                            ✅ Saha Kazı Çalışmalarını Tamamladım
-                        </button>
-                    </form>
-                @elseif($appActionsSahaBitti)
-                    <span class="inline-flex w-full items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-                        ✅ Saha kazı çalışmaları tamamlandı.
-                    </span>
-                @else
-                    <span class="inline-flex w-full items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                        ⏳ Saha kazı için uygun aşama değil.
-                    </span>
-                @endif
-            </div>
-            @endif
-
             {{-- Workflow Step Navigation — Collapsible Accordion --}}
             @php
                 $isMunicipality = $application->institution?->is_municipality ?? false;
@@ -1171,7 +1212,9 @@
                                     {{-- INSTITUTION STEP 3: SAHA METRAJ --}}
                                     {{-- KURAL: "Zemin Satırlarını Düzenle" butonu ALT KURUM için KESİNLİKLE GİZLİ --}}
                                     {{-- UYARI: Bu kartta ASLA tahakkuk formu, makbuz veya tahsilat no bilgisi İSTENMEZ; onlar STEP 4'tedir. --}}
-                                    @if($isCurrent || $isPast)
+                                    {{-- GÖREV 2 KATI STATÜ DUVARI: excavation_completed ve öncesinde kart TAMAMEN render EDİLMEZ;
+                                         modül ancak belediye metrage_pending kilidini açınca görünür. --}}
+                                    @if(($isCurrent || $isPast) && in_array($st, ['metrage_pending', 'metrage_revision', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']))
                                         {{-- Metraj (PDF) Görüntüle / İndir — her iki taraf --}}
                                         @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'approved', 'licensed', 'completed']))
                                         <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
@@ -1181,8 +1224,29 @@
                                         </a>
                                         @endif
 
-                                        {{-- Alt kuruma özel: Kazı Metrajını Onaylıyorum butonu --}}
-                                        @if($isUserInstitution && $isCurrent)
+                                        {{-- GÖREV 3 PİNG-PONG Kontrol Paneli (Alt kurum / taşeron): onay + red (zorunlu not) --}}
+                                        {{-- Vatandaş/Merkez (isInstitution=false) için eski akış (approve-price) korunur. --}}
+                                        @if($isUserInstitution && $isCurrent && $application->isInstitutionApplication() && in_array($st, ['metrage_pending', 'metrage_revision']))
+                                        <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 p-3 space-y-2 mb-2">
+                                            <p class="text-xs font-semibold text-indigo-800">📋 Metraj Onay Kontrolü (Kurum)</p>
+                                            <form method="POST" action="{{ route('admin.applications.approve-metrage', $application) }}">
+                                                @csrf
+                                                <button type="submit" onclick="return confirm('Kazı metraj formunu onaylıyor musunuz?')"
+                                                        class="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 text-sm font-bold text-white shadow-md hover:bg-emerald-700 transition">
+                                                    ✅ Kazı Metraj Formunu Onaylıyorum
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ route('admin.applications.reject-metrage', $application) }}" class="space-y-1">
+                                                @csrf
+                                                <textarea name="reject_note" rows="2" required placeholder="Reddetme gerekçesi (zorunlu)..."
+                                                          class="block w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-rose-400 focus:outline-none"></textarea>
+                                                <button type="submit" onclick="return confirm('Metrajı belediyeye geri gönderiyorsunuz. Emin misiniz?')"
+                                                        class="w-full rounded-lg bg-rose-600 py-2.5 text-sm font-bold text-white hover:bg-rose-700 transition">
+                                                    ❌ ONAYLAMIYORUM / Belediyeye Geri Gönder
+                                                </button>
+                                            </form>
+                                        </div>
+                                        @elseif($isUserInstitution && $isCurrent && !$application->isInstitutionApplication())
                                         <form method="POST" action="{{ route('admin.applications.approve-price', $application) }}" class="mb-2">
                                             @csrf
                                             <button type="submit" onclick="return confirm('Kazı metrajını onaylıyor musunuz?')"
@@ -1206,10 +1270,17 @@
                                             @endif
 
                                             @if(($can['approve_price'] ?? false) && auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']))
+                                            @if($application->isInstitutionApplication())
+                                            <form method="POST" action="{{ route('admin.applications.send-metrage', $application) }}" class="mb-2">
+                                                @csrf
+                                                <button type="submit" class="w-full rounded-lg bg-emerald-700 py-2.5 text-sm font-medium text-white hover:bg-emerald-800">Metrajı Kuruma Gönder (Onay İçin)</button>
+                                            </form>
+                                            @else
                                             <form method="POST" action="{{ route('admin.applications.approve-price', $application) }}" class="mb-2">
                                                 @csrf
                                                 <button type="submit" class="w-full rounded-lg bg-emerald-700 py-2.5 text-sm font-medium text-white hover:bg-emerald-800">Metrajı Onayla &amp; Kuruma Gönder</button>
                                             </form>
+                                            @endif
                                             @endif
 
                                             @if(($can['transfer'] ?? false) && $fieldUsers->isNotEmpty() && $isCurrent)
@@ -1307,7 +1378,9 @@
                                     {{-- KURAL: Alt kurum için bu kart YALNIZCA tahakkuk oluşturulduysa (state tahakkuk bekliyorsa) görünür --}}
                                     {{-- BÜYÜK YASA: Bu kartta ASLA taahhütname PDF / e-imza / İşlem Tabı-Taahhütname bulunmaz; onlar STEP 5'tedir. --}}
                                     @php
-                                        $tahakkukGeldi = in_array($st, ['measurement_done', 'awaiting_payment', 'receipt_pending', 'approved', 'licensed', 'completed']);
+                                        // GÖREV 2 KATI STATÜ DUVARI: Tahakkuk & Makbuz modülü ancak belediye
+                                        // open-tahakkuk kilidini açınca (tahakkuk_pending) ve sonrasında görünür.
+                                        $tahakkukGeldi = in_array($st, ['tahakkuk_pending', 'accrued', 'approved', 'payment_completed', 'licensed', 'field_work', 'completed']);
                                     @endphp
                                     @if($isUserInstitution && !$tahakkukGeldi)
                                         {{-- Alt kurum: Tahakkuk henüz hazır değil — bu adım gizli (d-none eşdeğeri) --}}
@@ -1400,11 +1473,14 @@
                                 @php
                                     $makbuzlarDoluStep6 = $application->ztb_receipt_info && $application->deposit_receipt_info;
                                     $isLicensedStep6 = $st === 'licensed';
+                                    // GÖREV 2 KATI STATÜ DUVARI: Ruhsat modülü ancak belediye open-ruhsat
+                                    // kilidini açıp licensed yapınca ve sonrasında görünür.
+                                    $ruhsatAdimiAcik = in_array($st, ['licensed', 'field_work', 'completed']);
                                 @endphp
 
                                 {{-- KURAL: Alt kurum Ruhsat adımını asla düzenleyemez. Edit butonu gizli. --}}
                                 {{-- Belediye yöneticisi ruhsatı düzenleyebilir --}}
-                                @if(!$isUserInstitution && auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']))
+                                @if($ruhsatAdimiAcik && !$isUserInstitution && auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']))
                                     <a href="{{ route('admin.applications.edit-document', [$application, 'ruhsat']) }}" target="_blank"
                                        class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -1414,6 +1490,8 @@
 
                                 @if($isCurrent || $isPast)
                                     @if($makbuzlarDoluStep6 || $isLicensedStep6)
+{{-- GÖREV 2 KATI STATÜ DUVARI: licensed olmadan bu içerik gösterilmez --}}
+@if($ruhsatAdimiAcik)
                                         <div class="mt-2 mb-2">
                                         <a target="_blank" href="{{ route('admin.applications.pdf.ruhsat', $application) }}" class="flex items-center justify-center gap-2 w-full bg-sky-600 hover:bg-sky-700 text-white text-[14px] md:text-[15px] font-bold py-3.5 px-4 rounded-xl shadow-md transition-colors text-center border-0 leading-tight">
                                             🖨️ AÇIM RUHSATI (FR-290) BELGESİNİ İNDİR / YAZDIR
@@ -1439,6 +1517,7 @@
                                             </a>
                                         </div>
                                         @endif
+                                    @endif
                                     @else
                                         {{-- Makbuz dolmamışsa yalnızca belediye doldurur --}}
                                         @if(!$isUserInstitution)

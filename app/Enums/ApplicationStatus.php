@@ -14,6 +14,13 @@ enum ApplicationStatus: string
     case Priced = 'priced';
     case AwaitingPayment = 'awaiting_payment';
     case ReceiptPending = 'receipt_pending';
+    // KATI ADIM KAPISI ara durumları (belediye yetkisiyle manuel modül açma)
+    case ExcavationCompleted = 'excavation_completed';
+    case MetragePending = 'metrage_pending';
+    case MetrageRevision = 'metrage_revision';
+    case MetrageApproved = 'metrage_approved';
+    case TahakkukPending = 'tahakkuk_pending';
+    case PaymentCompleted = 'payment_completed';
     case Approved = 'approved';
     case Rejected = 'rejected';
     case Licensed = 'licensed';
@@ -35,6 +42,12 @@ enum ApplicationStatus: string
             self::Priced                 => 'Fiyatlandı',
             self::AwaitingPayment        => 'Ödeme Bekliyor',
             self::ReceiptPending         => 'Makbuz Bekliyor',
+            self::ExcavationCompleted    => 'Kazı Tamamlandı',
+            self::MetragePending         => 'Metraj Açıldı',
+            self::MetrageRevision        => 'Metraj Revizyon',
+            self::MetrageApproved        => 'Metraj Onaylı',
+            self::TahakkukPending        => 'Tahakkuk & Makbuz Açıldı',
+            self::PaymentCompleted       => 'Ödeme Tamamlandı',
             self::Approved               => 'Onaylandı',
             self::Rejected               => 'Reddedildi',
             self::Licensed               => 'Ruhsatlı',
@@ -55,8 +68,14 @@ enum ApplicationStatus: string
                 'pre_approved',
                 'pre_excavation_approved',
                 'measurement_done' => ['step' => 2, 'label' => 'Kazı Metraj Bilgi',        'icon' => '📐', 'module' => 'metraj'],
+                'excavation_completed',
+                'metrage_pending',
+                'metrage_revision',
+                'metrage_approved' => ['step' => 2, 'label' => 'Kazı Metraj Bilgi',        'icon' => '📐', 'module' => 'metraj'],
                 'accrued',
                 'approved'         => ['step' => 3, 'label' => 'Taahhütname İmza',         'icon' => '✍️', 'module' => 'taahhut'],
+                'tahakkuk_pending',
+                'payment_completed' => ['step' => 1, 'label' => 'Tahakkuk & Tahsilat Fişi', 'icon' => '🧾', 'module' => 'tahakkuk'],
                 'licensed',
                 'field_work',
                 'completed'        => ['step' => 4, 'label' => 'Ruhsat Çıktısı',           'icon' => '📜', 'module' => 'ruhsat'],
@@ -73,13 +92,20 @@ enum ApplicationStatus: string
             'pre_approved',
             'pre_excavation_approved'
                                  => ['step' => 2, 'label' => 'Ön Kazı',               'icon' => '⛏️', 'module' => 'on-kazi'],
+            'excavation_completed'
+                                 => ['step' => 2, 'label' => 'Ön Kazı',               'icon' => '⛏️', 'module' => 'on-kazi'],
+            'metrage_pending',
+            'metrage_revision',
+            'metrage_approved',
             'measurement_done',
             'priced',
             'awaiting_payment',
             'receipt_pending'    => ['step' => 3, 'label' => 'Saha Metraj',           'icon' => '📐', 'module' => 'metraj'],
             // Tahakkuk & Makbuz: belediye fiyatlandırdı / makbuz beklentisi
+            'tahakkuk_pending',
             'accrued',
-            'approved'           => ['step' => 4, 'label' => 'Tahakkuk & Makbuz',     'icon' => '🧾', 'module' => 'tahakkuk'],
+            'approved',
+            'payment_completed'  => ['step' => 4, 'label' => 'Tahakkuk & Makbuz',     'icon' => '🧾', 'module' => 'tahakkuk'],
             // Taahhütname imzası (belediye/kurum) — ruhsat öncesi son hazırlık adımı
             'licensed',
             'field_work',
