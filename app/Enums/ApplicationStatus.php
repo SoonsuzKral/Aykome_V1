@@ -22,6 +22,13 @@ enum ApplicationStatus: string
     case MetrageRevision = 'metrage_revision';
     case MetrageApproved = 'metrage_approved';
     case TahakkukPending = 'tahakkuk_pending';
+    // Belediye imzalı tahakkuk/makbuzu "Kuruma Gönder" dediğinde geçilir → alt kurum Step 4'ü ilk kez burada görür
+    case TahakkukSent = 'tahakkuk_sent';
+    // GÖREV 5: Belediye "TAAHHÜTNAME MODÜLÜNÜ AÇ" dediğinde taahhutname_pending; "Kuruma Gönder" dediğinde taahhutname_sent
+    case TaahhutnamePending = 'taahhutname_pending';
+    case TaahhutnameSent = 'taahhutname_sent';
+    // GÖREV 4: Belediye ruhsat PDF'i üretip (licensed=hazırlık) "İmzala & Kuruma Gönder" dediğinde ruhsat_sent → kurum Step 6'yı burada görür
+    case RuhsatSent = 'ruhsat_sent';
     case PaymentCompleted = 'payment_completed';
     case Approved = 'approved';
     case Rejected = 'rejected';
@@ -50,6 +57,10 @@ enum ApplicationStatus: string
             self::MetrageRevision        => 'Metraj Revizyon',
             self::MetrageApproved        => 'Metraj Onaylı',
             self::TahakkukPending        => 'Tahakkuk & Makbuz Açıldı',
+            self::TahakkukSent           => 'Tahakkuk & Makbuz Kurumda',
+            self::TaahhutnamePending     => 'Taahhütname Açıldı',
+            self::TaahhutnameSent        => 'Taahhütname Kurumda',
+            self::RuhsatSent             => 'Ruhsat Kuruma Gönderildi',
             self::PaymentCompleted       => 'Ödeme Tamamlandı',
             self::Approved               => 'Onaylandı',
             self::Rejected               => 'Reddedildi',
@@ -77,11 +88,15 @@ enum ApplicationStatus: string
                 'metrage_revision',
                 'metrage_approved' => ['step' => 2, 'label' => 'Kazı Metraj Bilgi',        'icon' => '📐', 'module' => 'metraj'],
                 'accrued',
-                'approved'         => ['step' => 3, 'label' => 'Taahhütname İmza',         'icon' => '✍️', 'module' => 'taahhut'],
+                'approved',
+                'taahhutname_pending',
+                'taahhutname_sent' => ['step' => 3, 'label' => 'Taahhütname İmza',         'icon' => '✍️', 'module' => 'taahhut'],
                 'tahakkuk_pending',
+                'tahakkuk_sent',
                 'payment_completed' => ['step' => 1, 'label' => 'Tahakkuk & Tahsilat Fişi', 'icon' => '🧾', 'module' => 'tahakkuk'],
                 'licensed',
                 'field_work',
+                'ruhsat_sent',
                 'completed'        => ['step' => 4, 'label' => 'Ruhsat Çıktısı',           'icon' => '📜', 'module' => 'ruhsat'],
                 'cancelled'        => ['step' => 0, 'label' => 'İptal Edildi',             'icon' => '❌', 'module' => ''],
                 default            => ['step' => 0, 'label' => 'Beklemede',                 'icon' => '⏳', 'module' => ''],
@@ -107,12 +122,20 @@ enum ApplicationStatus: string
             'awaiting_payment',
             'receipt_pending'    => ['step' => 3, 'label' => 'Saha Metraj',           'icon' => '📐', 'module' => 'metraj'],
             // Tahakkuk & Makbuz: belediye fiyatlandırdı / makbuz beklentisi
+            // tahakkuk_sent: belediye imzalı evrakı kuruma gönderdi → alt kurum Step 4'ü ilk kez burada görür
             'tahakkuk_pending',
+            'tahakkuk_sent',
             'accrued',
             'approved',
             'payment_completed'  => ['step' => 4, 'label' => 'Tahakkuk & Makbuz',     'icon' => '🧾', 'module' => 'tahakkuk'],
-            // Taahhütname imzası (belediye/kurum) — ruhsat öncesi son hazırlık adımı
+            // Taahhütname imzası (GÖREV 5): belediye modülü açar (taahhutname_pending, kuruma gizli),
+            // "Kuruma Gönder" dediğinde taahhutname_sent → alt kurum Step 5'i ilk kez burada görür.
+            'taahhutname_pending',
+            'taahhutname_sent'   => ['step' => 5, 'label' => 'Taahhütname',           'icon' => '✍️', 'module' => 'taahhut'],
+            // Ruhsat (GÖREV 4): licensed belediye hazırlığıdır (kuruma gizli); belediye
+            // "İmzala & Kuruma Gönder" dediğinde ruhsat_sent → alt kurum Step 6'yı ilk kez burada görür.
             'licensed',
+            'ruhsat_sent',
             'field_work',
             'completed'          => ['step' => 6, 'label' => 'Ruhsat',                'icon' => '📜', 'module' => 'ruhsat'],
             'cancelled'          => ['step' => 0, 'label' => 'İptal Edildi',          'icon' => '❌', 'module' => ''],

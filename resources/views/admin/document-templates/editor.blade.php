@@ -59,6 +59,13 @@
         #toast.err { background: #dc2626; }
 
         .hidden { display: none !important; }
+
+        /* ── GÖREV 2 Salt-Okunur (readonly) modu ── */
+        .ro-banner { display: none; align-items: center; gap: 8px; background: #18212f; color: #fbbf24; border-bottom: 1px solid #b45309; padding: 7px 16px; font-size: 12px; font-weight: 600; margin-top: 58px; }
+        .ro-banner svg { flex: 0 0 auto; }
+        body.ro-readonly .save-btn, body.ro-readonly .reset-btn { display: none !important; }
+        body.ro-readonly #doc-editor [contenteditable] { cursor: default !important; user-select: none !important; }
+        body.ro-readonly #doc-editor td { cursor: default !important; }
     </style>
 
     {{-- Belgenin kendi CSS'i (A4 görünümünü korur) --}}
@@ -199,6 +206,11 @@
         </div>
     </div>
 
+    <div class="ro-banner" id="ro-banner">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        🔒 Bu belge kuruma gönderilmiş olup salt-okunur durumdadır — düzenlenemez.
+    </div>
+
     <div class="editor-wrap">
         <div id="doc-editor"></div>
     </div>
@@ -217,6 +229,9 @@
         // GÖREV 2 (CELL-BASED AUTH): Alt kurum oturumunda (IS_MUNI=false) belediye
         // makam hücreleri KESİN kilitlenir; hiçbir JS kod yolu bunları "true" yapamaz.
         var IS_MUNI = @json($isMuni ?? true);
+        // GÖREV 2 (ÜST YAZI TESLİMİYET DONDURMASI): Alt kurum, belge submit edildikten sonra
+        // (status != draft) editörü SALT-OKUNUR görür — tüm contenteditable devre dışıdır.
+        var READ_ONLY = @json($readOnly ?? false);
         var INITIAL_CONTENT = {!! json_encode($hydratedContent) !!};
 
         // ── Editör başlatma: orijinal A4 HTML'i bas + contenteditable uygula ──
@@ -250,6 +265,25 @@
                 // işaretli hücreler) contenteditable="true" bile gelse mutlak kilitlenir.
                 forceLockMuniOwned(el);
             }
+            if (READ_ONLY === true) {
+                lockAllCells(el);
+            }
+        }
+
+        // GÖREV 2 (TESLİMİYET DONDURMASI): Yayınlanmış (submit edilmiş) üst yazıda alt kurum
+        // için editör tamamen salt-okunur "Pdf kağıdı" görünümüne döner. Tüm contenteditable
+        // iptal edilir, işlem düğmeleri gizlenir, kullanıcıya bilgi bandı gösterilir.
+        function lockAllCells(root) {
+            var cells = root.querySelectorAll(EDITABLE_SELECTOR + ', [contenteditable="true"]');
+            if (!cells.length) cells = root.querySelectorAll('*');
+            for (var i = 0; i < cells.length; i++) {
+                cells[i].setAttribute('contenteditable', 'false');
+                cells[i].setAttribute('data-locked-cell', '1');
+                cells[i].style.userSelect = 'none';
+            }
+            document.body.classList.add('ro-readonly');
+            var banner = document.getElementById('ro-banner');
+            if (banner) banner.style.display = 'flex';
         }
 
         // Belediye makam hücreleri alt kurum için mutlak kilitli kalır.
@@ -338,6 +372,10 @@
         }
 
         function saveDoc() {
+            if (READ_ONLY === true) {
+                toast('Bu belge kuruma gönderildiği için salt-okunurdur.', 'err');
+                return;
+            }
             var btn = document.getElementById('btn-save');
             btn.disabled = true;
             btn.textContent = '⏳ Kaydediliyor...';
@@ -418,6 +456,7 @@
         document.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
+                if (READ_ONLY === true) return;
                 saveDoc();
             }
         });

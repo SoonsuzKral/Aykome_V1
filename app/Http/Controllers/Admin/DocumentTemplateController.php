@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Application;
 use App\Services\DocumentTemplateService;
+use App\Enums\ApplicationStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -176,6 +177,12 @@ class DocumentTemplateController extends Controller
 
         $src = DocumentTemplateService::editorSource($documentType, $application);
 
+        // GÖREV 2 (ÜST YAZI TESLİMİYET DONDURMASI): Alt kurum personeli belgeyi yalnızca DRAFT
+        // iken düzenleyebilir. Belediyeye submit ettikten sonra (status != draft) editör salt-okunur
+        // "Pdf kağıdı" görünümüne döner; hiçbir contenteditable hücresi düzenlenemez.
+        $bodyReadOnly = ! auth()->user()->isMunicipalityPersonel()
+            && $this->applicationStatusRaw($application) !== 'draft';
+
         return $this->editorView([
             'docType' => $documentType,
             'docLabel' => $t['label'],
@@ -189,7 +196,15 @@ class DocumentTemplateController extends Controller
             'resetUrl' => $userCanReset = auth()->user()->isMunicipalityPersonel() ? route('admin.applications.edit-document.destroy', [$application, $documentType]) : null,
             'backUrl' => route('admin.applications.show', $application),
             'title' => $t['label'] . ' — ' . $application->application_no,
+            'readOnly' => $bodyReadOnly,
         ]);
+    }
+
+    /** Başvuru statüsünü ham (string) değerine çevirir. */
+    protected function applicationStatusRaw(Application $application): string
+    {
+        $status = $application->status;
+        return $status instanceof ApplicationStatus ? $status->value : (string) $status;
     }
 
     public function saveApplication(Request $request, Application $application, string $documentType): JsonResponse
@@ -197,6 +212,14 @@ class DocumentTemplateController extends Controller
         $this->guardApplicationScope($application);
         $this->authorize('view', $application);
         abort_unless(DocumentTemplateService::isValid($documentType), 404);
+
+        // GÖREV 2 (sunucu sert kilidi — JS bypass edilemez): Alt kurum, submit sonrası
+        // (status != draft) belgeyi düzenleyip kaydedemez; yalnızca salt-okunur görür.
+        abort_unless(
+            auth()->user()->isMunicipalityPersonel() || $this->applicationStatusRaw($application) === 'draft',
+            403,
+            'Bu belge kuruma gönderildiği için salt-okunur durumdadır; düzenlenemez.'
+        );
 
         DocumentTemplateService::saveOverride($application, $documentType, (string) $request->input('content_data'));
 

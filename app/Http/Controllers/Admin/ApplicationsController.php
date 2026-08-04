@@ -910,6 +910,122 @@ class ApplicationsController extends Controller
         return back()->with('success', '🔓 Ruhsat modülü açıldı. Ruhsat PDF üretildi.');
     }
 
+    /**
+     * KATI ADIM KAPISI / GÖREV 4: Belediye imzalı Tahakkuk & Makbuz evrakını kuruma gönderir.
+     * tahakkuk_pending → tahakkuk_sent (Alt kurum Step 4'ü yalnızca bu andan itibaren görür).
+     */
+    public function sendTahakkukToInstitution(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'tahakkuk_pending', 422, 'Tahakkuk & Makbuz evrakı bu aşamada kuruma gönderilemez.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::TahakkukSent]);
+
+        AuditLogger::log(
+            'application.tahakkuk_sent_institution',
+            "Belediye Tahakkuk & Makbuz evrakını kuruma gönderdi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', 'Tahakkuk & Makbuz evrakı kuruma gönderildi.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / GÖREV 5: Belediye "TAAHHÜTNAME MODÜLÜNÜ AÇ" tuşuna basar.
+     * payment_completed/approved → taahhutname_pending (yalnızca belediye görür; kuruma gizli).
+     */
+    public function openTaahhutname(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(in_array($currentStatus, ['payment_completed', 'approved'], true), 422, 'Taahhütname modülü bu aşamada açılamaz.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::TaahhutnamePending]);
+
+        AuditLogger::log(
+            'application.taahhutname_opened',
+            "Belediye Taahhütname modülünü açtı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '🔓 Taahhütname modülü açıldı.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / GÖREV 5 / GÖREV 4: Belediye taahhütnameyi kuruma gönderir.
+     * taahhutname_pending → taahhutname_sent (Alt kurum Step 5'i yalnızca bu andan itibaren görür).
+     */
+    public function sendTaahhutnameToInstitution(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'taahhutname_pending', 422, 'Taahhütname bu aşamada kuruma gönderilemez.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::TaahhutnameSent]);
+
+        AuditLogger::log(
+            'application.taahhutname_sent_institution',
+            "Belediye Taahhütnameyi kuruma gönderdi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', 'Taahhütname kuruma gönderildi.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / GÖREV 4 / SON TAKDİM: Belediye imzalı Ruhsat belgesini kuruma gönderir.
+     * licensed (belediye hazırlığı) → ruhsat_sent (Alt kurum Step 6'yı yalnızca bu andan itibaren görür).
+     */
+    public function sendRuhsatToInstitution(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'licensed', 422, 'Ruhsat bu aşamada kuruma gönderilemez.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::RuhsatSent]);
+
+        AuditLogger::log(
+            'application.ruhsat_sent_institution',
+            "Belediye imzalı Ruhsatı kuruma gönderdi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', 'Ruhsat kuruma gönderildi.');
+    }
+
     public function downloadPrePermit(Application $application)
     {
         $this->authorize('view', $application);
@@ -1787,6 +1903,10 @@ class ApplicationsController extends Controller
             ApplicationStatus::MetrageRevision->value => ['label' => 'Metraj revizyon', 'class' => 'bg-rose-100 text-rose-700'],
             ApplicationStatus::MetrageApproved->value => ['label' => 'Metraj onaylı', 'class' => 'bg-emerald-100 text-emerald-700'],
             ApplicationStatus::TahakkukPending->value => ['label' => 'Tahakkuk & makbuz açıldı', 'class' => 'bg-indigo-100 text-indigo-700'],
+            ApplicationStatus::TahakkukSent->value => ['label' => 'Tahakkuk & makbuz kurumda', 'class' => 'bg-indigo-100 text-indigo-700'],
+            ApplicationStatus::TaahhutnamePending->value => ['label' => 'Taahhütname açıldı', 'class' => 'bg-amber-100 text-amber-700'],
+            ApplicationStatus::TaahhutnameSent->value => ['label' => 'Taahhütname kurumda', 'class' => 'bg-amber-100 text-amber-700'],
+            ApplicationStatus::RuhsatSent->value => ['label' => 'Ruhsat kuruma gönderildi', 'class' => 'bg-green-100 text-green-700'],
             ApplicationStatus::PaymentCompleted->value => ['label' => 'Ödeme tamamlandı', 'class' => 'bg-teal-100 text-teal-700'],
             ApplicationStatus::Approved->value => ['label' => 'Onaylandı', 'class' => 'bg-emerald-100 text-emerald-700'],
             ApplicationStatus::Licensed->value => ['label' => 'Ruhsatlı', 'class' => 'bg-green-100 text-green-700'],

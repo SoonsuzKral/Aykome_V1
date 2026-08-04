@@ -102,7 +102,7 @@
             $alertViewerIsMuni = auth()->user()->isMunicipalityPersonel();
             $alertKaStage = $st;
         @endphp
-        @if(in_array($alertKaStage, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'tahakkuk_pending', 'payment_completed', 'approved', 'pre_excavation_approved', 'pre_approved']))
+        @if(in_array($alertKaStage, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'pre_excavation_approved', 'pre_approved']))
         <div class="mb-6 rounded-2xl border border-blue-300 bg-gradient-to-r from-blue-50 to-sky-50 p-4 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-start gap-3">
@@ -123,12 +123,30 @@
                         @elseif($alertKaStage === 'metrage_approved')
                             <p class="text-sm font-bold text-blue-900">Kurum Saha Metrajını Onayladı</p>
                             <p class="mt-0.5 text-xs text-blue-700">Tahakkuk &amp; Makbuz modülü kapalıdır; belediye kilidi ile açılacaktır.</p>
-                        @elseif($alertKaStage === 'tahakkuk_pending' || $alertKaStage === 'payment_completed')
+                        @elseif($alertKaStage === 'tahakkuk_pending')
                             <p class="text-sm font-bold text-blue-900">Tahakkuk &amp; Makbuz Aşaması</p>
-                            <p class="mt-0.5 text-xs text-blue-700">Belediye makbuz bilgilerini doldurup onaylar; Ruhsat modülü belediye kilidi ile açılacaktır.</p>
-                        @elseif($alertKaStage === 'approved')
+                            <p class="mt-0.5 text-xs text-blue-700">Belediye makbuz bilgilerini doldurup kuruma göndermeli; Ruhsat modülü belediye kilidi ile açılacaktır.</p>
+                        @elseif($alertKaStage === 'tahakkuk_sent')
+                            <p class="text-sm font-bold text-blue-900">Tahakkuk &amp; Makbuz Kuruma Gönderildi</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Alt kurumdan ödeme (makbuz onayı) bekleniyor.</p>
+                        @elseif($alertKaStage === 'payment_completed')
                             <p class="text-sm font-bold text-blue-900">Ödeme Tamamlandı</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Belediye Taahhütname modülünü kilit açıp kuruma gönderecek.</p>
+                        @elseif($alertKaStage === 'taahhutname_pending')
+                            <p class="text-sm font-bold text-blue-900">Taahhütname Belediye Hazırlığında</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Belediye taahhütnameyi hazırlayıp kuruma göndermeli; kurum e-imzalayacak.</p>
+                        @elseif($alertKaStage === 'taahhutname_sent')
+                            <p class="text-sm font-bold text-blue-900">Taahhütname Kurum Onayında</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Alt kurumdan taahhütname e-imzası / onayı bekleniyor.</p>
+                        @elseif($alertKaStage === 'approved')
+                            <p class="text-sm font-bold text-blue-900">Ödeme Tamamlandı — Ruhsat Hazırlığı</p>
                             <p class="mt-0.5 text-xs text-blue-700">Ruhsat modülü kapalıdır; belediye kilidi ile açılacaktır.</p>
+                        @elseif($alertKaStage === 'licensed')
+                            <p class="text-sm font-bold text-blue-900">Ruhsat Belediye Hazırlığında</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Belediye ruhsat belgesini hazırlayıp kuruma gönderecek.</p>
+                        @elseif($alertKaStage === 'ruhsat_sent')
+                            <p class="text-sm font-bold text-blue-900">Ruhsat Kuruma Gönderildi</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Alt kurum ruhsatı görüntüleyip saha çalışmasına geçebilir.</p>
                         @else
                             <p class="text-sm font-bold text-blue-900">Ön Kazı Onaylı — Kazı Yapılabilir</p>
                             <p class="mt-0.5 text-xs text-blue-700">Kurum kazı çalışmalarını tamamlayınca belediye ileri modülleri manuel açacaktır.</p>
@@ -150,9 +168,33 @@
                         </form>
                     @endif
                     @if($alertViewerIsMuni && $alertKaStage === 'payment_completed')
+                        <form method="POST" action="{{ route('admin.applications.open-taahhutname', $application) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 TAAHHÜTNAME MODÜLÜNÜ AÇ</button>
+                        </form>
+                    @endif
+                    @if($alertViewerIsMuni && $alertKaStage === 'tahakkuk_pending')
+                        <form method="POST" action="{{ route('admin.applications.send-tahakkuk', $application) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-sky-700">📤 Tahakkuku Kuruma Gönder</button>
+                        </form>
+                    @endif
+                    @if($alertViewerIsMuni && $alertKaStage === 'taahhutname_pending')
+                        <form method="POST" action="{{ route('admin.applications.send-taahhutname', $application) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-sky-700">📤 Taahhütnameyi Kuruma Gönder</button>
+                        </form>
+                    @endif
+                    @if($alertViewerIsMuni && $alertKaStage === 'approved')
                         <form method="POST" action="{{ route('admin.applications.open-ruhsat', $application) }}">
                             @csrf
                             <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 RUHSAT MODÜLÜNÜ AÇ</button>
+                        </form>
+                    @endif
+                    @if($alertViewerIsMuni && $alertKaStage === 'licensed')
+                        <form method="POST" action="{{ route('admin.applications.send-ruhsat', $application) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-sky-700">📤 Ruhsatı Kuruma Gönder</button>
                         </form>
                     @endif
                     {{-- KURUM: saha kazı tamamla (Ping) --}}
@@ -1163,23 +1205,8 @@
 
                                     {{-- ===== MUNICIPALITY APP: STEP 2 = KAZI METRAJ BİLGİ (yalnızca belediye uygulaması) ===== --}}
                                     @if($isMunicipality && !$isUserInstitution)
-                                        {{-- Saha Görevi Devri — Yalnızca Belediye personeli --}}
-                                        @if(($can['transfer'] ?? false) && $fieldUsers->isNotEmpty() && $isCurrent)
-                                            <div class="rounded-lg border border-slate-200 bg-white p-3 mb-2">
-                                                <p class="mb-2 text-xs font-semibold text-slate-600">Saha Görevi Devri</p>
-                                                <form method="POST" action="{{ route('admin.applications.field-tasks.store', $application) }}" class="space-y-2">
-                                                    @csrf
-                                                    <select name="assigned_to" required class="block w-full rounded-lg border-slate-300 text-xs">
-                                                        @foreach($fieldUsers as $u)
-                                                            <option value="{{ $u->id }}">{{ $u->name }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                    <input type="date" name="due_date" class="block w-full rounded-lg border-slate-300 text-xs">
-                                                    <textarea name="notes" rows="1" placeholder="Not" class="block w-full rounded-lg border-slate-300 text-xs"></textarea>
-                                                    <button type="submit" class="w-full rounded-lg bg-slate-700 py-1.5 text-xs font-medium text-white hover:bg-slate-800">Devret</button>
-                                                </form>
-                                            </div>
-                                        @endif
+                                        {{-- GÖREV 1 (EBYS KİLİT): Saha Personeli Devret eylemi KALDIRILDI. field-tasks.store
+                                             statüyü FieldWork'a çekip sahte/ileri kilit açabiliyordu; bu yapıda kullanılmıyor. --}}
 
                                         {{-- Belediye personeli için metraj PDF ve düzenleme --}}
                                         @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'approved', 'licensed', 'completed']))
@@ -1243,7 +1270,7 @@
                                     @endphp
                                     @if(($isCurrent || $isPast) && $step3Gorunur)
                                         {{-- Metraj (PDF) Görüntüle / İndir — her iki taraf --}}
-                                        @if(in_array($st, ['pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'approved', 'licensed', 'completed']))
+                                        @if(in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'pre_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'approved', 'licensed', 'field_work', 'completed']))
                                         <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
@@ -1310,22 +1337,9 @@
                                             @endif
                                             @endif
 
-                                            @if(($can['transfer'] ?? false) && $fieldUsers->isNotEmpty() && $isCurrent)
-                                            <div class="rounded-lg border border-slate-200 bg-white p-3 mb-2">
-                                                <p class="mb-2 text-xs font-semibold text-slate-600">Saha Görevi Devri</p>
-                                                <form method="POST" action="{{ route('admin.applications.field-tasks.store', $application) }}" class="space-y-2">
-                                                    @csrf
-                                                    <select name="assigned_to" required class="block w-full rounded-lg border-slate-300 text-xs">
-                                                        @foreach($fieldUsers as $u)
-                                                            <option value="{{ $u->id }}">{{ $u->name }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                    <input type="date" name="due_date" class="block w-full rounded-lg border-slate-300 text-xs">
-                                                    <textarea name="notes" rows="1" placeholder="Not" class="block w-full rounded-lg border-slate-300 text-xs"></textarea>
-                                                    <button type="submit" class="w-full rounded-lg bg-slate-700 py-1.5 text-xs font-medium text-white hover:bg-slate-800">Devret</button>
-                                                </form>
-                                            </div>
-                                            @endif
+                                            {{-- GÖREV 1 (EBYS KİLİT): "Saha Personeline Devret" eylemi KÖKTEN SİLİNDİ.
+                                                 field-tasks.store statüyü FieldWork'a çekip sahte/ileri kilit açabiliyordu;
+                                                 bu yapıda kullanılmıyor, form kargaşasını azaltır. --}}
 
                                             @if($canEditTemplate && $application->institution_id)
                                             <a href="{{ route('admin.applications.edit-document', [$application, 'metraj']) }}" target="_blank"
@@ -1406,8 +1420,10 @@
                                     {{-- BÜYÜK YASA: Bu kartta ASLA taahhütname PDF / e-imza / İşlem Tabı-Taahhütname bulunmaz; onlar STEP 5'tedir. --}}
                                     @php
                                         // GÖREV 2 KATI STATÜ DUVARI: Tahakkuk & Makbuz modülü ancak belediye
-                                        // open-tahakkuk kilidini açınca (tahakkuk_pending) ve sonrasında görünür.
-                                        $tahakkukGeldi = in_array($st, ['tahakkuk_pending', 'accrued', 'approved', 'payment_completed', 'licensed', 'field_work', 'completed']);
+                                        // open-tahakkuk kilidini açınca (tahakkuk_pending) belediye hazırlar;
+                                        // GÖREV 4 GLOBAL SENT-MODEL: Alt kurum Tahakkuk & Makbuz kartını yalnızca
+                                        // belediye "tahakkuk_sent" gönderimi yaptıktan SONRA görür.
+                                        $tahakkukGeldi = in_array($st, ['tahakkuk_sent', 'accrued', 'approved', 'payment_completed', 'licensed', 'field_work', 'completed']);
                                     @endphp
                                     @if($isUserInstitution && !$tahakkukGeldi)
                                         {{-- Alt kurum: Tahakkuk henüz hazır değil — bu adım gizli (d-none eşdeğeri) --}}
@@ -1443,13 +1459,19 @@
                                 @php
                                     $makbuzlarDolu = $application->ztb_receipt_info && $application->deposit_receipt_info;
                                     $isLicensed = $st === 'licensed';
+                                    // GÖREV 4 GLOBAL SENT-MODEL: Taahhütname için
+                                    // - Belediye: taahhutname_pending anından (hazırlık) görür.
+                                    // - Alt kurum: yalnızca belediye "taahhutname_sent" gönderimi sonrası görür.
+                                    $taahhutnameKurumGorebilir = in_array($st, ['taahhutname_sent', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
+                                    $taahhutnameBelediyeGorebilir = in_array($st, ['taahhutname_pending', 'taahhutname_sent', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
+                                    $taahhutnameAdimiAcik = $isUserInstitution ? $taahhutnameKurumGorebilir : $taahhutnameBelediyeGorebilir;
                                 @endphp
 
                                 {{-- KURAL: Ruhsat PDF butonu bu adımda DEĞİL, Step 6 (Ruhsat) içinde olmalıdır.
                                      Step 5: Taahhütname adımıdır. Ruhsat buraya yanlışlıkla eklenmişse çıkar. --}}
 
                                 {{-- Taahhütname görüntüleme + E-imza --}}
-                                @if($isCurrent || $isPast)
+                                @if(($isCurrent || $isPast) && $taahhutnameAdimiAcik)
                                     <p class="mb-2 text-xs text-slate-500">Taahhütname belgesini buradan görüntüleyin ve e-imzalayın.</p>
                                     <a href="{{ route('admin.applications.pdf.taahhutname', $application) }}" target="_blank"
                                        class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -1492,14 +1514,15 @@
                                 @php
                                     $makbuzlarDoluStep6 = $application->ztb_receipt_info && $application->deposit_receipt_info;
                                     $isLicensedStep6 = $st === 'licensed';
-                                    // GÖREV 2/3 KATI STATÜ DUVARI (viewer-bazlı):
+                                    // GÖREV 2/3 KATI STATÜ DUVARI (viewer-bazlı) + GÖREV 4 GLOBAL SENT-MODEL:
                                     // - Belediye: ZTB/Teminat makbuz parametrelerini (Ruhsat belgesine basılan)
-                                    //   doldurup ruhsatı hazırlayabilmesi için modül tahakkuk_pending/payment_completed/
-                                    //   approved anından itibaren açıktır.
-                                    // - Alt kurum: Ruhsat modülünü ancak belediye open-ruhsat ile licensed yapınca görür.
+                                    //   doldurup ruhsatı hazırlayabilmesi için modül belediye hazırlık/ihracı
+                                    //   anından itibaren açıktır (tahakkuk_sent/payment_completed/approved/licensed).
+                                    // - Alt kurum: Ruhsat modülünü belediye "ruhsat_sent" takdimi yapınca görür.
+                                    //   (licensed artık SADECE belediye hazırlığıdır; kuruma GİZLİ.)
                                     $ruhsatMuniPrep = !$isUserInstitution && $application->isInstitutionApplication() && in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved']);
                                     $ruhsatAdimiAcik = $isUserInstitution
-                                        ? in_array($st, ['licensed', 'field_work', 'completed'])
+                                        ? in_array($st, ['ruhsat_sent', 'field_work', 'completed'])
                                         : in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
                                 @endphp
 
