@@ -558,7 +558,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-emerald-800">Ruhsat</span>
                         <span class="text-[9px] text-slate-400">Belgesi</span>
                     </a>
-                    @if($canEditTemplate)
+                    @if($canEditTemplate && auth()->user()->isMunicipalityPersonel())
                     <a href="{{ route('admin.applications.edit-document', [$application, 'ruhsat']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -897,12 +897,16 @@
                         $badgeText = 'Aktif';
                         $expanded = true;
                     } elseif ($isPast) {
+                        // GÖREV 1 (KALICI GÖRÜNÜRLÜK): Adım aşıldıysa (geçmiş) kart içeriği —
+                        // içindeki PDF/imza/upload bağlantıları dahil — EKRANDA SABİT AÇIK kalır.
+                        // Kullanıcı, ileri statüde geçmiş belgelerini görüntülemek için kartı
+                        // ayrıca tıklamak zorunda kalmaz; d-block şekilde daima görünür.
                         $cardClass = 'border-emerald-300 bg-emerald-50/70';
                         $iconClass = 'text-emerald-700 bg-emerald-100';
                         $textClass = 'text-emerald-900';
                         $badgeClass = 'bg-emerald-500 text-white';
                         $badgeText = 'Tamamlandı';
-                        $expanded = false;
+                        $expanded = true;
                     } else {
                         $cardClass = 'border-slate-200 bg-slate-50/50';
                         $iconClass = 'text-slate-400 bg-slate-100';
@@ -926,6 +930,13 @@
                     // için Ruhsat (Step 6) modülünü tahakkuk_pending/payment_completed/approved anından
                     // itibaren açık görür; alt kurum ise yalnızca licensed sonrası görür.
                     if ($num === 6 && !$isUserInstitution && $application->isInstitutionApplication() && in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved'])) {
+                        $expanded = true;
+                    }
+
+                    // GÖREV 4 (Dekont görünürlüğü): Alt kurum fiyatlandırma/makbuz bekleme anında
+                    // (awaiting_payment / receipt_pending) Step 4 (Tahakkuk & Makbuz) kartı — içindeki
+                    // "Ödeme Makbuzunu (Dekont) Yükle / Gönder" formu görülsün diye — AÇIK gelir.
+                    if ($num === 4 && $isUserInstitution && in_array($st, ['awaiting_payment', 'receipt_pending'])) {
                         $expanded = true;
                     }
                 @endphp

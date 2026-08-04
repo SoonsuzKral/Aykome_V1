@@ -3,13 +3,16 @@
     $docData = $moduleDocs[$module] ?? [];
 
     // GÖREV 2: "Kurum İmzaladı / Belediye İmzaladı" Görüntüle satırları, modülün
-    // eş anlamlısı olan *_signed anahtarına (alt kurum işlem tabı) da bakar.
+    // eş anlamlısı olan *_signed anahtarına (alt kurum işlem tabı) ÇİFT YÖNLÜ bakar.
     // Örn: belediye 'metraj' anahtarına yükler, alt kurum 'metraj_signed' anahtarına yükler;
-    // hangi tarafta açılırsa açılsın diğer tarafın imzalı nüshası görünür kalmalıdır.
+    // hangi tarafta açılırsa açılsın (metraj veya metraj_signed) diğer tarafın imzalı nüshası
+    // Görüntüle linkiyle görünür kalmalıdır — tek yönlü değil, her iki anahtar taranır.
     $baseKey = str_replace('_signed', '', $module);
-    $syncData = ($baseKey !== $module && isset($moduleDocs[$baseKey]))
-        ? $moduleDocs[$baseKey]
-        : null;
+    $signedKey = $module . '_signed';
+    // Önce eş anahtarı bul; modül hem '_signed' hem düz isimle aranır.
+    $syncKey = ($baseKey !== $module && isset($moduleDocs[$baseKey])) ? $baseKey
+        : (isset($moduleDocs[$signedKey]) ? $signedKey : null);
+    $syncData = $syncKey ? $moduleDocs[$syncKey] : null;
 
     $belediyePath = $docData['belediye_path'] ?? ($syncData['belediye_path'] ?? null);
     $kurumPath = $docData['kurum_path'] ?? ($syncData['kurum_path'] ?? null);
@@ -22,7 +25,7 @@
     // İmzalı dosya (file swap): imzalı varsa O GÖSTERİLİR, saf hali değil
     // Anahtar hangi tarafta açılırsa açılsın, imzalı/signed dosya ana modül anahtarında da aranır.
     $signedFile = $application->moduleSignedPath($module)
-        ?? ($syncData ? $application->moduleSignedPath($baseKey) : null);
+        ?? ($syncData && $syncKey ? $application->moduleSignedPath($syncKey) : null);
     $viewUrl = $signedFile
         ? route('admin.applications.module-document', [$application->id, $module])
         : null;
