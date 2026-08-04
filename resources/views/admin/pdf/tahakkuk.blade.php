@@ -77,9 +77,17 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
             <td class="label">İş Cinsi</td>
             <td class="value" contenteditable="true">{{ $is_cinsi ?? '' }}</td>
         </tr>
+        @php
+            // Vergi no: başvuran kişinin TC/vergi no'su; yoksa kurumun vergi numarası.
+            $verginoVal = trim((string) ($vergino ?? $application->applicant_national_id ?? ''));
+            if ($verginoVal === '') {
+                $verginoVal = trim((string) ($application->institution?->tax_number ?? ''));
+            }
+            $telVal = trim((string) ($application->applicant_phone ?? $application->institution?->phone ?? ''));
+        @endphp
         <tr>
             <td class="label">V. No / Telefon no:</td>
-            <td class="value" contenteditable="true">{{ $vergino ?? '' }}</td>
+            <td class="value" contenteditable="true">{{ $verginoVal }}@if($telVal !== '') - {{ $telVal }}@endif</td>
         </tr>
     </table>
 </div>
