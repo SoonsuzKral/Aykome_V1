@@ -13,8 +13,18 @@ use Illuminate\View\View;
 
 class ExtraPermitController extends Controller
 {
+    /**
+     * Ek ruhsatlar yalnızca belediye (merkez) personeli içindir.
+     * Alt kurum personeli bu modüle erişemez.
+     */
+    private function guardMunicipalityOnly(): void
+    {
+        abort_unless(request()->user()->isMunicipalityPersonel(), 403);
+    }
+
     public function index(Application $application): View
     {
+        $this->guardMunicipalityOnly();
         $this->authorize('view', $application);
         $application->load('extraPermits');
         return view('admin.extra-permits.index', [
@@ -25,6 +35,7 @@ class ExtraPermitController extends Controller
 
     public function create(Application $application): View
     {
+        $this->guardMunicipalityOnly();
         $this->authorize('view', $application);
         $surfaceTypes = SurfaceType::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'price_per_m2']);
         return view('admin.extra-permits.create', [
@@ -35,6 +46,7 @@ class ExtraPermitController extends Controller
 
     public function store(Request $request, Application $application): RedirectResponse
     {
+        $this->guardMunicipalityOnly();
         $this->authorize('view', $application);
 
         $validated = $request->validate([
@@ -63,6 +75,7 @@ class ExtraPermitController extends Controller
 
     public function show(Application $application, ExtraPermit $extraPermit): View
     {
+        $this->guardMunicipalityOnly();
         $this->authorize('view', $application);
         $extraPermit->load('application');
         return view('admin.extra-permits.show', [
@@ -73,6 +86,7 @@ class ExtraPermitController extends Controller
 
     public function destroy(Application $application, ExtraPermit $extraPermit): RedirectResponse
     {
+        $this->guardMunicipalityOnly();
         $this->authorize('view', $application);
         $extraPermit->delete();
 

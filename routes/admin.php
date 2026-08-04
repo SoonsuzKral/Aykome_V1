@@ -177,6 +177,7 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::get('/',                  [DocumentTemplateController::class, 'index']       )->name('index');
         Route::get('{documentType}/edit', [DocumentTemplateController::class, 'editGlobal'])->name('edit');
         Route::post('{documentType}',     [DocumentTemplateController::class, 'updateGlobal'])->name('update');
+        Route::delete('{documentType}/institution', [DocumentTemplateController::class, 'destroyInstitution'])->name('destroy-institution');
     });
 
     // ─── Süreç ve Onay Rotası (Hiyerarşi Yönetim Modülü) — merkez yönetim ─────

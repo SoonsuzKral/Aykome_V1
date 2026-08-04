@@ -66,20 +66,24 @@ enum ApplicationStatus: string
         }
 
         return match ($status) {
+            // KURAL 1 (Workflow Lock): Alt kurum başvuruyu oluşturur, ÜST YAZI adımı en öndedir.
+            // Belediye Ön Kazı'yı üretince (pre_approved) Üst Yazı kilitlenir; red/revize → submitted → tekrar açılır.
             'pending', 'submitted', 'draft'
-                                 => ['step' => 1, 'label' => 'Ön Kazı',              'icon' => '⛏️', 'module' => 'on-kazi'],
+                                 => ['step' => 1, 'label' => 'Üst Yazı',              'icon' => '✉️', 'module' => 'cover_letter'],
             'pre_approved',
             'pre_excavation_approved'
-                                 => ['step' => 2, 'label' => 'Saha Metraj',           'icon' => '📐', 'module' => 'metraj'],
+                                 => ['step' => 2, 'label' => 'Ön Kazı',               'icon' => '⛏️', 'module' => 'on-kazi'],
             'measurement_done',
             'priced',
             'awaiting_payment',
-            'receipt_pending'    => ['step' => 3, 'label' => 'Tahakkuk & Makbuz',     'icon' => '🧾', 'module' => 'tahakkuk'],
+            'receipt_pending'    => ['step' => 3, 'label' => 'Saha Metraj',           'icon' => '📐', 'module' => 'metraj'],
+            // Tahakkuk & Makbuz: belediye fiyatlandırdı / makbuz beklentisi
             'accrued',
-            'approved'           => ['step' => 4, 'label' => 'Taahhütname İmza',      'icon' => '✍️', 'module' => 'taahhut'],
+            'approved'           => ['step' => 4, 'label' => 'Tahakkuk & Makbuz',     'icon' => '🧾', 'module' => 'tahakkuk'],
+            // Taahhütname imzası (belediye/kurum) — ruhsat öncesi son hazırlık adımı
             'licensed',
             'field_work',
-            'completed'          => ['step' => 5, 'label' => 'Ruhsat Çıktısı',        'icon' => '📜', 'module' => 'ruhsat'],
+            'completed'          => ['step' => 6, 'label' => 'Ruhsat',                'icon' => '📜', 'module' => 'ruhsat'],
             'cancelled'          => ['step' => 0, 'label' => 'İptal Edildi',          'icon' => '❌', 'module' => ''],
             default              => ['step' => 0, 'label' => 'Beklemede',             'icon' => '⏳', 'module' => ''],
         };
@@ -97,11 +101,12 @@ enum ApplicationStatus: string
         }
 
         return [
-            ['status' => 'pending',          'label' => 'Ön Kazı',               'icon' => '⛏️'],
-            ['status' => 'pre_approved',     'label' => 'Saha Metraj',           'icon' => '📐'],
-            ['status' => 'measurement_done', 'label' => 'Tahakkuk & Makbuz',     'icon' => '🧾'],
-            ['status' => 'accrued',          'label' => 'Taahhütname İmza',      'icon' => '✍️'],
-            ['status' => 'licensed',         'label' => 'Ruhsat Çıktısı',        'icon' => '📜'],
+            ['status' => 'pending',          'label' => 'Üst Yazı',              'icon' => '✉️'],
+            ['status' => 'pre_approved',     'label' => 'Ön Kazı',               'icon' => '⛏️'],
+            ['status' => 'measurement_done', 'label' => 'Saha Metraj',           'icon' => '📐'],
+            ['status' => 'accrued',          'label' => 'Tahakkuk & Makbuz',     'icon' => '🧾'],
+            ['status' => 'approved',         'label' => 'Taahhütname',           'icon' => '✍️'],
+            ['status' => 'licensed',         'label' => 'Ruhsat',                'icon' => '📜'],
         ];
     }
 }

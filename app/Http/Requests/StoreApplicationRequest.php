@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\Institution;
 
 class StoreApplicationRequest extends FormRequest
 {
@@ -60,13 +61,22 @@ class StoreApplicationRequest extends FormRequest
     public function rules(): array
     {
         $user = $this->user();
-        $isInstitutionUser = $user && ! $user->isMunicipalityPersonel();
 
-        $nationalIdRules = $isInstitutionUser
+        // TC Kimlik No için 11 hane kuralı yalnızca merkez belediye (veya kurum seçilmemiş)
+        // başvurularında uygulanır. Alt kurum (is_municipality = false) başvurularında
+        // kurumun vergi numarası kullanıldığından 11 hane şartı aranmaz.
+        $institution = null;
+        $institutionId = $this->input('institution_id');
+        if ($institutionId) {
+            $institution = Institution::query()->find($institutionId);
+        }
+        $applyElevenDigitRule = ! $institution || $institution->is_municipality;
+
+        $nationalIdRules = ! $applyElevenDigitRule
             ? ['nullable', 'string', 'max:20']
             : ['nullable', 'string', 'regex:/^\d{10,11}$/'];
 
-        $tcAliasRules = $isInstitutionUser
+        $tcAliasRules = ! $applyElevenDigitRule
             ? ['nullable', 'string', 'max:20']
             : ['nullable', 'string', 'regex:/^\d{10,11}$/'];
 

@@ -7,6 +7,7 @@
     'height' => '400px',
     'readOnly' => false,
     'application' => null,
+    'areas' => [],
 ])
 
 {{-- Parametreleri PHP'den JS'ye aktarmak için --}}
@@ -23,6 +24,14 @@
             'lng' => (float)($application->center_lng ?? 38.7969),
         ] : null,
         'applicationId' => $application?->id,
+        'areas' => collect($areas)
+            ->filter()
+            ->map(function ($raw) {
+                return is_string($raw) ? json_decode($raw, true) : $raw;
+            })
+            ->filter()
+            ->values()
+            ->toArray(),
     ];
 @endphp
 
@@ -60,6 +69,16 @@
 @endif
 
 <script>
+    delete L.Icon.Default.prototype._getIconUrl;
+    L.Icon.Default.imagePath = '{{ asset('assets/vendor/leaflet/images') }}';
+    L.Icon.Default.mergeOptions({
+        iconRetinaUrl: '{{ asset('assets/vendor/leaflet/images/marker-icon-2x.png') }}',
+        iconUrl: '{{ asset('assets/vendor/leaflet/images/marker-icon.png') }}',
+        shadowUrl: '{{ asset('assets/vendor/leaflet/images/marker-shadow.png') }}'
+    });
+</script>
+
+<script>
 (function(){
     var opts = @json($initData);
     var canvas = document.getElementById(opts.canvasId);
@@ -86,15 +105,61 @@
     }).addTo(map);
 
     // WMS katmanları — yalnızca doğrulanmış layer isimleri (geo3:8091)
+    // Kapı Numaraları (smpns:m_Numarataj) ayrı + en üstte açık gösterilir.
     L.tileLayer.wms(GEO3_WMS, {
         layers: 'cbs:MISMAP_MAHALLE_KOYLER,smpns:MISMAP_NUM_KADASTRO_PARSEL,smpns:MISMAP_NUM_BINA,cbs:MISMAP_CADDE_SOKAK,cbs:MISMAP_KADASTRO_ADA',
         format: 'image/png', transparent: true,
         version: '1.3.0', maxZoom: 22, opacity: 0.6
     }).addTo(map);
 
+    // Kapı Numaraları — ayrı ve her zaman açık
+    L.tileLayer.wms(GEO3_WMS, {
+        layers: 'smpns:m_Numarataj',
+        format: 'image/png', transparent: true,
+        version: '1.3.0', maxZoom: 22, opacity: 1.0, zIndex: 50
+    }).addTo(map);
+
     // Çizim katmanı
     var drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
+
+    // Gösterilecek çizim (başvuru excavationAreas) — normal haritayla eşit veri
+    var hasOpData = false;
+    if(opts.areas && opts.areas.length){
+        opts.areas.forEach(function(poly){
+            if(!poly || !poly.features || !poly.features.length) return;
+            try{
+                L.geoJSON(poly, {
+                    style: { color:'#E87722', weight:2.5, fillOpacity:0.15 },
+                    pointToLayer: function(f,ll){ return L.marker(ll); }
+                }).addTo(drawnItems);
+                hasOpData = true;
+            }catch(e){}
+        });
+    }
+
+    // Mevcut çizim varsa yükle
+    if(opts.applicationId){
+        fetch('/maps/drawing/app/' + opts.applicationId)
+            .then(function(r){ return r.json(); })
+            .then(function(data){
+                if(data.features && data.features.length){
+                    L.geoJSON(data, {
+                        pointToLayer: function(f,ll){ return L.marker(ll); },
+                        style: { color:'#E87722', weight:2, fillOpacity:0.1 }
+                    }).addTo(drawnItems);
+                }
+                if(drawnItems.getLayers().length){
+                    setTimeout(function(){ map.fitBounds(drawnItems.getBounds().pad(0.1), { maxZoom: 18 }); }, 250);
+                }
+            }).catch(function(){});
+    }
+
+    // Gösterilecek çizim verisi varsa hemen odağı eşitle (normal haritayla aynı veri)
+    if(hasOpData && drawnItems.getLayers().length){
+        setTimeout(function(){ map.fitBounds(drawnItems.getBounds().pad(0.12), { maxZoom: 18 }); }, 250);
+        setTimeout(function(){ map.invalidateSize(); }, 300);
+    }
 
     if(opts.drawingEnabled && !opts.readOnly){
         map.on('draw:created', function(e){
@@ -120,20 +185,6 @@
                 if(drawHandler) drawHandler.enable();
             });
         });
-    }
-
-    // Mevcut çizim varsa yükle
-    if(opts.applicationId){
-        fetch('/maps/drawing/app/' + opts.applicationId)
-            .then(function(r){ return r.json(); })
-            .then(function(data){
-                if(data.features){
-                    L.geoJSON(data, {
-                        pointToLayer: function(f,ll){ return L.marker(ll); },
-                        style: { color:'#E87722', weight:2, fillOpacity:0.1 }
-                    }).addTo(drawnItems);
-                }
-            }).catch(function(){});
     }
 
     // Harita tıklama — GetFeatureInfo (parsel sorgusu) veya Hat Kimliği

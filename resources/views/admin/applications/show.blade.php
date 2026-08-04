@@ -327,18 +327,18 @@
             </div>
             @endif
 
-            {{-- BELGE ARŞİVİ / DÖKÜMLER (Tüm aşamaların PDF'leri) — yalnızca belediye personeli --}}
-            @if(auth()->user()->isMunicipalityPersonel())
+            {{-- BELGE ARŞİVİ / DÖKÜMLER (Tüm aşamaların PDF'leri) — belediye personeli + başvurunun sahibi alt kurum --}}
+            @php
+                // CELL-BASED AUTH: Belediye yönetimi her başvuruyu düzenleyebilir;
+                // alt kurum personeli YALNIZCA kendi kurumunun başvurusunda butonu görür.
+                $user = auth()->user();
+                $canEditTemplate = $user->isMunicipalityPersonel()
+                    || ($user->institution_id && (int) $user->institution_id === (int) $application->institution_id);
+            @endphp
+            @if($canEditTemplate)
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="mb-4 text-sm font-semibold text-slate-800">📦 Belge Arşivi / Dökümler</h2>
                 <p class="mb-3 text-xs text-slate-500">Başvuru sürecinde oluşturulmuş tüm belgelere buradan erişebilirsiniz.</p>
-                @php
-                    // CELL-BASED AUTH: Belediye yönetimi her başvuruyu düzenleyebilir;
-                    // alt kurum personeli YALNIZCA kendi kurumunun başvurusunda butonu görür.
-                    $user = auth()->user();
-                    $canEditTemplate = $user->isMunicipalityPersonel()
-                        || ($user->institution_id && (int) $user->institution_id === (int) $application->institution_id);
-                @endphp
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                     {{-- Üst Yazı (Dilekçe) -- her zaman göster --}}
                     @if($application->institution && !str_contains(strtolower($application->institution->name ?? ''), 'merkez'))
@@ -736,12 +736,15 @@
                         4 => ['key' => 'licensed',     'label' => 'Ruhsat',                   'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
                     ];
                 } else {
+                    // KURAL 1 (Workflow Lock): Akış ÜST YAZI ile başlar. Belediye Ön Kazı'yı
+                    // üretince Üst Yazı kilitlenir (red/revize → submitted → tekrar açılır).
                     $workflowSteps = [
-                        1 => ['key' => 'pending',          'label' => 'Ön Kazı',     'icon' => 'M12 2l.64 1.28a1 1 0 01.5.5L14.42 5.5l1.42-.36a1 1 0 011.1.5l.64 1.28 1.42.36a1 1 0 01.7 1.2l-.36 1.42 1.28.64a1 1 0 01.5 1.1l-.36 1.42.5 1.28a1 1 0 01-.5 1.1l-1.28.64.36 1.42a1 1 0 01-.7 1.2l-1.42.36-.64 1.28a1 1 0 01-1.1.5l-1.42-.36-1.28.64a1 1 0 01-1.1-.5L12 21.5l-1.28-.64a1 1 0 01-1.1.5l-1.42-.36-1.28.64a1 1 0 01-1.1-.5l-.64-1.28-1.42-.36a1 1 0 01-.7-1.2l.36-1.42-1.28-.64a1 1 0 01-.5-1.1l.36-1.42-.5-1.28a1 1 0 01.5-1.1l1.28-.64-.36-1.42a1 1 0 01.7-1.2l1.42-.36.64-1.28a1 1 0 011.1-.5l1.42.36 1.28-.64'],
-                        2 => ['key' => 'pre_approved',     'label' => 'Saha Metraj', 'icon' => 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z'],
-                        3 => ['key' => 'measurement_done', 'label' => 'Tahakkuk & Makbuz', 'icon' => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
-                        4 => ['key' => 'accrued',          'label' => 'Taahhütname',  'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
-                        5 => ['key' => 'licensed',         'label' => 'Ruhsat',      'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
+                        1 => ['key' => 'pending',          'label' => 'Üst Yazı',    'icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
+                        2 => ['key' => 'pre_approved',     'label' => 'Ön Kazı',     'icon' => 'M12 2l.64 1.28a1 1 0 01.5.5L14.42 5.5l1.42-.36a1 1 0 011.1.5l.64 1.28 1.42.36a1 1 0 01.7 1.2l-.36 1.42 1.28.64a1 1 0 01.5 1.1l-.36 1.42.5 1.28a1 1 0 01-.5 1.1l-1.28.64.36 1.42a1 1 0 01-.7 1.2l-1.42.36-.64 1.28a1 1 0 01-1.1.5l-1.42-.36-1.28.64a1 1 0 01-1.1-.5L12 21.5l-1.28-.64a1 1 0 01-1.1.5l-1.42-.36-1.28.64a1 1 0 01-1.1-.5l-.64-1.28-1.42-.36a1 1 0 01-.7-1.2l.36-1.42-1.28-.64a1 1 0 01-.5-1.1l.36-1.42-.5-1.28a1 1 0 01.5-1.1l1.28-.64-.36-1.42a1 1 0 01.7-1.2l1.42-.36.64-1.28a1 1 0 011.1-.5l1.42.36 1.28-.64'],
+                        3 => ['key' => 'pre_approved',     'label' => 'Saha Metraj', 'icon' => 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z'],
+                        4 => ['key' => 'measurement_done', 'label' => 'Tahakkuk & Makbuz', 'icon' => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
+                        5 => ['key' => 'accrued',          'label' => 'Taahhütname', 'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
+                        6 => ['key' => 'licensed',         'label' => 'Ruhsat',      'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
                     ];
                 }
                 $currentStep = \App\Enums\ApplicationStatus::workflowStep($st, $isMunicipality);
@@ -959,6 +962,16 @@
                                                 📄 Üst Yazı (Dilekçe) Görüntüle
                                             </a>
 
+                                            {{-- CELL-BASED AUTH: Alt kurum kendi kurumunun başvurusunda belgeyi düzenleyebilir.
+                                                 Editör içinde güvenlik duvarı aktif: belediye makam hücreleri kilitli kalır. --}}
+                                            @if($canEditTemplate)
+                                            <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
+                                               class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                ✏️ Belgeyi Düzenle (Kaydet)
+                                            </a>
+                                            @endif
+
                                             @php $onayStage = $application->approval_stage ?? ($processCurrentStep?->role_key ?? 'staff'); @endphp
 
                                             {{-- Süreç & Onay Rotası: rolü rotada olan kullanıcı tuşu görür --}}
@@ -1054,6 +1067,16 @@
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
                                         📄 Kazı Metraj Cetveli (PDF) Görüntüle
                                     </a>
+
+                                    {{-- CELL-BASED AUTH: Alt kurum metraj belgesini düzenleyebilir (saha formasyonları).
+                                         Editör içinde güvenlik duvarı aktif: AYKOME imzası/başlık hücreleri kilitli kalır. --}}
+                                    @if($canEditTemplate && $application->institution_id)
+                                    <a href="{{ route('admin.applications.edit-document', [$application, 'metraj']) }}" target="_blank"
+                                       class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        ✏️ Belgeyi Düzenle (Kaydet)
+                                    </a>
+                                    @endif
                                     @endif
 
                                     {{-- PING-PONG: İmzalı Metraj Belgesi --}}

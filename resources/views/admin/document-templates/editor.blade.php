@@ -173,6 +173,8 @@
                 <div class="ribbon-sub">
                     @if($scope === 'application')
                         🔒 Bu başvuruya özel taslak — yalnızca bu başvurunun PDF'inde kullanılır
+                    @elseif($scope === 'institution')
+                        🏢 Kurum şablonu — yalnızca bu kurumun başvurularında kullanılır
                     @else
                         🌐 Global şablon — başvuruya özel taslağı olmayan tüm PDF'lerde kullanılır
                     @endif
@@ -189,7 +191,7 @@
                 <button type="button" class="tool-btn" onclick="excelAction('insertRow')">＋ Satır Ekle</button>
                 <button type="button" class="tool-btn" onclick="excelAction('deleteRow')">－ Satır Sil</button>
             @endif
-            @if($scope === 'application' && $resetUrl)
+            @if($resetUrl)
                 <button type="button" class="reset-btn" onclick="resetOverride()">↺ Varsayılana Dön</button>
             @endif
             <button type="button" class="cancel-btn" onclick="goBack()">İptal</button>
@@ -220,10 +222,17 @@
             if (!el) return;
             el.innerHTML = INITIAL_CONTENT || '';
 
-            // Metin/hücre elemanlarını contenteditable yap (A4 yapısı asla bozulmaz)
+            // CELL-BASED AUTH (Güvenlik Duvarı): Yalnızca blade'de contenteditable="true"
+            // verilmiş hücreler düzenlenebilir. Altkurum oturumunda belediye makam hücreleri
+            // contenteditable="false" gelir — burada ASLA yeniden "true" yapılmaz.
             var editable = el.querySelectorAll('td, th, p, h1, h2, h3, h4, li, .imza .ad, .imza .unvan');
             for (var i = 0; i < editable.length; i++) {
-                editable[i].setAttribute('contenteditable', 'true');
+                var cur = editable[i].getAttribute('contenteditable');
+                // "false" veya null olan hücreler kilitli kalır; yalnızca "true" olanlar etkinleşir.
+                if (cur === 'true') {
+                    // editör içinde görünür tıklanabilir kalsın; değer zaten "true"
+                    editable[i].setAttribute('contenteditable', 'true');
+                }
             }
         }
 
