@@ -181,7 +181,7 @@ class DocumentTemplateController extends Controller
         abort_unless(
             auth()->user()->isMunicipalityPersonel() || $this->applicationStatusRaw($application) === 'draft',
             403,
-            'Bu belge kuruma gönderildiği için salt-okunur durumdadır; düzenlenemez.'
+            'Başvuru artık taslak statüsünde değildir. Alt Kurum yalnızca görüntüleyebilir.'
         );
 
         $src = DocumentTemplateService::editorSource($documentType, $application);
@@ -224,7 +224,7 @@ class DocumentTemplateController extends Controller
         abort_unless(
             auth()->user()->isMunicipalityPersonel() || $this->applicationStatusRaw($application) === 'draft',
             403,
-            'Bu belge kuruma gönderildiği için salt-okunur durumdadır; düzenlenemez.'
+            'Başvuru artık taslak statüsünde değildir. Alt Kurum yalnızca görüntüleyebilir.'
         );
 
         DocumentTemplateService::saveOverride($application, $documentType, (string) $request->input('content_data'));

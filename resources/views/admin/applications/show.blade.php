@@ -1129,7 +1129,7 @@
                                         {{-- GÖREV 3: Word/Editör butonu YALNIZCA DRAFT durumunda (alt kurum, submit öncesi).
                                              submitted ve sonrası (belediye devraldığı an) HTML'den TAMAMEN render edilmez;
                                              alt kurum salt "Üst Yazı (Dilekçe) PDF Görüntüle/İndir" flat butonunu görür. --}}
-                                        @if($st === 'draft' && $canEditTemplate)
+                                        @if(auth()->user()->isMunicipalityPersonel() || $st === 'draft')
                                         <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
