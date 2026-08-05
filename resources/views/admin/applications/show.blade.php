@@ -1195,16 +1195,6 @@
                                         @endif
                                     @endif
 
-                                    {{-- GÖREV 1: Ön kazı işleme alındıysa Belediyenin Ön Kazı İzin PDF'i KALICI görünür --}}
-                                    @if($isAltKurum && !in_array($st, ['draft', 'submitted']))
-                                        <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}" target="_blank"
-                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100">
-                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
-                                            📥 Belediyenin Ön Kazı İzin Belgesini (PDF) Görüntüle / İndir
-                                        </a>
-                                        {{-- NOT: Alt kuruma Ön Kazı DÜZENLE butonu KESİNLİKLE BASILMAZ --}}
-                                    @endif
-
                                     {{-- BÜYÜK YASA: Üst Yazı adımı aktif/bekliyor ise alt kuruma işlem tabı --}}
                                     {{-- GÖREV 1: adım aşıldıysa (past) imzalı nüsha kutusu KALICI görünür --}}
                                     @if($isAltKurum && ($isCurrent || $isPast))
