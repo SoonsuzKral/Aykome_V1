@@ -800,6 +800,29 @@ CSS;
             . '</body></html>';
     }
 
+    /**
+     * Salt-okunur sunum: Bir belgenin düzenleme kilidi alt kuruma kapandığında
+     * (belediye onay/devralma sürecinde) renderFor() çıktısındaki TÜM
+     * contenteditable="true" atribütlerini söker; belge ne tarayıcıda ne de
+     * editor'de asla düzenlenemez. Metraj'daki "imza alanı dışı kilit" davranışının
+     * üst yazı dahil her tipe uygulanmış hâlidir.
+     */
+    public static function readOnlyRender(string $html): string
+    {
+        $html = (string) preg_replace(
+            '/contenteditable\s*=\s*(["\'])true\1/i',
+            'data-locked="1"',
+            $html
+        );
+
+        $hide = '<style>
+            .toolbar, .print-bar, .no-print-bar, [contenteditable] { display:none !important; }
+            .a4-container { -webkit-user-select:none; user-select:none; pointer-events:none; }
+        </style>';
+
+        return str_ireplace('</head>', $hide . '</head>', $html);
+    }
+
     protected static function renderExcelPage(string $type, string $json): string
     {
         $grid = json_decode($json, true);

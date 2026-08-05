@@ -1035,6 +1035,7 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('on_kazi', $application)) {
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator']);
@@ -1064,7 +1065,9 @@ class ApplicationsController extends Controller
             'kep_adresi' => $application->institution?->email ?? 'eyyubiye@hs03.kep.tr',
         ];
 
-        return view('admin.pdf.pre_permit', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.pre_permit', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadCoverLetter(Application $application)
@@ -1084,6 +1087,9 @@ class ApplicationsController extends Controller
                     . '</div>';
                 $html = str_replace('<div class="a4-container">', '<div class="a4-container">' . $logoBlock, $html);
             }
+            // ALT KURUM KİLİDİ: Belediye onay/devralma sürecinde (draft/değilse) belge
+            // contenteditable HTML olarak asla döndürülmez → salt-okunur render edilir.
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
 
@@ -1110,7 +1116,9 @@ class ApplicationsController extends Controller
             'application' => $application,
         ];
 
-        return view('admin.pdf.cover_letter', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.cover_letter', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadRuhsat(Application $application)
@@ -1120,6 +1128,7 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('ruhsat', $application)) {
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
@@ -1139,7 +1148,7 @@ class ApplicationsController extends Controller
             ];
         }
 
-        return view('admin.pdf.ruhsat', [
+        $ruhsatHtml = \Illuminate\Support\Facades\View::make('admin.pdf.ruhsat', [
             'application' => $application,
             'surfaceRows' => $surfaceRows,
             'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
@@ -1147,7 +1156,9 @@ class ApplicationsController extends Controller
                 trim($application->tesis_sorumlusu ?? $application->institution?->tesis_sorumlusu_adi ?? 'Yetkili Görevli'),
                 'UTF-8'
             ),
-        ]);
+        ])->render();
+        $ruhsatHtml = $this->lockForAltKurum($ruhsatHtml, $application);
+        return response($ruhsatHtml)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadMetraj(Application $application)
@@ -1157,6 +1168,7 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('metraj', $application)) {
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
@@ -1195,7 +1207,9 @@ class ApplicationsController extends Controller
             ),
         ];
 
-        return view('admin.pdf.metraj', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.metraj', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadTaahhutname(Application $application)
@@ -1205,13 +1219,16 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('taahhutname', $application)) {
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator']);
 
         $data = ['application' => $application];
 
-        return view('admin.pdf.taahhutname', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.taahhutname', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadTahakkuk(Application $application)
@@ -1221,6 +1238,7 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('tahakkuk', $application)) {
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
@@ -1250,7 +1268,9 @@ class ApplicationsController extends Controller
             'aciklama' => '',
         ];
 
-        return view('admin.pdf.tahakkuk', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.tahakkuk', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadTahsilatFisi(Application $application)
@@ -1260,6 +1280,7 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('tahsilat_fisi', $application)) {
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
@@ -1307,7 +1328,9 @@ class ApplicationsController extends Controller
             'duzenleyen' => $app->creator?->name ?? 'Yetkili',
         ];
 
-        return view('admin.pdf.tahsilat_fisi', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.tahsilat_fisi', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function saveReceiptInfo(Request $request, Application $application): RedirectResponse
@@ -1708,6 +1731,29 @@ class ApplicationsController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * ALT KURUM KİLİDİ (sunucu katmanı): Belediye personeli değilse ve başvuru
+     * draft/rejected/revision statüsünde DEĞİLSE, renderFor() çıktısındaki TÜM
+     * contenteditable atribütleri sökülür (DocumentTemplateService::readOnlyRender).
+     * Böylece "Görüntüle / İndir (PDF)" butonu üst yazı dahil HİÇBİR belgeyi
+     * düzenlenebilir HTML olarak alt kuruma servis etmez.
+     */
+    private function lockForAltKurum(string $html, Application $application): string
+    {
+        $status = $application->status;
+        $raw = $status instanceof ApplicationStatus ? $status->value : (string) $status;
+
+        if (auth()->user()->isMunicipalityPersonel()) {
+            return $html;
+        }
+
+        if (in_array($raw, ['draft', 'rejected', 'revision'], true)) {
+            return $html;
+        }
+
+        return DocumentTemplateService::readOnlyRender($html);
     }
 
     public function data(Request $request): \Illuminate\Http\JsonResponse
