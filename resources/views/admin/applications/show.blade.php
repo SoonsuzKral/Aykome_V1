@@ -13,6 +13,13 @@
 @section('content')
     @php
         $st = $application->status instanceof \BackedEnum ? $application->status->value : $application->status;
+        // GÖREV 2 (KATI EDİTÖR KİLİDİ): Enum/string kaçağına karşı raw değere eriş,
+        // kullanıcı rolünü boolean'a indir, düzenleme yalnızca belediye VEYA
+        // draft/rejected/revision durumlarında açılır. Alt kurum belgeyi submit
+        // ettikten sonra (başka statü) bu değişken false → mavi edit butonu ASLA render olmaz.
+        $kullaniciBelediyeMi = auth()->user()->isMunicipalityPersonel() ?? auth()->user()->is_municipality;
+        $guncelStatus = isset($application->status->value) ? $application->status->value : $application->status;
+        $duzenlemeAcik = $kullaniciBelediyeMi || in_array($guncelStatus, ['draft', 'rejected', 'revision']);
         $latestReceipt = $application->receipts->sortByDesc('id')->first();
         $latestReceiptMedia = $latestReceipt?->getFirstMedia('scan');
         $latestReceiptUrl = $latestReceiptMedia?->getUrl();
@@ -495,7 +502,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-cyan-800">Üst Yazı</span>
                         <span class="text-[9px] text-slate-400">Dilekçe</span>
                     </a>
-                    @if($canEditTemplate && auth()->user()->isMunicipalityPersonel())
+                    ($kullaniciBelediyeMi && $canEditTemplate)
                     <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -512,7 +519,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-cyan-800">Ön Kazı</span>
                         <span class="text-[9px] text-slate-400">İzin Belgesi</span>
                     </a>
-                    @if($canEditTemplate && auth()->user()->isMunicipalityPersonel())
+                    ($kullaniciBelediyeMi && $canEditTemplate)
                     <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -538,7 +545,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-indigo-800">Metraj</span>
                         <span class="text-[9px] text-slate-400">Cetveli</span>
                     </a>
-                    @if($canEditTemplate && auth()->user()->isMunicipalityPersonel())
+                    ($kullaniciBelediyeMi && $canEditTemplate)
                     <a href="{{ route('admin.applications.edit-document', [$application, 'metraj']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -553,7 +560,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-rose-800">Tahakkuk</span>
                         <span class="text-[9px] text-slate-400">Fişi</span>
                     </a>
-                    @if($canEditTemplate && auth()->user()->isMunicipalityPersonel())
+                    ($kullaniciBelediyeMi && $canEditTemplate)
                     <a href="{{ route('admin.applications.edit-document', [$application, 'tahakkuk']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -576,7 +583,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-emerald-800">Ruhsat</span>
                         <span class="text-[9px] text-slate-400">Belgesi</span>
                     </a>
-                    @if($canEditTemplate && auth()->user()->isMunicipalityPersonel())
+                    ($kullaniciBelediyeMi && $canEditTemplate)
                     <a href="{{ route('admin.applications.edit-document', [$application, 'ruhsat']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -1126,10 +1133,11 @@
                                             📄 Üst Yazı (Dilekçe) Görüntüle / İndir (PDF)
                                         </a>
 
-                                        {{-- GÖREV 3: Word/Editör butonu YALNIZCA DRAFT durumunda (alt kurum, submit öncesi).
+                                        {{-- GÖREV 3: Word/Editör butonu YALNIZCA $duzenlemeAcik (belediye VEYA draft/rejected/revision)
                                              submitted ve sonrası (belediye devraldığı an) HTML'den TAMAMEN render edilmez;
                                              alt kurum salt "Üst Yazı (Dilekçe) PDF Görüntüle/İndir" flat butonunu görür. --}}
-                                        @if(auth()->user()->isMunicipalityPersonel() || $st === 'draft')
+                                        <!-- LOG DEBUG - BldMi: {{ $kullaniciBelediyeMi ? 'Evet' : 'Hayir' }} | ST: {{ $guncelStatus }} | DznAcik: {{ $duzenlemeAcik ? 'Evet' : 'Hayir' }} -->
+                                        @if($duzenlemeAcik)
                                         <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -1254,7 +1262,9 @@
                                             📄 Kazı Metraj Cetveli (PDF) Görüntüle
                                         </a>
 
-                                        @if($canEditTemplate && $application->institution_id)
+                                        {{-- GÖREV 3: Metraj edit butonu yalnızca $duzenlemeAcik (belediye VEYA draft/rejected/revision) --}}
+                                        <!-- LOG DEBUG - Metraj BldMi: {{ $kullaniciBelediyeMi ? 'Evet' : 'Hayir' }} | ST: {{ $guncelStatus }} | DznAcik: {{ $duzenlemeAcik ? 'Evet' : 'Hayir' }} -->
+                                        @if($duzenlemeAcik)
                                         <a href="{{ route('admin.applications.edit-document', [$application, 'metraj']) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -1381,7 +1391,9 @@
                                                  field-tasks.store statüyü FieldWork'a çekip sahte/ileri kilit açabiliyordu;
                                                  bu yapıda kullanılmıyor, form kargaşasını azaltır. --}}
 
-                                            @if($canEditTemplate && $application->institution_id)
+                                            {{-- GÖREV 3: Metraj edit butonu yalnızca $duzenlemeAcik (belediye VEYA draft/rejected/revision) --}}
+                                            <!-- LOG DEBUG - Metraj2 BldMi: {{ $kullaniciBelediyeMi ? 'Evet' : 'Hayir' }} | ST: {{ $guncelStatus }} | DznAcik: {{ $duzenlemeAcik ? 'Evet' : 'Hayir' }} -->
+                                            @if($duzenlemeAcik)
                                             <a href="{{ route('admin.applications.edit-document', [$application, 'metraj']) }}" target="_blank"
                                                class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
                                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -1415,7 +1427,8 @@
                                         $makbuzlarDolu = $application->ztb_receipt_info && $application->deposit_receipt_info;
                                         $isLicensed = $st === 'licensed';
                                     @endphp
-                                    @if(auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']))
+                                    <!-- LOG DEBUG - Ruhsat BldMi: {{ $kullaniciBelediyeMi ? 'Evet' : 'Hayir' }} | ST: {{ $guncelStatus }} | DznAcik: {{ $duzenlemeAcik ? 'Evet' : 'Hayir' }} -->
+                                    @if(auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']) && $duzenlemeAcik)
                                         <a href="{{ route('admin.applications.edit-document', [$application, 'ruhsat']) }}" target="_blank"
                                            class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -1617,7 +1630,8 @@
 
                                 {{-- KURAL: Alt kurum Ruhsat adımını asla düzenleyemez. Edit butonu gizli. --}}
                                 {{-- Belediye yöneticisi ruhsatı düzenleyebilir --}}
-                                @if($ruhsatAdimiAcik && !$isUserInstitution && auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']))
+                                <!-- LOG DEBUG - Ruhsat2 BldMi: {{ $kullaniciBelediyeMi ? 'Evet' : 'Hayir' }} | ST: {{ $guncelStatus }} | DznAcik: {{ $duzenlemeAcik ? 'Evet' : 'Hayir' }} -->
+                                @if($ruhsatAdimiAcik && !$isUserInstitution && auth()->user()->hasAnyRole(['super-admin', 'municipality-admin']) && $duzenlemeAcik)
                                     <a href="{{ route('admin.applications.edit-document', [$application, 'ruhsat']) }}" target="_blank"
                                        class="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
