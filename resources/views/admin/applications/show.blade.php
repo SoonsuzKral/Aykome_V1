@@ -502,7 +502,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-cyan-800">Üst Yazı</span>
                         <span class="text-[9px] text-slate-400">Dilekçe</span>
                     </a>
-                    ($kullaniciBelediyeMi && $canEditTemplate)
+                    @if($kullaniciBelediyeMi && $canEditTemplate)
                     <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -519,7 +519,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-cyan-800">Ön Kazı</span>
                         <span class="text-[9px] text-slate-400">İzin Belgesi</span>
                     </a>
-                    ($kullaniciBelediyeMi && $canEditTemplate)
+                    @if($kullaniciBelediyeMi && $canEditTemplate)
                     <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -545,7 +545,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-indigo-800">Metraj</span>
                         <span class="text-[9px] text-slate-400">Cetveli</span>
                     </a>
-                    ($kullaniciBelediyeMi && $canEditTemplate)
+                    @if($kullaniciBelediyeMi && $canEditTemplate)
                     <a href="{{ route('admin.applications.edit-document', [$application, 'metraj']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -560,7 +560,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-rose-800">Tahakkuk</span>
                         <span class="text-[9px] text-slate-400">Fişi</span>
                     </a>
-                    ($kullaniciBelediyeMi && $canEditTemplate)
+                    @if($kullaniciBelediyeMi && $canEditTemplate)
                     <a href="{{ route('admin.applications.edit-document', [$application, 'tahakkuk']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
@@ -583,7 +583,7 @@
                         <span class="text-[11px] font-semibold text-slate-700 group-hover:text-emerald-800">Ruhsat</span>
                         <span class="text-[9px] text-slate-400">Belgesi</span>
                     </a>
-                    ($kullaniciBelediyeMi && $canEditTemplate)
+                    @if($kullaniciBelediyeMi && $canEditTemplate)
                     <a href="{{ route('admin.applications.edit-document', [$application, 'ruhsat']) }}" title="Bu başvuruya özel taslağı düzenle" class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Taslak</a>
                     @endif
                     </div>
