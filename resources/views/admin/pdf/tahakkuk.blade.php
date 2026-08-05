@@ -68,7 +68,7 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
         </tr>
         <tr>
             <td class="label">ilçe</td>
-            <td class="value" contenteditable="true">{{ $application->district_name }}</td>
+            <td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->district_name }}</td>
         </tr>
         <tr>
             <td class="label">Adres / Proje Adı</td>
@@ -100,11 +100,11 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
 <table class="tablo">
     <thead>
         <tr>
-            <th style="width:28%;" contenteditable="true">ZEMİN CİNSİ</th>
-            <th style="width:8%;" contenteditable="true">BİRİM</th>
-            <th style="width:12%;" contenteditable="true">MİKTAR</th>
-            <th style="width:14%;" contenteditable="true">BİRİM FİYAT</th>
-            <th style="width:16%;" contenteditable="true">TUTAR</th>
+            <th style="width:28%;" contenteditable="{{ $isMuni ? 'true' : 'false' }}">ZEMİN CİNSİ</th>
+            <th style="width:8%;" contenteditable="{{ $isMuni ? 'true' : 'false' }}">BİRİM</th>
+            <th style="width:12%;" contenteditable="{{ $isMuni ? 'true' : 'false' }}">MİKTAR</th>
+            <th style="width:14%;" contenteditable="{{ $isMuni ? 'true' : 'false' }}">BİRİM FİYAT</th>
+            <th style="width:16%;" contenteditable="{{ $isMuni ? 'true' : 'false' }}">TUTAR</th>
         </tr>
     </thead>
     <tbody>
@@ -123,19 +123,19 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
                 $tutar    = (string)($zeminSatir['tutar'] ?? (number_format((float)($zeminSatir->amount ?? 0), 2, ',', '.')));
             @endphp
             <tr>
-                <td class="l" contenteditable="true">{{ $zeminAd }}</td>
-                <td contenteditable="true">{{ $birim }}</td>
-                <td class="num" contenteditable="true">{{ $miktar }}</td>
-                <td class="num" contenteditable="true">{{ $birimFiyat }}</td>
-                <td class="num" contenteditable="true">{{ $tutar }}</td>
+                <td class="l" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $zeminAd }}</td>
+                <td contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $birim }}</td>
+                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $miktar }}</td>
+                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $birimFiyat }}</td>
+                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $tutar }}</td>
             </tr>
         @empty
             <tr>
-                <td class="l" contenteditable="true">—</td>
-                <td contenteditable="true">—</td>
-                <td class="num" contenteditable="true">0,00</td>
-                <td class="num" contenteditable="true">0,00</td>
-                <td class="num" contenteditable="true">0,00</td>
+                <td class="l" contenteditable="{{ $isMuni ? 'true' : 'false' }}">—</td>
+                <td contenteditable="{{ $isMuni ? 'true' : 'false' }}">—</td>
+                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">0,00</td>
+                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">0,00</td>
+                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">0,00</td>
             </tr>
         @endforelse
     </tbody>
@@ -145,24 +145,24 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
     <table>
         <tr>
             <td class="label">Toplam Miktar</td>
-            <td class="value" contenteditable="true">{{ $application->toplam_miktar }}</td>
+            <td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->toplam_miktar }}</td>
         </tr>
         <tr>
             <td class="label">Zemin Tahrip Bedeli</td>
-            <td class="value" contenteditable="true">{{ $application->ztb_amount }} TL</td>
+            <td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->ztb_amount }} TL</td>
         </tr>
     </table>
 </div>
 
 <div class="toplamlar" style="margin-top:5pt;">
     <table>
-        <tr><td class="label">Zemin Tahrip Bedeli</td><td class="value" contenteditable="true">{{ $application->ztb_amount }} TL</td></tr>
-        <tr><td class="label">K.D.V. (%20)</td><td class="value" contenteditable="true">{{ $application->kdv_amount }} TL</td></tr>
-        <tr><td class="label">Ruhsat Harcı</td><td class="value" contenteditable="true">{{ $application->license_fee }} TL</td></tr>
-        <tr><td class="label">Keşif Bedeli</td><td class="value" contenteditable="true">{{ $application->discovery_fee }} TL</td></tr>
-        <tr><td class="label">ZTB Toplam</td><td class="value" contenteditable="true">{{ $application->ztb_total }} TL</td></tr>
-        <tr><td class="label">Teminat</td><td class="value" contenteditable="true">{{ $application->teminat_amount }} TL</td></tr>
-        <tr style="font-weight:bold;"><td class="label">Genel Toplam</td><td class="value" contenteditable="true">{{ $application->general_total }} TL</td></tr>
+        <tr><td class="label">Zemin Tahrip Bedeli</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->ztb_amount }} TL</td></tr>
+        <tr><td class="label">K.D.V. (%20)</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->kdv_amount }} TL</td></tr>
+        <tr><td class="label">Ruhsat Harcı</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->license_fee }} TL</td></tr>
+        <tr><td class="label">Keşif Bedeli</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->discovery_fee }} TL</td></tr>
+        <tr><td class="label">ZTB Toplam</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->ztb_total }} TL</td></tr>
+        <tr><td class="label">Teminat</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->teminat_amount }} TL</td></tr>
+        <tr style="font-weight:bold;"><td class="label">Genel Toplam</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->general_total }} TL</td></tr>
     </table>
 </div>
 

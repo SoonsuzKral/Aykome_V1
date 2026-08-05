@@ -175,11 +175,17 @@ class DocumentTemplateController extends Controller
         $this->authorize('view', $application);
         $t = DocumentTemplateService::type($documentType) ?: abort(404, 'Bilinmeyen belge tipi.');
 
+        // GÖREV 3 (sunucu sert kilidi — URL ile dahi aşılamaz): Alt kurum personeli belgeyi
+        // yalnızca DRAFT iken düzenleyebilir. Belediyeye submit ettikten sonra (status != draft)
+        // editör salt-okunur görünüme değil DOĞRUDAN 403'e döner; belge tamamen kilitlenir.
+        abort_unless(
+            auth()->user()->isMunicipalityPersonel() || $this->applicationStatusRaw($application) === 'draft',
+            403,
+            'Bu belge kuruma gönderildiği için salt-okunur durumdadır; düzenlenemez.'
+        );
+
         $src = DocumentTemplateService::editorSource($documentType, $application);
 
-        // GÖREV 2 (ÜST YAZI TESLİMİYET DONDURMASI): Alt kurum personeli belgeyi yalnızca DRAFT
-        // iken düzenleyebilir. Belediyeye submit ettikten sonra (status != draft) editör salt-okunur
-        // "Pdf kağıdı" görünümüne döner; hiçbir contenteditable hücresi düzenlenemez.
         $bodyReadOnly = ! auth()->user()->isMunicipalityPersonel()
             && $this->applicationStatusRaw($application) !== 'draft';
 

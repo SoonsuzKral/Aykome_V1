@@ -17,6 +17,12 @@
         $latestReceiptMedia = $latestReceipt?->getFirstMedia('scan');
         $latestReceiptUrl = $latestReceiptMedia?->getUrl();
 
+        // GÖREV 2 (PERSISTENT UPSTREAM VISIBILITY): Bir kez üretilen Ön Kazı / Metraj belgesi
+        // sonraki TÜM aşamalarda (tahakkuk, taahhütname, ruhsat, arşiv) KALICI görünür.
+        // dar statü listesi yerine "aşama aşıldı" semantiğine bağlanır.
+        $passedOnKazi = ! in_array($st, ['draft', 'submitted', 'pending', 'rejected']);
+        $passedMetraj = ! in_array($st, ['draft', 'submitted', 'pending', 'pre_excavation_approved', 'pre_approved', 'rejected']);
+
         $statusMeta = match($st) {
             'draft'                  => ['label' => 'Taslak',                 'class' => 'bg-slate-100 text-slate-700'],
             'submitted'              => ['label' => 'Ön Kazı Bekliyor',       'class' => 'bg-sky-100 text-sky-700'],
@@ -102,7 +108,7 @@
             $alertViewerIsMuni = auth()->user()->isMunicipalityPersonel();
             $alertKaStage = $st;
         @endphp
-        @if(in_array($alertKaStage, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'pre_excavation_approved', 'pre_approved']))
+        @if(in_array($alertKaStage, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'pre_excavation_approved', 'pre_approved', 'awaiting_payment', 'receipt_pending']))
         <div class="mb-6 rounded-2xl border border-blue-300 bg-gradient-to-r from-blue-50 to-sky-50 p-4 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-start gap-3">
@@ -147,9 +153,15 @@
                         @elseif($alertKaStage === 'ruhsat_sent')
                             <p class="text-sm font-bold text-blue-900">Ruhsat Kuruma Gönderildi</p>
                             <p class="mt-0.5 text-xs text-blue-700">Alt kurum ruhsatı görüntüleyip saha çalışmasına geçebilir.</p>
+                        @elseif($alertKaStage === 'awaiting_payment')
+                            <p class="text-sm font-bold text-blue-900">🧾 Ödeme Bekleniyor — Makbuz Yükleyin</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Alt kurum ödeme dekontunu yüklediğinde belediye makbuzu onaylayıp Taahhütname modülünü açacaktır.</p>
                         @elseif($alertKaStage === 'receipt_pending' && $latestReceipt && $latestReceipt->status !== 'approved')
                             <p class="text-sm font-bold text-blue-900">🧾 Ödeme Evrakları Geldi — Onay Bekleniyor</p>
                             <p class="mt-0.5 text-xs text-blue-700">Alt kurum ödeme dekontunu yükledi; belediye makbuzu onaylayınca Taahhütname modülü açılır.</p>
+                        @elseif($alertKaStage === 'receipt_pending')
+                            <p class="text-sm font-bold text-blue-900">🧾 Makbuz Onaylandı — Taahhütname Açılacak</p>
+                            <p class="mt-0.5 text-xs text-blue-700">Belediye makbuz onayını tamamladı; Taahhütname modülüne geçilebilir.</p>
                         @else
                             <p class="text-sm font-bold text-blue-900">Ön Kazı Onaylı — Kazı Yapılabilir</p>
                             <p class="mt-0.5 text-xs text-blue-700">Kurum kazı çalışmalarını tamamlayınca belediye ileri modülleri manuel açacaktır.</p>
@@ -174,6 +186,12 @@
                         <form method="POST" action="{{ route('admin.applications.open-taahhutname', $application) }}">
                             @csrf
                             <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 TAAHHÜTNAME MODÜLÜNÜ AÇ</button>
+                        </form>
+                    @endif
+                    @if($alertViewerIsMuni && $alertKaStage === 'receipt_pending' && $latestReceipt && $latestReceiptMedia && $latestReceipt->status !== 'approved')
+                        <form method="POST" action="{{ route('admin.applications.approve-receipt', $application) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-emerald-700">✅ Makbuzu Onayla</button>
                         </form>
                     @endif
                     @if($alertViewerIsMuni && $alertKaStage === 'tahakkuk_pending')
@@ -483,8 +501,8 @@
                     </div>
                     @endif
 
-                    {{-- Ön Kazı İzin Belgesi -- her zaman göster (varsa) --}}
-                    @if($application->status instanceof \BackedEnum ? in_array($application->status->value, ['pre_excavation_approved', 'priced', 'awaiting_payment', 'receipt_pending', 'approved', 'licensed', 'field_work', 'completed']) : false)
+                    {{-- Ön Kazı İzin Belgesi -- GÖREV 2: aşama aşıldıysa KALICI görünür --}}
+                    @if($passedOnKazi)
                     <div class="relative">
                     <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}" target="_blank"
                        class="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-center transition hover:border-cyan-300 hover:bg-cyan-50/70 hover:shadow-sm group">
@@ -1201,8 +1219,8 @@
                                         {{-- KURAL: Alt kuruma Düzenle butonu KESİNLİKLE BASILMAZ --}}
                                         {{-- Tahakkuk/makbuz/taahhüt formları KESİNLİKLE bu karta sarkmaz --}}
 
-                                        {{-- Ön Kazı İzin Belgesi (PDF) Görüntüle / İndir --}}
-                                        @if(in_array($st, ['pre_approved', 'excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'field_work', 'completed']))
+                                        {{-- Ön Kazı İzin Belgesi (PDF) Görüntüle / İndir -- GÖREV 2 kalıcı --}}
+                                        @if($passedOnKazi)
                                         <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}" target="_blank"
                                            class="flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100 mb-2">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
@@ -1228,8 +1246,8 @@
                                         {{-- GÖREV 1 (EBYS KİLİT): Saha Personeli Devret eylemi KALDIRILDI. field-tasks.store
                                              statüyü FieldWork'a çekip sahte/ileri kilit açabiliyordu; bu yapıda kullanılmıyor. --}}
 
-                                        {{-- Belediye personeli için metraj PDF ve düzenleme --}}
-                                        @if(in_array($st, ['pre_approved', 'excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'awaiting_payment', 'payment_completed', 'receipt_pending', 'measurement_done', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'field_work', 'completed']))
+                                        {{-- Belediye personeli için metraj PDF ve düzenleme -- GÖREV 2 kalıcı --}}
+                                        @if($passedMetraj)
                                         <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
                                            class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 mb-2">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
@@ -1284,13 +1302,15 @@
                                          statü metrage_sent (belediye "Kuruma Gönder" dediğinde) ve sonrasında görür;
                                          metrage_pending/metrage_revision anında belediye çalışması gizlidir. --}}
                                     @php
-                                        $step3KurumGorebilir = in_array($st, ['metrage_sent', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'field_work', 'completed']);
-                                        $step3BelediyeGorebilir = in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'field_work', 'completed']);
+                                        // GÖREV 2: metraj bir kez "Kuruma Gönder" edildiyse (metrage_sent sonrası) ileri
+                                        // statülerde de (tahakkuk_sent/ruhsat_sent dahil) KALICI görünür.
+                                        $step3KurumGorebilir = $passedMetraj || in_array($st, ['metrage_sent', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
+                                        $step3BelediyeGorebilir = $passedMetraj || in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
                                         $step3Gorunur = ($isUserInstitution && $step3KurumGorebilir) || (!$isUserInstitution && $step3BelediyeGorebilir);
                                     @endphp
                                     @if(($isCurrent || $isPast) && $step3Gorunur)
-                                        {{-- Metraj (PDF) Görüntüle / İndir — her iki taraf --}}
-                                        @if(in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'pre_approved', 'awaiting_payment', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'receipt_pending', 'measurement_done', 'approved', 'licensed', 'field_work', 'completed']))
+                                        {{-- Metraj (PDF) Görüntüle / İndir — her iki taraf -- GÖREV 2 kalıcı --}}
+                                        @if($passedMetraj)
                                         <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 py-2.5 text-sm font-medium text-cyan-700 hover:bg-cyan-100">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
