@@ -123,9 +123,9 @@
             <tr>
                 <td style="width:50%; padding-left:20px;">
                     <table class="mini-sign">
-                        <tr><th contenteditable="true">KURUM/KURULUŞ</th></tr>
+                        <tr><th contenteditable="true" data-sign-editable="1">KURUM/KURULUŞ</th></tr>
                         <tr>
-                            <td contenteditable="true">
+                            <td contenteditable="true" data-sign-editable="1">
                                 {{ $talep_sahibi ?? '' }}<br>
                                 <span style="font-size: 11px; font-weight:normal;">{{ $signatories['tesis_sorumlusu']['unvan'] ?? '' }}</span>
                             </td>

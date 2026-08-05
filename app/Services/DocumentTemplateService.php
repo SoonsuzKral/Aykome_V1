@@ -809,9 +809,31 @@ CSS;
      */
     public static function readOnlyRender(string $html): string
     {
-        // TÜM contenteditable attribut'larını (true ve false değerleri dahil) sil;
-        // böylece hiçbir öğe düzenlenemez ve hiçbir içerik gizlenmez.
-        $html = (string) preg_replace('/\scontenteditable\s*=\s*["\'][^"\']*["\']/i', '', $html);
+        // Her HTML etiketini tekil işle: contenteditable attribut'unu taşıyan öğelerden
+        // düzenleme yeteneğini sök. TEK İSTİSNA: data-sign-editable="1" ile işaretlenmiş
+        // "KURUM/KURULUŞ (YETKİLİ GÖREVLİ)" imza kutusu — alt kurum yalnızca kendi
+        // imza bölgesini düzenleyebilir, miktar/fiyat/satır hücreleri asla.
+        $html = (string) preg_replace_callback(
+            '/<([a-zA-Z][a-zA-Z0-9]*)\b([^>]*?)>/',
+            function (array $m): string {
+                $tag = $m[1];
+                $attrs = $m[2];
+
+                if (! preg_match('/contenteditable\s*=/i', $attrs)) {
+                    return $m[0];
+                }
+
+                // İmza kutusu işaretliyse dokunma (alt kurum kendi imzasını atabilir).
+                if (preg_match('/data-sign-editable/i', $attrs)) {
+                    return $m[0];
+                }
+
+                $attrs = preg_replace('/\s+contenteditable\s*=\s*["\'][^"\']*["\']/i', '', $attrs);
+
+                return '<' . $tag . $attrs . '>';
+            },
+            $html
+        );
 
         // Yalnızca araç çubuklarını gizle; belge içeriğine ASLA display:none uygulama.
         $hide = '<style>
