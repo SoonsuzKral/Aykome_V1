@@ -809,15 +809,13 @@ CSS;
      */
     public static function readOnlyRender(string $html): string
     {
-        $html = (string) preg_replace(
-            '/contenteditable\s*=\s*(["\'])true\1/i',
-            'data-locked="1"',
-            $html
-        );
+        // TÜM contenteditable attribut'larını (true ve false değerleri dahil) sil;
+        // böylece hiçbir öğe düzenlenemez ve hiçbir içerik gizlenmez.
+        $html = (string) preg_replace('/\scontenteditable\s*=\s*["\'][^"\']*["\']/i', '', $html);
 
+        // Yalnızca araç çubuklarını gizle; belge içeriğine ASLA display:none uygulama.
         $hide = '<style>
-            .toolbar, .print-bar, .no-print-bar, [contenteditable] { display:none !important; }
-            .a4-container { -webkit-user-select:none; user-select:none; pointer-events:none; }
+            .toolbar, .print-bar, .no-print-bar { display:none !important; }
         </style>';
 
         return str_ireplace('</head>', $hide . '</head>', $html);
