@@ -1149,51 +1149,44 @@ function layerFilterFor(hex){
     return 'grayscale(1) sepia(1) saturate('+Math.round(sm*100)+'%) hue-rotate('+Math.round(h*360)+'deg) brightness('+Math.round(90+l*120)+'%)';
 }
 
-/* ── RENK RENDER (CANLI SİSTEME ENTEGRE): WMS tile (resim) üstüne "boya katmanı" ──
-   `mix-blend-mode: color` ile seçilen HEX her piksele TAM doğru uygulanır (hue-rotate
-   tutturamazdı). WMS resim kalır; vektöre çevrilmez → yüz binlerce çizim asla DOM'a çekilmez.
-   Kaynak resmin rengi ne olursa olsun sonuç daima seçili renktir. */
-var _tintEls={};   // layer -> boya overlay DOM elemanı
-function tintFor(layer){
-    if(_tintEls[layer])return _tintEls[layer];
+/* ── RENK RENDER (GÜVENLİ): seçilen HEX → CSS filter, ELLE tile <img> öğelerine uygulanır.
+   Asla ekranı kaplayan overlay oluşturulmaz → pembeye dönme YOK. Katman kapalıykken
+   overlay yok, görsel etki yok. Katman açıkken tile'lar o an boyanır. */
+function colorTileLayer(layer,hex){
+    var css=layerFilterFor(hex);
     var pane=wmsPanes[layer];
-    if(!pane||!mapsMap)return null;
-    var el=document.createElement('div');
-    el.style.cssText='position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;'+
-                     'mix-blend-mode:color;z-index:10;will-change:opacity;';
-    pane.appendChild(el);
-    _tintEls[layer]=el;
-    sizeTintEl(layer);
-    return el;
+    if(pane){ pane.style.filter=css; pane.style.webkitFilter=css; }
+    var wl=wmsLayers[layer];
+    if(wl && wl.getContainer){ var c=wl.getContainer(); if(c){ c.style.filter=css; c.style.webkitFilter=css; } }
+    if(pane){
+        var imgs=pane.querySelectorAll('img');
+        for(var i=0;i<imgs.length;i++){ imgs[i].style.filter=css; imgs[i].style.webkitFilter=css; }
+        /* varimli render tetik: rengin tile üzerine doodle işlenmesini zorlar */
+        if(wl && mapsMap && mapsMap.hasLayer(wl)){
+            var keep=wl.options.opacity;
+            wl.setOpacity(0);
+            requestAnimationFrame(function(){ if(wl)wl.setOpacity(keep); });
+        }
+    }
 }
-function sizeTintEl(layer){
-    var el=_tintEls[layer];
-    if(!el||!mapsMap)return;
-    var s=mapsMap.getSize();
-    el.style.width=s.x+'px';
-    el.style.height=s.y+'px';
+function clearTileLayerColor(layer){
+    var pane=wmsPanes[layer];
+    if(pane){ pane.style.filter=''; pane.style.webkitFilter=''; }
+    var wl=wmsLayers[layer];
+    if(wl && wl.getContainer){ var c=wl.getContainer(); if(c){ c.style.filter=''; c.style.webkitFilter=''; } }
+    if(pane){
+        var imgs=pane.querySelectorAll('img');
+        for(var i=0;i<imgs.length;i++){ imgs[i].style.filter=''; imgs[i].style.webkitFilter=''; }
+    }
 }
 function applyLayerColor(layer,hex){
-    if(!hex)return;
+    if(!hex){ clearTileLayerColor(layer); layerColorMap[layer]=null; return; }
     layerColorMap[layer]=hex;
-    var el=tintFor(layer);
-    if(el){ el.style.background=hex; el.style.opacity='1'; }
-    else {
-        /* pane henüz tanımlı değilse (harita boot'unda) — pane oluşunca sizeTint+uygulama yapılır */
-        _pendingTint=layer+':'+hex;
-    }
-}
-var _pendingTint=null;
-function flushPendingTint(){
-    if(_pendingTint){
-        var p=_pendingTint.split(':');
-        applyLayerColor(p[0],p.slice(1).join(':'));
-        _pendingTint=null;
-    }
+    colorTileLayer(layer,hex);
 }
 function ensureLayerColor(layer){
     var hex=layerColorMap[layer];
-    if(hex)applyLayerColor(layer,hex);
+    if(hex)colorTileLayer(layer,hex);
 }
 
 /* DB'ye CANLI kayıt: paletten renk bırakma (onChange) → 1000ms debounce → POST (CSRF).
@@ -1404,9 +1397,6 @@ function initMaps(){
     mapsMap.on('draw:created',handleDrawCreated);
     mapsMap.on('draw:drawstart',onDrawStart);
     mapsMap.on('layeradd layerremove',updateActiveLayerCount);
-    mapsMap.on('resize',function(){
-        Object.keys(_tintEls).forEach(function(l){ sizeTintEl(l); });
-    });
 
     loadBasvuruMarkers();
     setupEventListeners();
