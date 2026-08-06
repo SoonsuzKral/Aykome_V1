@@ -203,6 +203,17 @@ class DocumentTemplateController extends Controller
             'backUrl' => route('admin.applications.show', $application),
             'title' => $t['label'] . ' — ' . $application->application_no,
             'readOnly' => $bodyReadOnly,
+            // CANLI DOM MATEMATİĞİ (GÖREV 2): Kırmızı Çizgi kuralları + birim fiyat
+            // haritası JS ReactiveMathEngine'e enjekte edilir (AykomeMath aynası).
+            'math' => [
+                'isDicle' => $application->isDicle(),
+                'isInstitutionApp' => $application->isInstitutionApplication(),
+                'isAdditionalPermit' => (bool) ($application->is_additional_permit ?? false),
+                'surfacePrices' => \App\Models\SurfaceType::query()
+                    ->where('active', true)
+                    ->pluck('price_per_m2', 'name')
+                    ->all(),
+            ],
         ]);
     }
 
@@ -213,21 +224,52 @@ class DocumentTemplateController extends Controller
         return $status instanceof ApplicationStatus ? $status->value : (string) $status;
     }
 
-    public function saveApplication(Request $request, Application $application, string $documentType): JsonResponse
+    public function saveApplication(Request $request, Application $application, string $documentType, \App\Services\DocumentSyncService $syncService): JsonResponse
     {
         $this->guardApplicationScope($application);
         $this->authorize('view', $application);
         abort_unless(DocumentTemplateService::isValid($documentType), 404);
 
+        $isMuni = auth()->user()->isMunicipalityPersonel();
+        $status = $this->applicationStatusRaw($application);
+
+// GÖREV 4 (İMZA İSTİSNALARI): Alt kurum, yalnızca metrajın "KURUM/KURULUŞ" imza
+        // kutusunu (metrage_sent), taahhütnamenin "RUHSATI TESLİM ALAN" hücresini
+        // (taahhutname_sent) ve ruhsatın "YAPILACAK İŞİN FENNİ MESULÜ" (Firma/Sorumlu/Telefon/İmza)
+        // kutusunu (ruhsat_sent) kaydedebilir. Diğer tüm belgelerde/aşamalarda 403 aynen korunur.
+        $signableDoc = ($documentType === 'metraj' && $status === 'metrage_sent')
+            || ($documentType === 'taahhutname' && $status === 'taahhutname_sent')
+            || ($documentType === 'ruhsat' && $status === 'ruhsat_sent');
+        $signOnly = ! $isMuni && $signableDoc;
+
         // GÖREV 2 (sunucu sert kilidi — JS bypass edilemez): Alt kurum, submit sonrası
         // (status != draft) belgeyi düzenleyip kaydedemez; yalnızca salt-okunur görür.
         abort_unless(
-            auth()->user()->isMunicipalityPersonel() || $this->applicationStatusRaw($application) === 'draft',
+            $isMuni || $status === 'draft' || $signOnly,
             403,
             'Başvuru artık taslak statüsünde değildir. Alt Kurum yalnızca görüntüleyebilir.'
         );
 
-        DocumentTemplateService::saveOverride($application, $documentType, (string) $request->input('content_data'));
+        $content = (string) $request->input('content_data');
+
+        // MODÜLLER ARASI SENKRON (GÖREV 3): Belediye memuru bir Excel belgesinin
+        // (ruhsat/tahakkuk/metraj) sayısal hücresini düzenleyip kaydettiğinde belgedeki
+        // yüzey miktarları DB'ye geri beslenir (delta), App toplamları BAŞTAN hesaplanır
+        // ve orantılı dağıtım payı surface_sync_log'a yazılır. DB, taslakla senkron kalır.
+        if ($isMuni && in_array($documentType, ['ruhsat', 'tahakkuk', 'metraj'], true)) {
+            $syncService->syncFromDocument($application, $documentType, $content);
+        }
+
+        // GÖREV 4 (SUNUCU GÜVENLİĞİ): Alt kurum imzasını kaydederken yalnızca
+        // data-sign-editable imza hücresi korunur; geri kalan her şey yeniden üretilir.
+        // Metrajda bu hücre tablo sarmalayıcıyla taşınır; taahhütname/ruhsatta doğrudan
+        // eleman düzeyinde birleştirilir.
+        if ($signOnly) {
+            $base = DocumentTemplateService::signatureSaveBase($documentType, $application);
+            $content = DocumentTemplateService::mergeSignatureOnly($base, $content, $documentType === 'metraj');
+        }
+
+        DocumentTemplateService::saveOverride($application, $documentType, $content);
 
         return response()->json(['ok' => true]);
     }
@@ -249,6 +291,15 @@ class DocumentTemplateController extends Controller
         // GÖREV 2 (CELL-BASED AUTH): Editöre oturum rolünü ilet — alt kurum oturumunda
         // belediye makam hücreleri JS tarafında kilitli kalır (contenteditable="false").
         $data['isMuni'] = auth()->user()->isMunicipalityPersonel();
+
+        // GÖREV (KAZIT): Editör düzenlenebilir durumdaysa (readOnly=false) içeriğin
+        // contenteditable yaşam döngüsünü garanti et. Kaydedilen şablonlarda zamanla
+        // contenteditable özniteliği düşmüşse bile "Düzenle (Kaydet)" editörü yeniden
+        // düzenlenebilir görünür; salt-okunur durumdaysa (readOnly=true) kilitli kalır.
+        $data['initialContent'] = DocumentTemplateService::ensureContentEditable(
+            $data['initialContent'] ?? '',
+            ! ($data['readOnly'] ?? false)
+        );
 
         return view('admin.document-templates.editor', $data);
     }

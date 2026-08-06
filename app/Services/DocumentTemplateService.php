@@ -490,6 +490,187 @@ CSS;
             ->delete();
     }
 
+    /* ─── Modüller arası sayı senkronu (data-aykome-* sözleşmesi) ───────── */
+
+    /** Türkçe sayı formatı: "1.234,56". */
+    public static function fmtTr(float $number): string
+    {
+        return number_format((float) round($number, 2), 2, ',', '.');
+    }
+
+    /** "1.234,56 TL" / "1234.56" / "1234,56" → float. */
+    public static function parseTrNumber(string $value): float
+    {
+        $s = preg_replace('/[^\d.,\-]/', '', (string) $value);
+        if ($s === '' || $s === '-') {
+            return 0.0;
+        }
+        if (str_contains($s, ',') && str_contains($s, '.')) {
+            $s = str_replace('.', '', $s);   // binlik ayracı (TR)
+            $s = str_replace(',', '.', $s);  // ondalık ayracı (TR)
+        } elseif (str_contains($s, ',')) {
+            $s = str_replace(',', '.', $s);
+        }
+        return (float) $s;
+    }
+
+    /** Fragment veya tam HTML'i UTF-8 DOMDocument'a yükler. */
+    protected static function domLoad(string $html): \DOMDocument
+    {
+        $doc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+
+        return $doc;
+    }
+
+    /** DOMDocument içinden body children HTML'ini (fragment) döndürür. */
+    protected static function domBodyHtml(\DOMDocument $doc): string
+    {
+        $body = $doc->getElementsByTagName('body')->item(0);
+        if (! $body) {
+            return $doc->saveHTML();
+        }
+        $out = '';
+        foreach ($body->childNodes as $child) {
+            $out .= $doc->saveHTML($child);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Override HTML'indeki SAYI hücrelerini DB'den yeniden basar.
+     * El ile yapılan metin düzenlemeleri korunur; yalnızca data-aykome-* ile
+     * işaretli sayı hücreleri accessor/surface satırlarından tazelenir.
+     * " TL" sonekleri ve Türkçe format korunur.
+     */
+    public static function hydrateNumbers(string $html, Application $app): string
+    {
+        $app->loadMissing(['surfaceLines.surfaceType', 'institution']);
+
+        $doc = self::domLoad($html);
+        $xp = new \DOMXPath($doc);
+
+        // 1) Yüzey satırları (data-aykome-surface) — miktar/m2/tutar/genislik/uzunluk
+        $surfaceRows = $xp->query('//*[@data-aykome-surface]');
+        if ($surfaceRows !== false) {
+            foreach ($surfaceRows as $tr) {
+                $name = trim((string) $tr->getAttribute('data-aykome-surface'));
+                if ($name === '') {
+                    continue;
+                }
+                $line = collect($app->surfaceLines ?? [])->first(function ($sl) use ($name) {
+                    return $sl->surfaceType
+                        && mb_strtolower(trim((string) $sl->surfaceType->name), 'UTF-8')
+                           === mb_strtolower($name, 'UTF-8');
+                });
+                if (! $line) {
+                    continue;
+                }
+
+                $cells = $xp->query('.//*[@data-aykome-col]', $tr);
+                foreach ($cells as $td) {
+                    switch ($td->getAttribute('data-aykome-col')) {
+                        case 'miktar':
+                        case 'm2':
+                            self::setCellText($td, self::fmtTr((float) ($line->quantity ?? 0)));
+                            break;
+                        case 'tutar':
+                            self::setCellText($td, self::fmtTr((float) ($line->amount ?? 0)));
+                            break;
+                        case 'genislik':
+                            self::setCellText($td, number_format((float) ($line->width_m ?? 0), 2, ',', '.'));
+                            break;
+                        case 'uzunluk':
+                            self::setCellText($td, number_format((float) ($line->length_m ?? 0), 2, ',', '.'));
+                            break;
+                    }
+                }
+            }
+        }
+
+        // 2) Ücret hücreleri (data-aykome-fee) — accessor değerleri
+        $fees = [
+            'toplam_miktar' => $app->toplam_miktar,
+            'ztb_amount'    => $app->ztb_amount,
+            'kdv_amount'    => $app->kdv_amount,
+            'license_fee'   => $app->license_fee,
+            'discovery_fee' => $app->discovery_fee,
+            'ztb_total'     => $app->ztb_total,
+            'teminat'       => $app->teminat_amount,
+            'general_total' => $app->general_total,
+            'toplam_m2'     => $app->toplam_miktar,
+        ];
+        foreach ($fees as $key => $value) {
+            $nodes = $xp->query('//*[@data-aykome-fee="' . $key . '"]');
+            foreach ($nodes as $td) {
+                self::setCellText($td, (string) $value);
+            }
+        }
+
+        return self::domBodyHtml($doc);
+    }
+
+    /** Hücre metnini değiştirir; " TL" sonekini korur. */
+    protected static function setCellText(\DOMElement $td, string $value): void
+    {
+        $text = (string) $td->textContent;
+        $suffix = str_contains($text, ' TL') ? ' TL' : '';
+        $td->textContent = $value . $suffix;
+    }
+
+    /**
+     * Belge HTML'inden (override) her yüzey tipinin belge miktarını çıkarır.
+     * Veri modeli: [['name'=>..., 'quantity'=>float, 'tutar'=>float, 'price'=>float|null], ...]
+     */
+    public static function extractSurfaceRows(string $html): array
+    {
+        $doc = self::domLoad($html);
+        $xp = new \DOMXPath($doc);
+
+        $rows = [];
+        $surfaceRows = $xp->query('//*[@data-aykome-surface]');
+        if ($surfaceRows === false) {
+            return $rows;
+        }
+
+        foreach ($surfaceRows as $tr) {
+            $name = trim((string) $tr->getAttribute('data-aykome-surface'));
+            if ($name === '') {
+                continue;
+            }
+
+            $qty = null;
+            $tutar = null;
+            $price = null;
+            $cells = $xp->query('.//*[@data-aykome-col]', $tr);
+            foreach ($cells as $td) {
+                $col = $td->getAttribute('data-aykome-col');
+                $val = self::parseTrNumber(trim((string) $td->textContent));
+                if ($col === 'miktar' || $col === 'm2') {
+                    $qty = $val;
+                } elseif ($col === 'tutar') {
+                    $tutar = $val;
+                } elseif ($col === 'birim_fiyat') {
+                    $price = $val;
+                }
+            }
+
+            if ($qty !== null) {
+                $rows[] = [
+                    'name' => $name,
+                    'quantity' => $qty,
+                    'tutar' => $tutar,
+                    'price' => $price,
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
     /* ─── Excel hücre matrisi ──────────────────────────────────────────── */
 
     public static function buildRuhsatGrid(?Application $app): array
@@ -717,29 +898,14 @@ CSS;
 
     /**
      * EBYS E-İmza önizleme (dummy QR) alanını </body> öncesine enjekte eder.
-     * Gerçek e-imza entegrasyonu gelene kadar her editör çıktısına eklenir;
-     * dosya yoksa SVG fallback üretir, sistem asla kırılmaz.
+     *
+     * KAPATILDI (GÖREV): Sistemde gerçek bir e-Devlet doğrulama modülü yok; bu sahte
+     * QR / doğrulama bloğu tüm evraklardan kaldırıldı. İleride doğrulama modülü
+     * yapılırsa buraya gerçek doğrulama entegrasyonu yazılacak. Belge asla değişmez.
      */
     public static function applyEImzaStamp(string $html, ?Application $app = null): string
     {
-        if (trim($html) === '' || ! str_contains($html, '</body>')) {
-            return $html;
-        }
-
-        $qrImg = file_exists(public_path('images/dummy-qr.png'))
-            ? '<img src="' . e(asset('images/dummy-qr.png')) . '" alt="E-İmza QR Kodu" style="width:76px;height:76px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;flex:none;">'
-            : self::inlineQrSvg();
-
-        $no = $app?->application_no ?? $app?->id;
-        $stamp = '<div class="e-imza-alani" style="margin-top:30px;padding-top:16px;border-top:2px solid #1e293b;display:flex;align-items:center;gap:16px;">'
-            . $qrImg
-            . '<div style="flex:1;font-size:10px;line-height:1.6;color:#334155;">'
-            . '<div style="font-weight:700;font-size:11px;letter-spacing:.6px;color:#111827;">E-İMZA / DOĞRULAMA ALANI</div>'
-            . '<div>Bu alan, belgenin elektronik imza doğrulama bölgesidir. Henüz imzalanmamış önizlemedir.</div>'
-            . '<div>Belge / Doğrulama Kodu: <b>' . e((string) ($no ?? '-')) . '</b></div>'
-            . '</div></div>';
-
-        return str_replace('</body>', $stamp . '</body>', $html);
+        return $html;
     }
 
     /** dummy-qr.png bulunamazsa SVG ile QR görünümü üretir. */
@@ -807,8 +973,12 @@ CSS;
      * editor'de asla düzenlenemez. Metraj'daki "imza alanı dışı kilit" davranışının
      * üst yazı dahil her tipe uygulanmış hâlidir.
      */
-    public static function readOnlyRender(string $html): string
+    public static function readOnlyRender(string $html, bool $keepSignEditable = true, bool $keepPrintBar = false): string
     {
+        if (! $keepSignEditable) {
+            // TAM SALT-OKUNUR (görüntüleme): tüm contenteditable VE data-sign-editable sökülür.
+            $html = (string) preg_replace('/\s+contenteditable\s*=\s*["\'][^"\']*["\']/i', '', $html);
+        } else {
         // Her HTML etiketini tekil işle: contenteditable attribut'unu taşıyan öğelerden
         // düzenleme yeteneğini sök. TEK İSTİSNA: data-sign-editable="1" ile işaretlenmiş
         // "KURUM/KURULUŞ (YETKİLİ GÖREVLİ)" imza kutusu — alt kurum yalnızca kendi
@@ -830,17 +1000,164 @@ CSS;
 
                 $attrs = preg_replace('/\s+contenteditable\s*=\s*["\'][^"\']*["\']/i', '', $attrs);
 
-                return '<' . $tag . $attrs . '>';
+                    return '<' . $tag . $attrs . '>';
+                },
+                $html
+            );
+        }
+
+        // Yalnızca araç çubuklarını gizle; belge içeriğine ASLA display:none uygulama.
+        // Salt-okunur görüntüleyicisinde yazdır barı korunur (bak + yazdır).
+        $hide = $keepPrintBar
+            ? '<style>.toolbar, .print-bar { display:none !important; }</style>'
+            : '<style>.toolbar, .print-bar, .no-print-bar { display:none !important; }</style>';
+
+        return str_ireplace('</head>', $hide . '</head>', $html);
+    }
+
+    /**
+     * Salt-okunur görüntüleme: belge salt-okunur; düzenleme toolbarini gizler,
+     * yazdır barını (no-print-bar) korur. (PDF Görüntüle → bak + yazdır.)
+     */
+    public static function readOnlyView(string $html, bool $keepSignEditable = false): string
+    {
+        return self::readOnlyRender($html, $keepSignEditable, true);
+    }
+
+    /**
+     * EDITÖR İÇERİK DÜZENLENEBİLİRLİĞİ:
+     * Kaydedilmiş şablonlarda contenteditable özniteliği düşmüş/seçici DOM normalleşmesiyle
+     * "false" olmuş olabilir. "✏️ Düzenle (Kaydet)" editörünün belediye/alt-kurum taslak
+     * düzenlemesinde beklenen hücreleri yeniden contenteditable="true" yapar.
+     * $editable=true → mevcut contenteditable'ı taşıyan öğeler "true" olur (kilit açılır).
+     * $editable=false → hepsi "false" olur (salt-okunur).
+     * Yalnızca contenteditable attr'ı taşıyan öğeler işlenir; diğerleri dokunulmaz.
+     */
+    public static function ensureContentEditable(string $html, bool $editable = true): string
+    {
+        if (! preg_match('/contenteditable\s*=|data-sign-editable/i', $html)) {
+            return $html;
+        }
+        $flag = $editable ? 'true' : 'false';
+
+        return (string) preg_replace_callback(
+            '/<([a-zA-Z][a-zA-Z0-9]*)\b([^>]*?)>/',
+            function (array $m) use ($flag): string {
+                $attrs = $m[2];
+
+                if (! preg_match('/contenteditable\s*=/i', $attrs)) {
+                    return $m[0];
+                }
+
+                $attrs = preg_replace(
+                    '/\s+contenteditable\s*=\s*["\'][^"\']*["\']/i',
+                    ' contenteditable="' . $flag . '"',
+                    $attrs
+                );
+
+                return '<' . $m[1] . $attrs . '>';
             },
             $html
         );
+    }
 
-        // Yalnızca araç çubuklarını gizle; belge içeriğine ASLA display:none uygulama.
-        $hide = '<style>
-            .toolbar, .print-bar, .no-print-bar { display:none !important; }
-        </style>';
+    /**
+     * ALT KURUM METRAJ İMZA TABANI: Alt kurum metrajın "KURUM/KURULUŞ" imza kutusunu
+     * kaydederken sunucuda kullanılacak güvenli taban içerik.
+     *  - Başvuruya özel override varsa o korunur (belediye düzenlemeleri kaybolmaz).
+     *  - Aksi halde metraj blade'i belediye (her hücre düzenlenebilir) üretilir; böylece
+     *    miktar/fiyat/satırlar veritabanından yeniden türetilir, alt kurum hücre korsanlığı yapamaz.
+     */
+    public static function metrajSignatureBase(Application $app): string
+    {
+        return self::signatureSaveBase('metraj', $app);
+    }
 
-        return str_ireplace('</head>', $hide . '</head>', $html);
+    /**
+     * ALT KURUM İMZA TABANI (metraj + taahhütname vb.): Alt kurum yalnızca kendi
+     * data-sign-editable imza hücresini kaydederken sunucuda kullanılacak güvenli taban.
+     *  - Başvuruya özel override varsa o korunur (belediye düzenlemeleri kaybolmaz).
+     *  - Aksi halde ilgili blade belediye (forceMuni, her hücre doğrulanabilir) üretilir;
+     *    metin/satır/bedel vb. veritabanından yeniden türetilir, alt kurum korsanlık yapamaz.
+     */
+    public static function signatureSaveBase(string $type, Application $app): string
+    {
+        $override = self::overrideContent($app, $type);
+        if ($override !== null && trim((string) $override) !== '') {
+            return (string) $override;
+        }
+
+        $html = view('admin.pdf.' . $type, array_merge(self::bladeData($type, $app), ['forceMuni' => true]))->render();
+
+        return self::extractA4Fragment($html);
+    }
+
+    /**
+     * ALT KURUM İMZA BİRLEŞTİRME: Alt kurumun gönderdiği HTML'den YALNIZCA
+     * data-sign-editable (imza hücreleri) alınıp taban içeriğe eklenir. Geri kalan her
+     * şey sunucu tarafında korunur; hücre düzenleme korsanlığı böylece imkânsızdır.
+     * Birden fazla işaretli hücre (ör. ruhsat FİRMA/SORUMLU/TELEFON/İMZA) sırayla işlenir.
+     *
+     * $climbToTable=true  (metraj): imza hücresi kendi taşıyıcı tablosuyla birlikte değişir.
+     * $climbToTable=false (taahhütname/ruhsat): yalnızca data-sign-editable elemanların kendisi.
+     */
+    public static function mergeSignatureOnly(string $baseHtml, string $submittedHtml, bool $climbToTable = true): string
+    {
+        $load = function (string $html): \DOMDocument {
+            $doc = new \DOMDocument();
+            libxml_use_internal_errors(true);
+            $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+            libxml_clear_errors();
+
+            return $doc;
+        };
+
+        $findSignatureNodes = function (\DOMDocument $doc) use ($climbToTable): array {
+            $xp = new \DOMXPath($doc);
+            $nodes = [];
+            foreach ($xp->query('//*[@data-sign-editable="1"]') as $node) {
+                if ($climbToTable) {
+                    while ($node instanceof \DOMNode && strtolower((string) $node->nodeName) !== 'table') {
+                        $node = $node->parentNode;
+                    }
+                }
+                if ($node instanceof \DOMElement) {
+                    $nodes[] = $node;
+                }
+            }
+
+            return $nodes;
+        };
+
+        $subDoc = $load($submittedHtml);
+        $submittedNodes = $findSignatureNodes($subDoc);
+        if (! $submittedNodes) {
+            return $baseHtml;
+        }
+
+        $baseDoc = $load($baseHtml);
+        $baseNodes = $findSignatureNodes($baseDoc);
+        if (! $baseNodes) {
+            return $baseHtml;
+        }
+
+        $count = min(count($baseNodes), count($submittedNodes));
+        for ($i = 0; $i < $count; $i++) {
+            $imported = $baseDoc->importNode($submittedNodes[$i], true);
+            $baseNodes[$i]->parentNode->replaceChild($imported, $baseNodes[$i]);
+        }
+
+        $body = $baseDoc->getElementsByTagName('body')->item(0);
+        if (! $body) {
+            return $baseHtml;
+        }
+
+        $out = '';
+        foreach ($body->childNodes as $child) {
+            $out .= $baseDoc->saveHTML($child);
+        }
+
+        return trim($out) !== '' ? $out : $baseHtml;
     }
 
     protected static function renderExcelPage(string $type, string $json): string

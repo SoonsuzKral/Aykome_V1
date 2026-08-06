@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ApplicationStatus;
+use App\Support\AykomeMath;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -86,6 +87,7 @@ class Application extends Model implements HasMedia
         'taahhutname_notu',
         'assigned_to',
         'approval_log',
+        'surface_sync_log',
     ];
 
     protected function casts(): array
@@ -114,6 +116,7 @@ class Application extends Model implements HasMedia
             'address_components' => 'array',
             'module_documents' => 'array',
             'approval_log' => 'array',
+            'surface_sync_log' => 'array',
         ];
     }
 
@@ -435,35 +438,21 @@ class Application extends Model implements HasMedia
 
         $this->loadMissing(['surfaceLines.surfaceType', 'institution']);
 
-        $toplamMiktar = 0.0;
-        $ztb = 0.0;
+        $rows = [];
         foreach ($this->surfaceLines ?? [] as $line) {
-            $q = max((float) ($line->quantity ?? 0), 0);
-            $p = max((float) ($line->surfaceType?->price_per_m2 ?? 0), 0);
-            $toplamMiktar += $q;
-            $ztb += $q * $p;
+            $rows[] = [
+                'quantity' => $line->quantity ?? 0,
+                'price_per_m2' => $line->surfaceType?->price_per_m2 ?? 0,
+            ];
         }
 
-        $isDicle = $this->isDicle();
-        $isInstApp = $this->isInstitutionApplication();
-
-        $kdv = $ztb * 0.20;
-        $licenseFee = $isDicle ? 0.0 : $toplamMiktar * 9;
-        $discoveryFee = 361 + ($ztb * 0.01);
-        $teminat = ($isInstApp || (bool) ($this->is_additional_permit ?? false)) ? 0.0 : $ztb * 0.50;
-        $ztbTotal = $ztb + $kdv + $licenseFee + $discoveryFee;
-        $generalTotal = $ztbTotal + $teminat;
-
-        return $this->calcFiguresCache = [
-            'toplam_miktar' => $toplamMiktar,
-            'ztb_amount'    => $ztb,
-            'kdv_amount'    => $kdv,
-            'license_fee'   => $licenseFee,
-            'discovery_fee' => $discoveryFee,
-            'ztb_total'     => $ztbTotal,
-            'teminat'       => $teminat,
-            'general_total' => $generalTotal,
+        $ctx = [
+            'isDicle' => $this->isDicle(),
+            'isInstitutionApp' => $this->isInstitutionApplication(),
+            'isAdditionalPermit' => (bool) ($this->is_additional_permit ?? false),
         ];
+
+        return $this->calcFiguresCache = AykomeMath::compute($rows, $ctx);
     }
 
     /** Toplam kazı miktarı (m²). */

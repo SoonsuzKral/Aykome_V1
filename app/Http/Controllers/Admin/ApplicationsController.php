@@ -1128,8 +1128,7 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('ruhsat', $application)) {
-            $html = $this->lockForAltKurum($html, $application);
-            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+            return response($this->docResponseHtml($html, $application, 'ruhsat', 'ruhsat_sent', 'AÇIM RUHSATI (FR-290) — KURUM İMZA BÖLGESİ', '💾 Kurum İmzasını Kaydet'))->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
 
@@ -1157,8 +1156,7 @@ class ApplicationsController extends Controller
                 'UTF-8'
             ),
         ])->render();
-        $ruhsatHtml = $this->lockForAltKurum($ruhsatHtml, $application);
-        return response($ruhsatHtml)->header('Content-Type', 'text/html; charset=utf-8');
+        return response($this->docResponseHtml($ruhsatHtml, $application, 'ruhsat', 'ruhsat_sent', 'AÇIM RUHSATI (FR-290) — KURUM İMZA BÖLGESİ', '💾 Kurum İmzasını Kaydet'))->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadMetraj(Application $application)
@@ -1167,9 +1165,8 @@ class ApplicationsController extends Controller
         if ($resp = $this->signedResponseOrNull($application, 'metraj')) {
             return $resp;
         }
-        if ($html = DocumentTemplateService::renderFor('metraj', $application)) {
-            $html = $this->lockForAltKurum($html, $application);
-            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        if ($html = DocumentTemplateService::renderFor('metraj', $application, false)) {
+            return response($this->docResponseHtml($html, $application, 'metraj', 'metrage_sent', 'KAZI METRAJ CETVELİ VE ONAY — KURUM İMZA BÖLGESİ', '💾 Kurum İmzasını Kaydet'))->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
 
@@ -1208,8 +1205,7 @@ class ApplicationsController extends Controller
         ];
 
         $html = \Illuminate\Support\Facades\View::make('admin.pdf.metraj', $data)->render();
-        $html = $this->lockForAltKurum($html, $application);
-        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        return response($this->docResponseHtml($html, $application, 'metraj', 'metrage_sent', 'KAZI METRAJ CETVELİ VE ONAY — KURUM İMZA BÖLGESİ', '💾 Kurum İmzasını Kaydet'))->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadTaahhutname(Application $application)
@@ -1218,17 +1214,43 @@ class ApplicationsController extends Controller
         if ($resp = $this->signedResponseOrNull($application, 'taahhutname')) {
             return $resp;
         }
-        if ($html = DocumentTemplateService::renderFor('taahhutname', $application)) {
-            $html = $this->lockForAltKurum($html, $application);
-            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        $html = DocumentTemplateService::renderFor('taahhutname', $application);
+        if ($html === null) {
+            $application->load(['institution', 'creator']);
+            $html = \Illuminate\Support\Facades\View::make('admin.pdf.taahhutname', ['application' => $application])->render();
         }
-        $application->load(['institution', 'creator']);
 
-        $data = ['application' => $application];
+        return response(
+            $this->taahhutnamePdfResponse($html, $application)
+        )->header('Content-Type', 'text/html; charset=utf-8');
+    }
 
-        $html = \Illuminate\Support\Facades\View::make('admin.pdf.taahhutname', $data)->render();
-        $html = $this->lockForAltKurum($html, $application);
-        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+    /**
+     * TAAHHÜTNAME PDF GÖRÜNTÜLEME:
+     * Belge salt-okunurdur (bak + yazdır). YALNIZCA alt kurumun "RUHSATI TESLİM ALAN"
+     * imza hücresini doldurduğu imza adımında (taahhutname_sent) o hücre + kaydet/yazdır
+     * barı açık kalır. Belediye dahil hiç kimse PDF görüntüleme üzerinden düzenlemez;
+     * düzenleme yalnızca "✏️ Düzenle (Kaydet)" editöründe yapılır.
+     */
+    private function taahhutnamePdfResponse(string $html, Application $application): string
+    {
+        $isSignStep = $this->altKurumCanSign($application, 'taahhutname_sent');
+
+        if ($isSignStep) {
+            $html = DocumentTemplateService::readOnlyRender($html, true); // imza hücresi harici her şey kilitli
+            $html = $this->normalizeSignEditable($html);
+            $html = str_ireplace('</body>', $this->signatureSaveSnippet(
+                $application,
+                'taahhutname',
+                'TAAHHÜTNAME — RUHSATI TESLİM ALAN İMZA BÖLGESİ',
+                '💾 İmzayı Kaydet'
+            ) . '</body>', $html);
+
+            return $html;
+        }
+
+        // TAM SALT-OKUNUR görüntüleme (bak + yazdır) — belediye dahil herkes.
+        return DocumentTemplateService::readOnlyView($html, false);
     }
 
     public function downloadTahakkuk(Application $application)
@@ -1621,7 +1643,7 @@ class ApplicationsController extends Controller
         ]);
     }
 
-    public function updateSurfaceLines(Request $request, Application $application, PricingService $pricingService): \Illuminate\Http\RedirectResponse
+    public function updateSurfaceLines(Request $request, Application $application, PricingService $pricingService, \App\Services\DocumentSyncService $syncService): \Illuminate\Http\RedirectResponse
     {
         $this->authorize('update', $application);
 
@@ -1635,6 +1657,11 @@ class ApplicationsController extends Controller
 
         $pricingService->upsertSurfaceLines($application, $validated['surface_lines'] ?? []);
         $pricingService->recalculateTotals($application);
+
+        // GÖREV 1 (SENKRON): Metraj formu kaydedildiği an mevcut ruhsat/tahakkuk/metraj
+        // override'larındaki SAYI hücrelerini DB'den tazele (el metinleri korunur) —
+        // böylece PDF çıktıları saniyesinde yeni/doğrulanmış tutarlara adapte olur.
+        $syncService->hydrateAllOverrides($application);
 
         AuditLogger::log(
             'surface_lines.updated',
@@ -1754,6 +1781,134 @@ class ApplicationsController extends Controller
         }
 
         return DocumentTemplateService::readOnlyRender($html);
+    }
+
+    /**
+     * Belge sayfasını sunarken: kilitle, rol bazlı imza hücresi editörlüğünü uygula ve
+     * alt kurumun imza hücresini doldurabileceği imza aşamasında bir "Kaydet" üst barı
+     * enjekte et. (Diğer tüm taraflarda/aşamalarda buton eklenmez — salt-okunur.)
+     */
+    private function docResponseHtml(string $html, Application $application, string $type, string $signStatus, string $barTitle, string $btnLabel): string
+    {
+        $html = $this->lockForAltKurum($html, $application);
+        $html = $this->normalizeSignEditable($html);
+
+        if ($this->altKurumCanSign($application, $signStatus)) {
+            $html = str_ireplace('</body>', $this->signatureSaveSnippet($application, $type, $barTitle, $btnLabel) . '</body>', $html);
+        }
+
+        return $html;
+    }
+
+    /** Alt kurum + belirtilen imza aşamasında mı? */
+    private function altKurumCanSign(Application $application, string $signStatus): bool
+    {
+        if (auth()->user()->isMunicipalityPersonel()) {
+            return false;
+        }
+        $status = $application->status;
+        $raw = $status instanceof ApplicationStatus ? $status->value : (string) $status;
+
+        return $raw === $signStatus;
+    }
+
+    /**
+     * DATA-SIGN EDİTÖRLÜĞÜNÜ GARANTİ ET: data-sign-editable="1" imza hücresi her iki taraf
+     * (belediye + alt kurum) için contenteditable="true" olur. readOnlyRender alt kurumun
+     * diğer tüm hücrelerini kilitleyip bu kutuyu açık bırakır; belediye ise hiç kilitlenmez.
+     * Kaydedilen ortak şablondaki eski contenteditable değeri her render'a uyarlanır.
+     */
+    private function normalizeSignEditable(string $html): string
+    {
+        return (string) preg_replace_callback(
+            '/<([a-zA-Z][a-zA-Z0-9]*)\b([^>]*?)>/',
+            function (array $m): string {
+                if (! preg_match('/data-sign-editable/i', $m[2])) {
+                    return $m[0];
+                }
+
+                $attrs = $m[2];
+                if (preg_match('/\s+contenteditable\s*=/i', $attrs)) {
+                    $attrs = preg_replace(
+                        '/\s+contenteditable\s*=\s*["\'][^"\']*["\']/i',
+                        ' contenteditable="true"',
+                        $attrs
+                    );
+                } else {
+                    $attrs .= ' contenteditable="true"';
+                }
+
+                return '<' . $m[1] . $attrs . '>';
+            },
+            $html
+        );
+    }
+
+    /** Alt kurum "imza kaydet" üst barı + JS (metraj + taahhütname ortak). */
+    private function signatureSaveSnippet(Application $application, string $type, string $barTitle, string $btnLabel): string
+    {
+        $saveUrl = route('admin.applications.edit-document.save', [$application, $type]);
+        $token = csrf_token();
+        $appNo = e($application->application_no);
+        $date = now()->format('d.m.Y');
+        $fn = 'docSigSave_' . $type;
+
+        return <<<HTML
+<style>
+    #msig { position: fixed; top: 0; left: 0; right: 0; z-index: 999999;
+            background: linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+            color: #fff; display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 18px; box-shadow: 0 6px 18px rgba(0,0,0,.35);
+            font-family: Arial, sans-serif; box-sizing: border-box; }
+    #msig .t { display: flex; flex-direction: column; gap: 2px; }
+    #msig .nm { font-size: 14px; font-weight: bold; letter-spacing: .4px; color: #f8fafc; }
+    #msig .mt { font-size: 11px; color: #94a3b8; }
+    #msig .sbtn { margin-left: 12px; background: #059669; color: #fff; border: none;
+            padding: 10px 22px; border-radius: 8px; font-size: 13px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 3px 10px rgba(5,150,105,.4); }
+    #msig .sbtn:hover { background: #06724f; }
+    #msig .sbtn:disabled { opacity: .55; cursor: default; }
+    #msig .pbtn { margin-left: 8px; background: #2563eb; color: #fff; border: none;
+            padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 3px 10px rgba(37,99,235,.35); }
+    #msig .pbtn:hover { background: #1d4ed8; }
+    @media print { #msig { display: none !important; } body { padding-top: 0 !important; } }
+    body { padding-top: 66px !important; }
+</style>
+<div id="msig">
+    <div class="t">
+        <div class="nm">{$barTitle}</div>
+        <div class="mt">Başvuru No: {$appNo} &nbsp;&bull;&nbsp; Tarih: {$date}</div>
+    </div>
+    <div style="display:flex; align-items:center;">
+        <button type="button" class="sbtn" id="msig-save" onclick="{$fn}()">{$btnLabel}</button>
+        <button type="button" class="pbtn" onclick="window.print()">🖨️ Yazdır</button>
+    </div>
+</div>
+<script>
+function {$fn}() {
+    var btn = document.getElementById('msig-save');
+    if (btn) btn.disabled = true;
+    var content = document.body.innerHTML;
+    fetch('{$saveUrl}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{$token}' },
+        body: JSON.stringify({ content_data: content })
+    })
+    .then(function (r) { if (!r.ok) throw new Error('Sunucu hatası: ' + r.status); return r.json(); })
+    .then(function () {
+        var b = document.getElementById('msig');
+        if (b) b.style.background = '#059669';
+        if (btn) btn.textContent = '✓ Kaydedildi';
+        setTimeout(function () { if (btn) { btn.textContent = '{$btnLabel}'; btn.disabled = false; } }, 3000);
+    })
+    .catch(function (err) {
+        if (btn) btn.disabled = false;
+        alert('Kaydetme başarısız: ' + err.message);
+    });
+}
+</script>
+HTML;
     }
 
     public function data(Request $request): \Illuminate\Http\JsonResponse

@@ -122,20 +122,20 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
                 $birimFiyat = (string)($zeminSatir['birim_fiyat'] ?? (number_format((float)($zeminSatir->surfaceType->price_per_m2 ?? 0), 2, ',', '.')));
                 $tutar    = (string)($zeminSatir['tutar'] ?? (number_format((float)($zeminSatir->amount ?? 0), 2, ',', '.')));
             @endphp
-            <tr>
-                <td class="l" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $zeminAd }}</td>
-                <td contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $birim }}</td>
-                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $miktar }}</td>
-                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $birimFiyat }}</td>
-                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $tutar }}</td>
+            <tr data-aykome-surface="{{ $zeminAd }}">
+                <td data-aykome-col="ad" class="l" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $zeminAd }}</td>
+                <td data-aykome-col="birim" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $birim }}</td>
+                <td data-aykome-col="miktar" class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $miktar }}</td>
+                <td data-aykome-col="birim_fiyat" class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $birimFiyat }}</td>
+                <td data-aykome-col="tutar" class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $tutar }}</td>
             </tr>
         @empty
-            <tr>
-                <td class="l" contenteditable="{{ $isMuni ? 'true' : 'false' }}">—</td>
-                <td contenteditable="{{ $isMuni ? 'true' : 'false' }}">—</td>
-                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">0,00</td>
-                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">0,00</td>
-                <td class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">0,00</td>
+            <tr data-aykome-surface="—">
+                <td data-aykome-col="ad" class="l" contenteditable="{{ $isMuni ? 'true' : 'false' }}">—</td>
+                <td data-aykome-col="birim" contenteditable="{{ $isMuni ? 'true' : 'false' }}">—</td>
+                <td data-aykome-col="miktar" class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">0,00</td>
+                <td data-aykome-col="birim_fiyat" class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">0,00</td>
+                <td data-aykome-col="tutar" class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">0,00</td>
             </tr>
         @endforelse
     </tbody>
@@ -145,24 +145,24 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
     <table>
         <tr>
             <td class="label">Toplam Miktar</td>
-            <td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->toplam_miktar }}</td>
+            <td data-aykome-fee="toplam_miktar" class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->toplam_miktar }}</td>
         </tr>
         <tr>
             <td class="label">Zemin Tahrip Bedeli</td>
-            <td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->ztb_amount }} TL</td>
+            <td data-aykome-fee="ztb_amount" class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->ztb_amount }} TL</td>
         </tr>
     </table>
 </div>
 
 <div class="toplamlar" style="margin-top:5pt;">
     <table>
-        <tr><td class="label">Zemin Tahrip Bedeli</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->ztb_amount }} TL</td></tr>
-        <tr><td class="label">K.D.V. (%20)</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->kdv_amount }} TL</td></tr>
-        <tr><td class="label">Ruhsat Harcı</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->license_fee }} TL</td></tr>
-        <tr><td class="label">Keşif Bedeli</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->discovery_fee }} TL</td></tr>
-        <tr><td class="label">ZTB Toplam</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->ztb_total }} TL</td></tr>
-        <tr><td class="label">Teminat</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->teminat_amount }} TL</td></tr>
-        <tr style="font-weight:bold;"><td class="label">Genel Toplam</td><td class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->general_total }} TL</td></tr>
+        <tr><td class="label">Zemin Tahrip Bedeli</td><td data-aykome-fee="ztb_amount" class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->ztb_amount }} TL</td></tr>
+        <tr><td class="label">K.D.V. (%20)</td><td data-aykome-fee="kdv_amount" class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->kdv_amount }} TL</td></tr>
+        <tr><td class="label">Ruhsat Harcı</td><td data-aykome-fee="license_fee" class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->license_fee }} TL</td></tr>
+        <tr><td class="label">Keşif Bedeli</td><td data-aykome-fee="discovery_fee" class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->discovery_fee }} TL</td></tr>
+        <tr><td class="label">ZTB Toplam</td><td data-aykome-fee="ztb_total" class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->ztb_total }} TL</td></tr>
+        <tr><td class="label">Teminat</td><td data-aykome-fee="teminat" class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->teminat_amount }} TL</td></tr>
+        <tr style="font-weight:bold;"><td class="label">Genel Toplam</td><td data-aykome-fee="general_total" class="value" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $application->general_total }} TL</td></tr>
     </table>
 </div>
 

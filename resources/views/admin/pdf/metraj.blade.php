@@ -62,7 +62,9 @@
         // CELL-BASED AUTH: Belediye hücreleri (başlık/AYKOME imzası + metraj satırları) altkuruma
         // kilitli; TEK istisna en alttaki "KURUM/KURULUŞ (YETKİLİ GÖREVLİ)" imza kutusudur —
         // o kutu her iki tarafça düzenlenebilir (kurumun kendi yetkilisi imzalar).
-        $isMuni = auth()->check() && auth()->user()->isMunicipalityPersonel();
+        // $forceMuni=true sunucu tarafı imza-kaydetme tabanında kullanılır: belediye hücreleri
+        // de düzenlenebilir üretilir (böylece kaydedilen içerik belediyece sonradan açılır).
+        $isMuni = ($forceMuni ?? false) || (auth()->check() && auth()->user()->isMunicipalityPersonel());
         $c = $isMuni ? 'true' : 'false';
     @endphp
 
@@ -87,25 +89,25 @@
                 </tr>
 
                 @forelse($rows as $row)
-                    <tr>
-                        <td contenteditable="{{ $c }}">{{ $row['sira'] ?? $loop->iteration }}</td>
-                        <td contenteditable="{{ $c }}">{{ $row['ilce'] ?? '' }}</td>
+                    <tr data-aykome-surface="{{ $row['zemin'] ?? '' }}">
+                        <td data-aykome-col="sira" contenteditable="{{ $c }}">{{ $row['sira'] ?? $loop->iteration }}</td>
+                        <td data-aykome-col="ilce" contenteditable="{{ $c }}">{{ $row['ilce'] ?? '' }}</td>
                         <td style="text-align: left; padding-left: 8px;" contenteditable="{{ $c }}">{{ mb_substr($row['mahalle'] ?? '', 0, 45) }}</td>
-                        <td contenteditable="{{ $c }}">{{ $row['cadde'] ?? '' }}</td>
-                        <td contenteditable="{{ $c }}">{{ $row['tarih'] ?? '' }}</td>
-                        <td contenteditable="{{ $c }}">{{ $row['genislik'] ?? '0,00' }}</td>
-                        <td contenteditable="{{ $c }}">{{ $row['uzunluk'] ?? '0,00' }}</td>
-                        <td contenteditable="{{ $c }}">{{ $row['m2'] ?? '0,00' }}</td>
-                        <td contenteditable="{{ $c }}">{{ $row['zemin'] ?? '' }}</td>
-                        <td contenteditable="{{ $c }}">{{ $row['proje_kodu'] ?: ($proje_kodu ?? '') }}</td>
+                        <td data-aykome-col="cadde" contenteditable="{{ $c }}">{{ $row['cadde'] ?? '' }}</td>
+                        <td data-aykome-col="tarih" contenteditable="{{ $c }}">{{ $row['tarih'] ?? '' }}</td>
+                        <td data-aykome-col="genislik" contenteditable="{{ $c }}">{{ $row['genislik'] ?? '0,00' }}</td>
+                        <td data-aykome-col="uzunluk" contenteditable="{{ $c }}">{{ $row['uzunluk'] ?? '0,00' }}</td>
+                        <td data-aykome-col="m2" contenteditable="{{ $c }}">{{ $row['m2'] ?? '0,00' }}</td>
+                        <td data-aykome-col="zemin" contenteditable="{{ $c }}">{{ $row['zemin'] ?? '' }}</td>
+                        <td data-aykome-col="proje" contenteditable="{{ $c }}">{{ $row['proje_kodu'] ?: ($proje_kodu ?? '') }}</td>
                     </tr>
                 @empty
                     @for($i = 1; $i <= 4; $i++)
-                    <tr>
-                        <td contenteditable="{{ $c }}">{{ $i }}</td>
+                    <tr data-aykome-surface="">
+                        <td data-aykome-col="sira" contenteditable="{{ $c }}">{{ $i }}</td>
                         <td contenteditable="{{ $c }}"></td><td contenteditable="{{ $c }}"></td><td contenteditable="{{ $c }}"></td>
-                        <td contenteditable="{{ $c }}"></td><td contenteditable="{{ $c }}"></td><td contenteditable="{{ $c }}"></td>
-                        <td contenteditable="{{ $c }}"></td><td contenteditable="{{ $c }}"></td>
+                        <td contenteditable="{{ $c }}"></td><td data-aykome-col="genislik" contenteditable="{{ $c }}"></td><td data-aykome-col="uzunluk" contenteditable="{{ $c }}"></td>
+                        <td data-aykome-col="m2" contenteditable="{{ $c }}"></td><td data-aykome-col="zemin" contenteditable="{{ $c }}"></td>
                         <td contenteditable="{{ $c }}">{{ $proje_kodu ?? '' }}</td>
                     </tr>
                     @endfor
@@ -113,7 +115,7 @@
 
                 <tr>
                     <td colspan="7" contenteditable="{{ $c }}" style="text-align: right; padding-right:15px;">TOPLAM M² : </td>
-                    <td contenteditable="{{ $c }}">{{ $toplam_m2 ?? '0,00' }}</td>
+                    <td data-aykome-fee="toplam_m2" contenteditable="{{ $c }}">{{ $toplam_m2 ?? '0,00' }}</td>
                     <td colspan="2"></td>
                 </tr>
             </table>

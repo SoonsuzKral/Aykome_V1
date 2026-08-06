@@ -310,10 +310,15 @@
             if (!node) return false;
             // Metin düğümleriyse parent elementine bak, aksi takdirde kilit aşılabilir (zafiyet onarımı)
             var p = node.nodeType === 3 ? node.parentNode : node;
-            
+
             while (p && p !== document.getElementById('doc-editor')) {
-                if (p.nodeType === 1 && p.getAttribute && (p.getAttribute('contenteditable') === 'false' || p.getAttribute('data-locked-cell') === '1')) {
-                    return true;
+                if (p.nodeType === 1 && p.getAttribute) {
+                    var ce = p.getAttribute('contenteditable');
+                    // Düzenlenebilir bir bölgeye ulaşıldıysa: içindeki düzenlemeye açık kabul et.
+                    // Örn: taahhütname imza kutuları (div.bilgi contenteditable="true") düzenlenebilir;
+                    // onları saran td (contenteditable="false") imza kutusunu KİLİTLEMEMELİ.
+                    if (ce === 'true') return false;
+                    if (ce === 'false' || p.getAttribute('data-locked-cell') === '1') return true;
                 }
                 p = p.parentNode;
             }
@@ -448,10 +453,177 @@
                 row.remove();
                 toast('Satır silindi', 'ok');
             }
+            // CANLI MATEMATİK: satır ekle/sil sonrası birim fiyat sabitle + toplamları tazele
+            if (typeof mathIndexRows === 'function' && MATH) {
+                mathIndexRows();
+                mathComputeFees();
+            }
+        }
+
+        // ── CANLI DOM MATEMATİĞİ (GÖREV 2 / AykomeMath aynası) ────────────
+        // Memur bir Excel belgesinin (ruhsat/tahakkuk/metraj) sayısal hücresini
+        // düzenlediğinde satır tutarı + ücret hücreleri (KDV/harç/keşif/teminat/
+        // genel toplam) MS Excel gibi ANINDA yeniden hesaplanır. Kırmızı Çizgi
+        // kuralları PHP AykomeMath ile birebir aynıdır (server tarafında da aynı
+        // değer DB'ye geri beslenir — GÖREV 3).
+        var MATH = @json($math ?? null);
+        var MATH_KDV = 0.20, MATH_HARC_PER_M2 = 9, MATH_KESIF_BASE = 361, MATH_KESIF_RATE = 0.01, MATH_TEMINAT_RATE = 0.50;
+
+        function mathParse(v) {
+            if (v === null || v === undefined) return NaN;
+            var s = String(v).replace(/[^\d.,\-]/g, '');
+            if (s === '' || s === '-') return NaN;
+            if (s.indexOf(',') !== -1 && s.indexOf('.') !== -1) {
+                s = s.split('.').join('').replace(',', '.');
+            } else if (s.indexOf(',') !== -1) {
+                s = s.replace(',', '.');
+            }
+            var n = parseFloat(s);
+            return isNaN(n) ? NaN : n;
+        }
+
+        function mathFmt(n, dec) {
+            dec = (dec === undefined) ? 2 : dec;
+            if (isNaN(n)) return '';
+            var neg = n < 0;
+            n = Math.abs(n);
+            var fixed = n.toFixed(dec);
+            var parts = fixed.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            var out = parts.join(',');
+            return (neg ? '-' : '') + out;
+        }
+
+        function mathLookupPrice(name) {
+            if (!MATH || !MATH.surfacePrices || !name) return NaN;
+            var lk = String(name).toLowerCase();
+            var keys = Object.keys(MATH.surfacePrices);
+            for (var i = 0; i < keys.length; i++) {
+                if (String(keys[i]).toLowerCase() === lk) {
+                    var p = parseFloat(MATH.surfacePrices[keys[i]]);
+                    return isNaN(p) ? NaN : p;
+                }
+            }
+            return NaN;
+        }
+
+        function mathCells(row) {
+            var out = {};
+            var cells = row.querySelectorAll('[data-aykome-col]');
+            for (var i = 0; i < cells.length; i++) {
+                out[cells[i].getAttribute('data-aykome-col')] = cells[i];
+            }
+            return out;
+        }
+
+        // Başlangıçtaki satır birim fiyatlarını sabitler (tutar/miktar oranı →
+        // birim_fiyat hücresi → SURFACE_PRICES haritası).
+        function mathIndexRows() {
+            var el = document.getElementById('doc-editor');
+            if (!el) return;
+            var rows = el.querySelectorAll('[data-aykome-surface]');
+            for (var i = 0; i < rows.length; i++) {
+                var row = rows[i];
+                var cols = mathCells(row);
+                var qty = cols['miktar'] ? mathParse(cols['miktar'].textContent) : (cols['m2'] ? mathParse(cols['m2'].textContent) : NaN);
+                var price = cols['birim_fiyat'] ? mathParse(cols['birim_fiyat'].textContent) : NaN;
+                var tutar = cols['tutar'] ? mathParse(cols['tutar'].textContent) : NaN;
+                var derived = NaN;
+                if (!isNaN(price)) derived = price;
+                else if (!isNaN(qty) && !isNaN(tutar) && qty !== 0) derived = tutar / qty;
+                else derived = mathLookupPrice(row.getAttribute('data-aykome-surface'));
+                row.__aykomePrice = derived;
+            }
+        }
+
+        // Bir satırın tutarını yeniden hesaplar (metrajda M² = Uzunluk × Genişlik).
+        function mathRecomputeRow(row) {
+            var cols = mathCells(row);
+            var qty = cols['miktar'] ? mathParse(cols['miktar'].textContent) : (cols['m2'] ? mathParse(cols['m2'].textContent) : NaN);
+
+            if (cols['genislik'] && cols['uzunluk'] && cols['m2']) {
+                var w = mathParse(cols['genislik'].textContent);
+                var l = mathParse(cols['uzunluk'].textContent);
+                if (!isNaN(w) && !isNaN(l)) {
+                    qty = w * l;
+                    cols['m2'].textContent = mathFmt(qty, 2);
+                }
+            }
+
+            if (cols['tutar']) {
+                var price = cols['birim_fiyat'] ? mathParse(cols['birim_fiyat'].textContent) : NaN;
+                if (isNaN(price) && !isNaN(row.__aykomePrice)) price = row.__aykomePrice;
+                if (!isNaN(qty) && !isNaN(price)) {
+                    cols['tutar'].textContent = mathFmt(qty * price, 2);
+                }
+            }
+        }
+
+        function mathSetFee(key, val) {
+            var el = document.getElementById('doc-editor');
+            if (!el) return;
+            var nodes = el.querySelectorAll('[data-aykome-fee="' + key + '"]');
+            for (var i = 0; i < nodes.length; i++) {
+                var td = nodes[i];
+                var suffix = td.textContent.indexOf(' TL') !== -1 ? ' TL' : '';
+                td.textContent = val + suffix;
+            }
+        }
+
+        // Tüm ücret hücrelerini Kırmızı Çizgi kurallarıyla canlı yeniden basar.
+        function mathComputeFees() {
+            var el = document.getElementById('doc-editor');
+            if (!el) return;
+            var ztb = 0, toplamMiktar = 0;
+            var rows = el.querySelectorAll('[data-aykome-surface]');
+            for (var i = 0; i < rows.length; i++) {
+                var cols = mathCells(rows[i]);
+                var qty = cols['miktar'] ? mathParse(cols['miktar'].textContent) : (cols['m2'] ? mathParse(cols['m2'].textContent) : NaN);
+                var tutar = cols['tutar'] ? mathParse(cols['tutar'].textContent) : NaN;
+                if (!isNaN(qty)) toplamMiktar += qty;
+                if (!isNaN(tutar)) ztb += tutar;
+            }
+            var isDicle = !!(MATH && MATH.isDicle);
+            var instApp = !!(MATH && MATH.isInstitutionApp);
+            var addPerm = !!(MATH && MATH.isAdditionalPermit);
+            var kdv = ztb * MATH_KDV;
+            var harci = isDicle ? 0 : toplamMiktar * MATH_HARC_PER_M2;
+            var kesif = MATH_KESIF_BASE + ztb * MATH_KESIF_RATE;
+            var ztbToplam = ztb + kdv + harci + kesif;
+            var teminat = (instApp || addPerm) ? 0 : ztb * MATH_TEMINAT_RATE;
+            var genel = ztbToplam + teminat;
+
+            mathSetFee('toplam_miktar', mathFmt(toplamMiktar));
+            mathSetFee('toplam_m2', mathFmt(toplamMiktar));
+            mathSetFee('ztb_amount', mathFmt(ztb));
+            mathSetFee('kdv_amount', mathFmt(kdv));
+            mathSetFee('license_fee', mathFmt(harci));
+            mathSetFee('discovery_fee', mathFmt(kesif));
+            mathSetFee('ztb_total', mathFmt(ztbToplam));
+            mathSetFee('teminat', mathFmt(teminat));
+            mathSetFee('general_total', mathFmt(genel));
+        }
+
+        function initReactiveMath() {
+            if (!MATH) return;
+            var el = document.getElementById('doc-editor');
+            if (!el) return;
+            mathIndexRows();
+            var handler = function (e) {
+                var t = e.target;
+                if (!t || !t.getAttribute || !t.getAttribute('data-aykome-col')) return;
+                var row = t.closest ? t.closest('[data-aykome-surface]') : null;
+                if (!row) return;
+                mathRecomputeRow(row);
+                mathComputeFees();
+            };
+            el.addEventListener('input', handler);
+            el.addEventListener('focusout', handler);
         }
 
         // Başlat
         initEditor();
+        initReactiveMath();
 
         document.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
