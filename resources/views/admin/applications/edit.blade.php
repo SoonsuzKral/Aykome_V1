@@ -3,8 +3,8 @@
 @section('page-heading', 'Başvuru düzenle')
 
 @push('styles')
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
+    <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.draw.css') }}" />
     <style>
         #application-drawing-map { min-height: 500px; position: relative; z-index: 1; }
         #application-drawing-map .leaflet-container { border-radius: 0.75rem; }
@@ -13,7 +13,7 @@
         .row-tooltip { background: #1e293b !important; color: #fff !important; border: none !important; border-radius: 4px !important; padding: 2px 8px !important; font-size: 11px !important; font-weight: 600 !important; box-shadow: 0 2px 6px rgba(0,0,0,0.3) !important; }
         .row-tooltip::before { border-top-color: #1e293b !important; }
         .leaflet-draw-toolbar a {
-            background-image: url('https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/images/spritesheet.png') !important;
+            background-image: url('{{ asset('assets/vendor/leaflet/images/spritesheet.png') }}') !important;
             background-size: 300px 30px !important;
             transition: filter 0.15s;
         }
@@ -263,23 +263,9 @@
                     </div>
                     @if($isInstitutionUser)
                     <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium text-slate-700" for="tesis_sorumlusu">Tesis Sorumlusu</label>
+                        <label class="block text-sm font-medium text-slate-700" for="tesis_sorumlusu">Yazıyı Düzenleyen</label>
                         <input id="tesis_sorumlusu" type="text" name="tesis_sorumlusu" value="{{ old('tesis_sorumlusu', $application->tesis_sorumlusu) }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('tesis_sorumlusu') border-red-300 ring-red-100 @enderror" placeholder="Tesis sorumlusunun adı soyadı">
                         @error('tesis_sorumlusu')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700" for="mudur_adi">Müdür Adı</label>
-                        <input id="mudur_adi" type="text" name="mudur_adi" value="{{ old('mudur_adi', $application->mudur_adi) }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('mudur_adi') border-red-300 ring-red-100 @enderror" placeholder="Müdür adı soyadı">
-                        @error('mudur_adi')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700" for="mudur_unvani">Müdür Ünvanı</label>
-                        <input id="mudur_unvani" type="text" name="mudur_unvani" value="{{ old('mudur_unvani', $application->mudur_unvani) }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('mudur_unvani') border-red-300 ring-red-100 @enderror" placeholder="İl Müdürü / Müdür Yardımcısı">
-                        @error('mudur_unvani')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
@@ -379,6 +365,7 @@
                 'show15mRoads' => false,
                 'height' => '350px',
                 'application' => $application ?? null,
+                'areas' => $application->excavationAreas->pluck('polygon_geojson')->filter()->values(),
             ])
         </div>
 
@@ -513,9 +500,18 @@
 @endsection
 
 @push('scripts')
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/leaflet-geometryutil@0.10.3/src/leaflet.geometryutil.js"></script>
+    <script src="{{ asset('assets/vendor/leaflet/leaflet.js') }}"></script>
+    <script src="{{ asset('assets/vendor/leaflet/leaflet.draw.js') }}"></script>
+    <script src="{{ asset('assets/vendor/leaflet/leaflet.geometryutil.js') }}"></script>
+    <script>
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.imagePath = '{{ asset('assets/vendor/leaflet/images') }}';
+        L.Icon.Default.mergeOptions({
+            iconRetinaUrl: '{{ asset('assets/vendor/leaflet/images/marker-icon-2x.png') }}',
+            iconUrl: '{{ asset('assets/vendor/leaflet/images/marker-icon.png') }}',
+            shadowUrl: '{{ asset('assets/vendor/leaflet/images/marker-shadow.png') }}'
+        });
+    </script>
     <script>
         // ─── STATE & CONFIG ────────────────────────────────────────────────
         const SURFACE_TYPES = @json($surfaceTypeOptions);
@@ -530,6 +526,11 @@
         let isInstitutionUser = @json(auth()->user()?->institution_id ? true : false);
         let activeDrawRowId = null;
         let rowDrawings = {};
+
+        function rowHasLineDrawing(rowId) {
+            var f = rowDrawings[rowId];
+            return !!(f && f.geometry && f.geometry.type === 'LineString');
+        }
 
         // ─── PURE CALCULATION FUNCTIONS ───────────────────────────────────
         function calculateRowTotal(quantity, unitPrice) {
@@ -603,8 +604,9 @@
                 var qty = parseFloat(row.quantity) || 0;
                 var rowTotal = calculateRowTotal(qty, unitPrice);
                 var hasDrawing = rowDrawings[row.rowId] != null;
-                var widthVal = isInstitutionUser ? '1.00' : (row.width_m || '');
-                var widthLocked = isInstitutionUser ? ' readonly' : '';
+                var widthLocked = isInstitutionUser && rowHasLineDrawing(row.rowId);
+                var widthVal = widthLocked ? '1.00' : (row.width_m || '');
+                var widthLockedAttr = widthLocked ? ' readonly' : '';
 
                 tr.innerHTML =
                     '<td class="py-2 pr-2 text-slate-400 font-mono text-[10px] align-top pt-3">' + (idx + 1) + '</td>' +
@@ -613,7 +615,7 @@
                             return '<option value="' + st.id + '" data-price="' + st.price_per_m2 + '"' + (parseInt(st.id) === parseInt(row.surface_type_id) ? ' selected' : '') + '>' + st.name + ' - ' + Number(st.price_per_m2).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' \u20BA</option>';
                         }).join('') +
                     '</select></td>' +
-                    '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-width w-full rounded border-slate-300 text-xs shadow-sm" value="' + widthVal + '"' + widthLocked + ' placeholder="0"></td>' +
+                    '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-width w-full rounded border-slate-300 text-xs shadow-sm" value="' + widthVal + '"' + widthLockedAttr + ' placeholder="0"></td>' +
                     '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-length w-full rounded border-slate-300 text-xs shadow-sm" value="' + (row.length_m || '') + '" placeholder="0"></td>' +
                     '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-quantity w-full rounded border-slate-300 text-xs shadow-sm font-semibold" value="' + (qty || '') + '" placeholder="0"></td>' +
                     '<td class="p-2 align-top pt-3 text-xs text-slate-600 font-mono"><span class="row-unit-price" data-row-id="' + row.rowId + '">' + Number(unitPrice).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span> ₺/m²</td>' +
@@ -686,7 +688,7 @@
                     var l = parseFloat(document.querySelector('.row-length[data-row-id="' + rowId + '"]')?.value) || 0;
 
                     if (qty > 0) {
-                        if (isInstitutionUser) {
+                        if (isInstitutionUser && rowHasLineDrawing(rowId)) {
                             row.width_m = 1;
                             row.length_m = parseFloat(qty.toFixed(2));
                             var lenInput = document.querySelector('.row-length[data-row-id="' + rowId + '"]');
@@ -747,7 +749,7 @@
                 surface_type_id: data.surface_type_id || null,
                 surface_type_name: data.surface_type_name || '',
                 price_per_m2: data.price_per_m2 || 0,
-                width_m: isInstitutionUser ? 1 : (data.width_m || 0),
+                width_m: data.width_m || 0,
                 length_m: data.length_m || 0,
                 quantity: data.quantity || 0,
             };
@@ -826,7 +828,7 @@
                     container.appendChild(inp);
                 }
                 addHidden('surface_type_id', row.surface_type_id);
-                addHidden('width_m', isInstitutionUser ? 1 : (row.width_m || ''));
+                addHidden('width_m', (isInstitutionUser && rowHasLineDrawing(row.rowId)) ? 1 : (row.width_m || ''));
                 addHidden('length_m', row.length_m || '');
                 addHidden('quantity', row.quantity || '');
             });
@@ -921,7 +923,7 @@
             var _lngStr = centerLngInput?.value?.trim() || '';
             var initLat = _latStr ? Number(_latStr) : NaN;
             var initLng = _lngStr ? Number(_lngStr) : NaN;
-            var defaultCenter = Number.isFinite(initLat) && Number.isFinite(initLng) ? [initLat, initLng] : [39.0, 35.0];
+            var defaultCenter = Number.isFinite(initLat) && Number.isFinite(initLng) ? [initLat, initLng] : [37.1598, 38.7969];
 
             var normalizeColor = function (inst) {
                 if (!inst || typeof inst !== 'object') return '#DC2626';
@@ -1283,20 +1285,16 @@
 
                         if (area > 0) {
                             row.quantity = area;
-                            if (isInstitutionUser) {
-                                row.width_m = 1;
-                                row.length_m = area;
-                            } else {
-                                var sqrtVal = parseFloat(Math.sqrt(area).toFixed(2));
-                                row.width_m = sqrtVal;
-                                row.length_m = sqrtVal;
-                            }
+                            var sqrtVal = parseFloat(Math.sqrt(area).toFixed(2));
+                            row.width_m = sqrtVal;
+                            row.length_m = sqrtVal;
 
                             if (layer instanceof L.Polygon) {
                                 var coords = (layer.getLatLngs()[0] || []).map(function (p) { return [p.lng, p.lat]; });
                                 if (coords.length) {
                                     coords.push([coords[0][0], coords[0][1]]);
                                     feature = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] }, properties: { rowId: capturedRowId, shape: 'polygon' } };
+                                    layer._rowId = capturedRowId;
                                 }
                             } else if (layer instanceof L.Circle) {
                                 var cc = layer.getLatLng(), rr = layer.getRadius(), cnt = 64, ccoords = [];
@@ -1306,6 +1304,7 @@
                                 }
                                 ccoords.push(ccoords[0]);
                                 feature = { type: 'Feature', geometry: { type: 'Polygon', coordinates: [ccoords] }, properties: { rowId: capturedRowId, shape: 'circle' } };
+                                layer._rowId = capturedRowId;
                             }
                         } else if (lineLen > 0) {
                             row.length_m = lineLen;
@@ -1341,7 +1340,8 @@
                         // ── Defansif DOM yazımı: ekranda sıfır kalmasın ──
                         var _wEl = document.querySelector('.row-width[data-row-id="' + capturedRowId + '"]');
                         if (_wEl) {
-                            if (isInstitutionUser) { _wEl.value = '1.00'; _wEl.readOnly = true; }
+                            var locked = isInstitutionUser && rowHasLineDrawing(capturedRowId);
+                            if (locked) { _wEl.value = '1.00'; _wEl.readOnly = true; }
                             else { _wEl.readOnly = false; _wEl.value = row.width_m ? row.width_m.toFixed(2) : ''; }
                         }
                         var _lEl = document.querySelector('.row-length[data-row-id="' + capturedRowId + '"]');
@@ -1362,8 +1362,16 @@
                 serializeAndSync('Çizim haritaya işlendi.');
             });
 
-            map.on(L.Draw.Event.EDITED, function () { serializeAndSync('Çizim güncellendi.'); });
-            map.on(L.Draw.Event.DELETED, function () { serializeAndSync('Çizim silindi.'); });
+            map.on(L.Draw.Event.EDITED, function () { serializeAndSync('Çizim güncellendi.'); renderTable(); });
+            map.on(L.Draw.Event.DELETED, function (e) {
+                if (e && e.layers) {
+                    e.layers.eachLayer(function (l) {
+                        if (l._rowId != null) delete rowDrawings[l._rowId];
+                    });
+                }
+                renderTable();
+                serializeAndSync('Çizim silindi.');
+            });
 
             map.on('click', function (e) {
                 if (drawnItems.getLayers().length === 0) setCenter({ lat: e.latlng.lat, lng: e.latlng.lng });
@@ -1376,6 +1384,7 @@
                 areaInput.value = '0';
                 rowDrawings = {};
                 setCenter(null);
+                renderTable();
                 if (statusEl) statusEl.textContent = 'Çizim temizlendi.';
             });
 
@@ -1526,6 +1535,19 @@
                 var opt = sel.options[sel.selectedIndex];
                 var isMerkez = opt && opt.dataset.isMerkez === '1';
                 var isEmpty = !opt || opt.value === '';
+
+                // TC Kimlik No alanı: alt kurum seçildiğinde vergi no girilir → 11 hane
+                // kısıtı yalnızca merkez belediye başvurularında uygulanır.
+                var natIdInput = document.getElementById('applicant_national_id');
+                if (natIdInput) {
+                    if (isEmpty || isMerkez) {
+                        natIdInput.maxLength = 11;
+                        natIdInput.setAttribute('required', 'required');
+                    } else {
+                        natIdInput.removeAttribute('maxlength');
+                        natIdInput.removeAttribute('required');
+                    }
+                }
 
                 if (isEmpty || isMerkez) {
                     isDicleElektrik = false;

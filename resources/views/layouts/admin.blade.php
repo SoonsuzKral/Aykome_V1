@@ -7,6 +7,9 @@
     <meta name="user-id" content="{{ auth()->id() }}">
     <meta name="user-institution-id" content="{{ auth()->user()?->institution_id }}">
     <meta name="user-roles" content="{{ auth()->user()?->getRoleNames()?->implode(',') }}">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>@yield('title', 'Panel — '.config('app.name'))</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
@@ -102,5 +105,13 @@
     @endauth
     @stack('scripts')
     @include('partials.scripts')
+
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+            regs.forEach(function(r) { r.unregister(); });
+        });
+    }
+    </script>
 </body>
 </html>

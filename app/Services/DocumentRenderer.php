@@ -119,12 +119,6 @@ class DocumentRenderer
     {
         $s = self::S;
         $docNo = 'E-50005665001100-100-' . str_pad($app->id, 7, '0', STR_PAD_LEFT);
-        $date = $app->created_at?->format('d.m.Y') ?? now()->format('d.m.Y');
-        $signerName = $app->creator?->name ?? 'Yetkili';
-        $signerShort = mb_substr($signerName, 0, mb_strrpos($signerName, ' ') ?: mb_strlen($signerName));
-        $konu = mb_strtoupper($app->description ?? 'KAZI İZNİ', 'UTF-8');
-        $tel = $app->creator?->phone ?? '0541 762 29 57';
-        $telS = str_replace([' ', '-'], $s, $tel);
 
         $instName = mb_strtoupper($app->institution?->name ?? 'KURUM', 'UTF-8');
         $instParts = explode(' ', $instName);
@@ -133,13 +127,8 @@ class DocumentRenderer
         return [
             'E-50005665001100-100-1176543'                 => $docNo,
             "DİCLE{$s}ELEKTRİK{$s}DAĞITIM{$s}A.Ş."         => $kurumAdiS,
-            "Mehmet{$s}SULU"                                => str_replace(' ', $s, $signerName),
-            "FUAT{$s}DEĞER"                                 => str_replace(' ', $s, $signerShort),
             '01D0-6OP0-0HZV'                                => strtoupper(substr(md5($app->id), 0, 12)),
             "650{$s}mt2"                                    => ($app->total_area_m2 ?? '0') . "{$s}mt2",
-            "0541{$s}762{$s}29{$s}57"                       => $telS,
-            "AKŞEMSETTİN{$s}PROJESİ{$s}KAZI{$s}ÖN"          => "{$konu}{$s}PROJESİ{$s}KAZI{$s}İZNİ",
-            "MEHMET{$s}SULU"                                => str_replace(' ', $s, mb_strtoupper($signerName, 'UTF-8')),
         ];
     }
 
@@ -153,7 +142,7 @@ class DocumentRenderer
             '7.07.2026'   => $date,
             '17.07.202'   => $endDate,
             '2026/21,1,5' => $ruhsatNo,
-            '904,00'      => number_format((float)($app->deposit_amount ?: 904), 2, ',', '.'),
+            '904,00'      => number_format((float)($app->deposit_amount ?? 0), 2, ',', '.'),
         ];
     }
 
@@ -202,13 +191,39 @@ HTML;
      */
     public static function prePermitMetin(Application $app): string
     {
-        $inst = $app->institution?->name ?? 'Kurum';
-        $projectCode = $app->project_code ?? 'C-26-1100-1063-0012';
+        $inst = $app->institution?->name ?? '';
+        $projectCode = $app->project_code ?? '';
+        $ilce = $app->district ?? '';
+        $isAdi = $app->work_type ?? $app->description ?? '';
+
+        // Mahalle — önce GIS ilişkilerinden, yoksa address_text'in ilk satırından.
+        $mahalle = '';
+        if ($app->relationLoaded('gisNoktalari')) {
+            foreach ($app->gisNoktalari as $n) {
+                if (! empty($n->mahalle)) {
+                    $mahalle = mb_strtoupper(trim((string) $n->mahalle), 'UTF-8');
+                    break;
+                }
+            }
+        }
+        if ($mahalle === '' && $app->relationLoaded('gisCizimleri')) {
+            foreach ($app->gisCizimleri as $cizim) {
+                foreach ($cizim->yolIliskileri ?? collect() as $yol) {
+                    if (! empty($yol->mahalle)) {
+                        $mahalle = mb_strtoupper(trim((string) $yol->mahalle), 'UTF-8');
+                        break 2;
+                    }
+                }
+            }
+        }
+        if ($mahalle === '' && ! empty($app->address_text)) {
+            $mahalle = mb_strtoupper(trim(explode("\n", $app->address_text)[0]), 'UTF-8');
+        }
 
         return "
         <p>İlgi sayılı yazı ile; {$inst} Şanlıurfa Tesis Yöneticiliği {$projectCode}
-        Proje Numarasıyla Eyyübiye İlçesi Hayati Akşemsettin Mahallesi Huzur Sokak
-        1 Adet Trafo Bölgesi AGOG Tesis Yapım İşi çalışması için kazı izni talep edilmektedir.</p>
+        Proje Numarasıyla {$ilce} İlçesi {$mahalle} {$isAdi}
+        çalışması için kazı izni talep edilmektedir.</p>
         <p>&quot;Altyapı Tesisi Açım Ruhsatı&quot; iş ve işlemlerinin kazı kesin metrajlarının tespit edilmesinden
         sonra tamamlanması, Yapılacak çalışmanın AYKOME Çalışma Usul ve Esasları Uygulama yönetmeliğine
         uygun olarak yapılması, çalışma yapılacak cadde ve sokakların kazı öncesinde Eyyübiye Belediyesi Fen

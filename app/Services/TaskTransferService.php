@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\ApplicationStatus;
 use App\Models\Application;
 use App\Models\FieldTask;
 use App\Models\User;
@@ -25,9 +24,9 @@ class TaskTransferService
                 'notes' => $notes,
             ]);
 
-            if ($application->status !== ApplicationStatus::FieldWork) {
-                $application->update(['status' => ApplicationStatus::FieldWork]);
-            }
+            // GÖREV 1 (EBYS kilit bütünlüğü): Görev devri ASLA başvuru statüsünü değiştirmez.
+            // Eski kod status => FieldWork yaparak sahte/ileri kilit açıyordu; bu mutasyon kaldırıldı.
+            // İleri modüller yalnızca belediye yetkili "Aç" aksiyonlarıyla açılır.
 
             $this->applicationService->log($application, $actor, 'task.assigned', [
                 'field_task_id' => $task->id,

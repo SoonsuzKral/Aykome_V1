@@ -39,69 +39,73 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #00
 @endsection
 
 @section('content')
+@php
+    // CELL-BASED AUTH: Ön Kazı belgesi doğrudan belediyeden çıkar; altkurum düzenleyemez.
+    $isMuni = auth()->check() && auth()->user()->isMunicipalityPersonel();
+@endphp
 <div class="header">
     <div class="header-logo">
-        <img src="https://www.eyyubiye.bel.tr/images/logo.png" alt="Eyyübiye Belediyesi">
+        <img src="https://www.eyyubiye.bel.tr/images/logo.png" alt="Eyyübiye Belediyesi" class="print-logo">
     </div>
-    <div class="tc">T.C.</div>
-    <div class="belediye">{{ $belediye ?? 'EYYÜBİYE BELEDİYE BAŞKANLIĞI' }}</div>
-    <div class="mudurluk">{{ $mudurluk ?? 'Fen İşleri Müdürlüğü' }}</div>
+    <div class="tc" contenteditable="{{ $isMuni ? 'true' : 'false' }}">T.C.</div>
+    <div class="belediye" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $belediye ?? 'EYYÜBİYE BELEDİYE BAŞKANLIĞI' }}</div>
+    <div class="mudurluk" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $mudurluk ?? 'Fen İşleri Müdürlüğü' }}</div>
 </div>
 
 <div class="info-row">
     <div class="left">
-        Sayı : <b>{{ $sayi ?? 'E-18790261-755-555505' }}</b>
+        Sayı : <b contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $sayi ?? '' }}</b>
     </div>
-    <div class="right">
-        {{ $tarih ?? '09/06/2026' }}
+    <div class="right" contenteditable="{{ $isMuni ? 'true' : 'false' }}">
+        {{ $tarih ?? '' }}
     </div>
 </div>
 <div class="info-row" style="margin-top:2px;">
     <div class="left">
-        Konu : <b>{{ $konu ?? 'Kazı İzni Hk.' }}</b>
+        Konu : <b contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $konu ?? '' }}</b>
     </div>
 </div>
 
 <div class="alici">
-    <b>{{ $kurum ?? 'DİCLE ELEKTRİK DAĞITIM AŞ.' }}</b>'a
+    <b contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $kurum ?? '' }}</b>'a
 </div>
 
-<div class="ilgi">
-    İlgi : {{ $ilgi_tarih ?? '30.04.2026' }} tarih ve {{ $ilgi_sayi ?? '1176543' }} sayılı yazınız.
+<div class="ilgi" contenteditable="{{ $isMuni ? 'true' : 'false' }}">
+    İlgi : {{ $ilgi_tarih ?? '' }} tarih ve {{ $ilgi_sayi ?? '' }} sayılı yazınız.
 </div>
 
-<div class="paragraf">
+<div class="paragraf" contenteditable="{{ $isMuni ? 'true' : 'false' }}">
     {!! $metin ?? '' !!}
 </div>
 
-<div class="paragraf" style="margin-top:15px;">
+<div class="paragraf" style="margin-top:15px;" contenteditable="{{ $isMuni ? 'true' : 'false' }}">
     "ÖN İZNİ" verilmiştir.
 </div>
 
-<div class="paragraf" style="margin-top:5px;">
+<div class="paragraf" style="margin-top:5px;" contenteditable="{{ $isMuni ? 'true' : 'false' }}">
     Gereğini rica ederim.
 </div>
 
 <div class="imza">
-    <div class="ad">{{ $imza_ad ?? 'Yetkili' }}</div>
-    <div class="unvan">{{ $imza_unvan ?? 'Belediye Başkan Yardımcısı' }}</div>
+    <div class="ad" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $imza_ad ?? '' }}</div>
+    <div class="unvan" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $imza_unvan ?? 'Belediye Başkan Yardımcısı' }}</div>
     <div class="vekalet">V.</div>
     <div style="margin-top:2px;">Başkan a.</div>
 </div>
 
 <div class="altbilgi">
     <div class="row">
-        <span class="sol">{{ $adres ?? 'Eyyüpnebi mh. 3554. Sk. Eski Ptt Binası Eyyübiye / Şanlıurfa' }}</span>
-        <span class="sag">Bilgi için {{ $bilgi_kisi ?? 'Zeynelabidin AKTAŞOĞLU' }}</span>
+        <span class="sol" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $adres ?? '' }}</span>
+        <span class="sag">Bilgi için <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $bilgi_kisi ?? '' }}</span></span>
     </div>
     <div class="row">
-        <span class="sol">Telefon: {{ $telefon ?? '()' }} Fax: {{ $fax ?? '()' }}</span>
+        <span class="sol">Telefon: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $telefon ?? '' }}</span> Fax: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $fax ?? '' }}</span></span>
     </div>
     <div class="row">
-        <span class="sol">E-Posta: {{ $eposta ?? '-' }} Web: {{ $web ?? '-' }}</span>
+        <span class="sol">E-Posta: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $eposta ?? '' }}</span> Web: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $web ?? '' }}</span></span>
     </div>
     <div class="row">
-        <span class="sol">{{ $kep_adresi ?? 'eyyubiye@hs03.kep.tr' }}</span>
+        <span class="sol" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $kep_adresi ?? '' }}</span>
     </div>
 </div>
 

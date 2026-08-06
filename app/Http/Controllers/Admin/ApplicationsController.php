@@ -680,6 +680,354 @@ class ApplicationsController extends Controller
         return back()->with('success', $message);
     }
 
+    /**
+     * KATI ADIM KAPISI: Kurum, saha kazı çalışmalarını tamamladığını bildirir (Ping).
+     * → durum 'excavation_completed'. İLERİ MODÜLLER AÇILMAZ; belediye manuel olarak açar.
+     */
+    public function completeFieldWork(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless(
+            ! $request->user()->isMunicipalityPersonel() && $application->institution_id,
+            403,
+            'Bu işlem yalnızca kurum tarafından gerçekleştirilebilir.'
+        );
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(
+            in_array($currentStatus, ['pre_excavation_approved', 'pre_approved'], true),
+            422,
+            'Başvuru bu aşamada saha kazı tamamlamaya uygun değil.'
+        );
+
+        $application->update([
+            'status' => \App\Enums\ApplicationStatus::ExcavationCompleted,
+        ]);
+
+        AuditLogger::log(
+            'application.excavation_completed',
+            "Kurum saha kazı çalışmalarını tamamladı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '✅ Saha kazı çalışmaları tamamlandı. Belediye Saha Metraj modülünü açacak.');
+    }
+
+    /**
+     * KATI ADIM KAPISI: Belediye "KAZI METRAJ MODÜLÜNÜ AÇ" tuşuna basar.
+     * excavation_completed → metrage_pending (yalnızca belediye, yalnızca alt kurum).
+     */
+    public function openMetraj(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'excavation_completed', 422, 'Saha Metraj modülü bu aşamada açılamaz.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::MetragePending]);
+
+        AuditLogger::log(
+            'application.metrage_opened',
+            "Belediye Saha Metraj modülünü açtı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '🔓 Saha Metraj modülü açıldı.');
+    }
+
+    /**
+     * KATI ADIM KAPISI: Belediye metraj formunu doldurup Kuruma gönderir.
+     * metrage_pending/metrage_revision → metrage_sent (Kurumda).
+     * ALT KURUM Step 3'ü YALNIZCA bu andan itibaren görür (gecikmeli visibility).
+     */
+    public function sendMetrageToInstitution(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(in_array($currentStatus, ['metrage_pending', 'metrage_revision'], true), 422, 'Metraj henüz kuruma gönderilemez.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::MetrageSent]);
+
+        AuditLogger::log(
+            'application.metrage_sent_institution',
+            "Belediye Saha Metrajı kurum onayına gönderdi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', 'Metraj kurum onayına gönderildi.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / PİNG-PONG: Kurum metrajı onaylar → metrage_approved.
+     * Belediyenin tepesindeki "TAHAKKUK AÇ" kilidi böylece belirir.
+     */
+    public function approveMetrage(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless(! $request->user()->isMunicipalityPersonel() && $application->institution_id, 403, 'Bu işlem kurum tarafından yapılır.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(in_array($currentStatus, ['metrage_sent'], true), 422, 'Metraj şu anda onaylanamaz.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::MetrageApproved]);
+
+        AuditLogger::log(
+            'application.metrage_approved',
+            "Kurum Saha Metrajı onayladı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '✅ Kazı metraj formu onaylandı.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / PİNG-PONG: Kurum metrajı kabul etmez, belediyeye geri gönderir.
+     * → metrage_revision (belediye yeniden düzenler). Zorunlu açıklama timeline'a işlenir.
+     */
+    public function rejectMetrage(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless(! $request->user()->isMunicipalityPersonel() && $application->institution_id, 403, 'Bu işlem kurum tarafından yapılır.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(in_array($currentStatus, ['metrage_sent'], true), 422, 'Metraj şu anda geri gönderilemez.');
+
+        $request->validate([
+            'reject_note' => ['required', 'string', 'max:1000'],
+        ]);
+        $note = trim($request->input('reject_note'));
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::MetrageRevision]);
+
+        $application->timelineLogs()->create([
+            'user_id' => $request->user()->id,
+            'action' => 'application.metrage_rejected',
+            'meta' => ['note' => $note],
+            'message' => 'Alt Kurum metrajı şu nedenle kabul etmedi: '.$note,
+        ]);
+
+        AuditLogger::log(
+            'application.metrage_rejected',
+            "Kurum metrajı reddetti: {$application->application_no} — {$note}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '❌ Metraj belediyeye geri gönderildi (revizyon).');
+    }
+
+    /**
+     * KATI ADIM KAPISI: Belediye "TAHAKKUK VE MAKBUZ MODÜLÜNÜ AÇ" tuşuna basar.
+     * metrage_approved → tahakkuk_pending (Step 4 iki tarafa açılır).
+     */
+    public function openTahakkuk(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'metrage_approved', 422, 'Tahakkuk & Makbuz modülü bu aşamada açılamaz.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::TahakkukPending]);
+
+        AuditLogger::log(
+            'application.tahakkuk_opened',
+            "Belediye Tahakkuk & Makbuz modülünü açtı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '🔓 Tahakkuk & Makbuz modülü açıldı.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / SON YETKİ: Belediye "RUHSAT MODÜLÜNÜ AÇ" tuşuna basar.
+     * payment_completed / approved → licensed + ruhsat PDF üretilir (Step 6 render edilir).
+     * GÖREV 4: Taahhütname (taahhutname_sent) gönderilir gönderilmez Ruhsat hazırdır —
+     * alt kurum onayı OLMADIĞI için belediye aynı anda açar.
+     */
+    public function openRuhsat(Request $request, Application $application, LicenseService $licenseService): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(in_array($currentStatus, ['payment_completed', 'approved', 'taahhutname_sent'], true), 422, 'Ruhsat modülü bu aşamada açılamaz.');
+
+        $result = $licenseService->generateExcavationPermitPdf($application);
+
+        $application->update([
+            'status' => \App\Enums\ApplicationStatus::Licensed,
+            'licensed_at' => now(),
+            'license_document_path' => $result['path'] ?? $application->license_document_path,
+            'approval_status' => 'licensed',
+        ]);
+
+        AuditLogger::log(
+            'application.ruhsat_opened',
+            "Belediye Ruhsat modülünü açtı, ruhsat PDF üretildi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '🔓 Ruhsat modülü açıldı. Ruhsat PDF üretildi.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / GÖREV 4: Belediye imzalı Tahakkuk & Makbuz evrakını kuruma gönderir.
+     * tahakkuk_pending → tahakkuk_sent (Alt kurum Step 4'ü yalnızca bu andan itibaren görür).
+     */
+    public function sendTahakkukToInstitution(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'tahakkuk_pending', 422, 'Tahakkuk & Makbuz evrakı bu aşamada kuruma gönderilemez.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::TahakkukSent]);
+
+        AuditLogger::log(
+            'application.tahakkuk_sent_institution',
+            "Belediye Tahakkuk & Makbuz evrakını kuruma gönderdi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', 'Tahakkuk & Makbuz evrakı kuruma gönderildi.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / GÖREV 5: Belediye "TAAHHÜTNAME MODÜLÜNÜ AÇ" tuşuna basar.
+     * payment_completed/approved → taahhutname_pending (yalnızca belediye görür; kuruma gizli).
+     */
+    public function openTaahhutname(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless(in_array($currentStatus, ['payment_completed', 'approved'], true), 422, 'Taahhütname modülü bu aşamada açılamaz.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::TaahhutnamePending]);
+
+        AuditLogger::log(
+            'application.taahhutname_opened',
+            "Belediye Taahhütname modülünü açtı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '🔓 Taahhütname modülü açıldı.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / GÖREV 5 / GÖREV 4: Belediye taahhütnameyi kuruma gönderir.
+     * taahhutname_pending → taahhutname_sent (Alt kurum Step 5'i yalnızca bu andan itibaren görür).
+     */
+    public function sendTaahhutnameToInstitution(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'taahhutname_pending', 422, 'Taahhütname bu aşamada kuruma gönderilemez.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::TaahhutnameSent]);
+
+        AuditLogger::log(
+            'application.taahhutname_sent_institution',
+            "Belediye Taahhütnameyi kuruma gönderdi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', 'Taahhütname kuruma gönderildi.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / GÖREV 4 / SON TAKDİM: Belediye imzalı Ruhsat belgesini kuruma gönderir.
+     * licensed (belediye hazırlığı) → ruhsat_sent (Alt kurum Step 6'yı yalnızca bu andan itibaren görür).
+     */
+    public function sendRuhsatToInstitution(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'licensed', 422, 'Ruhsat bu aşamada kuruma gönderilemez.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::RuhsatSent]);
+
+        AuditLogger::log(
+            'application.ruhsat_sent_institution',
+            "Belediye imzalı Ruhsatı kuruma gönderdi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', 'Ruhsat kuruma gönderildi.');
+    }
+
     public function downloadPrePermit(Application $application)
     {
         $this->authorize('view', $application);
@@ -687,6 +1035,7 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('on_kazi', $application)) {
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator']);
@@ -707,16 +1056,18 @@ class ApplicationsController extends Controller
             'imza_ad' => $signatories['belediye_baskan_yardimcisi']['ad_soyad'],
             'imza_unvan' => $signatories['belediye_baskan_yardimcisi']['unvan'],
             'takip_adresi' => 'https://www.turkiye.gov.tr/eyyubiye-belediyesi-ebys',
-            'adres' => $settings->address ?? 'Eyyüpnebi mh. 3554. Sk. Eski Ptt Binası Eyyübiye / Şanlıurfa',
-            'bilgi_kisi' => $settings->signer_name ?? 'Zeynelabidin AKTAŞOĞLU',
-            'telefon' => $settings->phone ?? '()',
-            'fax' => $settings->fax ?? '()',
+            'adres' => $settings->address ?? '',
+            'bilgi_kisi' => $settings->signer_name ?? '',
+            'telefon' => $settings->phone ?? '',
+            'fax' => $settings->fax ?? '',
             'eposta' => $application->institution?->email ?? $settings->email ?? '-',
             'web' => $settings->website ?? '-',
             'kep_adresi' => $application->institution?->email ?? 'eyyubiye@hs03.kep.tr',
         ];
 
-        return view('admin.pdf.pre_permit', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.pre_permit', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadCoverLetter(Application $application)
@@ -725,26 +1076,25 @@ class ApplicationsController extends Controller
         if ($resp = $this->signedResponseOrNull($application, 'cover_letter')) {
             return $resp;
         }
+        $application->load(['institution', 'creator', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
+
+        $logoBase64 = $this->institutionLogoBase64($application);
+
         if ($html = DocumentTemplateService::renderFor('cover_letter', $application)) {
+            if ($logoBase64 && str_contains($html, '<div class="a4-container">')) {
+                $logoBlock = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">'
+                    . '<img src="' . $logoBase64 . '" alt="Kurum Logosu" style="max-height:85px;width:auto;">'
+                    . '</div>';
+                $html = str_replace('<div class="a4-container">', '<div class="a4-container">' . $logoBlock, $html);
+            }
+            // ALT KURUM KİLİDİ: Belediye onay/devralma sürecinde (draft/değilse) belge
+            // contenteditable HTML olarak asla döndürülmez → salt-okunur render edilir.
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
-        $application->load(['institution', 'creator', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
 
         $signerName = $application->creator?->name ?? 'Yetkili';
         $signerShort = mb_substr($signerName, 0, mb_strrpos($signerName, ' ') ?: mb_strlen($signerName));
-
-        $logoBase64 = null;
-        if ($application->institution && $application->institution->logo_path) {
-            try {
-                $fileContent = \Illuminate\Support\Facades\Storage::disk('public')->get($application->institution->logo_path);
-                if ($fileContent) {
-                    $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($application->institution->logo_path);
-                    $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($fileContent);
-                }
-            } catch (\Exception $e) {
-                $logoBase64 = null;
-            }
-        }
 
         $data = [
             'logo_base64' => $logoBase64,
@@ -761,12 +1111,14 @@ class ApplicationsController extends Controller
             'muhendis' => $application->applicant_first_name && $application->applicant_last_name
                 ? mb_strtoupper(trim($application->applicant_first_name . ' ' . $application->applicant_last_name), 'UTF-8')
                 : 'Kurum Yetkilisi',
-            'telefon' => '0541 762 29 57',
-            'kazı_miktari' => $application->total_area_m2 ?? '650',
+            'telefon' => $application->creator?->phone ?? $application->applicant_phone ?? '',
+            'kazı_miktari' => $application->total_area_m2 ?? '',
             'application' => $application,
         ];
 
-        return view('admin.pdf.cover_letter', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.cover_letter', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadRuhsat(Application $application)
@@ -776,53 +1128,35 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('ruhsat', $application)) {
-            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+            return response($this->docResponseHtml($html, $application, 'ruhsat', 'ruhsat_sent', 'AÇIM RUHSATI (FR-290) — KURUM İMZA BÖLGESİ', '💾 Kurum İmzasını Kaydet'))->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
 
-        $d = (float)($application->deposit_amount ?? 0);
-        $disc = (float)($application->discovery_amount ?? 0);
-
+        // TEK MUHASEBE KAYNAĞI: Tutarlar Model accessor'larından gelir (calcFigures).
+        // Controller içinde KDV/ruhsat harcı/keşif/teminat asla yeniden hesaplanmaz.
         $surfaceRows = [];
-        $totalMiktar = 0;
-        $totalTutar = 0;
         foreach ($application->surfaceLines ?? [] as $sl) {
-            if (!$sl->surfaceType) continue;
-            $miktar = (float)($sl->quantity ?? 0);
-            $tutar = $miktar * (float)($sl->surfaceType->price_per_m2 ?? 0);
-            $totalMiktar += $miktar;
-            $totalTutar += $tutar;
+            if (! $sl->surfaceType) {
+                continue;
+            }
             $surfaceRows[] = [
                 'ad' => $sl->surfaceType->name,
                 'birim' => 'm2',
-                'miktar' => number_format($miktar, 2, ',', '.'),
-                'tutar' => number_format($tutar, 2, ',', '.'),
+                'miktar' => number_format((float) ($sl->quantity ?? 0), 2, ',', '.'),
+                'tutar' => number_format((float) ($sl->amount ?? 0), 2, ',', '.'),
             ];
         }
 
-        $kdv = $d * 0.2;
-        $ruhsatHarci = $d * 0.18;
-        $kesifBedeli = $disc ?: $d * 0.01;
-        $ztbToplam = $d + $kdv;
-        $genelToplam = $ztbToplam + $ruhsatHarci + $kesifBedeli;
-
-        return view('admin.pdf.ruhsat', [
+        $ruhsatHtml = \Illuminate\Support\Facades\View::make('admin.pdf.ruhsat', [
             'application' => $application,
             'surfaceRows' => $surfaceRows,
             'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
-            'calculated_kdv' => number_format($kdv, 2, ',', '.'),
-            'calculated_license_fee' => number_format($ruhsatHarci, 2, ',', '.'),
-            'calculated_discovery_fee' => number_format($kesifBedeli, 2, ',', '.'),
-            'calculated_ztb_total' => number_format($ztbToplam, 2, ',', '.'),
-            'calculated_deposit' => number_format($d, 2, ',', '.'),
-            'calculated_general_total' => number_format($genelToplam, 2, ',', '.'),
-            'total_miktar' => number_format($totalMiktar, 2, ',', '.'),
-            'total_tutar' => number_format($totalTutar, 2, ',', '.'),
             'talep_sahibi' => mb_strtoupper(
                 trim($application->tesis_sorumlusu ?? $application->institution?->tesis_sorumlusu_adi ?? 'Yetkili Görevli'),
                 'UTF-8'
             ),
-        ]);
+        ])->render();
+        return response($this->docResponseHtml($ruhsatHtml, $application, 'ruhsat', 'ruhsat_sent', 'AÇIM RUHSATI (FR-290) — KURUM İMZA BÖLGESİ', '💾 Kurum İmzasını Kaydet'))->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadMetraj(Application $application)
@@ -831,8 +1165,8 @@ class ApplicationsController extends Controller
         if ($resp = $this->signedResponseOrNull($application, 'metraj')) {
             return $resp;
         }
-        if ($html = DocumentTemplateService::renderFor('metraj', $application)) {
-            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        if ($html = DocumentTemplateService::renderFor('metraj', $application, false)) {
+            return response($this->docResponseHtml($html, $application, 'metraj', 'metrage_sent', 'KAZI METRAJ CETVELİ VE ONAY — KURUM İMZA BÖLGESİ', '💾 Kurum İmzasını Kaydet'))->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
 
@@ -846,10 +1180,10 @@ class ApplicationsController extends Controller
         $isAdi = $application->work_type ?? '';
         $combinedParts = [];
         if ($projeKodu !== '') {
-            $combinedParts[] = 'Kod: ' . $projeKodu;
+            $combinedParts[] = $projeKodu;
         }
         if ($isAdi !== '') {
-            $combinedParts[] = 'İş Cinsi: ' . $isAdi;
+            $combinedParts[] = $isAdi;
         }
 
         $data = [
@@ -870,7 +1204,8 @@ class ApplicationsController extends Controller
             ),
         ];
 
-        return view('admin.pdf.metraj', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.metraj', $data)->render();
+        return response($this->docResponseHtml($html, $application, 'metraj', 'metrage_sent', 'KAZI METRAJ CETVELİ VE ONAY — KURUM İMZA BÖLGESİ', '💾 Kurum İmzasını Kaydet'))->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadTaahhutname(Application $application)
@@ -879,14 +1214,43 @@ class ApplicationsController extends Controller
         if ($resp = $this->signedResponseOrNull($application, 'taahhutname')) {
             return $resp;
         }
-        if ($html = DocumentTemplateService::renderFor('taahhutname', $application)) {
-            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        $html = DocumentTemplateService::renderFor('taahhutname', $application);
+        if ($html === null) {
+            $application->load(['institution', 'creator']);
+            $html = \Illuminate\Support\Facades\View::make('admin.pdf.taahhutname', ['application' => $application])->render();
         }
-        $application->load(['institution', 'creator']);
 
-        $data = ['application' => $application];
+        return response(
+            $this->taahhutnamePdfResponse($html, $application)
+        )->header('Content-Type', 'text/html; charset=utf-8');
+    }
 
-        return view('admin.pdf.taahhutname', $data);
+    /**
+     * TAAHHÜTNAME PDF GÖRÜNTÜLEME:
+     * Belge salt-okunurdur (bak + yazdır). YALNIZCA alt kurumun "RUHSATI TESLİM ALAN"
+     * imza hücresini doldurduğu imza adımında (taahhutname_sent) o hücre + kaydet/yazdır
+     * barı açık kalır. Belediye dahil hiç kimse PDF görüntüleme üzerinden düzenlemez;
+     * düzenleme yalnızca "✏️ Düzenle (Kaydet)" editöründe yapılır.
+     */
+    private function taahhutnamePdfResponse(string $html, Application $application): string
+    {
+        $isSignStep = $this->altKurumCanSign($application, 'taahhutname_sent');
+
+        if ($isSignStep) {
+            $html = DocumentTemplateService::readOnlyRender($html, true); // imza hücresi harici her şey kilitli
+            $html = $this->normalizeSignEditable($html);
+            $html = str_ireplace('</body>', $this->signatureSaveSnippet(
+                $application,
+                'taahhutname',
+                'TAAHHÜTNAME — RUHSATI TESLİM ALAN İMZA BÖLGESİ',
+                '💾 İmzayı Kaydet'
+            ) . '</body>', $html);
+
+            return $html;
+        }
+
+        // TAM SALT-OKUNUR görüntüleme (bak + yazdır) — belediye dahil herkes.
+        return DocumentTemplateService::readOnlyView($html, false);
     }
 
     public function downloadTahakkuk(Application $application)
@@ -896,12 +1260,13 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('tahakkuk', $application)) {
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
-        $application->load(['institution', 'creator']);
+        $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
 
-        $d = number_format((float)($application->deposit_amount ?? 0), 2, ',', '.');
-
+        // TEK MUHASEBE KAYNAĞI: Tutarlar Model accessor'larından gelir (calcFigures).
+        // Controller/Blade içinde KDV/keşif/teminat asla yeniden hesaplanmaz.
         $tahakkukSignatories = SignatoryEngine::roleMap('tahakkuk', $application);
 
         $data = [
@@ -909,30 +1274,25 @@ class ApplicationsController extends Controller
             'mudurluk' => 'Fen İşleri Müdürlüğü',
             'birim' => 'AYKOME BİRİMİ',
             'altbaslik' => 'ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI',
-            'talep_sahibi' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ', 'UTF-8'),
-            'ilce' => $application->district ?? 'EYYÜBİYE',
-            'adres' => ($application->project_code ?? 'C-26-1100-1063-0019') . ' ' . ($application->district ?? ''),
-            'firma' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ', 'UTF-8'),
-            'is_cinsi' => $application->description ?? 'ENH TESİS YAPIM İŞİ',
-            'vergino' => $application->applicant_national_id ?? '2950368442-04742868630',
+            'talep_sahibi' => mb_strtoupper($application->institution?->name ?? '', 'UTF-8'),
+            'ilce' => $application->district ?? '',
+            'adres' => ($application->project_code ?? '') . ' ' . ($application->district ?? ''),
+            'firma' => mb_strtoupper($application->institution?->name ?? '', 'UTF-8'),
+            'is_cinsi' => $application->description ?? '',
+            'vergino' => $application->applicant_national_id ?? '',
             'metraj_satirlari' => self::buildMetrajSatirlari($application),
-            'toplam_miktar' => '545,80',
-            'genel_tutar' => $d,
-            'tahrip_bedeli' => $d,
-            'kdv' => number_format((float)($application->deposit_amount ?? 0) * 0.2, 2, ',', '.'),
-            'kesif_bedeli' => number_format((float)($application->deposit_amount ?? 0) * 0.01, 2, ',', '.'),
-            'ztb_toplam' => number_format((float)($application->deposit_amount ?? 0) * 1.21, 2, ',', '.'),
-            'teminat' => '0,00',
-            'genel_toplam' => number_format((float)($application->deposit_amount ?? 0) * 1.21, 2, ',', '.'),
             'duzenleyen' => $tahakkukSignatories['onay_imzaci']['ad_soyad'],
             'mukellef' => mb_strtoupper(
                 trim(($application->applicant_first_name ?? '') . ' ' . ($application->applicant_last_name ?? '') ?: 'YETKİLİ'),
                 'UTF-8'
             ),
+            'application' => $application,
             'aciklama' => '',
         ];
 
-        return view('admin.pdf.tahakkuk', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.tahakkuk', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function downloadTahsilatFisi(Application $application)
@@ -942,31 +1302,25 @@ class ApplicationsController extends Controller
             return $resp;
         }
         if ($html = DocumentTemplateService::renderFor('tahsilat_fisi', $application)) {
+            $html = $this->lockForAltKurum($html, $application);
             return response($html)->header('Content-Type', 'text/html; charset=utf-8');
         }
         $application->load(['institution', 'creator', 'surfaceLines.surfaceType']);
 
+        // TEK MUHASEBE KAYNAĞI: Tüm tutarlar Model accessor'larından okunur.
         $app = $application;
-        $d = (float)($app->deposit_amount ?? 0);
-        $disc = (float)($app->discovery_amount ?? 0);
-        $kdv = round($d * 0.20, 2);
-        $ruhsatHarci = round($d * 0.18, 2);
-        $kesifBedeli = $disc ?: round(361 + ($d * 0.01), 2);
-        $ztbToplam = round($d + $kdv + $ruhsatHarci + $kesifBedeli, 2);
-        $genelToplam = round($ztbToplam + $d * 0.50, 2);
 
         $surfaceRows = [];
         foreach ($app->surfaceLines ?? [] as $sl) {
-            if (!$sl->surfaceType) continue;
-            $qty = (float)($sl->quantity ?? 0);
-            $unit = (float)($sl->surfaceType->price_per_m2 ?? 0);
-            $tutar = round($qty * $unit, 2);
+            if (! $sl->surfaceType) {
+                continue;
+            }
             $surfaceRows[] = [
                 'ad' => $sl->surfaceType->name,
                 'birim' => 'm2',
-                'miktar' => number_format($qty, 2, ',', '.'),
-                'birim_fiyat' => number_format($unit, 2, ',', '.'),
-                'tutar' => number_format($tutar, 2, ',', '.'),
+                'miktar' => number_format((float) ($sl->quantity ?? 0), 2, ',', '.'),
+                'birim_fiyat' => number_format((float) ($sl->surfaceType->price_per_m2 ?? 0), 2, ',', '.'),
+                'tutar' => number_format((float) ($sl->amount ?? 0), 2, ',', '.'),
             ];
         }
 
@@ -993,17 +1347,12 @@ class ApplicationsController extends Controller
             ) ?: ($app->description ?? '—'),
             'vergino' => $app->applicant_national_id ?? '—',
             'metraj_satirlari' => $surfaceRows,
-            'tahrip_bedeli' => number_format($d, 2, ',', '.'),
-            'kdv' => number_format($kdv, 2, ',', '.'),
-            'ruhsat_harci' => number_format($ruhsatHarci, 2, ',', '.'),
-            'kesif_bedeli' => number_format($kesifBedeli, 2, ',', '.'),
-            'ztb_toplam' => number_format($ztbToplam, 2, ',', '.'),
-            'teminat' => number_format($d * 0.50, 2, ',', '.'),
-            'genel_toplam' => number_format($genelToplam, 2, ',', '.'),
             'duzenleyen' => $app->creator?->name ?? 'Yetkili',
         ];
 
-        return view('admin.pdf.tahsilat_fisi', $data);
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.tahsilat_fisi', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
 
     public function saveReceiptInfo(Request $request, Application $application): RedirectResponse
@@ -1237,7 +1586,7 @@ class ApplicationsController extends Controller
      * Dynamically generate permit PDF using current PermitSettings (logo, signature, stamp).
      * Called from the "Ruhsat Belgesi Al" button — always fresh, reflects latest admin settings.
      */
-    public function downloadPermitLive(Application $application): Response
+    public function downloadPermitLive(Application $application): \Symfony\Component\HttpFoundation\Response
     {
         $this->authorize('view', $application);
 
@@ -1294,7 +1643,7 @@ class ApplicationsController extends Controller
         ]);
     }
 
-    public function updateSurfaceLines(Request $request, Application $application, PricingService $pricingService): \Illuminate\Http\RedirectResponse
+    public function updateSurfaceLines(Request $request, Application $application, PricingService $pricingService, \App\Services\DocumentSyncService $syncService): \Illuminate\Http\RedirectResponse
     {
         $this->authorize('update', $application);
 
@@ -1308,6 +1657,11 @@ class ApplicationsController extends Controller
 
         $pricingService->upsertSurfaceLines($application, $validated['surface_lines'] ?? []);
         $pricingService->recalculateTotals($application);
+
+        // GÖREV 1 (SENKRON): Metraj formu kaydedildiği an mevcut ruhsat/tahakkuk/metraj
+        // override'larındaki SAYI hücrelerini DB'den tazele (el metinleri korunur) —
+        // böylece PDF çıktıları saniyesinde yeni/doğrulanmış tutarlara adapte olur.
+        $syncService->hydrateAllOverrides($application);
 
         AuditLogger::log(
             'surface_lines.updated',
@@ -1324,7 +1678,9 @@ class ApplicationsController extends Controller
         $this->authorize('update', $application);
 
         $request->validate([
-            'module' => 'required|string|in:tahakkuk,metraj,ruhsat,taahhutname,pre_permit',
+            // GÖREV 5: "İmzalı Yükle" (signed-doc-upload) bileşeninin gönderdiği tüm modül anahtarları.
+            // E-imza data-pdf-type ile birebir aynı sette olmalı; aksi halde upload 422 ile reddedilir.
+            'module' => 'required|string|in:tahakkuk,metraj,ruhsat,taahhutname,pre_permit,makbuz,cover_letter_signed,on_kazi_signed,metraj_signed,taahhutname_imzali,ruhsat_teslim',
             'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
         ]);
 
@@ -1402,6 +1758,157 @@ class ApplicationsController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * ALT KURUM KİLİDİ (sunucu katmanı): Belediye personeli değilse ve başvuru
+     * draft/rejected/revision statüsünde DEĞİLSE, renderFor() çıktısındaki TÜM
+     * contenteditable atribütleri sökülür (DocumentTemplateService::readOnlyRender).
+     * Böylece "Görüntüle / İndir (PDF)" butonu üst yazı dahil HİÇBİR belgeyi
+     * düzenlenebilir HTML olarak alt kuruma servis etmez.
+     */
+    private function lockForAltKurum(string $html, Application $application): string
+    {
+        $status = $application->status;
+        $raw = $status instanceof ApplicationStatus ? $status->value : (string) $status;
+
+        if (auth()->user()->isMunicipalityPersonel()) {
+            return $html;
+        }
+
+        if (in_array($raw, ['draft', 'rejected', 'revision'], true)) {
+            return $html;
+        }
+
+        return DocumentTemplateService::readOnlyRender($html);
+    }
+
+    /**
+     * Belge sayfasını sunarken: kilitle, rol bazlı imza hücresi editörlüğünü uygula ve
+     * alt kurumun imza hücresini doldurabileceği imza aşamasında bir "Kaydet" üst barı
+     * enjekte et. (Diğer tüm taraflarda/aşamalarda buton eklenmez — salt-okunur.)
+     */
+    private function docResponseHtml(string $html, Application $application, string $type, string $signStatus, string $barTitle, string $btnLabel): string
+    {
+        $html = $this->lockForAltKurum($html, $application);
+        $html = $this->normalizeSignEditable($html);
+
+        if ($this->altKurumCanSign($application, $signStatus)) {
+            $html = str_ireplace('</body>', $this->signatureSaveSnippet($application, $type, $barTitle, $btnLabel) . '</body>', $html);
+        }
+
+        return $html;
+    }
+
+    /** Alt kurum + belirtilen imza aşamasında mı? */
+    private function altKurumCanSign(Application $application, string $signStatus): bool
+    {
+        if (auth()->user()->isMunicipalityPersonel()) {
+            return false;
+        }
+        $status = $application->status;
+        $raw = $status instanceof ApplicationStatus ? $status->value : (string) $status;
+
+        return $raw === $signStatus;
+    }
+
+    /**
+     * DATA-SIGN EDİTÖRLÜĞÜNÜ GARANTİ ET: data-sign-editable="1" imza hücresi her iki taraf
+     * (belediye + alt kurum) için contenteditable="true" olur. readOnlyRender alt kurumun
+     * diğer tüm hücrelerini kilitleyip bu kutuyu açık bırakır; belediye ise hiç kilitlenmez.
+     * Kaydedilen ortak şablondaki eski contenteditable değeri her render'a uyarlanır.
+     */
+    private function normalizeSignEditable(string $html): string
+    {
+        return (string) preg_replace_callback(
+            '/<([a-zA-Z][a-zA-Z0-9]*)\b([^>]*?)>/',
+            function (array $m): string {
+                if (! preg_match('/data-sign-editable/i', $m[2])) {
+                    return $m[0];
+                }
+
+                $attrs = $m[2];
+                if (preg_match('/\s+contenteditable\s*=/i', $attrs)) {
+                    $attrs = preg_replace(
+                        '/\s+contenteditable\s*=\s*["\'][^"\']*["\']/i',
+                        ' contenteditable="true"',
+                        $attrs
+                    );
+                } else {
+                    $attrs .= ' contenteditable="true"';
+                }
+
+                return '<' . $m[1] . $attrs . '>';
+            },
+            $html
+        );
+    }
+
+    /** Alt kurum "imza kaydet" üst barı + JS (metraj + taahhütname ortak). */
+    private function signatureSaveSnippet(Application $application, string $type, string $barTitle, string $btnLabel): string
+    {
+        $saveUrl = route('admin.applications.edit-document.save', [$application, $type]);
+        $token = csrf_token();
+        $appNo = e($application->application_no);
+        $date = now()->format('d.m.Y');
+        $fn = 'docSigSave_' . $type;
+
+        return <<<HTML
+<style>
+    #msig { position: fixed; top: 0; left: 0; right: 0; z-index: 999999;
+            background: linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+            color: #fff; display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 18px; box-shadow: 0 6px 18px rgba(0,0,0,.35);
+            font-family: Arial, sans-serif; box-sizing: border-box; }
+    #msig .t { display: flex; flex-direction: column; gap: 2px; }
+    #msig .nm { font-size: 14px; font-weight: bold; letter-spacing: .4px; color: #f8fafc; }
+    #msig .mt { font-size: 11px; color: #94a3b8; }
+    #msig .sbtn { margin-left: 12px; background: #059669; color: #fff; border: none;
+            padding: 10px 22px; border-radius: 8px; font-size: 13px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 3px 10px rgba(5,150,105,.4); }
+    #msig .sbtn:hover { background: #06724f; }
+    #msig .sbtn:disabled { opacity: .55; cursor: default; }
+    #msig .pbtn { margin-left: 8px; background: #2563eb; color: #fff; border: none;
+            padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: bold;
+            cursor: pointer; box-shadow: 0 3px 10px rgba(37,99,235,.35); }
+    #msig .pbtn:hover { background: #1d4ed8; }
+    @media print { #msig { display: none !important; } body { padding-top: 0 !important; } }
+    body { padding-top: 66px !important; }
+</style>
+<div id="msig">
+    <div class="t">
+        <div class="nm">{$barTitle}</div>
+        <div class="mt">Başvuru No: {$appNo} &nbsp;&bull;&nbsp; Tarih: {$date}</div>
+    </div>
+    <div style="display:flex; align-items:center;">
+        <button type="button" class="sbtn" id="msig-save" onclick="{$fn}()">{$btnLabel}</button>
+        <button type="button" class="pbtn" onclick="window.print()">🖨️ Yazdır</button>
+    </div>
+</div>
+<script>
+function {$fn}() {
+    var btn = document.getElementById('msig-save');
+    if (btn) btn.disabled = true;
+    var content = document.body.innerHTML;
+    fetch('{$saveUrl}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{$token}' },
+        body: JSON.stringify({ content_data: content })
+    })
+    .then(function (r) { if (!r.ok) throw new Error('Sunucu hatası: ' + r.status); return r.json(); })
+    .then(function () {
+        var b = document.getElementById('msig');
+        if (b) b.style.background = '#059669';
+        if (btn) btn.textContent = '✓ Kaydedildi';
+        setTimeout(function () { if (btn) { btn.textContent = '{$btnLabel}'; btn.disabled = false; } }, 3000);
+    })
+    .catch(function (err) {
+        if (btn) btn.disabled = false;
+        alert('Kaydetme başarısız: ' + err.message);
+    });
+}
+</script>
+HTML;
     }
 
     public function data(Request $request): \Illuminate\Http\JsonResponse
@@ -1593,6 +2100,17 @@ class ApplicationsController extends Controller
             ApplicationStatus::Priced->value => ['label' => 'Fiyatlandı', 'class' => 'bg-indigo-100 text-indigo-700'],
             ApplicationStatus::AwaitingPayment->value => ['label' => 'Ödeme bekliyor', 'class' => 'bg-amber-100 text-amber-700'],
             ApplicationStatus::ReceiptPending->value => ['label' => 'Makbuz bekliyor', 'class' => 'bg-orange-100 text-orange-700'],
+            ApplicationStatus::ExcavationCompleted->value => ['label' => 'Kazı tamamlandı', 'class' => 'bg-blue-100 text-blue-700'],
+            ApplicationStatus::MetragePending->value => ['label' => 'Metraj açıldı', 'class' => 'bg-sky-100 text-sky-700'],
+            ApplicationStatus::MetrageSent->value => ['label' => 'Metraj kurumda', 'class' => 'bg-indigo-100 text-indigo-700'],
+            ApplicationStatus::MetrageRevision->value => ['label' => 'Metraj revizyon', 'class' => 'bg-rose-100 text-rose-700'],
+            ApplicationStatus::MetrageApproved->value => ['label' => 'Metraj onaylı', 'class' => 'bg-emerald-100 text-emerald-700'],
+            ApplicationStatus::TahakkukPending->value => ['label' => 'Tahakkuk & makbuz açıldı', 'class' => 'bg-indigo-100 text-indigo-700'],
+            ApplicationStatus::TahakkukSent->value => ['label' => 'Tahakkuk & makbuz kurumda', 'class' => 'bg-indigo-100 text-indigo-700'],
+            ApplicationStatus::TaahhutnamePending->value => ['label' => 'Taahhütname açıldı', 'class' => 'bg-amber-100 text-amber-700'],
+            ApplicationStatus::TaahhutnameSent->value => ['label' => 'Taahhütname kurumda', 'class' => 'bg-amber-100 text-amber-700'],
+            ApplicationStatus::RuhsatSent->value => ['label' => 'Ruhsat kuruma gönderildi', 'class' => 'bg-green-100 text-green-700'],
+            ApplicationStatus::PaymentCompleted->value => ['label' => 'Ödeme tamamlandı', 'class' => 'bg-teal-100 text-teal-700'],
             ApplicationStatus::Approved->value => ['label' => 'Onaylandı', 'class' => 'bg-emerald-100 text-emerald-700'],
             ApplicationStatus::Licensed->value => ['label' => 'Ruhsatlı', 'class' => 'bg-green-100 text-green-700'],
             ApplicationStatus::FieldWork->value => ['label' => 'Saha işi', 'class' => 'bg-blue-100 text-blue-700'],
@@ -1610,13 +2128,37 @@ class ApplicationsController extends Controller
 
     private static function buildCoverLetterParagraphs(Application $app): array
     {
+        $proje = trim((string) ($app->project_code ?? ''));
+        $yil = (int) date('Y');
+
+        // Lokasyon adresi — GIS ilişkilerinden, yoksa address'in ilk satırından.
+        $mahalle = '';
+        $sokak = '';
+        $cizim = $app->gisCizimleri?->first();
+        $yol = $cizim?->yolIliskileri?->first();
+        if ($yol) {
+            $mahalle = mb_strtoupper(trim((string) ($yol->mahalle ?? '')), 'UTF-8');
+            $sokak = mb_strtoupper(trim((string) ($yol->yol_adi ?? '')), 'UTF-8');
+        }
+        if (! $mahalle && ! empty($app->address_text)) {
+            $mahalle = mb_strtoupper(trim(explode("\n", $app->address_text)[0]), 'UTF-8');
+        }
+
+        $isAdi = mb_strtoupper(trim((string) ($app->work_type ?? $app->description ?? '')), 'UTF-8');
+        $yuklenici = mb_strtoupper(trim((string) ($app->institution?->name ?? '')), 'UTF-8');
+
+        $projeMetni = $proje !== '' ? " {$proje} pyp referans numarasıyla" : '';
+        $mahalleMetni = $mahalle !== '' ? " {$mahalle}" : '';
+        $sokakMetni = $sokak !== '' ? ", {$sokak}" : '';
+        $isMetni = $isAdi !== '' ? " {$isAdi}" : '';
+        $yukleniciMetni = $yuklenici !== '' ? "{$yuklenici} firmasının taahhüdünde kalmıştır" : 'taahhüdünde kalmıştır';
+
         return [
             'İlgi sayılı yazınız ile; Şirketimizden kazı izni sokaklarının mahalle isimleri güncellenmiştir.',
-            "Şirketimiz 2026 yılı yatırım programında {$app->project_code} pyp numarası ile yer alan SANLIURFA İLİ
-            EYYÜBİYE İLÇESİ AKŞEMSETTİN MAHALLESİ HUZUR SOKAK 1 ADET TRAFO BÖLGESİ AGOG TESİS YAPIM İŞİ
-            ’nin ihale süreci tamamlanmış olup, söz konusu iş DİCLE KÖK A.Ş. firmasının taahhüdünde kalmıştır. Sanlıurfa
-            EYYÜBİYE Belediyesi sorumluluğunda bulunan cadde ve sokakların kazı izinleri belediyenizce verilmesi
-            gerekmektedir.",
+            "Şirketimiz {$yil} yılı yatırım programında{$projeMetni} yer alan ŞANLIURFA İLİ
+            EYYÜBİYE İLÇESİ{$mahalleMetni}{$sokakMetni}{$isMetni} altyapı tesisi açım işinin ihale
+            süreci tamamlanmış olup, söz konusu iş {$yukleniciMetni}. Eyyübiye Belediyesi sorumluluğunda
+            bulunan cadde ve sokakların kazı izinleri belediyenizce verilmesi gerekmektedir.",
             'Elektrik şebekesi tesis çalışmaları yapılması planlanan cadde ve sokak isimleri aşağıdaki listede sunulmuştur.',
             'Gerekli kazı izninin verilmesi hususunda,',
             'Gereğini arz ederim.',
@@ -1722,30 +2264,72 @@ class ApplicationsController extends Controller
         ];
     }
 
+    /**
+     * TAHAKKUK MATBU YASA: Belgede sistemdeki TÜM Zemin Tipleri alt alta bastırılır;
+     * kazılan/seçilen zeminin hizasına gerçek miktar/fiyat/tutar gelir, başvuruda
+     * yer almayan zeminler "0,00" kalır. Zemin listesi dinamiktir (SurfaceType::all()),
+     * asla hard-code string dizi kullanılmaz.
+     */
     public static function buildMetrajSatirlari(Application $app): array
     {
-        $d = (float)($app->deposit_amount ?? 0);
-        return [
-            ['ad' => 'ASFALT (SICAK KARIŞIM)', 'birim' => 'm2', 'miktar' => '545,80', 'birim_fiyat' => number_format($d / max(545.8, 1), 2, ',', '.'), 'tutar' => number_format($d, 2, ',', '.')],
-            ['ad' => 'ASFALT (SOĞUK ASFALT)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'PARKE', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'BETON', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'STABİLİZE', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'TRETUAR (PARKE PRİZM)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'TRETUAR (KARO)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'TRETUAR (MERMER)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'TRETUAR (BAZALT)', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'BORDÜR (BETON)', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'BORDÜR (BAZALT)', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'ÇİM', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'TOPRAK', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'BETON YOL OLUĞU', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-            ['ad' => 'GÖRME ENGELLİ KARO', 'birim' => 'm', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'],
-        ];
+        $app->loadMissing(['surfaceLines.surfaceType', 'institution']);
+
+        $lines = $app->surfaceLines ?? collect();
+        if (! $lines instanceof \Illuminate\Support\Collection) {
+            $lines = collect($lines);
+        }
+
+        // Başvuru satırlarını ad bazlı (büyük-küçük duyarsız) indexle — contains/where mantığı.
+        $appLinesByName = $lines->filter(fn ($sl) => $sl->surfaceType)
+            ->mapWithKeys(function ($sl) {
+                $key = mb_strtolower(trim((string) $sl->surfaceType->name), 'UTF-8');
+
+                return [$key => $sl];
+            });
+
+        $rows = [];
+        foreach (\App\Models\SurfaceType::query()->orderBy('id')->get() as $st) {
+            $stName = trim((string) $st->name);
+            $stKey = mb_strtolower($stName, 'UTF-8');
+            $matched = $appLinesByName->get($stKey);
+
+            // Birim: bordür / görme engelli karo gibi hat işlerinde "m", diğerlerinde "m²".
+            // strtolower ASCII-only olduğundan İ/ı/i/I Türkçe karakter farkını bypass eder.
+            $ust = strtolower($stName);
+            $birim = (str_contains($ust, 'bordür') || str_contains($ust, 'bordur') || str_contains($ust, 'görme engell') || str_contains($ust, 'gorme engell') || str_contains($ust, 'olugu') || str_contains($ust, 'oluğu')) ? 'm' : 'm2';
+
+            if ($matched) {
+                $rows[] = [
+                    'ad' => mb_strtoupper($stName, 'UTF-8'),
+                    'birim' => $birim,
+                    'miktar' => number_format((float) ($matched->quantity ?? 0), 2, ',', '.'),
+                    'birim_fiyat' => number_format((float) ($matched->surfaceType->price_per_m2 ?? 0), 2, ',', '.'),
+                    'tutar' => number_format((float) ($matched->amount ?? 0), 2, ',', '.'),
+                ];
+            } else {
+                // Başvuruda bu zemin yok — sıfır satırı (model birim fiyatı gösterilir, miktar/tutar 0).
+                $rows[] = [
+                    'ad' => mb_strtoupper($stName, 'UTF-8'),
+                    'birim' => $birim,
+                    'miktar' => '0,00',
+                    'birim_fiyat' => number_format((float) ($st->price_per_m2 ?? 0), 2, ',', '.'),
+                    'tutar' => '0,00',
+                ];
+            }
+        }
+
+        // Zemin satırı hiç yoksa bile tipik boş satır üretilir — hesap yok, 0 gösterilir.
+        if (empty($rows)) {
+            $rows[] = ['ad' => '—', 'birim' => 'm2', 'miktar' => '0,00', 'birim_fiyat' => '0,00', 'tutar' => '0,00'];
+        }
+
+        return $rows;
     }
 
     public static function buildMetrajRows(Application $app): array
     {
+        $app->loadMissing(['institution', 'creator', 'surfaceLines.surfaceType', 'gisCizimleri.yolIliskileri', 'gisNoktalari']);
+
         $rows = [];
         $sira = 0;
         $ilce = $app->district ?? 'EYYÜBİYE';
@@ -1753,10 +2337,10 @@ class ApplicationsController extends Controller
         $isAdi = $app->work_type ?? '';
         $combinedParts = [];
         if ($projeKodu !== '') {
-            $combinedParts[] = 'Kod: ' . $projeKodu;
+            $combinedParts[] = $projeKodu;
         }
         if ($isAdi !== '') {
-            $combinedParts[] = 'İş Cinsi: ' . $isAdi;
+            $combinedParts[] = $isAdi;
         }
         $projeKodu = implode(' / ', $combinedParts);
         $tarih = $app->start_date?->format('d.m.Y') ?? '';
@@ -1800,6 +2384,10 @@ class ApplicationsController extends Controller
                     'm2' => $m2,
                     'zemin' => $zemin,
                     'proje_kodu' => $projeKodu,
+                    // MODÜLLER ARASI SENKRON: metraj satırı hangi application_surface_areas
+                    // satırından geldiyse kimliği taşınır; düzenlenen M² editör kaydında
+                    // sync_zemin_lines ile DB'ye geri beslenip Tahakkuk/Ruhsat'ı tazeler.
+                    'surface_line_id' => $sl->id,
                 ];
             }
         }
@@ -1809,7 +2397,7 @@ class ApplicationsController extends Controller
                 'sira' => 1,
                 'ilce' => $ilce,
                 'mahalle' => $mahalle,
-                'cadde' => $cadde ?: ($app->address_text ?: ''),
+                'cadde' => $cadde,
                 'tarih' => $tarih,
                 'genislik' => '0,00',
                 'uzunluk' => '0,00',
@@ -1848,31 +2436,12 @@ class ApplicationsController extends Controller
             return response()->json(['success' => false]);
         }
 
-        $apiKey = 'b7500431-b7c9-4c6b-bcb3-fcd91b3a7339'; // NİHAİ ANAHTAR!
-
-        // 1. AŞAMA: SERVER-TO-SERVER YANDEX VURUŞU!
+        // 1. AŞAMA: NOMINATIM (OSM) — Türkiye adreslerinde en isabetli kaynak
         try {
-            $url = "https://geocode-maps.yandex.ru/1.x/?apikey={$apiKey}&format=json&geocode=".urlencode($query).'&results=1';
-            $yandexResponse = Http::get($url);
-            if ($yandexResponse->successful()) {
-                $pos = $yandexResponse->json('response.GeoObjectCollection.featureMember.0.GeoObject.Point.pos');
-                if ($pos) {
-                    $coords = explode(' ', $pos);
-
-                    return response()->json(['success' => true, 'lat' => $coords[1], 'lon' => $coords[0]]);
-                }
-            }
-        } catch (\Exception $e) {
-            // Yandex istek hatası — Nominatim fallback'ine geç
-        }
-
-        // 2. AŞAMA: NOMINATIM FALLBACK (BACKENDDEN GİDERKEN BAN YEMEMEK İÇİN GÜÇLÜ USER-AGENT!)
-        try {
-            $osmQuery = str_ireplace([' sokak', ' sok.', ' cadde'], '', $query); // Basit parse
             $osmResponse = Http::withHeaders([
                 'User-Agent' => 'Aykome-Eyyubiye-GIS-Backend/1.0', // Zorunludur OSM kızmaz.
             ])->get('https://nominatim.openstreetmap.org/search', [
-                'format' => 'json', 'q' => $osmQuery, 'countrycodes' => 'tr', 'limit' => 1,
+                'format' => 'json', 'q' => $query, 'countrycodes' => 'tr', 'limit' => 1,
             ]);
 
             if ($osmResponse->successful() && count($osmResponse->json()) > 0) {
@@ -1881,9 +2450,65 @@ class ApplicationsController extends Controller
                 return response()->json(['success' => true, 'lat' => $item['lat'], 'lon' => $item['lon']]);
             }
         } catch (\Exception $e) {
-            // Nominatim istek hatası — sessizce geç
+            // Nominatim istek hatası — Yandex fallback'ine geç
+        }
+
+        // 2. AŞAMA: PHOTON (komoot) — API key gerektirmez, Nominatim rate limit'e takılırsa devreye girer
+        try {
+            $photonResponse = Http::withHeaders([
+                'User-Agent' => 'Aykome-Eyyubiye-GIS-Backend/1.0',
+            ])->get('https://photon.komoot.io/api/', [
+                'q' => $query, 'limit' => 1,
+            ]);
+
+            if ($photonResponse->successful() && count($photonResponse->json('features', [])) > 0) {
+                $coords = $photonResponse->json('features.0.geometry.coordinates'); // [lng, lat]
+
+                return response()->json(['success' => true, 'lat' => $coords[1], 'lon' => $coords[0]]);
+            }
+        } catch (\Exception $e) {
+            // Photon istek hatası — Yandex fallback'ine geç
+        }
+
+        // 3. AŞAMA: YANDEX — Photon da boş dönerse üçüncü deneme
+        $apiKey = config('services.yandex.api_key');
+        if ($apiKey) {
+            try {
+                $url = "https://geocode-maps.yandex.ru/1.x/?apikey={$apiKey}&format=json&geocode=".urlencode($query).'&results=1';
+                $yandexResponse = Http::get($url);
+                if ($yandexResponse->successful()) {
+                    $pos = $yandexResponse->json('response.GeoObjectCollection.featureMember.0.GeoObject.Point.pos');
+                    if ($pos) {
+                        $coords = explode(' ', $pos);
+
+                        return response()->json(['success' => true, 'lat' => $coords[1], 'lon' => $coords[0]]);
+                    }
+                }
+            } catch (\Exception $e) {
+                // Yandex istek hatası — sessizce geç
+            }
         }
 
         return response()->json(['success' => false]);
+    }
+
+    /** Başvuruya ait kurum logosunu data URI (base64) olarak döndürür; yoksa null. */
+    private function institutionLogoBase64(Application $application): ?string
+    {
+        if (! $application->institution || ! $application->institution->logo_path) {
+            return null;
+        }
+        try {
+            $disk = \Illuminate\Support\Facades\Storage::disk('public');
+            $fileContent = $disk->get($application->institution->logo_path);
+            if (! $fileContent) {
+                return null;
+            }
+            $mime = $disk->mimeType($application->institution->logo_path) ?: 'image/png';
+
+            return 'data:' . $mime . ';base64,' . base64_encode($fileContent);
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 }

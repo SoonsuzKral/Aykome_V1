@@ -644,11 +644,11 @@ function reloadGallery() {
 /* ─── LEAFLET LOADER ─── */
 (function(){
     var s=document.createElement('script');
-    s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    s.src='{{ asset('assets/vendor/leaflet/leaflet.js') }}';
     s.onload=function(){
         var css=document.createElement('link');
         css.rel='stylesheet';
-        css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        css.href='{{ asset('assets/vendor/leaflet/leaflet.css') }}';
         document.head.appendChild(css);
         initLiveLeafletMap();
     };
