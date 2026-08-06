@@ -1133,34 +1133,46 @@ function buildLayerSld(hex){
         '</Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>';
 }
 
-/* Katmana renk uygula: WMS tile'ını SLD_BODY parametresiyle yeniden üret (anlık vizuel) */
+/* Katmana renk uygula: SLD_BODY ile canlı yeniden-render. Drag sırasında tile fırtınasını
+   önlemek için trailing-debounce (250ms) ile harita yeniden çizilir; daire anında güncellenir. */
+var _applyColorTimers={};
 function applyLayerColor(layer,hex){
     if(!hex)return;
-    if(layerColorState[layer]===hex)return;
     layerColorState[layer]=hex;
     var ly=wmsLayers[layer];
     if(!ly)return;
-    var visible=mapsMap.hasLayer(ly);
-    var opacity=ly.options.opacity;
-    var fresh=createWmsLayer(GEO3_WMS,layer,{layers:layer,opacity:opacity,zIndex:100,sld_body:buildLayerSld(hex)});
-    wmsLayers[layer]=fresh;
-    if(visible)fresh.addTo(mapsMap);
+    clearTimeout(_applyColorTimers[layer]);
+    _applyColorTimers[layer]=setTimeout(function(){
+        var cur=wmsLayers[layer];
+        if(cur)cur.setParams({sld_body:buildLayerSld(layerColorState[layer])});
+    },250);
 }
 
-/* DB'ye kayıt: 1sn debounce, tüm kişisel renk haritası POST edilir */
-var _renkTimer=null;
-function persistLayerColor(){
-    clearTimeout(_renkTimer);
-    _renkTimer=setTimeout(function(){
-        fetch('/maps/renk-kaydet',{
-            method:'POST',
-            headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content},
-            body:JSON.stringify({renkler:layerColorState})
-        }).then(function(r){return r.json()}).then(function(d){
-            if(d&&d.success)showToast('🎨 Katman rengi kaydedildi');
-        }).catch(function(){});
-    },1000);
+/* Katman açılırken (checkbox) kayıtlı/kişisel rengi garanti uygula (anında, harita öncesi) */
+function ensureLayerColor(layer){
+    var hex=layerColorState[layer];
+    var ly=wmsLayers[layer];
+    if(hex&&ly)ly.setParams({sld_body:buildLayerSld(hex)});
 }
+
+/* DB'ye kayıt: kısa debounce (600ms), kişisel renk haritası POST edilir */
+var _renkTimer=null;
+function persistLayerColor(forceNow){
+    clearTimeout(_renkTimer);
+    if(forceNow){_saveRenkler();return;}
+    _renkTimer=setTimeout(_saveRenkler,600);
+}
+function _saveRenkler(){
+    fetch('/maps/renk-kaydet',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content},
+        body:JSON.stringify({renkler:layerColorState})
+    }).then(function(r){return r.json()}).then(function(d){
+        if(d&&d.success)showToast('🎨 Katman rengi kaydedildi');
+    }).catch(function(){});
+}
+/* Sayfa kapanmadan/beklerken bekleyen kayıtları boşalt — hızlı yenilemede veri kaybını önler */
+window.addEventListener('pagehide',function(){ if(_renkTimer)persistLayerColor(true); });
 
 /* Boot: DB'deki kişisel renkleri sol panele (daire + color-input) bas */
 function applyAuthColorsToPanel(){
@@ -2181,7 +2193,7 @@ function toggleAccordion(el){
 w.toggleAccordion=toggleAccordion;
 
 function setupEventListeners(){
-    document.querySelectorAll('.layer-color-input').forEach(function(inp){
+document.querySelectorAll('.layer-color-input').forEach(function(inp){
         inp.addEventListener('input',function(){
             var wrap=this.closest('.layer-color-wrap');
             if(!wrap)return;
@@ -2191,14 +2203,28 @@ function setupEventListeners(){
             var dot=wrap.querySelector('.color-dot');
             if(dot)dot.style.background=hex;
             applyLayerColor(layer,hex);
-            persistLayerColor();
+            persistLayerColor(); // debounce + pagehide flush
         });
+        inp.addEventListener('change',function(){
+            var wrap=this.closest('.layer-color-wrap');
+            if(!wrap)return;
+            var layer=wrap.dataset.layer;
+            if(!layer)return;
+            var dot=wrap.querySelector('.color-dot');
+            if(dot)dot.style.background=this.value;
+            applyLayerColor(layer,this.value);
+            persistLayerColor(); // palette kapandığında da hemen kaydet
+        });
+    });
     });
     document.querySelectorAll('.katman-checkbox').forEach(function(cb){
         cb.addEventListener('change',function(){
             var layer=wmsLayers[this.dataset.layer];
             if(!layer)return;
-            if(this.checked)layer.addTo(mapsMap);
+            if(this.checked){
+                ensureLayerColor(this.dataset.layer);
+                layer.addTo(mapsMap);
+            }
             else mapsMap.removeLayer(layer);
             updateActiveLayerCount();
         });
