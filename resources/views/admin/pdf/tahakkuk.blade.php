@@ -125,7 +125,7 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 9pt; color: #000
             <tr data-aykome-surface="{{ $zeminAd }}">
                 <td data-aykome-col="ad" class="l" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $zeminAd }}</td>
                 <td data-aykome-col="birim" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $birim }}</td>
-                <td data-aykome-col="miktar" class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $miktar }}</td>
+                <td data-aykome-col="miktar" class="sync-dom-value sync-miktar-td num" data-id="{{ data_get($zeminSatir, 'id') ?? '' }}" data-type="miktar" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $miktar }}</td>
                 <td data-aykome-col="birim_fiyat" class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $birimFiyat }}</td>
                 <td data-aykome-col="tutar" class="num" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $tutar }}</td>
             </tr>

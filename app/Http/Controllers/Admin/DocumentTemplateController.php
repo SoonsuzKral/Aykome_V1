@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Application;
+use App\Models\ApplicationSurfaceArea;
 use App\Services\DocumentTemplateService;
+use App\Services\PricingService;
 use App\Enums\ApplicationStatus;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -189,6 +191,20 @@ class DocumentTemplateController extends Controller
         $bodyReadOnly = ! auth()->user()->isMunicipalityPersonel()
             && $this->applicationStatusRaw($application) !== 'draft';
 
+        // FRONTEND → DB KÖPRÜSÜ (senkron kancası): Editördeki zemin satırlarına satır
+        // kimliğini sunucudan enjekte ediyoruz. Eski (önceden kaydedilmiş) override'larda
+        // data-line-id HTML'inde bulunmayabilir; bu harita sayesinde JS, satırı zemin
+        // adıyla eşleyip data-line-id'yi YÜKLENİRKEN takar. Böylece metrajda M² değiştirilip
+        // kaydedildiğinde sync_zemin_lines her zaman dolu gelir ve DB güncellenir.
+        $application->loadMissing(['surfaceLines.surfaceType']);
+        $surfaceLineIds = [];
+        foreach ($application->surfaceLines ?? [] as $sl) {
+            if (! $sl->surfaceType) {
+                continue;
+            }
+            $surfaceLineIds[mb_strtolower(trim((string) $sl->surfaceType->name), 'UTF-8')] = (int) $sl->id;
+        }
+
         return $this->editorView([
             'docType' => $documentType,
             'docLabel' => $t['label'],
@@ -213,6 +229,7 @@ class DocumentTemplateController extends Controller
                     ->where('active', true)
                     ->pluck('price_per_m2', 'name')
                     ->all(),
+                'surfaceLineIds' => $surfaceLineIds,
             ],
         ]);
     }
@@ -254,9 +271,30 @@ class DocumentTemplateController extends Controller
 
         // MODÜLLER ARASI SENKRON (GÖREV 3): Belediye memuru bir Excel belgesinin
         // (ruhsat/tahakkuk/metraj) sayısal hücresini düzenleyip kaydettiğinde belgedeki
-        // yüzey miktarları DB'ye geri beslenir (delta), App toplamları BAŞTAN hesaplanır
-        // ve orantılı dağıtım payı surface_sync_log'a yazılır. DB, taslakla senkron kalır.
-        if ($isMuni && in_array($documentType, ['ruhsat', 'tahakkuk', 'metraj'], true)) {
+        // yüzey miktarları DB'ye geri beslenir (live_sync_lines), App toplamları BAŞTAN
+        // hesaplanır ve diğer evrakların eski override'ları silinir (DB'den fresh render).
+        $isExcelDoc = in_array($documentType, ['ruhsat', 'tahakkuk', 'metraj'], true);
+
+        if ($isMuni && $isExcelDoc && $request->filled('live_sync_lines')) {
+            // GÖREV 3 — FRONTEND→DB ZİNCİRİ: Editörün DOM'undan gelen [{id, val}] listesi.
+            $updates = json_decode((string) $request->input('live_sync_lines'), true);
+            if (is_array($updates) && count($updates) > 0) {
+                // 1) Zemin satırlarını (miktar) DB'de güncelle + 2) Parayı BAŞTAN hesapla.
+                $this->applyLiveSyncLines($application, $updates);
+                // 3) DÜNYANIN EN KRİTİK HAMLESİ: DİĞER evrakların (Tahakkuk/Ruhsat/Metraj)
+                //    eski kayıtlı HTML override'larını SİL → modül DB'deki yeni miktarı alıp
+                //    fatura+KDV keserek SIFIRDAN TERTEMİZ FRESH RENDER üretsin.
+                foreach (['ruhsat', 'tahakkuk', 'metraj'] as $exDoc) {
+                    if ($exDoc !== $documentType) {
+                        DocumentTemplateService::deleteOverride($application, $exDoc);
+                    }
+                }
+            } elseif ($isMuni && $isExcelDoc) {
+                // live_sync_lines boş döndü (ör. veri kancası yok) → isim tabanlı yedek.
+                $syncService->syncFromDocument($application, $documentType, $content);
+            }
+        } elseif ($isMuni && $isExcelDoc) {
+            // Yedek (eski veri): isim tabanlı ayrıştırma (data-aykome-surface).
             $syncService->syncFromDocument($application, $documentType, $content);
         }
 
@@ -272,6 +310,31 @@ class DocumentTemplateController extends Controller
         DocumentTemplateService::saveOverride($application, $documentType, $content);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * GÖREV 3 — FRONTEND→DB ZİNCİRİ: Editörden gelen [{id, val}] listesindeki zemin
+     * satırlarının miktarını DB'de günceller ve Eyyübiye matematiğiyle (AykomeMath)
+     * App toplamlarını (amount, KDV, harç, keşif, teminat, genel) BAŞTAN kurar.
+     * Güvenlik: yalnızca BU başvurunun satırları değiştirilebilir (application_id scope).
+     */
+    protected function applyLiveSyncLines(Application $application, array $updates): void
+    {
+        $ids = collect($updates)->pluck('id')->filter()->map(fn ($v) => (int) $v)->all();
+        $lines = ApplicationSurfaceArea::where('application_id', $application->id)
+            ->whereIn('id', $ids)
+            ->get()
+            ->keyBy('id');
+
+        foreach ($updates as $u) {
+            $line = $lines->get((int) ($u['id'] ?? 0));
+            if (! $line) {
+                continue;
+            }
+            $line->update(['quantity' => max((float) ($u['val'] ?? 0), 0)]);
+        }
+
+        app(PricingService::class)->recalculateTotals($application);
     }
 
     /** Başvuruya özel taslağı sil → global/varsayılan akışa dön. (Yalnızca belediye.) */

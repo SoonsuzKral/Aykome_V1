@@ -393,10 +393,27 @@
                 btn.textContent = '💾 Kaydet';
                 return;
             }
+
+            // ── FRONTEND → DB KÖPRÜSÜ (live_sync_lines) ──
+            // Editördeki tüm zemin miktar hücreleri (.sync-dom-value) toplanır ve satır
+            // kimliği (data-id) ile server'a POST edilir. Backend buSayıları
+            // application_surface_areas'ta günceller, Eyyübiye matematiğiyle toplamları
+            // BAŞTAN kurar ve diğer evrakların (Tahakkuk/Ruhsat) eski override'larını
+            // SİLİP onların DB'den taze (fresh) render üretmesini sağlar.
+            let domUpdates = [];
+            document.querySelectorAll('#doc-editor .sync-dom-value').forEach(td => {
+                let raw = (td.innerText || '').trim();
+                let parsedVal = parseFloat(raw.replace(/\./g, '').replace(',', '.'));
+                if (!isNaN(parsedVal) && td.getAttribute('data-id')) {
+                    domUpdates.push({ id: td.getAttribute('data-id'), val: parsedVal });
+                }
+            });
+            var payload = { content_data: content, live_sync_lines: JSON.stringify(domUpdates) };
+
             fetch(SAVE_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
-                body: JSON.stringify({ content_data: content })
+                body: JSON.stringify(payload)
             })
             .then(function (r) {
                 if (!r.ok) throw new Error('Sunucu hatası: ' + r.status);
@@ -468,6 +485,30 @@
         // değer DB'ye geri beslenir — GÖREV 3).
         var MATH = @json($math ?? null);
         var MATH_KDV = 0.20, MATH_HARC_PER_M2 = 9, MATH_KESIF_BASE = 361, MATH_KESIF_RATE = 0.01, MATH_TEMINAT_RATE = 0.50;
+
+        // FRONTEND → DB KÖPRÜSÜ (satır kimliği enjeksiyonu):
+        // Sunucunun gönderdiği zemin-adı → surface_line id haritasıyla, editördeki
+        // ESKİ override'larda bile data-id yüklenirken takılır. Böylece M² hücresi
+        // düzenlenip kaydedildiğinde live_sync_lines her zaman dolu gelir ve backend
+        // (DocumentTemplateController) DB'yi güncelleyip Tahakkuk/Ruhsat'ı temizler.
+        function annotateLineIds() {
+            var el = document.getElementById('doc-editor');
+            var map = (MATH && MATH.surfaceLineIds) ? MATH.surfaceLineIds : null;
+            if (!el || !map) return;
+            var rows = el.querySelectorAll('[data-aykome-surface]');
+            for (var i = 0; i < rows.length; i++) {
+                var name = rows[i].getAttribute('data-aykome-surface');
+                if (!name) continue;
+                var id = map[String(name).toLowerCase()];
+                if (!id) continue;
+                var qtyCells = rows[i].querySelectorAll('.sync-dom-value, .sync-miktar-td, [data-aykome-col="miktar"], [data-aykome-col="m2"]');
+                for (var j = 0; j < qtyCells.length; j++) {
+                    qtyCells[j].setAttribute('data-id', id);
+                    qtyCells[j].setAttribute('data-type', 'miktar');
+                    qtyCells[j].classList.add('sync-dom-value');
+                }
+            }
+        }
 
         function mathParse(v) {
             if (v === null || v === undefined) return NaN;
@@ -623,6 +664,7 @@
 
         // Başlat
         initEditor();
+        annotateLineIds();
         initReactiveMath();
 
         document.addEventListener('keydown', function (e) {

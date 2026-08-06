@@ -97,7 +97,7 @@
                         <td data-aykome-col="tarih" contenteditable="{{ $c }}">{{ $row['tarih'] ?? '' }}</td>
                         <td data-aykome-col="genislik" contenteditable="{{ $c }}">{{ $row['genislik'] ?? '0,00' }}</td>
                         <td data-aykome-col="uzunluk" contenteditable="{{ $c }}">{{ $row['uzunluk'] ?? '0,00' }}</td>
-                        <td data-aykome-col="m2" contenteditable="{{ $c }}">{{ $row['m2'] ?? '0,00' }}</td>
+                        <td data-aykome-col="m2" class="sync-dom-value sync-miktar-td" data-id="{{ $row['surface_line_id'] ?? '' }}" data-type="miktar" contenteditable="{{ $c }}">{{ $row['m2'] ?? '0,00' }}</td>
                         <td data-aykome-col="zemin" contenteditable="{{ $c }}">{{ $row['zemin'] ?? '' }}</td>
                         <td data-aykome-col="proje" contenteditable="{{ $c }}">{{ $row['proje_kodu'] ?: ($proje_kodu ?? '') }}</td>
                     </tr>

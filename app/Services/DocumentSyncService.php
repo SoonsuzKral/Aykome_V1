@@ -79,6 +79,53 @@ class DocumentSyncService
         $this->hydrateAllOverrides($app, $documentType);
     }
 
+    /**
+     * FRONTEND → DB KÖPRÜSÜ (sync_zemin_lines).
+     * Editörden gelen `[{id, field, value}, ...]` satır kimlikleriyle
+     * application_surface_areas'ı doğrudan günceller. İsim eşleştirmesine bağımlı
+     * olmadığı için DB satırı kesin bulunur: miktar 5→10 kaydedildiğinde satırın
+     * quantity'si 10 olur, App toplamları BAŞTAN hesaplanır ve diğer modül
+     * override'ları (ruhsat/tahakkuk/metraj) DB rakamlarıyla tazelenir.
+     */
+    public function syncByZemin(Application $app, string $documentType, array $lines): void
+    {
+        if (empty($lines) || ! in_array($documentType, $this->excelTypes, true)) {
+            return;
+        }
+
+        $app->loadMissing(['surfaceLines.surfaceType', 'institution']);
+
+        $byId = collect($app->surfaceLines ?? [])->keyBy('id');
+        $changed = false;
+
+        foreach ($lines as $entry) {
+            $line = $byId->get((int) ($entry['id'] ?? 0));
+            if (! $line) {
+                continue;
+            }
+
+            $field = (string) ($entry['field'] ?? 'miktar');
+            if ($field === 'miktar') {
+                $newQty = max((float) ($entry['value'] ?? 0), 0);
+                if (abs($newQty - (float) $line->quantity) >= 0.0001) {
+                    $line->update(['quantity' => $newQty]);
+                    $changed = true;
+                }
+            }
+        }
+
+        if (! $changed) {
+            return;
+        }
+
+        // Tek muhasebe kaynağı (AykomeMath) ile App toplamlarını BAŞTAN kur.
+        $this->pricingService->recalculateTotals($app);
+
+        // Diğer modül override'ları DB'den tazelenir; kaynak modülün kendisi
+        // saveOverride ile zaten kaydedilir (editörden gelen DOM zaten günceldir).
+        $this->hydrateAllOverrides($app, $documentType);
+    }
+
     /** Tüm excel override'larını DB rakamlarıyla tazeler (GÖREV 1 senkronu). */
     public function hydrateAllOverrides(Application $app, ?string $except = null): void
     {

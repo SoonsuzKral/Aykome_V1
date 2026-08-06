@@ -2384,6 +2384,10 @@ HTML;
                     'm2' => $m2,
                     'zemin' => $zemin,
                     'proje_kodu' => $projeKodu,
+                    // MODÜLLER ARASI SENKRON: metraj satırı hangi application_surface_areas
+                    // satırından geldiyse kimliği taşınır; düzenlenen M² editör kaydında
+                    // sync_zemin_lines ile DB'ye geri beslenip Tahakkuk/Ruhsat'ı tazeler.
+                    'surface_line_id' => $sl->id,
                 ];
             }
         }
