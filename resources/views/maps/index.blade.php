@@ -131,6 +131,35 @@
     border: 1px solid rgba(255,255,255,0.2);
 }
 
+/* Kişisel katman renk-seçici: daire arkasına gizlenmiş native color input */
+.layer-color-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex: none !important;
+    min-width: auto !important;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: transform 0.15s;
+}
+.layer-color-wrap:hover { transform: scale(1.15); }
+.layer-color-wrap:active { transform: scale(0.95); }
+.layer-color-wrap .color-dot { pointer-events: none; }
+.layer-color-input {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+.layer-row .layer-color-wrap + label { flex: 1; min-width: 0; }
+
 .basemap-row {
     display: flex;
     align-items: center;
@@ -571,8 +600,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label><span class="color-dot" style="background:#f97316;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_MAHALLE_KOYLER"><span>Mahalle Sınırları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#a855f7;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_KADASTRO_ADA"><span>Adalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_MAHALLE_KOYLER" data-color="#f97316" title="Mahalle katmanı rengini değiştir"><span class="color-dot" style="background:#f97316;"></span><input type="color" class="layer-color-input" value="#f97316"></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_MAHALLE_KOYLER"><span>Mahalle Sınırları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_KADASTRO_ADA" data-color="#a855f7" title="Ada katmanı rengini değiştir"><span class="color-dot" style="background:#a855f7;"></span><input type="color" class="layer-color-input" value="#a855f7"></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_KADASTRO_ADA"><span>Adalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -580,8 +609,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL"><span>Parseller (Genel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#22c55e;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:TKGM_PARSEL"><span>Parseller (TKGM Güncel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL" data-color="#ef4444" title="Parsel katmanı rengini değiştir"><span class="color-dot" style="background:#ef4444;"></span><input type="color" class="layer-color-input" value="#ef4444"></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL"><span>Parseller (Genel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:TKGM_PARSEL" data-color="#22c55e" title="Parsel katmanı rengini değiştir"><span class="color-dot" style="background:#22c55e;"></span><input type="color" class="layer-color-input" value="#22c55e"></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:TKGM_PARSEL"><span>Parseller (TKGM Güncel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -589,9 +618,9 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label><span class="color-dot" style="background:#94a3b8;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_BINA"><span>Binalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#f59e0b;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:m_Numarataj"><span>Kapı Numaraları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#64748b;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_CADDE_SOKAK"><span>Cadde/Sokak Hatları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row" title="Binalar rengi sabittir (düzenlenemez)"><label><span class="color-dot" style="background:#94a3b8;cursor:not-allowed;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_BINA"><span>Binalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:m_Numarataj" data-color="#f59e0b" title="Kapı numaraları katmanı rengini değiştir"><span class="color-dot" style="background:#f59e0b;"></span><input type="color" class="layer-color-input" value="#f59e0b"></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:m_Numarataj"><span>Kapı Numaraları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_CADDE_SOKAK" data-color="#64748b" title="Cadde/sokak katmanı rengini değiştir"><span class="color-dot" style="background:#64748b;"></span><input type="color" class="layer-color-input" value="#64748b"></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_CADDE_SOKAK"><span>Cadde/Sokak Hatları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -599,9 +628,9 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label><span class="color-dot" style="background:#eab308;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_ELEKTRIK_LINKS"><span>Aykome Elektrik</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_LINKS"><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#3b82f6;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_NODES"><span>Doğalgaz (Noktalar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_ELEKTRIK_LINKS" data-color="#eab308" title="Elektrik katmanı rengini değiştir"><span class="color-dot" style="background:#eab308;"></span><input type="color" class="layer-color-input" value="#eab308"></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_ELEKTRIK_LINKS"><span>Aykome Elektrik</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_DOGALGAZ_LINKS" data-color="#ef4444" title="Doğalgaz hat katmanı rengini değiştir"><span class="color-dot" style="background:#ef4444;"></span><input type="color" class="layer-color-input" value="#ef4444"></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_LINKS"><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_DOGALGAZ_NODES" data-color="#3b82f6" title="Doğalgaz nokta katmanı rengini değiştir"><span class="color-dot" style="background:#3b82f6;"></span><input type="color" class="layer-color-input" value="#3b82f6"></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_NODES"><span>Doğalgaz (Noktalar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -1079,6 +1108,75 @@ var statusIcons={
     approved:         {bg:'#22c55e',icon:'✓',label:'Onaylandı',pulse:!1},
 };
 
+/* Kişisel katman renk tercihleri: DB'den bind edilir, çalışma akışında katmanlara basılır */
+var layerColorState={};                                           // layer-adi -> hex (ilk açılış: server tercihleri)
+var authColorPreferences=@json($authColorPreferences ?? []);
+function seedLayerColors(prefs){
+    prefs=prefs||{};
+    Object.keys(prefs).forEach(function(k){ if(prefs[k]&&typeof prefs[k]==='string') layerColorState[k]=prefs[k]; });
+}
+seedLayerColors(authColorPreferences);
+
+/* GeoServer WMS WMS SLD_BODY: tek HEX renk ile canlı yeniden-render (setStyle yerine WMS resmiler için) */
+function buildLayerSld(hex){
+    var c=(hex||'#E87722').replace('#','');
+    c='#'+c.toUpperCase();
+    var fillOp='0.4';
+    var hdr='<'+'?xml version="1.0" encoding="UTF-8"?>';
+    return hdr+
+        '<StyledLayerDescriptor xmlns="http://www.opengis.net/sld" xmlns:ogc="http://www.opengis.net/ogc" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.0.0">'+
+        '<NamedLayer><UserStyle><FeatureTypeStyle><Rule>'+
+        '<PolygonSymbolizer><Fill><CssParameter name="fill">'+c+'</CssParameter><CssParameter name="fill-opacity">'+fillOp+'</CssParameter></Fill>'+
+        '<Stroke><CssParameter name="stroke">'+c+'</CssParameter><CssParameter name="stroke-width">2</CssParameter></Stroke></PolygonSymbolizer>'+
+        '<LineSymbolizer><Stroke><CssParameter name="stroke">'+c+'</CssParameter><CssParameter name="stroke-width">2</CssParameter></Stroke></LineSymbolizer>'+
+        '<PointSymbolizer><Graphic><Mark><WellKnownName>circle</WellKnownName><Fill><CssParameter name="fill">'+c+'</CssParameter></Fill></Mark><Size>6</Size></Graphic></PointSymbolizer>'+
+        '</Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>';
+}
+
+/* Katmana renk uygula: WMS tile'ını SLD_BODY parametresiyle yeniden üret (anlık vizuel) */
+function applyLayerColor(layer,hex){
+    if(!hex)return;
+    if(layerColorState[layer]===hex)return;
+    layerColorState[layer]=hex;
+    var ly=wmsLayers[layer];
+    if(!ly)return;
+    var visible=mapsMap.hasLayer(ly);
+    var opacity=ly.options.opacity;
+    var fresh=createWmsLayer(GEO3_WMS,layer,{layers:layer,opacity:opacity,zIndex:100,sld_body:buildLayerSld(hex)});
+    wmsLayers[layer]=fresh;
+    if(visible)fresh.addTo(mapsMap);
+}
+
+/* DB'ye kayıt: 1sn debounce, tüm kişisel renk haritası POST edilir */
+var _renkTimer=null;
+function persistLayerColor(){
+    clearTimeout(_renkTimer);
+    _renkTimer=setTimeout(function(){
+        fetch('/maps/renk-kaydet',{
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content},
+            body:JSON.stringify({renkler:layerColorState})
+        }).then(function(r){return r.json()}).then(function(d){
+            if(d&&d.success)showToast('🎨 Katman rengi kaydedildi');
+        }).catch(function(){});
+    },1000);
+}
+
+/* Boot: DB'deki kişisel renkleri sol panele (daire + color-input) bas */
+function applyAuthColorsToPanel(){
+    var prefs=authColorPreferences||{};
+    Object.keys(prefs).forEach(function(layer){
+        var hex=prefs[layer];
+        if(!hex||typeof hex!=='string')return;
+        var wrap=document.querySelector('.layer-color-wrap[data-layer="'+layer+'"]');
+        if(!wrap)return;
+        var dot=wrap.querySelector('.color-dot');
+        if(dot)dot.style.background=hex;
+        var inp=wrap.querySelector('.layer-color-input');
+        if(inp)inp.value=hex;
+    });
+}
+
 function createWmsLayer(url, layerName, opts){
     var layer=L.tileLayer.wms(url,Object.assign({
         format:'image/png',transparent:!0,version:'1.3.0',maxZoom:24
@@ -1117,6 +1215,9 @@ function initMaps(){
     if(sidebar){
         document.getElementById('maps-wrapper').style.left=sidebar.offsetWidth+'px';
     }
+
+    /* Kişisel renk tercihlerini panele ve renk-havuzunu base array'indan kur */
+    applyAuthColorsToPanel();
 
     mapsMap=L.map('maps-map-canvas',{
         center:URFA_CENTER,zoom:15,minZoom:12,maxZoom:20,
@@ -1211,7 +1312,9 @@ function initMaps(){
     };
 
     Object.keys(geo3Layers).forEach(function(l){
-        wmsLayers[l]=createWmsLayer(GEO3_WMS,l,{layers:l,opacity:0.7,zIndex:100});
+        var base={layers:l,opacity:0.7,zIndex:100};
+        if(layerColorState[l])base.sld_body=buildLayerSld(layerColorState[l]);
+        wmsLayers[l]=createWmsLayer(GEO3_WMS,l,base);
         if(geo3Layers[l].on) wmsLayers[l].addTo(mapsMap);
     });
 
@@ -2078,6 +2181,19 @@ function toggleAccordion(el){
 w.toggleAccordion=toggleAccordion;
 
 function setupEventListeners(){
+    document.querySelectorAll('.layer-color-input').forEach(function(inp){
+        inp.addEventListener('input',function(){
+            var wrap=this.closest('.layer-color-wrap');
+            if(!wrap)return;
+            var layer=wrap.dataset.layer;
+            if(!layer)return;
+            var hex=this.value;
+            var dot=wrap.querySelector('.color-dot');
+            if(dot)dot.style.background=hex;
+            applyLayerColor(layer,hex);
+            persistLayerColor();
+        });
+    });
     document.querySelectorAll('.katman-checkbox').forEach(function(cb){
         cb.addEventListener('change',function(){
             var layer=wmsLayers[this.dataset.layer];

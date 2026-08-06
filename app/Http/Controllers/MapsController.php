@@ -21,7 +21,51 @@ class MapsController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'price_per_m2']);
 
-        return view('maps.index', compact('surfaceTypes'));
+        $authColorPreferences = \DB::table('gis_katman_ayarlari')
+            ->where('user_id', auth()->id())
+            ->whereNotNull('renk')
+            ->pluck('renk', 'katman_adi');
+
+        return view('maps.index', compact('surfaceTypes', 'authColorPreferences'));
+    }
+
+    // ─── CBS — Katman Renk Tercihleri (kişisel color-picker) ───
+
+    public function renkKaydet(Request $request)
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Oturum açmanız gerekli'], 401);
+        }
+
+        $renkler = $request->input('renkler');
+        if (!is_array($renkler)) {
+            return response()->json(['success' => false, 'message' => 'Geçersiz veri'], 422);
+        }
+
+        $kaydedilen = 0;
+        foreach ($renkler as $Layer => $hex) {
+            if (!is_string($Layer) || !is_string($hex)) continue;
+            if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $hex)) continue;
+
+            \DB::table('gis_katman_ayarlari')->updateOrInsert(
+                ['user_id' => $user->id, 'katman_adi' => $Layer],
+                [
+                    'renk' => strtoupper($hex),
+                    'gorunur' => true,
+                    'opacity' => 0.70,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
+            $kaydedilen++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $kaydedilen . ' katman rengi kaydedildi.',
+            'kaydedilen' => $kaydedilen,
+        ]);
     }
 
     // ─── CBS v7 — 15m Yol Analizi ───
