@@ -154,6 +154,7 @@
     width: 100%; height: 100%;
     opacity: 0;
     cursor: pointer;
+    z-index: 10;
     border: none;
     padding: 0;
     margin: 0;
@@ -582,13 +583,6 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
     <div id="maps-left-panel">
         <div class="panel-header">
             <h2>🗺️ Katmanlar</h2>
-            <span style="display:flex;align-items:center;gap:8px;">
-                <button id="btn-kaydet-renk" onclick="kaydetRenkler()" title="Renk tercihlerini kaydet"
-                    style="background:#059669;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;">
-                    💾 Kaydet
-                </button>
-                <span style="font-size:10px;color:#64748b;display:none;">Şanlıurfa CBS</span>
-            </span>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -1149,7 +1143,8 @@ function layerFilterFor(hex){
     return 'grayscale(1) sepia(1) saturate('+Math.round(sm*100)+'%) hue-rotate('+Math.round(h*360)+'deg) brightness('+Math.round(90+l*120)+'%)';
 }
 
-/* Rengi pane divine CSS filter olarak uygula — anında, tile yeniden yüklenmez, garantili görsel */
+/* ── RENK RENDER: WMS tile (resim) üzerine CSS filter ── her katmanın kendi Leaflet
+   pane'ine filter eklenir. Vektörel çizim YOK; binlerce tile browser'a gönderilmez → performans korunur. */
 function applyLayerColor(layer,hex){
     if(!hex)return;
     layerColorMap[layer]=hex;
@@ -1161,7 +1156,8 @@ function ensureLayerColor(layer){
     if(hex)applyLayerColor(layer,hex);
 }
 
-/* DB'ye kayıt: kısa debounce (600ms) + localStorage. Kaydet butonuyla anında. */
+/* DB'ye CANLI kayıt: paletten renk bırakma (onChange) → 1000ms debounce → POST (CSRF).
+   Manuel "Kaydet" butonu kaldırıldı; rengi otomatik backend'e işlenir + localStorage yedeği. */
 var _renkTimer=null;
 function saveLocalColors(){ try{localStorage.setItem('aykome_map_colors',JSON.stringify(layerColorMap));}catch(e){} }
 function _saveRenkler(){
@@ -1170,22 +1166,16 @@ function _saveRenkler(){
         headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content},
         body:JSON.stringify({renkler:layerColorMap})
     }).then(function(r){return r.json()}).then(function(d){
-        if(d&&d.success){saveLocalColors();showToast('🎨 Katman renkler kaydedildi');}
+        if(d&&d.success)saveLocalColors();
     }).catch(function(){saveLocalColors();});
 }
 function persistLayerColor(forceNow){
     clearTimeout(_renkTimer);
-    if(forceNow){_saveRenkler();return;}
-    _renkTimer=setTimeout(_saveRenkler,500);
+    if(forceNow){saveLocalColors();_saveRenkler();return;}
+    _renkTimer=setTimeout(_saveRenkler,1000);
 }
-window.kaydetRenkler=function(){
-    clearTimeout(_renkTimer);
-    saveLocalColors();
-    _saveRenkler();
-    showToast('💾 Katman renkleri kaydediliyor...');
-};
-/* Sayfa kapanmadan beklemeyen kayıtları boşalt */
-window.addEventListener('pagehide',function(){ saveLocalColors(); if(_renkTimer)persistLayerColor(true); });
+/* Sayfa kapanmadan beklemeyen kaydı boşalt */
+window.addEventListener('pagehide',function(){ saveLocalColors(); persistLayerColor(true); });
 
 /* Boot: DB + localStorage kişisel renkleri sol panele (daire + color-input) ve katman pane'ine bas */
 function applyAuthColorsToPanel(){
@@ -1241,7 +1231,7 @@ function initMaps(){
         document.getElementById('maps-wrapper').style.left=sidebar.offsetWidth+'px';
     }
 
-    /* Kişisel renk tercihlerini panele ve renk-havuzunu base array'indan kur */
+    /* Kişisel renk tercihlerini panele ve renk-havuzunu base array'ından kur */
     applyAuthColorsToPanel();
 
     mapsMap=L.map('maps-map-canvas',{
