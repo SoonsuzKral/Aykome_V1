@@ -1427,7 +1427,6 @@
                                         </form>
                                         @endif
                                     @endif
-                                    @endif
 @else
                                     {{-- INSTITUTION STEP 4: TAHAKKUK & MAKBUZ --}}
                                     {{-- KURAL: Alt kurum için bu kart YALNIZCA tahakkuk oluşturulduysa (state tahakkuk bekliyorsa) görünür --}}
