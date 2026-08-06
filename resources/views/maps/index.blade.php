@@ -2216,7 +2216,6 @@ document.querySelectorAll('.layer-color-input').forEach(function(inp){
             persistLayerColor(); // palette kapandığında da hemen kaydet
         });
     });
-    });
     document.querySelectorAll('.katman-checkbox').forEach(function(cb){
         cb.addEventListener('change',function(){
             var layer=wmsLayers[this.dataset.layer];
