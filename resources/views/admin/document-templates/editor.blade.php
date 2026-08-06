@@ -396,7 +396,7 @@
 
             // ── FRONTEND → DB KÖPRÜSÜ (live_sync_lines) ──
             // Editördeki tüm zemin miktar hücreleri (.sync-dom-value) toplanır ve satır
-            // kimliği (data-id) ile server'a POST edilir. Backend buSayıları
+            // kimliği (data-id) ile server'a POST edilir. Backend bu sayıları
             // application_surface_areas'ta günceller, Eyyübiye matematiğiyle toplamları
             // BAŞTAN kurar ve diğer evrakların (Tahakkuk/Ruhsat) eski override'larını
             // SİLİP onların DB'den taze (fresh) render üretmesini sağlar.

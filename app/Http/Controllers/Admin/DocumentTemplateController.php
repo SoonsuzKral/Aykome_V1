@@ -278,6 +278,13 @@ class DocumentTemplateController extends Controller
         if ($isMuni && $isExcelDoc && $request->filled('live_sync_lines')) {
             // GÖREV 3 — FRONTEND→DB ZİNCİRİ: Editörün DOM'undan gelen [{id, val}] listesi.
             $updates = json_decode((string) $request->input('live_sync_lines'), true);
+            // GÖREV 4 (debug): Payload'ın backend'e ulaştığını laravel.log'da doğrula.
+            \Illuminate\Support\Facades\Log::info('AYKOME live_sync_lines', [
+                'application' => $application->id,
+                'document_type' => $documentType,
+                'count' => is_array($updates) ? count($updates) : 0,
+                'payload' => is_array($updates) ? $updates : $request->input('live_sync_lines'),
+            ]);
             if (is_array($updates) && count($updates) > 0) {
                 // 1) Zemin satırlarını (miktar) DB'de güncelle + 2) Parayı BAŞTAN hesapla.
                 $this->applyLiveSyncLines($application, $updates);
