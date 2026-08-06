@@ -2,6 +2,10 @@
     $moduleDocs = $application->module_documents ?? [];
     $docData = $moduleDocs[$module] ?? [];
 
+    // Partial içindeki MAVİ "E-İmza ile İmzala" butonunu gizlemek için çağıran taraf
+    // 'showEImza' => false gönderir (ör. ruhsat İşlem Tabı'nda yeşil E-imza linki zaten var).
+    $showEImza = $showEImza ?? true;
+
     // GÖREV 2: "Kurum İmzaladı / Belediye İmzaladı" Görüntüle satırları, modülün
     // eş anlamlısı olan *_signed anahtarına (alt kurum işlem tabı) ÇİFT YÖNLÜ bakar.
     // Örn: belediye 'metraj' anahtarına yükler, alt kurum 'metraj_signed' anahtarına yükler;
@@ -88,7 +92,7 @@
     </div>
     @endif
 
-    @if(config('e-imza.enabled') && !$eImzaDone && ($can['update'] ?? false))
+    @if(config('e-imza.enabled') && !$eImzaDone && ($can['update'] ?? false) && $showEImza)
     <button type="button" class="e-imza-btn mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm text-[12px] transition duration-200 flex items-center justify-center gap-2"
             style="background-color:#2563eb !important;color:#ffffff !important;"
             data-app-id="{{ $application->id }}"

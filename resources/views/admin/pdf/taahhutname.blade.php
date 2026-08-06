@@ -29,10 +29,12 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #00
 
 @section('content')
 @php
-    // CELL-BASED AUTH (GÖREV 3b): Taahhütname metinleri + 20 madde yalnızca belediye (isMuni) için
-    // düzenlenebilir; alt kurum salt görüntüler. İstisna: en alttaki "TALEP SAHİBİ" ve
-    // "RUHSATI TESLİM ALAN" bilgi hücreleri her iki taraf için de düzenlenebilir (sabit true).
-    $isMuni = auth()->check() && auth()->user()->isMunicipalityPersonel();
+    // CELL-BASED AUTH: Taahhütname metinleri + 20 madde belediye (isMuni) için düzenlenebilir,
+    // alt kurumda salt-okunur. En alttaki "TALEP SAHİBİ" ve "RUHSATI TESLİM ALAN" bilgi
+    // hücreleri her iki taraf için de düzenlenebilir (sabit true); alt kurum yalnızca
+    // RUHSATI TESLİM ALAN hücresini (data-sign-editable) sunucu güvenliğiyle kaydedebilir.
+    // $forceMuni === true => belgelerin "belediye tarafı" görünümü üretilir (kayıt üssü için).
+    $isMuni = ($forceMuni ?? false) || (auth()->check() && auth()->user()->isMunicipalityPersonel());
 @endphp
 <div class="taahhut-baslik">
     <h1 contenteditable="{{ $isMuni ? 'true' : 'false' }}">TAAHHÜTNAME</h1>
@@ -86,16 +88,14 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #00
                 ADI SOYADI: <b>{{ mb_strtoupper($tamAd, 'UTF-8') }}</b><br>
                 T.C. NO: {{ $tckn }}<br>
                 TELEFON: {{ $telefon }}<br><br>
-                (İmza Çizgisi)
             </div>
         </td>
         <td style="width:50%; text-align:right;">
             <div class="baslik">RUHSATI TESLİM ALAN{{ $isVatandas ? ' / TALEP EDEN' : '' }}</div>
-            <div class="bilgi" contenteditable="true">
+            <div class="bilgi" contenteditable="true" data-sign-editable="1">
                 AD SOYAD: <b>{{ mb_strtoupper($tamAd, 'UTF-8') }}</b><br>
                 T.C. NO: {{ $tckn }}<br>
                 TELEFON: {{ $telefon }}<br><br>
-                (İmza Çizgisi)
             </div>
         </td>
     </tr>
