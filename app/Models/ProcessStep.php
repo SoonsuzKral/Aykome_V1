@@ -13,8 +13,16 @@ class ProcessStep extends Model
         'role_key',
         'roles',
         'approvable_modules',
+        'module_permissions',
+        'personnel_ids',
+        'visibility_config',
+        'approval_config',
+        'signature_config',
+        'action_type',
         'step_order',
         'is_active',
+        'canvas_x',
+        'canvas_y',
     ];
 
     protected function casts(): array
@@ -22,8 +30,15 @@ class ProcessStep extends Model
         return [
             'roles' => 'array',
             'approvable_modules' => 'array',
+            'module_permissions' => 'array',
+            'personnel_ids' => 'array',
+            'visibility_config' => 'array',
+            'approval_config' => 'array',
+            'signature_config' => 'array',
             'step_order' => 'integer',
             'is_active' => 'boolean',
+            'canvas_x' => 'integer',
+            'canvas_y' => 'integer',
         ];
     }
 

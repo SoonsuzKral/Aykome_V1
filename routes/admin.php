@@ -189,6 +189,12 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::post('/steps/{step}/reorder/{direction}', [ProcessController::class, 'reorderStep'])->name('reorder-step');
         Route::post('/{process}/set-default',  [ProcessController::class, 'setDefault']        )->name('set-default');
         Route::post('/{process}/toggle-active',[ProcessController::class, 'toggleActive']      )->name('toggle-active');
+        Route::match(['put', 'patch'], '/{process}', [ProcessController::class, 'updateDefinition'])->name('update-definition');
+
+        // Blueprint Canvas
+        Route::get('/{process}/blueprint',     [ProcessController::class, 'blueprint']        )->name('blueprint');
+        Route::post('/{process}/save-canvas', [ProcessController::class, 'saveCanvas']       )->name('save-canvas');
+        Route::post('/{process}/publish',      [ProcessController::class, 'publish']           )->name('publish');
     });
 
     // ─── Makam Masası (Başkan / Karar Yeri) ──────────────────────────────────

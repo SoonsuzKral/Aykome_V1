@@ -1,19 +1,21 @@
 @extends('layouts.admin')
 
-@section('page-heading', 'Süreç ve Onay Rotası')
+@section('title', 'Süreç ve Onay Rotası — Yönetim')
 
 @section('content')
+    {{-- Üst Başlık & Form Alanı --}}
     <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-semibold text-slate-900">⚙️ Süreç ve Onay Rotası</h1>
-            <p class="mt-1 max-w-2xl text-sm text-slate-500">
-                Sabit işleyiş yok — onay silsilesini burada kurarsınız. Her adım; <b>Adım Yetkilisi (Rol)</b> ve
-                o adımın <b>karışabildiği modülleri</b> içerir. Başvurular bu rotaya göre adım adım ilerler;
-                rolü rotada olmayan kullanıcı onay tuşunu göremez. <span class="font-semibold text-slate-700">Sadece belediye merkez yönetimi</span> (Super Admin + Belediye Yöneticisi) erişebilir; alt kurumlara kapalıdır.
+        <div class="min-w-0 flex-1">
+            <h1 class="text-2xl font-bold text-slate-900">⚙️ Süreç ve Onay Rotası</h1>
+            <p class="mt-1 max-w-3xl text-sm text-slate-500">
+                Onay silsilesini burada kurarsınız. Her adım; <b>Adım Yetkilisi (Rol)</b> ve
+                o adımın <b>karışabildiği modüllerini</b> içerir. Başvurular bu rotaya göre adım adım ilerler;
+                rolü rotada olmayan kullanıcı onay tuşunu göremez.
+                <span class="font-semibold text-slate-700">Sadece belediye merkez yönetimi</span> erişebilir.
             </p>
         </div>
 
-        {{-- Yeni Süreç --}}
+        {{-- Yeni Süreç Formu --}}
         <div class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 class="mb-3 text-sm font-bold text-slate-800">＋ Yeni Süreç Ekle</h2>
             <form method="POST" action="{{ route('admin.processes.store-definition') }}" class="space-y-2.5">
@@ -54,6 +56,10 @@
                         <p class="mt-0.5 text-[11px] text-slate-400">slug: {{ $process->slug }} · {{ $process->steps()->count() }} adım</p>
                     </div>
                     <div class="flex items-center gap-2">
+                        <a href="{{ route('admin.processes.blueprint', $process) }}"
+                           class="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5 text-[11px] font-bold text-cyan-700 hover:bg-cyan-100">
+                            🎨 Visual Editor
+                        </a>
                         @if(! $process->is_default)
                             <form method="POST" action="{{ route('admin.processes.set-default', $process) }}">
                                 @csrf

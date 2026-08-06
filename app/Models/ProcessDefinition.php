@@ -13,6 +13,11 @@ class ProcessDefinition extends Model
         'description',
         'is_active',
         'is_default',
+        'version',
+        'status',
+        'published_at',
+        'canvas_connections',
+        'initiator_config',
         'created_by',
     ];
 
@@ -21,6 +26,10 @@ class ProcessDefinition extends Model
         return [
             'is_active' => 'boolean',
             'is_default' => 'boolean',
+            'version' => 'integer',
+            'published_at' => 'datetime',
+            'canvas_connections' => 'array',
+            'initiator_config' => 'array',
         ];
     }
 

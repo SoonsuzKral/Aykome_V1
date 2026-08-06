@@ -28,17 +28,22 @@
     </style>
 </head>
 <body class="min-h-screen bg-slate-100 font-sans text-slate-900 antialiased{{ request()->is('maps*') ? ' maps-page' : '' }}">
+    {{-- Sidebar Overlay (mobile) --}}
     <div id="sidebar-overlay" class="fixed inset-0 z-40 hidden bg-slate-900/40 lg:hidden" data-sidebar-close></div>
 
+    {{-- Sidebar wrapper --}}
     <div class="flex min-h-screen">
         @include('partials.sidebar')
 
-        <div class="flex min-h-screen flex-1 flex-col lg:min-w-0">
+        {{-- Main content area --}}
+        <div class="flex min-h-screen w-0 flex-1 flex-col">
             @include('partials.navbar')
+
             <main class="flex-1 p-4 sm:p-6 lg:p-8">
                 @include('partials.flash-message')
                 @yield('content')
             </main>
+
             @include('partials.footer')
         </div>
     </div>

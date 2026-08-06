@@ -25,6 +25,42 @@ services:
       - redis_data:/data
     command: ["redis-server", "--appendonly", "yes"]
 
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aykome-v6-app
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+      - ./storage:/var/www/html/storage
+    depends_on:
+      oracle:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_URL=http://localhost:8000
+      - DB_CONNECTION=oracle
+      - DB_HOST=oracle
+      - DB_PORT=1521
+      - DB_DATABASE=FREEPDB1
+      - DB_USERNAME=aykome_user
+      - DB_PASSWORD=aykome123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=null
+      - SESSION_DRIVER=redis
+      - CACHE_DRIVER=redis
+      - BROADCAST_CONNECTION=redis
+      - LOG_CHANNEL=daily
+      - MIX_PUSHER_APP_KEY="${MIX_PUSHER_APP_KEY}"
+      - MIX_PUSHER_APP_CLUSTER="${MIX_PUSHER_APP_CLUSTER}"
+    restart: unless-stopped
+
 volumes:
   oracle_data:
   redis_data:
