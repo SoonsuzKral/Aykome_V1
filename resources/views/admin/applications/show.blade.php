@@ -64,28 +64,6 @@
             <p class="mt-1 text-sm text-slate-500">{{ $application->institution?->name }}</p>
         </div>
         <div class="flex flex-wrap gap-2">
-            {{-- 🏗 ÖN KAZI İZİN BELGESİ — Ön kazı onaylıysa yazdır (SADECE ALT KURUM) --}}
-            @php $isAltKurum = $application->institution && !str_contains(strtolower($application->institution->name ?? ''), 'merkez'); @endphp
-            @if($isAltKurum && in_array($st, ['pre_approved', 'awaiting_payment', 'receipt_pending', 'completed']))
-                <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}"
-                   target="_blank"
-                   class="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-sky-600 px-4 py-2 text-sm font-bold text-white shadow-md shadow-cyan-900/20 transition hover:from-cyan-500 hover:to-sky-500 active:scale-95">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                    </svg>
-                    📥 Belediyenin Ön Kazı İzin Belgesini (PDF) Yazdır
-                </a>
-            @endif
-            {{-- 🧾 TAHSİLAT MAKBUZU — Ödeme bekliyor veya makbuz bekliyor --}}
-            @if(in_array($st, ['awaiting_payment', 'receipt_pending']))
-                <a href="{{ route('admin.applications.payment-receipt', $application) }}"
-                   class="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-bold text-white shadow-md shadow-amber-900/20 transition hover:bg-amber-600 active:scale-95">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
-                    </svg>
-                    Tahsilat Makbuzu İndir
-                </a>
-            @endif
             {{-- 🏆 RUHSAT BELGESİ AL — Licensed veya sonrası durumlarda aktif --}}
             @if(in_array($st, ['licensed', 'field_work', 'completed']))
                 <a href="{{ route('admin.applications.permit-live', $application) }}"
@@ -920,18 +898,19 @@
                         $textClass = 'text-cyan-900';
                         $badgeClass = 'bg-cyan-600 text-white';
                         $badgeText = 'Aktif';
-                        $expanded = true;
+                        // GÖREV 5 (YENİLEME DAVRANIŞI): Sayfa yenilendiğinde yalnızca TAMAMLANAN
+                        // modüller açık gelir; aktif adım da kapalı başlar — kullanıcı tıklayınca açılır.
+                        $expanded = false;
                     } elseif ($isPast) {
-                        // GÖREV 1 (KALICI GÖRÜNÜRLÜK): Adım aşıldıysa (geçmiş) kart içeriği —
-                        // içindeki PDF/imza/upload bağlantıları dahil — EKRANDA SABİT AÇIK kalır.
-                        // Kullanıcı, ileri statüde geçmiş belgelerini görüntülemek için kartı
-                        // ayrıca tıklamak zorunda kalmaz; d-block şekilde daima görünür.
+                        // GÖREV 5 (YENİLEME DAVRANIŞI): Tamamlanmış modüllerin içeriği de sayfa
+                        // yüklendiğinde KAPALI gelir (block → hidden); kullanıcı başlığa tıklayınca
+                        // açılır. Kart kendisi görünür, yalnızca içerik bölümü kapalı başlar.
                         $cardClass = 'border-emerald-300 bg-emerald-50/70';
                         $iconClass = 'text-emerald-700 bg-emerald-100';
                         $textClass = 'text-emerald-900';
                         $badgeClass = 'bg-emerald-500 text-white';
                         $badgeText = 'Tamamlandı';
-                        $expanded = true;
+                        $expanded = false;
                     } else {
                         $cardClass = 'border-slate-200 bg-slate-50/50';
                         $iconClass = 'text-slate-400 bg-slate-100';
@@ -951,19 +930,9 @@
                         && $application->isInstitutionApplication()
                         && in_array($st, ['metrage_pending', 'metrage_revision']);
 
-                    // GÖREV 2/3 (Ruhsat hazırlık): Belediye, ZTB/Teminat parametrelerini doldurabilmesi
-                    // için Ruhsat (Step 6) modülünü tahakkuk_pending/payment_completed/approved anından
-                    // itibaren açık görür; alt kurum ise yalnızca licensed sonrası görür.
-                    if ($num === 6 && !$isUserInstitution && $application->isInstitutionApplication() && in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved'])) {
-                        $expanded = true;
-                    }
-
-                    // GÖREV 4 (Dekont görünürlüğü): Alt kurum fiyatlandırma/makbuz bekleme anında
-                    // (awaiting_payment / receipt_pending) Step 4 (Tahakkuk & Makbuz) kartı — içindeki
-                    // "Ödeme Makbuzunu (Dekont) Yükle / Gönder" formu görülsün diye — AÇIK gelir.
-                    if ($num === 4 && $isUserInstitution && in_array($st, ['awaiting_payment', 'receipt_pending'])) {
-                        $expanded = true;
-                    }
+                    // GÖREV 5 (YENİLEME DAVRANIŞI): Sayfa yenilendiğinde YALNIZCA "Tamamlandı"
+                    // (geçmiş) modüller açık gelir; aktif ve gelecek adımlar kapalı başlar.
+                    // Hiçbir adım özel durumla açık gelmez — kullanıcı tıklayınca açılır.
                 @endphp
                 <div class="rounded-2xl border shadow-sm transition {{ $cardClass }}{{ $hideStep3FromKurum ? ' hidden' : '' }}">
                     <button type="button"
@@ -1426,36 +1395,38 @@
                                         </a>
                                     @endif
                                     @if($isCurrent || $isPast)
-                                        @if($makbuzlarDolu || $isLicensed)
-                                            <div class="mt-4 mb-2">
-                                            <a target="_blank" href="{{ route('admin.applications.pdf.ruhsat', $application) }}" class="flex items-center justify-center gap-2 w-full bg-sky-600 hover:bg-sky-700 text-white text-[14px] md:text-[15px] font-bold py-3.5 px-4 rounded-xl shadow-md transition-colors text-center border-0 leading-tight">
-                                                🖨️ AÇIM RUHSATI (FR-290) BELGESİNİ İNDİR / YAZDIR
-                                            </a>
-                                            @include('admin.applications._signed_document_upload', ['module' => 'ruhsat', 'label' => 'İmzalı Ruhsat Belgesi'])
+                                        {{-- GÖREV: Belediye Ruhsat modülünü açtığı (licensed) ve ilerlettiği (ruhsat_sent)
+                                             andan itibaren Ruhsat belgesi KALICI görünür; makbuz formu PDF'in ALTINDA sunulur. --}}
+                                        <div class="mt-4 mb-2">
+                                        <a target="_blank" href="{{ route('admin.applications.pdf.ruhsat', $application) }}" class="flex items-center justify-center gap-2 w-full bg-sky-600 hover:bg-sky-700 text-white text-[14px] md:text-[15px] font-bold py-3.5 px-4 rounded-xl shadow-md transition-colors text-center border-0 leading-tight">
+                                            🖨️ AÇIM RUHSATI (FR-290) BELGESİNİ İNDİR / YAZDIR
+                                        </a>
+                                        @include('admin.applications._signed_document_upload', ['module' => 'ruhsat', 'label' => 'İmzalı Ruhsat Belgesi'])
+                                        </div>
+                                        @if(!$makbuzlarDolu && !$isLicensed)
+                                        <form method="POST" action="{{ route('admin.applications.save-receipt-info', $application) }}" class="space-y-3">
+                                            @csrf
+                                            @method('PUT')
+                                            <div>
+                                                <label class="block text-xs font-medium text-slate-600 mb-1">ZTB Makbuz No ve Tarihi:</label>
+                                                <input type="text" name="ztb_receipt_info" value="{{ old('ztb_receipt_info', $application->ztb_receipt_info) }}"
+                                                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                                                       placeholder="Örn: 22.07.2026-0938547">
                                             </div>
-                                        @else
-                                            <form method="POST" action="{{ route('admin.applications.save-receipt-info', $application) }}" class="space-y-3">
-                                                @csrf
-                                                @method('PUT')
-                                                <div>
-                                                    <label class="block text-xs font-medium text-slate-600 mb-1">ZTB Makbuz No ve Tarihi:</label>
-                                                    <input type="text" name="ztb_receipt_info" value="{{ old('ztb_receipt_info', $application->ztb_receipt_info) }}"
-                                                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                                                           placeholder="Örn: 22.07.2026-0938547">
-                                                </div>
-                                                <div>
-                                                    <label class="block text-xs font-medium text-slate-600 mb-1">Teminat Makbuz No ve Tarihi:</label>
-                                                    <input type="text" name="deposit_receipt_info"
-                                                           class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                                                           value="{{ old('deposit_receipt_info', $application->deposit_receipt_info) }}"
-                                                           placeholder="Örn: 22.07.2026-0938547">
-                                                </div>
-                                                <button type="submit"
-                                                        class="w-full rounded-lg bg-cyan-600 py-2 text-sm font-bold text-white hover:bg-cyan-500 transition">
-                                                    Makbuzları Kaydet
-                                                </button>
-                                            </form>
+                                            <div>
+                                                <label class="block text-xs font-medium text-slate-600 mb-1">Teminat Makbuz No ve Tarihi:</label>
+                                                <input type="text" name="deposit_receipt_info"
+                                                       class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                                                       value="{{ old('deposit_receipt_info', $application->deposit_receipt_info) }}"
+                                                       placeholder="Örn: 22.07.2026-0938548">
+                                            </div>
+                                            <button type="submit"
+                                                    class="w-full rounded-lg bg-cyan-600 py-2 text-sm font-bold text-white hover:bg-cyan-500 transition">
+                                                Makbuzları Kaydet
+                                            </button>
+                                        </form>
                                         @endif
+                                    @endif
                                     @endif
 @else
                                     {{-- INSTITUTION STEP 4: TAHAKKUK & MAKBUZ --}}
@@ -1476,7 +1447,7 @@
                                         $tahakkukGeldi = in_array($st, ['awaiting_payment', 'receipt_pending',
                                             'tahakkuk_sent', 'accrued', 'approved',
                                             'payment_completed', 'taahhutname_pending', 'taahhutname_sent',
-                                            'licensed', 'field_work', 'completed']);
+                                            'licensed', 'ruhsat_sent', 'field_work', 'completed']);
                                     @endphp
                                     @if($isUserInstitution && !$tahakkukGeldi)
                                         {{-- Alt kurum: Tahakkuk henüz hazır değil — bu adım gizli (d-none eşdeğeri) --}}
@@ -1500,6 +1471,23 @@
                                                 📄 Tahsilat Fişini Görüntüle (A4 Düzenle)
                                             </a>
                                         </div>
+
+                                        {{-- GÖREV 4: Merkez belediye, tahakkuk/tahsilat belgelerini GÖNDERMEDEN önce
+                                             düzenleyip kaydedebilir — metraj modülündeki "Belgeyi Düzenle (Kaydet)" ile aynı. --}}
+                                        @if(!$isUserInstitution && ($can['update'] ?? false))
+                                        <div class="mb-2 grid gap-2">
+                                            <a href="{{ route('admin.applications.edit-document', [$application, 'tahakkuk']) }}" target="_blank"
+                                               class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                ✏️ Tahakkuk Belgesini Düzenle (Kaydet)
+                                            </a>
+                                            <a href="{{ route('admin.applications.edit-document', [$application, 'tahsilat_fisi']) }}" target="_blank"
+                                               class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                ✏️ Tahsilat Fişini Düzenle (Kaydet)
+                                            </a>
+                                        </div>
+                                        @endif
 
                                         {{-- İmzalı Tahakkuk + İmzalı Tahsilat (ping-pong) — "Yükle ve Gönder" / "E-imzala ve Gönder" --}}
                                         @include('admin.applications._signed_document_upload', ['module' => 'tahakkuk', 'label' => 'İmzalı Tahakkuk'])
@@ -1554,8 +1542,8 @@
                                     // GÖREV 4 GLOBAL SENT-MODEL: Taahhütname için
                                     // - Belediye: taahhutname_pending anından (hazırlık) görür.
                                     // - Alt kurum: yalnızca belediye "taahhutname_sent" gönderimi sonrası görür.
-                                    $taahhutnameKurumGorebilir = in_array($st, ['taahhutname_sent', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
-                                    $taahhutnameBelediyeGorebilir = in_array($st, ['taahhutname_pending', 'taahhutname_sent', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
+                                    $taahhutnameKurumGorebilir = in_array($st, ['taahhutname_sent', 'payment_completed', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
+                                    $taahhutnameBelediyeGorebilir = in_array($st, ['taahhutname_pending', 'taahhutname_sent', 'payment_completed', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
                                     $taahhutnameAdimiAcik = $isUserInstitution ? $taahhutnameKurumGorebilir : $taahhutnameBelediyeGorebilir;
                                 @endphp
 
@@ -1570,6 +1558,16 @@
                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
                                         📄 Taahhütname (PDF) Görüntüle
                                     </a>
+
+                                    {{-- GÖREV 5: Merkez belediye taahhütnameyi GÖNDERMEDEN önce düzenleyip
+                                         kaydedebilir — tahakkuk/tahsilattaki "Düzenle (Kaydet)" ile aynı. --}}
+                                    @if(!$isUserInstitution && ($can['update'] ?? false))
+                                    <a href="{{ route('admin.applications.edit-document', [$application, 'taahhutname']) }}" target="_blank"
+                                       class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        ✏️ Taahhütname Belgesini Düzenle (Kaydet)
+                                    </a>
+                                    @endif
 
                                     {{-- Taahhütname Notu: Alt kurum için GİZLİ (d-none), sadece belediye görür --}}
                                     @if(!$isUserInstitution && ($can['update'] ?? false))
@@ -1593,10 +1591,14 @@
                                             <textarea rows="2" class="block w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-amber-400 focus:outline-none" placeholder="Taahhütname hakkında not..."></textarea>
                                         </div>
                                         @include('admin.applications._signed_document_upload', ['module' => 'taahhutname_imzali', 'label' => '🗂 İmzalı Taahhütname Nüshası Yükle'])
+                                        {{-- MAVİ E-İMZA BUTONU: Yalnızca taahhütname adımı AKTİF iken görünür.
+                                             Ruhsat aşamasında (adım geçmiş) çift e-imza görünmesin; yeşil Ruhsat butonu kalır. --}}
+                                        @if($isCurrent)
                                         <a href="{{ route('admin.applications.pdf.taahhutname', $application) }}" target="_blank"
                                            class="flex items-center justify-center gap-2 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 transition">
                                             ✍️ E-imza ile İmzala
                                         </a>
+                                        @endif
                                     </div>
                                     @endif
                                 @endif
@@ -1612,10 +1614,10 @@
                                     //   anından itibaren açıktır (tahakkuk_sent/payment_completed/approved/licensed).
                                     // - Alt kurum: Ruhsat modülünü belediye "ruhsat_sent" takdimi yapınca görür.
                                     //   (licensed artık SADECE belediye hazırlığıdır; kuruma GİZLİ.)
-                                    $ruhsatMuniPrep = !$isUserInstitution && $application->isInstitutionApplication() && in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved']);
+                                    $ruhsatMuniPrep = !$isUserInstitution && $application->isInstitutionApplication() && in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
                                     $ruhsatAdimiAcik = $isUserInstitution
                                         ? in_array($st, ['ruhsat_sent', 'field_work', 'completed'])
-                                        : in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'field_work', 'completed']);
+                                        : in_array($st, ['tahakkuk_pending', 'payment_completed', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
                                 @endphp
 
                                 {{-- KURAL: Alt kurum Ruhsat adımını asla düzenleyemez. Edit butonu gizli. --}}
@@ -1630,9 +1632,10 @@
                                 @endif
 
                                 @if(($isCurrent || $isPast) || $ruhsatMuniPrep)
-                                    @if($makbuzlarDoluStep6 || $isLicensedStep6)
-{{-- GÖREV 2 KATI STATÜ DUVARI: licensed olmadan (alt kurum için) bu içerik gösterilmez; belediye hazırlıkta görür --}}
-@if($ruhsatAdimiAcik)
+                                    @if($ruhsatAdimiAcik || $makbuzlarDoluStep6 || $isLicensedStep6)
+{{-- GÖREV: Belediye Ruhsat modülünü açtığı (licensed) ve ilerlettiği (ruhsat_sent) andan itibaren
+     ruhsat belgesi KALICI görünür; alt kurum "ruhsat_sent" gönderimi sonrası ruhsatı (FENNİ MESUL
+     imza kutusuyla) işler. Makbuz formu yalnızca belediye hazırlık aşamasında PDF butonuyla birlikte sunulur. --}}
                                         <div class="mt-2 mb-2">
                                         <a target="_blank" href="{{ route('admin.applications.pdf.ruhsat', $application) }}" class="flex items-center justify-center gap-2 w-full bg-sky-600 hover:bg-sky-700 text-white text-[14px] md:text-[15px] font-bold py-3.5 px-4 rounded-xl shadow-md transition-colors text-center border-0 leading-tight">
                                             🖨️ AÇIM RUHSATI (FR-290) BELGESİNİ İNDİR / YAZDIR
@@ -1651,17 +1654,16 @@
                                                 <label class="block text-[10px] font-medium text-slate-600 mb-1">Açıklama</label>
                                                 <textarea rows="2" class="block w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-emerald-400 focus:outline-none" placeholder="Ruhsat hakkında not..."></textarea>
                                             </div>
-                                            @include('admin.applications._signed_document_upload', ['module' => 'ruhsat_teslim', 'label' => '🗂 İmzalı Ruhsat Nüshası Yükle'])
+                                            @include('admin.applications._signed_document_upload', ['module' => 'ruhsat_teslim', 'label' => '🗂 İmzalı Ruhsat Nüshası Yükle', 'showEImza' => false])
                                             <a href="{{ route('admin.applications.pdf.ruhsat', $application) }}" target="_blank"
                                                class="flex items-center justify-center gap-2 w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 transition">
                                                 ✍️ E-imza ile İmzala
                                             </a>
                                         </div>
                                         @endif
-                                    @endif
-                                    @else
-                                        {{-- Makbuz dolmamışsa yalnızca belediye doldurur --}}
-                                        @if(!$isUserInstitution)
+
+                                        {{-- Makbuz dolmamışsa belediye ruhsat PDF'inin ALTINDA doldurur (buton asla kaybolmaz) --}}
+                                        @if(!$isUserInstitution && !$makbuzlarDoluStep6 && !$isLicensedStep6)
                                         <form method="POST" action="{{ route('admin.applications.save-receipt-info', $application) }}" class="space-y-3">
                                             @csrf
                                             @method('PUT')
@@ -1683,9 +1685,9 @@
                                                 Makbuzları Kaydet
                                             </button>
                                         </form>
-                                        @else
-                                        <p class="text-xs text-slate-400 text-center py-2">Ruhsat makbuzları belediye tarafından doldurulacaktır.</p>
                                         @endif
+                                    @elseif($isUserInstitution)
+                                        <p class="text-xs text-slate-400 text-center py-2">Ruhsat makbuzları belediye tarafından doldurulacaktır.</p>
                                     @endif
                                 @endif
                             @endif
