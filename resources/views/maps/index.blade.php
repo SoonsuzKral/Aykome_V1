@@ -583,6 +583,12 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
     <div id="maps-left-panel">
         <div class="panel-header">
             <h2>🗺️ Katmanlar</h2>
+            <span style="display:flex;align-items:center;gap:8px;">
+                <button id="btn-kaydet-renk" onclick="kaydetRenkler()" title="Katman renklerini DB'ye kaydet"
+                    style="background:#059669;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                    💾 Renkleri Kaydet
+                </button>
+            </span>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -1143,35 +1149,47 @@ function layerFilterFor(hex){
     return 'grayscale(1) sepia(1) saturate('+Math.round(sm*100)+'%) hue-rotate('+Math.round(h*360)+'deg) brightness('+Math.round(90+l*120)+'%)';
 }
 
-/* ── RENK RENDER (CANLI): WMS tile (resim) üzerine CSS filter vurur ──
-   Yalnız pane yetmez; tile DOM kapsayıcılarına da yazılır ve anında görünür. Vektör YOK → performans korunur. */
-function applyLayerFilterLive(layer,hex){
-    var css=layerFilterFor(hex);
+/* ── RENK RENDER (CANLI SİSTEME ENTEGRE): WMS tile (resim) üstüne "boya katmanı" ──
+   `mix-blend-mode: color` ile seçilen HEX her piksele TAM doğru uygulanır (hue-rotate
+   tutturamazdı). WMS resim kalır; vektöre çevrilmez → yüz binlerce çizim asla DOM'a çekilmez.
+   Kaynak resmin rengi ne olursa olsun sonuç daima seçili renktir. */
+var _tintEls={};   // layer -> boya overlay DOM elemanı
+function tintFor(layer){
+    if(_tintEls[layer])return _tintEls[layer];
     var pane=wmsPanes[layer];
-    var tileDoms=[];
-    if(pane){
-        pane.style.filter=css; pane.style.webkitFilter=css;
-        tileDoms=Array.prototype.slice.call(pane.querySelectorAll('img'));
-    }
-    var wl=wmsLayers[layer];
-    if(wl && wl.getContainer){
-        var c=wl.getContainer();
-        if(c){ c.style.filter=css; c.style.webkitFilter=css; }
-    }
-    /* Filtre her tile img üzerinde de kesin uygulanır (browser cache/retry kaynaklı kaçırmaları önler) */
-    if(tileDoms.length){
-        for(var i=0;i<tileDoms.length;i++){ tileDoms[i].style.filter=css; tileDoms[i].style.webkitFilter=css; }
-    }
-    /* Katman açıksa tile'ları hafifçe titrer: CSS filter'ın yeniden uygulanmasını zorlar */
-    if(pane){
-        pane.style.willChange='filter';
-        pane.style.backfaceVisibility='hidden';
-    }
+    if(!pane||!mapsMap)return null;
+    var el=document.createElement('div');
+    el.style.cssText='position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;'+
+                     'mix-blend-mode:color;z-index:10;will-change:opacity;';
+    pane.appendChild(el);
+    _tintEls[layer]=el;
+    sizeTintEl(layer);
+    return el;
+}
+function sizeTintEl(layer){
+    var el=_tintEls[layer];
+    if(!el||!mapsMap)return;
+    var s=mapsMap.getSize();
+    el.style.width=s.x+'px';
+    el.style.height=s.y+'px';
 }
 function applyLayerColor(layer,hex){
     if(!hex)return;
     layerColorMap[layer]=hex;
-    applyLayerFilterLive(layer,hex);
+    var el=tintFor(layer);
+    if(el){ el.style.background=hex; el.style.opacity='1'; }
+    else {
+        /* pane henüz tanımlı değilse (harita boot'unda) — pane oluşunca sizeTint+uygulama yapılır */
+        _pendingTint=layer+':'+hex;
+    }
+}
+var _pendingTint=null;
+function flushPendingTint(){
+    if(_pendingTint){
+        var p=_pendingTint.split(':');
+        applyLayerColor(p[0],p.slice(1).join(':'));
+        _pendingTint=null;
+    }
 }
 function ensureLayerColor(layer){
     var hex=layerColorMap[layer];
@@ -1196,6 +1214,12 @@ function persistLayerColor(forceNow){
     if(forceNow){saveLocalColors();_saveRenkler();return;}
     _renkTimer=setTimeout(_saveRenkler,1000);
 }
+window.kaydetRenkler=function(){
+    clearTimeout(_renkTimer);
+    saveLocalColors();
+    _saveRenkler();
+    if(window.showToast)showToast('💾 Katman renkleri kaydedildi');
+};
 /* Sayfa kapanmadan beklemeyen kaydı boşalt */
 window.addEventListener('pagehide',function(){ saveLocalColors(); persistLayerColor(true); });
 
@@ -1380,6 +1404,9 @@ function initMaps(){
     mapsMap.on('draw:created',handleDrawCreated);
     mapsMap.on('draw:drawstart',onDrawStart);
     mapsMap.on('layeradd layerremove',updateActiveLayerCount);
+    mapsMap.on('resize',function(){
+        Object.keys(_tintEls).forEach(function(l){ sizeTintEl(l); });
+    });
 
     loadBasvuruMarkers();
     setupEventListeners();
