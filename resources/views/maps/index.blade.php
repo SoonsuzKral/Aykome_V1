@@ -582,7 +582,13 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
     <div id="maps-left-panel">
         <div class="panel-header">
             <h2>🗺️ Katmanlar</h2>
-            <span style="font-size:10px;color:#64748b;">Şanlıurfa CBS</span>
+            <span style="display:flex;align-items:center;gap:8px;">
+                <button id="btn-kaydet-renk" onclick="kaydetRenkler()" title="Renk tercihlerini kaydet"
+                    style="background:#059669;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:10px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px;">
+                    💾 Kaydet
+                </button>
+                <span style="font-size:10px;color:#64748b;display:none;">Şanlıurfa CBS</span>
+            </span>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -1097,6 +1103,7 @@ var mapsMap=null, basemapLayers={}, wmsLayers={};
 var roadLayerAlti=null, roadLayerUstu=null;
 var basvuruLayer=null, drawnItems=null, currentDrawLayer=null, _isDrawing=!1, _drawJustFinished=!1;
 var geo3Layers={};
+var wmsPanes={};   // layer-adi -> Leaflet pane elementi (CSS filter ile renklendirme)
 var statusIcons={
     field_work:       {bg:'#f97316',icon:'⛏',label:'Saha Çalışması',pulse:!0},
     licensed:         {bg:'#22c55e',icon:'✓',label:'Onaylandı',pulse:!1},
@@ -1108,84 +1115,90 @@ var statusIcons={
     approved:         {bg:'#22c55e',icon:'✓',label:'Onaylandı',pulse:!1},
 };
 
-/* Kişisel katman renk tercihleri: DB'den bind edilir, çalışma akışında katmanlara basılır */
-var layerColorState={};                                           // layer-adi -> hex (ilk açılış: server tercihleri)
+/* Kişisel katman renk tercihleri: DB'den bind edilir + aynı cihaz localStorage ile anında kalıcı */
+var layerColorMap={};                        // layer-adi -> hex
 var authColorPreferences=@json($authColorPreferences ?? []);
-function seedLayerColors(prefs){
-    prefs=prefs||{};
-    Object.keys(prefs).forEach(function(k){ if(prefs[k]&&typeof prefs[k]==='string') layerColorState[k]=prefs[k]; });
+function loadLocalColors(){
+    try{var raw=localStorage.getItem('aykome_map_colors');return raw?JSON.parse(raw):{};}catch(e){return{};}
 }
-seedLayerColors(authColorPreferences);
+function mergeColors(base,extra){
+    var out={};
+    Object.keys(base||{}).forEach(function(k){ if(typeof base[k]==='string')out[k]=base[k]; });
+    Object.keys(extra||{}).forEach(function(k){ if(typeof extra[k]==='string')out[k]=extra[k]; });
+    return out;
+}
+layerColorMap=mergeColors(authColorPreferences,loadLocalColors());
 
-/* GeoServer WMS WMS SLD_BODY: tek HEX renk ile canlı yeniden-render (setStyle yerine WMS resmiler için) */
-function buildLayerSld(hex){
-    var c=(hex||'#E87722').replace('#','');
-    c='#'+c.toUpperCase();
-    var fillOp='0.4';
-    var hdr='<'+'?xml version="1.0" encoding="UTF-8"?>';
-    return hdr+
-        '<StyledLayerDescriptor xmlns="http://www.opengis.net/sld" xmlns:ogc="http://www.opengis.net/ogc" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.0.0">'+
-        '<NamedLayer><UserStyle><FeatureTypeStyle><Rule>'+
-        '<PolygonSymbolizer><Fill><CssParameter name="fill">'+c+'</CssParameter><CssParameter name="fill-opacity">'+fillOp+'</CssParameter></Fill>'+
-        '<Stroke><CssParameter name="stroke">'+c+'</CssParameter><CssParameter name="stroke-width">2</CssParameter></Stroke></PolygonSymbolizer>'+
-        '<LineSymbolizer><Stroke><CssParameter name="stroke">'+c+'</CssParameter><CssParameter name="stroke-width">2</CssParameter></Stroke></LineSymbolizer>'+
-        '<PointSymbolizer><Graphic><Mark><WellKnownName>circle</WellKnownName><Fill><CssParameter name="fill">'+c+'</CssParameter></Fill></Mark><Size>6</Size></Graphic></PointSymbolizer>'+
-        '</Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>';
+function seedLayerColors(prefs){ Object.keys(prefs||{}).forEach(function(k){ if(typeof prefs[k]==='string')layerColorMap[k]=prefs[k]; }); }
+
+/* HEX -> CSS filter: katman tile pane'ine uygulanır (sunucu resmini istenen tonda boyar).
+   SLD_BODY bu GeoServer'da kabul edilmedi; CSS filter tahribatsız, anında, ağ gerektirmez. */
+function layerFilterFor(hex){
+    hex=(hex||'#E87722').replace('#','');
+    var v=parseInt(hex,16);
+    var r=((v>>16)&255)/255,g=((v>>8)&255)/255,b=(v&255)/255;
+    var mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,sm=0,h=0;
+    if(mx!==mn){
+        var d=mx-mn;
+        sm=l>0.5?d/(2-mx-mn):d/(mx+mn);
+        if(mx===r)h=(g-b)/d+(g<b?6:0);
+        else if(mx===g)h=(b-r)/d+2;
+        else h=(r-g)/d+4;
+        h/=6;
+    }
+    return 'grayscale(1) sepia(1) saturate('+Math.round(sm*100)+'%) hue-rotate('+Math.round(h*360)+'deg) brightness('+Math.round(90+l*120)+'%)';
 }
 
-/* Katmana renk uygula: SLD_BODY ile canlı yeniden-render. Drag sırasında tile fırtınasını
-   önlemek için trailing-debounce (250ms) ile harita yeniden çizilir; daire anında güncellenir. */
-var _applyColorTimers={};
+/* Rengi pane divine CSS filter olarak uygula — anında, tile yeniden yüklenmez, garantili görsel */
 function applyLayerColor(layer,hex){
     if(!hex)return;
-    layerColorState[layer]=hex;
-    var ly=wmsLayers[layer];
-    if(!ly)return;
-    clearTimeout(_applyColorTimers[layer]);
-    _applyColorTimers[layer]=setTimeout(function(){
-        var cur=wmsLayers[layer];
-        if(cur)cur.setParams({sld_body:buildLayerSld(layerColorState[layer])});
-    },250);
+    layerColorMap[layer]=hex;
+    var p=wmsPanes[layer];
+    if(p)p.style.filter=layerFilterFor(hex);
 }
-
-/* Katman açılırken (checkbox) kayıtlı/kişisel rengi garanti uygula (anında, harita öncesi) */
 function ensureLayerColor(layer){
-    var hex=layerColorState[layer];
-    var ly=wmsLayers[layer];
-    if(hex&&ly)ly.setParams({sld_body:buildLayerSld(hex)});
+    var hex=layerColorMap[layer];
+    if(hex)applyLayerColor(layer,hex);
 }
 
-/* DB'ye kayıt: kısa debounce (600ms), kişisel renk haritası POST edilir */
+/* DB'ye kayıt: kısa debounce (600ms) + localStorage. Kaydet butonuyla anında. */
 var _renkTimer=null;
-function persistLayerColor(forceNow){
-    clearTimeout(_renkTimer);
-    if(forceNow){_saveRenkler();return;}
-    _renkTimer=setTimeout(_saveRenkler,600);
-}
+function saveLocalColors(){ try{localStorage.setItem('aykome_map_colors',JSON.stringify(layerColorMap));}catch(e){} }
 function _saveRenkler(){
     fetch('/maps/renk-kaydet',{
         method:'POST',
         headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content},
-        body:JSON.stringify({renkler:layerColorState})
+        body:JSON.stringify({renkler:layerColorMap})
     }).then(function(r){return r.json()}).then(function(d){
-        if(d&&d.success)showToast('🎨 Katman rengi kaydedildi');
-    }).catch(function(){});
+        if(d&&d.success){saveLocalColors();showToast('🎨 Katman renkler kaydedildi');}
+    }).catch(function(){saveLocalColors();});
 }
-/* Sayfa kapanmadan/beklerken bekleyen kayıtları boşalt — hızlı yenilemede veri kaybını önler */
-window.addEventListener('pagehide',function(){ if(_renkTimer)persistLayerColor(true); });
+function persistLayerColor(forceNow){
+    clearTimeout(_renkTimer);
+    if(forceNow){_saveRenkler();return;}
+    _renkTimer=setTimeout(_saveRenkler,500);
+}
+window.kaydetRenkler=function(){
+    clearTimeout(_renkTimer);
+    saveLocalColors();
+    _saveRenkler();
+    showToast('💾 Katman renkleri kaydediliyor...');
+};
+/* Sayfa kapanmadan beklemeyen kayıtları boşalt */
+window.addEventListener('pagehide',function(){ saveLocalColors(); if(_renkTimer)persistLayerColor(true); });
 
-/* Boot: DB'deki kişisel renkleri sol panele (daire + color-input) bas */
+/* Boot: DB + localStorage kişisel renkleri sol panele (daire + color-input) ve katman pane'ine bas */
 function applyAuthColorsToPanel(){
-    var prefs=authColorPreferences||{};
-    Object.keys(prefs).forEach(function(layer){
-        var hex=prefs[layer];
-        if(!hex||typeof hex!=='string')return;
+    Object.keys(layerColorMap).forEach(function(layer){
+        var hex=layerColorMap[layer];
+        if(!hex)return;
         var wrap=document.querySelector('.layer-color-wrap[data-layer="'+layer+'"]');
         if(!wrap)return;
         var dot=wrap.querySelector('.color-dot');
         if(dot)dot.style.background=hex;
         var inp=wrap.querySelector('.layer-color-input');
         if(inp)inp.value=hex;
+        applyLayerColor(layer,hex);
     });
 }
 
@@ -1324,9 +1337,14 @@ function initMaps(){
     };
 
     Object.keys(geo3Layers).forEach(function(l){
-        var base={layers:l,opacity:0.7,zIndex:100};
-        if(layerColorState[l])base.sld_body=buildLayerSld(layerColorState[l]);
-        wmsLayers[l]=createWmsLayer(GEO3_WMS,l,base);
+        var paneKey='wms-'+l.replace(/[^a-zA-Z0-9]+/g,'_');
+        var pane=mapsMap.createPane(paneKey);
+        if(pane){
+            pane.style.zIndex=250;
+            wmsPanes[l]=pane;
+        }
+        wmsLayers[l]=createWmsLayer(GEO3_WMS,l,{layers:l,opacity:0.7,zIndex:100,pane:paneKey});
+        if(layerColorMap[l])applyLayerColor(l,layerColorMap[l]);
         if(geo3Layers[l].on) wmsLayers[l].addTo(mapsMap);
     });
 
@@ -3586,3 +3604,4 @@ w.showLoadingOverlay=showLoadingOverlay;
 })(window);
 </script>
 @endpush
+
