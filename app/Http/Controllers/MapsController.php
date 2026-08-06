@@ -61,6 +61,13 @@ class MapsController extends Controller
             $kaydedilen++;
         }
 
+        Log::info('[maps.renkKaydet] kullanıcı katman rengi kaydı', [
+            'user_id'    => $user->id,
+            'toplam'     => $kaydedilen,
+            'renkler'    => $renkler,
+            'kaydeden'   => $user->email ?? $user->name,
+        ]);
+
         return response()->json([
             'success' => true,
             'message' => $kaydedilen . ' katman rengi kaydedildi.',

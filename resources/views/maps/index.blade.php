@@ -1143,13 +1143,35 @@ function layerFilterFor(hex){
     return 'grayscale(1) sepia(1) saturate('+Math.round(sm*100)+'%) hue-rotate('+Math.round(h*360)+'deg) brightness('+Math.round(90+l*120)+'%)';
 }
 
-/* ── RENK RENDER: WMS tile (resim) üzerine CSS filter ── her katmanın kendi Leaflet
-   pane'ine filter eklenir. Vektörel çizim YOK; binlerce tile browser'a gönderilmez → performans korunur. */
+/* ── RENK RENDER (CANLI): WMS tile (resim) üzerine CSS filter vurur ──
+   Yalnız pane yetmez; tile DOM kapsayıcılarına da yazılır ve anında görünür. Vektör YOK → performans korunur. */
+function applyLayerFilterLive(layer,hex){
+    var css=layerFilterFor(hex);
+    var pane=wmsPanes[layer];
+    var tileDoms=[];
+    if(pane){
+        pane.style.filter=css; pane.style.webkitFilter=css;
+        tileDoms=Array.prototype.slice.call(pane.querySelectorAll('img'));
+    }
+    var wl=wmsLayers[layer];
+    if(wl && wl.getContainer){
+        var c=wl.getContainer();
+        if(c){ c.style.filter=css; c.style.webkitFilter=css; }
+    }
+    /* Filtre her tile img üzerinde de kesin uygulanır (browser cache/retry kaynaklı kaçırmaları önler) */
+    if(tileDoms.length){
+        for(var i=0;i<tileDoms.length;i++){ tileDoms[i].style.filter=css; tileDoms[i].style.webkitFilter=css; }
+    }
+    /* Katman açıksa tile'ları hafifçe titrer: CSS filter'ın yeniden uygulanmasını zorlar */
+    if(pane){
+        pane.style.willChange='filter';
+        pane.style.backfaceVisibility='hidden';
+    }
+}
 function applyLayerColor(layer,hex){
     if(!hex)return;
     layerColorMap[layer]=hex;
-    var p=wmsPanes[layer];
-    if(p)p.style.filter=layerFilterFor(hex);
+    applyLayerFilterLive(layer,hex);
 }
 function ensureLayerColor(layer){
     var hex=layerColorMap[layer];
