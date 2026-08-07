@@ -62,6 +62,7 @@
                 <select
                     id="institution_id"
                     name="institution_id"
+                    onchange="imzaKartGuncelle()"
                     class="mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm @error('institution_id') border-red-300 ring-red-100 @enderror"
                 >
                     <option value="">—</option>
@@ -282,15 +283,6 @@
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
-                    @if($isInstitutionUser)
-                    <div class="sm:col-span-2">
-                        <label class="block text-sm font-medium text-slate-700" for="tesis_sorumlusu">Yazıyı Düzenleyen</label>
-                        <input id="tesis_sorumlusu" type="text" name="tesis_sorumlusu" value="{{ old('tesis_sorumlusu') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('tesis_sorumlusu') border-red-300 ring-red-100 @enderror" placeholder="Tesis sorumlusunun adı soyadı">
-                        @error('tesis_sorumlusu')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                        @enderror
-                    </div>
-                    @endif
                 </fieldset>
             </div>
 
@@ -469,6 +461,46 @@
             <div id="surface-lines-hidden-inputs"></div>
         </div>
 
+        {{-- Kurum & İmza Yetkili Bilgileri — yalnızca kurum başvurusu (Vatandaş değil) ise görünür --}}
+        <fieldset id="imza-yetkili-karti" class="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4 sm:grid-cols-2">
+            <legend class="col-span-full text-sm font-semibold text-slate-800">Kurum & İmza Yetkili Bilgileri</legend>
+            <div>
+                <label class="block text-sm font-medium text-slate-700" for="duzenleyen_kisi">Düzenleyen Kişi</label>
+                <input id="duzenleyen_kisi" type="text" name="duzenleyen_kisi" value="{{ old('duzenleyen_kisi') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('duzenleyen_kisi') border-red-300 ring-red-100 @enderror" placeholder="Evrakı düzenleyen kişinin adı soyadı">
+                @error('duzenleyen_kisi')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700" for="tesis_sorumlusu">Yazıyı Düzenleyen</label>
+                <input id="tesis_sorumlusu" type="text" name="tesis_sorumlusu" value="{{ old('tesis_sorumlusu') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('tesis_sorumlusu') border-red-300 ring-red-100 @enderror" placeholder="Yazıyı düzenleyen kişinin adı soyadı">
+                @error('tesis_sorumlusu')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700" for="tesis_sorumlusu_adi">Tesis Sorumlusu</label>
+                <input id="tesis_sorumlusu_adi" type="text" name="tesis_sorumlusu_adi" value="{{ old('tesis_sorumlusu_adi') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('tesis_sorumlusu_adi') border-red-300 ring-red-100 @enderror" placeholder="Tesis sorumlusunun adı soyadı">
+                @error('tesis_sorumlusu_adi')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700" for="mudur_unvani">Müdür Unvanı</label>
+                <input id="mudur_unvani" type="text" name="mudur_unvani" value="{{ old('mudur_unvani') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('mudur_unvani') border-red-300 ring-red-100 @enderror" placeholder="Örn: İl Müdürü / Yöneticisi">
+                @error('mudur_unvani')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700" for="mudur_adi">Müdür Adı Soyadı</label>
+                <input id="mudur_adi" type="text" name="mudur_adi" value="{{ old('mudur_adi') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('mudur_adi') border-red-300 ring-red-100 @enderror" placeholder="Müdürün adı soyadı">
+                @error('mudur_adi')
+                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                @enderror
+            </div>
+        </fieldset>
+
         <fieldset class="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
             <legend class="col-span-full text-sm font-semibold text-slate-800">Belgeler</legend>
             <div>
@@ -495,6 +527,22 @@
 @endsection
 
 @push('scripts')
+    <script>
+        window.imzaKartGuncelle = function () {
+            const kart = document.getElementById('imza-yetkili-karti');
+            if (!kart) return;
+            @if($isInstitutionUser)
+                kart.style.display = '';
+            @else
+                const sel = document.getElementById('institution_id');
+                const opt = sel && sel.selectedOptions && sel.selectedOptions[0];
+                const bos = !sel || !sel.value;
+                const isMerkez = opt ? (opt.dataset.isMerkez || '0') : '0';
+                kart.style.display = (bos || isMerkez === '1') ? 'none' : '';
+            @endif
+        };
+        document.addEventListener('DOMContentLoaded', window.imzaKartGuncelle);
+    </script>
     <script src="{{ asset('assets/vendor/leaflet/leaflet.js') }}"></script>
     <script src="{{ asset('assets/vendor/leaflet/leaflet.draw.js') }}"></script>
     <script src="{{ asset('assets/vendor/leaflet/leaflet.geometryutil.js') }}"></script>

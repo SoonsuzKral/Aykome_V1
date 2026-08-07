@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MapsController;
+use App\Http\Controllers\DocumentVerificationController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +33,16 @@ Route::get('/license-blocked', function () {
 Route::get('/docs', function () {
     return view('docs.index');
 })->name('docs.index');
+
+/*
+|--------------------------------------------------------------------------
+| EBYS Kamu Belge Doğrulama Portalı (/dogrulama)
+|--------------------------------------------------------------------------
+| KORUMASIZ (public) — giriş yapan/yapmayan herkes görür. Yalnızca doğrulama,
+| dosya indirme / belge içeriği asla gösterilmez (KVKK).
+*/
+Route::get('/dogrulama', [DocumentVerificationController::class, 'index'])->name('verify.index');
+Route::post('/dogrulama', [DocumentVerificationController::class, 'verifyDocument'])->name('verify.check');
 
 Route::get('/dashboard', function () {
     return redirect()->route('admin.dashboard');

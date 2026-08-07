@@ -159,17 +159,23 @@
         <table style="width:100%; margin-top: 50px;">
             <tr>
                 <td style="width:60%; line-height:1.4;" contenteditable="true">
-                    Tesis Sorumlusu: <b>{{ mb_strtoupper(trim($application->tesis_sorumlusu ?? ''), 'UTF-8') }}</b><br>
-                    Tel / GSM : <b>{{ $application->applicant_phone ?? '' }}</b><br>
-                    Toplam Kazı : <b>{{ number_format((float)($application->total_area_m2 ?? 0), 2, ',', '.') }} m² / m. </b>
+                    Tesis Kontrol / Yetkilisi : <b>{{ mb_strtoupper($application->tesis_sorumlusu_adi ?? '', 'UTF-8') }}</b><br>
+                    Evrağı Düzenleyen &nbsp;: <b>{{ mb_strtoupper($application->duzenleyen_kisi ?? auth()->user()?->name ?? '', 'UTF-8') }}</b><br>
+                    Yaklaşık Kazı &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <b>{{ collect($application->surfaceLines ?? [])->sum('quantity') }} m² / m. </b>
                 </td>
                 <td style="width:40%; text-align:center;">
-                    <b style="text-transform:uppercase; font-size:14px;" contenteditable="true">{{ mb_strtoupper($application->mudur_unvani ?? $application->institution?->mudur_unvani ?? 'İl Müdürü'), 'UTF-8' }}</b><br>
-                    <b style="text-transform:uppercase;" contenteditable="true">{{ mb_strtoupper($application->mudur_adi ?? $application->institution?->mudur_adi ?? 'Kurum Yetkilisi'), 'UTF-8' }}</b><br>
-                    <span style="font-size:13.5px;" contenteditable="true">{{ mb_strtoupper($application->institution?->name ?? '', 'UTF-8') }} Yöneticiliği / İl Md. Yrd.</span>
+                    <b style="text-transform:uppercase;">{{ mb_strtoupper($application->mudur_adi ?? 'KURUM YÖNETİCİSİ', 'UTF-8') }}</b><br>
+                    <span style="font-size:14px;">{{ $application->mudur_unvani ?? 'Bölge Sorumlusu/İl Müdürü' }}</span><br>
+                    <span style="font-size:12.5px;">{{ mb_strtoupper($application->institution?->name ?? '', 'UTF-8') }}</span>
                 </td>
             </tr>
         </table>
+
+        <div style="margin-top:20px; border-top: 1.5px dashed #444; padding-top:5px; text-align: center; font-family: monospace; font-size: 10px; color:#1f2937;">
+            Bu belge Eyyübiye Belediyesi AYKOME (Altyapı Koordinasyon) Elektronik Yönetim Sistemi ile güvenli ve benzersiz olarak oluşturulmuştur.<br>
+            BELGE DOĞRULAMA KODU : <span style="color:#d97706; font-size:12px; font-weight:bold;">{{ $application->verification_code ?? 'GEÇERSİZ/TASLAK' }}</span>
+            | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b>
+        </div>
 
     </div>
 

@@ -505,6 +505,11 @@ class ApplicationsController extends Controller
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'excavation_amount' => ['nullable', 'numeric', 'min:0'],
             'vice_mayor_name' => ['nullable', 'string', 'max:255'],
+            'tesis_sorumlusu' => ['nullable', 'string', 'max:255'],
+            'tesis_sorumlusu_adi' => ['nullable', 'string', 'max:255'],
+            'duzenleyen_kisi' => ['nullable', 'string', 'max:255'],
+            'mudur_adi' => ['nullable', 'string', 'max:255'],
+            'mudur_unvani' => ['nullable', 'string', 'max:255'],
             'documents' => ['nullable', 'array'],
             'documents.*' => ['nullable', 'file', 'mimetypes:application/pdf,image/jpeg,image/png,image/jpg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/webp,image/gif,image/bmp,image/tiff', 'max:51200'],
         ]);
@@ -574,6 +579,8 @@ class ApplicationsController extends Controller
             'total_area_m2' => $totalAreaM2 ?? ($data['total_area_m2'] ?? $application->total_area_m2),
             'vice_mayor_name' => $data['vice_mayor_name'] ?? $application->vice_mayor_name,
             'tesis_sorumlusu' => $data['tesis_sorumlusu'] ?? $application->tesis_sorumlusu,
+            'tesis_sorumlusu_adi' => $data['tesis_sorumlusu_adi'] ?? $application->tesis_sorumlusu_adi,
+            'duzenleyen_kisi' => $data['duzenleyen_kisi'] ?? $application->duzenleyen_kisi,
             'mudur_adi' => $data['mudur_adi'] ?? $application->mudur_adi,
             'mudur_unvani' => $data['mudur_unvani'] ?? $application->mudur_unvani,
         ]);
@@ -1044,6 +1051,7 @@ class ApplicationsController extends Controller
         $signatories = SignatoryEngine::roleMap('pre_permit', $application);
 
         $data = [
+            'application' => $application,
             'belediye' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI',
             'mudurluk' => 'Fen İşleri Müdürlüğü',
             'sayi' => 'E-' . ($settings->document_prefix ?? '18790261') . '-' . str_pad($application->id, 6, '0', STR_PAD_LEFT),

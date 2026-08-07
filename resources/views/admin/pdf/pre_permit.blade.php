@@ -109,5 +109,11 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #00
     </div>
 </div>
 
+<div style="margin-top:20px; border-top: 1.5px dashed #444; padding-top:5px; text-align: center; font-family: monospace; font-size: 10px; color:#1f2937;">
+    Bu belge Eyyübiye Belediyesi AYKOME (Altyapı Koordinasyon) Elektronik Yönetim Sistemi ile güvenli ve benzersiz olarak oluşturulmuştur.<br>
+    BELGE DOĞRULAMA KODU : <span style="color:#d97706; font-size:12px; font-weight:bold;">{{ $application->verification_code ?? 'GEÇERSİZ/TASLAK' }}</span>
+    | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b>
+</div>
+
 <div class="footer-sayfa">1/1</div>
 @endsection

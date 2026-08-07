@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -16,8 +17,22 @@ class Application extends Model implements HasMedia
     use InteractsWithMedia;
     use SoftDeletes;
 
+    /**
+     * EBYS Güvence: Yeni başvuru yaratıldığı saniye benzersiz doğrulama kodu
+     * (EYYB- önekli, büyük harf + rakam) otomatik üretilir ve kaydedilir.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (Application $application) {
+            if (empty($application->verification_code)) {
+                $application->verification_code = 'EYYB-' . Str::upper(Str::random(10));
+            }
+        });
+    }
+
     protected $fillable = [
         'application_no',
+        'verification_code',
         'parent_id',
         'is_additional_permit',
         'institution_id',
@@ -73,6 +88,8 @@ class Application extends Model implements HasMedia
         'address_components',
         'vice_mayor_name',
         'tesis_sorumlusu',
+        'tesis_sorumlusu_adi',
+        'duzenleyen_kisi',
         'mudur_adi',
         'mudur_unvani',
         'approval_stage',
