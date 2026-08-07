@@ -271,9 +271,9 @@ body {
     </tr>
 </table>
 
-<div class="footer-note">
-    Bu belge HGB Bilişim  AYKOME Yazılımı tarafından {{ now()->format('d.m.Y H:i:s') }} tarihinde otomatik üretilmiştir.
-    Vezne tahsilat belgesi olarak geçerlidir.
+{{-- FOOTER — TEK SATIR + DAR MARGIN: A4 taşması engellenir --}}
+<div class="footer-note" style="margin-top:10px; font-size:8px; line-height:1;">
+    AYKOME Yazılımı ile otomatik üretilmiştir — {{ now()->format('d.m.Y H:i:s') }} · Vezne tahsilat belgesi olarak geçerlidir.
 </div>
 
 <!-- Vanilla JS Mini Format Toolbar -->

@@ -75,6 +75,8 @@ body {
     width: 100%; box-shadow: none; padding: 0; margin: 0; min-height: auto;
   }
   .no-print-bar { display: none !important; }
+  /* KATI A4 SINIRI: içerik sayfa yüksekliğini aşarsa taşan kısım görünmez — 2. boş sayfa engellenir */
+  .a4-container, .a4-container * { page-break-inside: avoid; }
   @page { size: @yield('page_size', 'A4'); margin: @yield('page_margin', '15mm'); }
 }
 @yield('extra_style')
