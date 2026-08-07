@@ -144,10 +144,11 @@
     min-width: auto !important;
     cursor: pointer;
     border-radius: 50%;
-    transition: transform 0.15s;
+    transition: box-shadow 0.15s;
 }
-.layer-color-wrap:hover { transform: scale(1.15); }
-.layer-color-wrap:active { transform: scale(0.95); }
+/* Hover'da büyüme yok — popup body'ye taşındı, transform'a ihtiyaç kalmadı */
+.layer-color-wrap:hover { box-shadow: 0 0 0 3px rgba(232,119,34,0.35); border-radius: 50%; }
+.layer-color-wrap:active { box-shadow: 0 0 0 3px rgba(232,119,34,0.6); border-radius: 50%; }
 .layer-color-wrap .color-dot { pointer-events: none; }
 .layer-color-input,
 .layer-color-picker {
@@ -160,8 +161,162 @@
     border: none;
     padding: 0;
     margin: 0;
+    /* Native OS renk çarkı yerine palet popup kullanılıyor; input'u pasifleştir */
+    pointer-events: none;
 }
 .layer-row .layer-color-wrap + label { flex: 1; min-width: 0; }
+
+/* KAYDET butonu - renk seçildikten sonra görünür */
+.color-kaydet-btn {
+    position: absolute;
+    bottom: -6px;
+    right: -6px;
+    width: 16px;
+    height: 16px;
+    background: #22c55e;
+    border: 2px solid white;
+    border-radius: 50%;
+    font-size: 9px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    transform: scale(0.8);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.layer-color-wrap:hover .color-kaydet-btn,
+.color-kaydet-btn.visible {
+    opacity: 1;
+    transform: scale(1);
+}
+.color-kaydet-btn:active {
+    transform: scale(0.9);
+}
+
+/* ── Renk Paleti Popup (daireye tıklayınca açılır) ── */
+.layer-color-popup {
+    position: fixed;          /* viewport'a göre — accordion scroll'undan etkilenmez, hep tıklanabilir */
+    z-index: 99999;
+    width: 228px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+    padding: 12px;
+    display: none;
+}
+.layer-color-popup.open { display: block; }
+.layer-color-popup::before {  /* ok işareti (daireye işaret eder) */
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 22px;
+    width: 12px;
+    height: 12px;
+    background: #1e293b;
+    border-left: 1px solid #334155;
+    border-top: 1px solid #334155;
+    transform: rotate(45deg);
+}
+.palette-title {
+    font-size: 10px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 6px;
+    text-align: center;
+}
+.palette-swatches {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 5px;
+    margin-bottom: 8px;
+}
+.palette-swatch {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.12s, box-shadow 0.12s;
+    /* Hover'da BÜYÜME YOK — sadece çerçeve belirginleşir */
+}
+.palette-swatch:hover { box-shadow: 0 0 0 2px rgba(255,255,255,0.35); }
+.palette-swatch.active { border-color: #fff; box-shadow: 0 0 0 2px #E87722; }
+.palette-hex-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+.palette-hex-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #e2e8f0;
+    font-size: 11px;
+    padding: 5px 8px;
+    outline: none;
+}
+.palette-hex-row input[type="text"]:focus { border-color: #E87722; }
+.palette-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 5px 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.12s;
+}
+.palette-preview:hover { border-color: #E87722; }
+.palette-preview-color {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    border: 1px solid rgba(255,255,255,0.25);
+    flex: none;
+}
+.palette-preview-hex {
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    color: #e2e8f0;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+.palette-preview-copy { margin-left: auto; font-size: 10px; color: #94a3b8; }
+.palette-preview.copied .palette-preview-copy { color: #22c55e; }
+.palette-width-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.palette-width-label { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+.palette-width-slider { flex: 1; min-width: 0; accent-color: #E87722; cursor: pointer; }
+.palette-width-value { font-size: 11px; color: #e2e8f0; min-width: 28px; text-align: right; font-weight: 600; }
+.palette-kaydet-btn {
+    width: 100%;
+    background: #E87722;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+}
+.palette-kaydet-btn:hover { background: #d9691a; }
+.palette-kaydet-btn:active { transform: scale(0.97); }
+.palette-kaydet-btn.saved { background: #16a34a; }
 
 .basemap-row {
     display: flex;
@@ -602,8 +757,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_MAHALLE_KOYLER" data-color="#f97316" title="Mahalle katmanı rengini değiştir"><span class="color-dot" style="background:#f97316;"></span><input type="color" class="layer-color-picker" value="#f97316"></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_MAHALLE_KOYLER"><span>Mahalle Sınırları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_KADASTRO_ADA" data-color="#a855f7" title="Ada katmanı rengini değiştir"><span class="color-dot" style="background:#a855f7;"></span><input type="color" class="layer-color-picker" value="#a855f7"></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_KADASTRO_ADA"><span>Adalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_MAHALLE_KOYLER" data-color="#f97316" title="Mahalle katmanı rengini değiştir"><span class="color-dot" style="background:#f97316;"></span><input type="color" class="layer-color-picker" value="#f97316"><button type="button" class="color-kaydet-btn" onclick="kaydetBuKatman(this)" title="Rengi Kaydet">✓</button></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_MAHALLE_KOYLER"><span>Mahalle Sınırları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_KADASTRO_ADA" data-color="#a855f7" title="Ada katmanı rengini değiştir"><span class="color-dot" style="background:#a855f7;"></span><input type="color" class="layer-color-picker" value="#a855f7"><button type="button" class="color-kaydet-btn" onclick="kaydetBuKatman(this)" title="Rengi Kaydet">✓</button></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_KADASTRO_ADA"><span>Adalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -611,8 +766,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL" data-color="#ef4444" title="Parsel katmanı rengini değiştir"><span class="color-dot" style="background:#ef4444;"></span><input type="color" class="layer-color-picker" value="#ef4444"></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL"><span>Parseller (Genel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:TKGM_PARSEL" data-color="#22c55e" title="Parsel katmanı rengini değiştir"><span class="color-dot" style="background:#22c55e;"></span><input type="color" class="layer-color-picker" value="#22c55e"></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:TKGM_PARSEL"><span>Parseller (TKGM Güncel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL" data-color="#ef4444" title="Parsel katmanı rengini değiştir"><span class="color-dot" style="background:#ef4444;"></span><input type="color" class="layer-color-picker" value="#ef4444"><button type="button" class="color-kaydet-btn" onclick="kaydetBuKatman(this)" title="Rengi Kaydet">✓</button></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL"><span>Parseller (Genel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:TKGM_PARSEL" data-color="#22c55e" title="Parsel katmanı rengini değiştir"><span class="color-dot" style="background:#22c55e;"></span><input type="color" class="layer-color-picker" value="#22c55e"><button type="button" class="color-kaydet-btn" onclick="kaydetBuKatman(this)" title="Rengi Kaydet">✓</button></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:TKGM_PARSEL"><span>Parseller (TKGM Güncel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -621,8 +776,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
         </div>
         <div class="accordion-body hidden">
             <div class="layer-row" title="Binalar rengi sabittir (düzenlenemez)"><label><span class="color-dot" style="background:#94a3b8;cursor:not-allowed;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_BINA"><span>Binalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:m_Numarataj" data-color="#f59e0b" title="Kapı numaraları katmanı rengini değiştir"><span class="color-dot" style="background:#f59e0b;"></span><input type="color" class="layer-color-picker" value="#f59e0b"></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:m_Numarataj"><span>Kapı Numaraları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_CADDE_SOKAK" data-color="#64748b" title="Cadde/sokak katmanı rengini değiştir"><span class="color-dot" style="background:#64748b;"></span><input type="color" class="layer-color-picker" value="#64748b"></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_CADDE_SOKAK"><span>Cadde/Sokak Hatları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:m_Numarataj" data-color="#f59e0b" title="Kapı numaraları katmanı rengini değiştir"><span class="color-dot" style="background:#f59e0b;"></span><input type="color" class="layer-color-picker" value="#f59e0b"><button type="button" class="color-kaydet-btn" onclick="kaydetBuKatman(this)" title="Rengi Kaydet">✓</button></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:m_Numarataj"><span>Kapı Numaraları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_CADDE_SOKAK" data-color="#64748b" title="Cadde/sokak katmanı rengini değiştir"><span class="color-dot" style="background:#64748b;"></span><input type="color" class="layer-color-picker" value="#64748b"><button type="button" class="color-kaydet-btn" onclick="kaydetBuKatman(this)" title="Rengi Kaydet">✓</button></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_CADDE_SOKAK"><span>Cadde/Sokak Hatları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -630,9 +785,9 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_ELEKTRIK_LINKS" data-color="#eab308" title="Elektrik katmanı rengini değiştir"><span class="color-dot" style="background:#eab308;"></span><input type="color" class="layer-color-picker" value="#eab308"></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_ELEKTRIK_LINKS"><span>Aykome Elektrik</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_DOGALGAZ_LINKS" data-color="#ef4444" title="Doğalgaz hat katmanı rengini değiştir"><span class="color-dot" style="background:#ef4444;"></span><input type="color" class="layer-color-picker" value="#ef4444"></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_LINKS"><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_DOGALGAZ_NODES" data-color="#3b82f6" title="Doğalgaz nokta katmanı rengini değiştir"><span class="color-dot" style="background:#3b82f6;"></span><input type="color" class="layer-color-picker" value="#3b82f6"></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_NODES"><span>Doğalgaz (Noktalar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_ELEKTRIK_LINKS" data-color="#eab308" title="Elektrik katmanı rengini değiştir"><span class="color-dot" style="background:#eab308;"></span><input type="color" class="layer-color-picker" value="#eab308"><button type="button" class="color-kaydet-btn" onclick="kaydetBuKatman(this)" title="Rengi Kaydet">✓</button></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_ELEKTRIK_LINKS"><span>Aykome Elektrik</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_DOGALGAZ_LINKS" data-color="#ef4444" title="Doğalgaz hat katmanı rengini değiştir"><span class="color-dot" style="background:#ef4444;"></span><input type="color" class="layer-color-picker" value="#ef4444"><button type="button" class="color-kaydet-btn" onclick="kaydetBuKatman(this)" title="Rengi Kaydet">✓</button></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_LINKS"><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_DOGALGAZ_NODES" data-color="#3b82f6" title="Doğalgaz nokta katmanı rengini değiştir"><span class="color-dot" style="background:#3b82f6;"></span><input type="color" class="layer-color-picker" value="#3b82f6"><button type="button" class="color-kaydet-btn" onclick="kaydetBuKatman(this)" title="Rengi Kaydet">✓</button></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_NODES"><span>Doğalgaz (Noktalar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -1074,7 +1229,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
         }
         var _OWS=window.WebSocket;
         window.WebSocket=function(u,p){
-            if(!u||u.toString().match(/pusher|8080|soketi|laravel-echo|reverb/i)){
+            if(!u||u.toString().match(/pusher|8080|8090|soketi|laravel-echo|reverb|\/app\/|localhost/i)){
                 var f=new EventTarget();
                 f.readyState=3;f.close=f.send=function(){};f.addEventListener=function(){};
                 return f;
@@ -1113,6 +1268,7 @@ var statusIcons={
 
 /* Kişisel katman renk tercihleri: DB'den bind edilir + aynı cihaz localStorage ile anında kalıcı */
 var layerColorMap={};                        // layer-adi -> hex
+var layerWidthMap={};                        // layer-adi -> stroke-width (kalınlık)
 var authColorPreferences=@json($authColorPreferences ?? []);
 function loadLocalColors(){
     try{var raw=localStorage.getItem('aykome_map_colors');return raw?JSON.parse(raw):{};}catch(e){return{};}
@@ -1125,76 +1281,452 @@ function mergeColors(base,extra){
 }
 layerColorMap=mergeColors(authColorPreferences,loadLocalColors());
 
+function loadLocalWidths(){ try{var raw=localStorage.getItem('aykome_map_widths');return raw?JSON.parse(raw):{};}catch(e){return{};} }
+var authWidthPreferences=@json($authWidthPreferences ?? []);
+/* DB (birincil) + localStorage (yedek) kalınlık birleştir */
+var _wBase={};Object.keys(authWidthPreferences||{}).forEach(function(k){ _wBase[k]=authWidthPreferences[k]; });
+Object.keys(loadLocalWidths()).forEach(function(k){ if(typeof loadLocalWidths()[k]!=='undefined' && !(k in _wBase))_wBase[k]=loadLocalWidths()[k]; });
+layerWidthMap=_wBase;
+
 function seedLayerColors(prefs){ Object.keys(prefs||{}).forEach(function(k){ if(typeof prefs[k]==='string')layerColorMap[k]=prefs[k]; }); }
 
-/* HEX -> CSS filter: katman tile pane'ine uygulanır (sunucu resmini istenen tonda boyar).
-   SLD_BODY bu GeoServer'da kabul edilmedi; CSS filter tahribatsız, anında, ağ gerektirmez. */
-function layerFilterFor(hex){
-    hex=(hex||'#E87722').replace('#','');
-    var v=parseInt(hex,16);
-    var r=((v>>16)&255)/255,g=((v>>8)&255)/255,b=(v&255)/255;
-    var mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,sm=0,h=0;
-    if(mx!==mn){
-        var d=mx-mn;
-        sm=l>0.5?d/(2-mx-mn):d/(mx+mn);
-        if(mx===r)h=(g-b)/d+(g<b?6:0);
-        else if(mx===g)h=(b-r)/d+2;
-        else h=(r-g)/d+4;
-        h/=6;
-    }
-    return 'grayscale(1) sepia(1) saturate('+Math.round(sm*100)+'%) hue-rotate('+Math.round(h*360)+'deg) brightness('+Math.round(90+l*120)+'%)';
+/* ════════════════════════════════════════════════════════════════════
+   RENK RENDER — SLD_BODY (KESİN ÇÖZÜM)
+   WMS katmanına sld_body XML parametresi eklenerek sunucuda bu renkle
+   yeniden çizilir. Gerçek vektör rengi → piksel filter'ından kat kat
+   kaliteli. GeoServer test edildi: HTTP 200 + PNG döner.
+   Örnek: geo3.sanliurfa.bel.tr:8091 SLD_BODY destekler.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* Katmanın geometri tipini adından kestir */
+function layerGeometryType(layer){
+    var n=(layer||'').toUpperCase();
+    if(/NODES|NOKTA|NUMA|NUMARATAJ/.test(n)) return 'point';   // nokta öncelikli
+    if(/MAHALLE|ILCE|PARSEL|ADA|KOYLER/.test(n)) return 'polygon';
+    if(/LINKS|CADDE|SOKAK|YOL|HAT/.test(n)) return 'line';
+    return 'line'; // varsayılan
 }
 
-/* ── RENK RENDER (GÜVENLİ): seçilen HEX → CSS filter, ELLE tile <img> öğelerine uygulanır.
-   Asla ekranı kaplayan overlay oluşturulmaz → pembeye dönme YOK. Katman kapalıykken
-   overlay yok, görsel etki yok. Katman açıkken tile'lar o an boyanır. */
-function colorTileLayer(layer,hex){
-    var css=layerFilterFor(hex);
-    var pane=wmsPanes[layer];
-    if(pane){ pane.style.filter=css; pane.style.webkitFilter=css; }
+/* Katman için SLD_BODY XML üretir. Geometri tipine göre doğru symbolizer. */
+function sldForLayer(layer, hex, width){
+    hex=hex||'#E87722';
+    width=width||2;
+    var typ=layerGeometryType(layer);
+    var body='';
+
+    if(typ==='point'){
+        body='<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld" xmlns:ogc="http://www.opengis.net/ogc">'
+            +'<NamedLayer><Name>'+layer+'</Name><UserStyle><FeatureTypeStyle><Rule>'
+            +'<PointSymbolizer><Graphic><Mark>'
+            +'<WellKnownName>circle</WellKnownName>'
+            +'<Fill><CssParameter name="fill">'+hex+'</CssParameter></Fill>'
+            +'<Stroke><CssParameter name="stroke">#FFFFFF</CssParameter><CssParameter name="stroke-width">1</CssParameter></Stroke>'
+            +'</Mark><Size>'+(width*3)+'</Size></Graphic></PointSymbolizer>'
+            +'</Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>';
+    } else if(typ==='polygon'){
+        body='<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld" xmlns:ogc="http://www.opengis.net/ogc">'
+            +'<NamedLayer><Name>'+layer+'</Name><UserStyle><FeatureTypeStyle><Rule>'
+            +'<PolygonSymbolizer>'
+            +'<Fill><CssParameter name="fill">'+hex+'</CssParameter><CssParameter name="fill-opacity">0.10</CssParameter></Fill>'
+            +'<Stroke><CssParameter name="stroke">'+hex+'</CssParameter><CssParameter name="stroke-width">'+width+'</CssParameter></Stroke>'
+            +'</PolygonSymbolizer>'
+            +'</Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>';
+    } else {
+        body='<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld" xmlns:ogc="http://www.opengis.net/ogc">'
+            +'<NamedLayer><Name>'+layer+'</Name><UserStyle><FeatureTypeStyle><Rule>'
+            +'<LineSymbolizer>'
+            +'<Stroke><CssParameter name="stroke">'+hex+'</CssParameter><CssParameter name="stroke-width">'+width+'</CssParameter></Stroke>'
+            +'</LineSymbolizer>'
+            +'</Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>';
+    }
+    return body;
+}
+
+/* Katmanı SLD_BODY ile yeniden oluşturur. Leaflet layer referansını korur.
+   Renk değişince active durumunu koruyarak katmanı değiştirir. */
+function recolorLayerWithSld(layer, hex, width){
     var wl=wmsLayers[layer];
-    if(wl && wl.getContainer){ var c=wl.getContainer(); if(c){ c.style.filter=css; c.style.webkitFilter=css; } }
-    if(pane){
-        var imgs=pane.querySelectorAll('img');
-        for(var i=0;i<imgs.length;i++){ imgs[i].style.filter=css; imgs[i].style.webkitFilter=css; }
-        /* varimli render tetik: rengin tile üzerine doodle işlenmesini zorlar */
-        if(wl && mapsMap && mapsMap.hasLayer(wl)){
-            var keep=wl.options.opacity;
-            wl.setOpacity(0);
-            requestAnimationFrame(function(){ if(wl)wl.setOpacity(keep); });
-        }
+    if(!wl || !mapsMap) return false;
+    var active=mapsMap.hasLayer(wl);
+    var sld=sldForLayer(layer, hex, width);
+    var paneKey=wl.options.pane;
+    var yeni=createWmsLayer(GEO3_WMS, layer, {layers:layer, opacity:0.9, zIndex:100, pane:paneKey, sld_body:sld});
+    if(active){ mapsMap.removeLayer(wl); }
+    wmsLayers[layer]=yeni;
+    if(paneKey){ wmsPanes[layer]=mapsMap.getPane(paneKey); }
+    if(active){ mapsMap.addLayer(yeni); }
+    return true;
+}
+
+/* Renklendirilemeyen katmanlar (binalar) */
+var COLOR_FIXED_LAYERS = /MISMAP_NUM_BINA|BINA/i;
+
+/* ── RENK RENDER (SLD_BODY): katman rengini SLD_BODY ile uygular. width boşsa varsayılan kalınlık. */
+function colorTileLayer(layer,hex,width){
+    // Binalar ve benzeri sabit katmanlara renk uygulama
+    if(COLOR_FIXED_LAYERS.test(layer||'')){
+        layerColorMap[layer]=null;
+        return;
+    }
+    width=width || layerWidthMap[layer] || 2;
+    if(recolorLayerWithSld(layer,hex,width)){
+        layerColorMap[layer]=hex;
     }
 }
+
+/* Rengi kaldır → katmanı SLD'siz (orijinal sunucu stiliyle) yeniden oluştur */
 function clearTileLayerColor(layer){
-    var pane=wmsPanes[layer];
-    if(pane){ pane.style.filter=''; pane.style.webkitFilter=''; }
     var wl=wmsLayers[layer];
-    if(wl && wl.getContainer){ var c=wl.getContainer(); if(c){ c.style.filter=''; c.style.webkitFilter=''; } }
-    if(pane){
-        var imgs=pane.querySelectorAll('img');
-        for(var i=0;i<imgs.length;i++){ imgs[i].style.filter=''; imgs[i].style.webkitFilter=''; }
-    }
+    if(!wl || !mapsMap) return;
+    var active=mapsMap.hasLayer(wl);
+    var paneKey=wl.options.pane;
+    var yeni=createWmsLayer(GEO3_WMS, layer, {layers:layer, opacity:0.7, zIndex:100, pane:paneKey});
+    if(active){ mapsMap.removeLayer(wl); }
+    wmsLayers[layer]=yeni;
+    if(paneKey){ wmsPanes[layer]=mapsMap.getPane(paneKey); }
+    if(active){ mapsMap.addLayer(yeni); }
+    layerColorMap[layer]=null;
 }
-function applyLayerColor(layer,hex){
+
+/* Renk/renk kaldırma ana girişi. hex null/boşsa temizler. */
+function applyLayerColor(layer,hex,width){
+    console.log('[DEBUG applyLayerColor] layer:', layer, 'hex:', hex);
+    if(COLOR_FIXED_LAYERS.test(layer||'')){
+        layerColorMap[layer]=null;
+        return;
+    }
     if(!hex){ clearTileLayerColor(layer); layerColorMap[layer]=null; return; }
     layerColorMap[layer]=hex;
-    colorTileLayer(layer,hex);
+    colorTileLayer(layer,hex,width);
 }
+
+/* Katman aktif olduğunda kayıtlı rengi uygular */
 function ensureLayerColor(layer){
     var hex=layerColorMap[layer];
     if(hex)colorTileLayer(layer,hex);
+}
+
+/* ── Renk Paleti: daireye tıklayınca açılan hazır renk paleti + hex girişi.
+   Altta KAYDET butonu. Seçim anında harita boyanır, KAYDET DB'ye yazar.
+   36 renk — 6 sütun × 6 satır, ton ton düzenli (kırmızı→turuncu→sarı→yeşil→mavi→mor→pembe→gri→siyah) */
+var PALETTE_COLORS=[
+    '#b91c1c','#dc2626','#ef4444','#f87171','#fca5a5','#fecaca',
+    '#c2410c','#ea580c','#f97316','#fb923c','#fdba74','#fed7aa',
+    '#b45309','#d97706','#f59e0b','#fbbf24','#fcd34d','#fde68a',
+    '#65a30d','#84cc16','#a3e635','#d9f99d','#22c55e','#16a34a',
+    '#0d9488','#14b8a6','#2dd4bf','#5eead4','#0369a1','#0ea5e9',
+    '#1d4ed8','#2563eb','#3b82f6','#60a5fa','#7c3aed','#8b5cf6',
+    '#a855f7','#c084fc','#db2777','#ec4899','#f472b6','#f9a8d4',
+    '#57534e','#78716c','#a8a29e','#d6d3d1','#475569','#64748b',
+    '#94a3b8','#cbd5e1','#0f172a','#1e293b','#334155','#f8fafc'
+];
+var _activePalette=null;   // şu an açık popup'ın wrap'i
+
+function buildLayerColorPalettes(){
+    document.querySelectorAll('.layer-color-wrap').forEach(function(wrap){
+        /* ESKİ native renk çarkı (input[type=color]) + yeşil tık butonunu DOM'dan KALDIR.
+           Kullanıcının gördüğü çift UI (rbg çarkı + palet) çakışmasının sebebi buydu.
+           Artık tek akış var: daireye tıkla → palet → renk seç → KAYDET. */
+        var eskiPicker=wrap.querySelector('.layer-color-picker');
+        if(eskiPicker) eskiPicker.remove();
+        var eskiBtn=wrap.querySelector('.color-kaydet-btn');
+        if(eskiBtn) eskiBtn.remove();
+
+        if(wrap.querySelector('.layer-color-popup')) return; // tek sefer
+
+        var popup=document.createElement('div');
+        popup.className='layer-color-popup';
+
+        var title=document.createElement('div');
+        title.className='palette-title';
+        title.textContent='Katman Rengi';
+        popup.appendChild(title);
+
+        var swatches=document.createElement('div');
+        swatches.className='palette-swatches';
+        PALETTE_COLORS.forEach(function(c){
+            var s=document.createElement('div');
+            s.className='palette-swatch';
+            s.style.background=c;
+            s.dataset.hex=c;
+            s.addEventListener('click',function(e){
+                e.stopPropagation();  // event wrap'e bubble olmasın → palet kapanmasın
+                selectPaletteColor(wrap,c);
+            });
+            swatches.appendChild(s);
+        });
+        popup.appendChild(swatches);
+
+        var hexRow=document.createElement('div');
+        hexRow.className='palette-hex-row';
+        var hexInp=document.createElement('input');
+        hexInp.type='text';
+        hexInp.value=(wrap.dataset.color||'#E87722').toUpperCase();
+        hexInp.maxLength=7;
+        hexInp.title='Özel HEX rengi gir (örn: #ff0000)';
+        hexInp.addEventListener('input',function(e){
+            e.stopPropagation();  // caret kaymasın / popup kapanmasın
+            var v=this.value.trim();
+            if(/^#[0-9a-fA-F]{6}$/.test(v)){
+                // Haritayı anında boyay, ama hex input'a geri yazma (kullanıcı yazıyor)
+                wrap.dataset.color=v.toUpperCase();
+                wrap.dataset.hex=v.toUpperCase();
+                var dot=wrap.querySelector('.color-dot');
+                if(dot) dot.style.background=v.toUpperCase();
+                var lyr=wrap.dataset.layer;
+                if(lyr) applyLayerColor(lyr,v.toUpperCase());
+                refreshPaletteActive(wrap);
+            }
+        });
+        hexRow.appendChild(hexInp);
+        popup.appendChild(hexRow);
+
+        /* Seçili renk önizleme kutusu — hex kodu büyük ve net görünür */
+        var pre=document.createElement('div');
+        pre.className='palette-preview';
+        var preColor=document.createElement('span');
+        preColor.className='palette-preview-color';
+        preColor.style.background=wrap.dataset.color||'#E87722';
+        var preHex=document.createElement('span');
+        preHex.className='palette-preview-hex';
+        preHex.textContent=(wrap.dataset.color||'#E87722').toUpperCase();
+        var preCopy=document.createElement('span');
+        preCopy.className='palette-preview-copy';
+        preCopy.textContent='📋';
+        pre.title='Hex kodunu kopyala';
+        pre.addEventListener('click',function(e){
+            e.stopPropagation();
+            var h=preHex.textContent.replace('#','');
+            var full='#'+h;
+            if(navigator.clipboard){
+                navigator.clipboard.writeText(full).then(function(){
+                    preCopy.textContent='✓';
+                    pre.classList.add('copied');
+                    setTimeout(function(){ preCopy.textContent='📋'; pre.classList.remove('copied'); },1200);
+                }).catch(function(){});
+            } else {
+                // eski tarayıcı fallback
+                var ta=document.createElement('textarea');
+                ta.value=full;document.body.appendChild(ta);ta.select();
+                try{document.execCommand('copy');}catch(x){}
+                document.body.removeChild(ta);
+            }
+        });
+        pre.appendChild(preColor);pre.appendChild(preHex);pre.appendChild(preCopy);
+        popup.appendChild(pre);
+
+        /* Kalınlık (stroke-width) slider — line/polygon katmanlarının kritik çizgi kalınlığı */
+        var wRow=document.createElement('div');
+        wRow.className='palette-width-row';
+        var wLabel=document.createElement('label');
+        wLabel.className='palette-width-label';
+        wLabel.textContent='Kalınlık:';
+        var wInp=document.createElement('input');
+        wInp.type='range';
+        wInp.className='palette-width-slider';
+        wInp.min='1';wInp.max='8';wInp.step='1';
+        var basWidth=layerWidthMap[wrap.dataset.layer]||2;
+        wInp.value=basWidth;
+        var wVal=document.createElement('span');
+        wVal.className='palette-width-value';
+        wVal.textContent=basWidth+'px';
+        wInp.addEventListener('input',function(e){
+            e.stopPropagation();
+            var w=parseInt(this.value,10);
+            wVal.textContent=w+'px';
+            layerWidthMap[wrap.dataset.layer]=w;
+            // Aktif renkle yeniden çiz
+            var hex=wrap.dataset.color||'#E87722';
+            var lyr=wrap.dataset.layer;
+            if(lyr) applyLayerColor(lyr,hex,w);
+        });
+        wRow.appendChild(wLabel);wRow.appendChild(wInp);wRow.appendChild(wVal);
+        popup.appendChild(wRow);
+
+        var kaydet=document.createElement('button');
+        kaydet.type='button';
+        kaydet.className='palette-kaydet-btn';
+        kaydet.textContent='💾 KAYDET';
+        kaydet.addEventListener('click',function(){
+            kaydetPaletRengi(wrap, kaydet);
+        });
+        popup.appendChild(kaydet);
+
+        /* Popup'ı BODY'ye taşı — wrap'in :hover transform scale'i fixed popup'ı
+           oynatmasın/kaybettirmesin diye. wrap içinde kalsaydı transform, fixed'i
+           absolute gibi davrandırıp popup kaybolup geliyordu. */
+        popup.dataset.layer=wrap.dataset.layer;
+        document.body.appendChild(popup);
+
+        // Daireye tıklayınca popup aç/kapat
+        wrap.addEventListener('click',function(e){
+            e.stopPropagation();
+            var swatchClicked = e.target.classList.contains('palette-swatch');
+            var inPopup = popup.contains(e.target);
+            if(!inPopup || swatchClicked){
+                togglePalette(wrap);
+            }
+        });
+    });
+}
+
+function togglePalette(wrap){
+    var popup=getLayerPopup(wrap);
+    if(!popup)return;
+    var isOpen=popup.classList.contains('open');
+    document.querySelectorAll('.layer-color-popup.open').forEach(function(p){ p.classList.remove('open'); });
+    _activePalette=null;
+    if(!isOpen){
+        popup.classList.add('open');
+        _activePalette=wrap;
+        refreshPaletteActive(wrap);
+        positionPalette(wrap,popup);
+    }
+}
+
+/* Popup body'ye taşındı; wrap'ten layer adını alıp body'deki popup'ı bulur */
+function getLayerPopup(wrap){
+    var layer=wrap?wrap.dataset.layer:'';
+    if(!layer)return null;
+    return document.querySelector('.layer-color-popup[data-layer="'+layer+'"]');
+}
+
+/* Popup'ı dairenin altına, viewport'a göre konumlandır (sağdan taşarsa sola kaydır) */
+function positionPalette(wrap,popup){
+    var r=wrap.getBoundingClientRect();
+    var pw=popup.offsetWidth||228;
+    var left=r.left;
+    if(left+pw>window.innerWidth-8) left=Math.max(8,window.innerWidth-pw-8);
+    popup.style.left=left+'px';
+    popup.style.top=(r.bottom+8)+'px';
+    // Ok işaretini daireye hizala (popup en alta yapıştıysa üste aç)
+    if(r.bottom+8+popup.offsetHeight>window.innerHeight-8){
+        popup.style.top='auto';
+        popup.style.bottom=(window.innerHeight-r.top+8)+'px';
+    }
+}
+
+/* Sadece swatch'ların aktif çerçevesini günceller — hex input'a dokunmaz (caret korunur) */
+function refreshSwatchActive(wrap){
+    var popup=getLayerPopup(wrap);
+    if(!popup) return;
+    var hex=wrap.dataset.color||'';
+    popup.querySelectorAll('.palette-swatch').forEach(function(s){
+        s.classList.toggle('active', s.dataset.hex.toLowerCase()===hex.toLowerCase());
+    });
+}
+
+/* Swatch + hex input + önizleme kutusunu birlikte günceller */
+function refreshPaletteActive(wrap){
+    var popup=getLayerPopup(wrap);
+    if(!popup) return;
+    refreshSwatchActive(wrap);
+    var hex=wrap.dataset.color||'';
+    if(!hex) return;
+    var hexInp=popup.querySelector('.palette-hex-row input');
+    if(hexInp) hexInp.value=hex.toUpperCase();
+    var preColor=popup.querySelector('.palette-preview-color');
+    if(preColor) preColor.style.background=hex;
+    var preHex=popup.querySelector('.palette-preview-hex');
+    if(preHex) preHex.textContent=hex.toUpperCase();
+}
+
+/* Palet rengi seçildiğinde: harita anında boyanır, daire güncellenir, popup kapanmaz */
+function selectPaletteColor(wrap,hex){
+    hex=hex.toUpperCase();
+    wrap.dataset.color=hex;
+    wrap.dataset.hex=hex;
+    var dot=wrap.querySelector('.color-dot');
+    if(dot) dot.style.background=hex;
+    var picker=wrap.querySelector('.layer-color-picker');
+    if(picker) picker.value=hex;
+    var layer=wrap.dataset.layer;
+    var width=layerWidthMap[layer]||2;
+    if(layer) applyLayerColor(layer,hex,width);
+    refreshPaletteActive(wrap);
+}
+
+/* Expose edilen dış çağrı: herhangi bir wrap'e renk uygula (popup olmadan da kullanılır) */
+function renkPaletUygula(wrapOrLayer,hex){
+    var wrap = typeof wrapOrLayer==='string'
+        ? document.querySelector('.layer-color-wrap[data-layer="'+wrapOrLayer+'"]')
+        : wrapOrLayer;
+    if(wrap && hex) selectPaletteColor(wrap,hex);
+}
+
+/* KAYDET: seçili rengi DB'ye yazar, butonu kısa süre yeşil gösterir, popup'ı kapatır */
+function kaydetPaletRengi(wrap, btn){
+    var layer=wrap.dataset.layer;
+    if(!layer) return;
+    var popup=getLayerPopup(wrap);
+    // Önce hex input'taki anlık değere bak; geçerliyse onu kullan, yoksa dataset
+    var hexInp=popup?popup.querySelector('.palette-hex-row input'):null;
+    var anlik=(hexInp && hexInp.value && /^#[0-9a-fA-F]{6}$/.test(hexInp.value.trim()))
+        ? hexInp.value.trim().toUpperCase()
+        : '';
+    var hex=anlik || wrap.dataset.color || wrap.dataset.hex || '#E87722';
+    wrap.dataset.color=hex;
+    wrap.dataset.hex=hex;
+    // Kalınlığı slider'dan al
+    var wSlider=popup?popup.querySelector('.palette-width-slider'):null;
+    var width=(wSlider?parseInt(wSlider.value,10):layerWidthMap[layer])||2;
+    layerWidthMap[layer]=width;
+    applyLayerColor(layer,hex,width);
+    persistLayerColor(true); // DB'ye hemen yaz
+    btn.textContent='✓ KAYDEDİLDİ';
+    btn.classList.add('saved');
+    setTimeout(function(){
+        btn.textContent='💾 KAYDET';
+        btn.classList.remove('saved');
+    },1400);
+    // Onay mesajı
+    if(window.showToast) showToast(layer+' rengi kaydedildi: '+hex+' • '+width+'px');
+    // Popup'ı kapat
+    togglePalette(wrap);
+}
+
+/* Sayfa genelinde başka yere tıklanınca açık paleti kapat */
+document.addEventListener('click',function(e){
+    if(!_activePalette) return;
+    var popup=getLayerPopup(_activePalette);
+    // Tıklama popup'ın içindeyse kapatma
+    if(popup && popup.contains(e.target)) return;
+    if(popup) popup.classList.remove('open');
+    _activePalette=null;
+});
+
+/* Renk seçildikten sonra KAYDET butonuna basınca çağrılır */
+function kaydetBuKatman(btn){
+    var wrap=btn.closest('.layer-color-wrap');
+    if(!wrap)return;
+    var layer=wrap.dataset.layer;
+    if(!layer)return;
+    var picker=wrap.querySelector('.layer-color-picker');
+    var hex=(picker && picker.value) || wrap.dataset.color || '#E87722';
+    applyLayerColor(layer,hex);
+    persistLayerColor(true); // Hemen kaydet
+    // Buton animasyon
+    btn.textContent='✓';
+    btn.style.background='#16a34a';
+    setTimeout(function(){
+        btn.textContent='✓';
+        btn.style.background='#22c55e';
+    },800);
 }
 
 /* DB'ye GİZLİ CANLI kayıt: renk seçimi (change) bitince 800ms debounce'la
    users.map_preferences JSON'ına otomatik POST edilir. Görünür "Kaydet"
    butonu YOK — eylem biter bitmez arka planda sessizce kaydedilir. */
 var _renkTimer=null;
-function saveLocalColors(){ try{localStorage.setItem('aykome_map_colors',JSON.stringify(layerColorMap));}catch(e){} }
+function saveLocalColors(){
+    try{localStorage.setItem('aykome_map_colors',JSON.stringify(layerColorMap));}catch(e){}
+    try{localStorage.setItem('aykome_map_widths',JSON.stringify(layerWidthMap));}catch(e){}
+}
 function _saveRenkler(){
     fetch('/maps/renk-kaydet',{
         method:'POST',
         headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content},
-        body:JSON.stringify({renkler:layerColorMap})
+        body:JSON.stringify({renkler:layerColorMap, kalinliklar:layerWidthMap})
     }).then(function(r){return r.json()}).then(function(d){
         if(d&&d.success)saveLocalColors();
     }).catch(function(){saveLocalColors();});
@@ -1214,11 +1746,14 @@ function applyAuthColorsToPanel(){
         if(!hex)return;
         var wrap=document.querySelector('.layer-color-wrap[data-layer="'+layer+'"]');
         if(!wrap)return;
+        wrap.dataset.color=hex;
+        wrap.dataset.hex=hex;
         var dot=wrap.querySelector('.color-dot');
         if(dot)dot.style.background=hex;
         var inp=wrap.querySelector('.layer-color-picker');
         if(inp)inp.value=hex;
         applyLayerColor(layer,hex);
+        refreshPaletteActive(wrap);
     });
 }
 
@@ -2231,38 +2766,28 @@ function toggleAccordion(el){
 w.toggleAccordion=toggleAccordion;
 
 function setupEventListeners(){
-document.querySelectorAll('.layer-color-picker').forEach(function(inp){
-        inp.addEventListener('input',function(){
-            var wrap=this.closest('.layer-color-wrap');
-            if(!wrap)return;
-            var layer=wrap.dataset.layer;
-            if(!layer)return;
-            var hex=this.value;
-            var dot=wrap.querySelector('.color-dot');
-            if(dot)dot.style.background=hex;
-            applyLayerColor(layer,hex);
-            persistLayerColor(); // debounce + pagehide flush
-        });
-        inp.addEventListener('change',function(){
-            var wrap=this.closest('.layer-color-wrap');
-            if(!wrap)return;
-            var layer=wrap.dataset.layer;
-            if(!layer)return;
-            var dot=wrap.querySelector('.color-dot');
-            if(dot)dot.style.background=this.value;
-            applyLayerColor(layer,this.value);
-            persistLayerColor(); // palette kapandığında da hemen kaydet
-        });
-    });
+    /* Renk paleti: her katmanın renk dairesine hazır renk paleti + KAYDET butonu.
+       Native OS renk çarkı (input[type=color]) yerine kullanılır. */
+    buildLayerColorPalettes();
+
     document.querySelectorAll('.katman-checkbox').forEach(function(cb){
         cb.addEventListener('change',function(){
-            var layer=wmsLayers[this.dataset.layer];
-            if(!layer)return;
+            var layerKey=this.dataset.layer;
             if(this.checked){
-                ensureLayerColor(this.dataset.layer);
-                layer.addTo(mapsMap);
+                // Renk uygulanacaksa recolorLayerWithSld wmsLayers[layerKey]'i değiştirir.
+                // Bu yüzden önce rengi uygula, SONRA güncel layer referansını al ve ekle.
+                ensureLayerColor(layerKey);
+                var guncel=wmsLayers[layerKey];
+                if(guncel) guncel.addTo(mapsMap);
+            } else {
+                // Checkbox kapatıldı → HARİTADAKİ layer'i kaldır.
+                // `wmsLayers` artık güncel (renkli) layer'ı tutar; eklendiği harita'dan sil.
+                var guncel=wmsLayers[layerKey];
+                if(guncel && mapsMap.hasLayer(guncel)) mapsMap.removeLayer(guncel);
+                // Her ihtimale karşı: pane'de kalan eski tile'ları temizle
+                var pane=wmsPanes[layerKey];
+                if(pane){ pane.innerHTML=''; }
             }
-            else mapsMap.removeLayer(layer);
             updateActiveLayerCount();
         });
     });
@@ -3619,6 +4144,43 @@ w.seciliParselleBasvuruYapSec=seciliParselleBasvuruYapSec;
 w.showDrawMeasurement=showDrawMeasurement;
 w.hideLoadingOverlay=hideLoadingOverlay;
 w.showLoadingOverlay=showLoadingOverlay;
+w.kaydetBuKatman=kaydetBuKatman;
+w.renkPaletUygula=renkPaletUygula;
+
+/* ── GELİŞTİRİCİ HATA PANELİ: console hatalarını ekranda topla (debug yapısı) ──
+   F12 konsoluna bağımlı kalmadan JS hatalarını yakalar ve sayfanın köşesinde
+   küçük bir rozet gösterir. Tıklayınca tüm hataları listeler. */
+(function(){
+    var _mapErrors=[];
+    var _badge=null;
+    function _ensureBadge(){
+        if(_badge)return;
+        _badge=document.createElement('div');
+        _badge.id='maps-err-badge';
+        _badge.style.cssText='position:fixed;bottom:14px;right:14px;z-index:99999;background:#dc2626;color:#fff;'
+            +'border-radius:50%;width:26px;height:26px;display:none;align-items:center;justify-content:center;'
+            +'font-size:13px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);font-family:sans-serif;';
+        _badge.title='Konsol hataları — tıkla gör';
+        _badge.addEventListener('click',function(){
+            alert('[AYKOME MAPS] Yakalanan '+_mapErrors.length+' hata:\n\n'+_mapErrors.slice(-8).join('\n'));
+        });
+        document.body.appendChild(_badge);
+    }
+    function _push(msg){
+        _mapErrors.push(msg);
+        if(_mapErrors.length>50)_mapErrors.shift();
+        _ensureBadge();
+        _badge.textContent=_mapErrors.length;
+        _badge.style.display='flex';
+    }
+    window.addEventListener('error',function(e){
+        _push('JS: '+(e.message||'?')+' → '+(e.filename||'').split('/').pop()+':'+(e.lineno||''));
+    });
+    window.addEventListener('unhandledrejection',function(e){
+        var m=(e.reason&&(e.reason.message||e.reason))||'Promise hatası';
+        _push('PR: '+m);
+    });
+})();
 
 
 })(window);

@@ -10,6 +10,7 @@ use App\Services\DrawingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class MapsController extends Controller
@@ -24,6 +25,7 @@ class MapsController extends Controller
         // Kişisel katman renkleri: users.map_preferences JSON (birincil) + eski
         // gis_katman_ayarlari tablosu (uyumluluk). maps/index.blade.php re-bind için kullanır.
         $authColorPreferences = [];
+        $authWidthPreferences  = [];
 
         try {
             $userPref = auth()->user()?->getMapColorSettings() ?? [];
@@ -34,25 +36,29 @@ class MapsController extends Controller
             Log::warning('[maps.index] map_preferences okunamadı: ' . $e->getMessage());
         }
 
-        // Eski tablo uyumluluğu — boş kalan katmanlar için gis_katman_ayarlari.renk yedeği
+        // Kalıcı depo: gis_katman_ayarlari (renk + stroke_width) — Oracle dahil tüm ortamlarda var
         try {
-            $legacy = \DB::table('gis_katman_ayarlari')
+            $rows = \DB::table('gis_katman_ayarlari')
                 ->where('user_id', auth()->id())
                 ->whereNotNull('renk')
-                ->pluck('renk', 'katman_adi');
-            foreach ($legacy as $layer => $hex) {
-                $authColorPreferences[$layer] = $authColorPreferences[$layer] ?? $hex;
+                ->get(['katman_adi', 'renk', 'stroke_width']);
+            foreach ($rows as $r) {
+                $authColorPreferences[$r->katman_adi] = $authColorPreferences[$r->katman_adi] ?? $r->renk;
+                if ($r->stroke_width) {
+                    $authWidthPreferences[$r->katman_adi] = (int) $r->stroke_width;
+                }
             }
         } catch (\Exception $e) {
             // tablo yoksa sessiz geç
         }
 
-        return view('maps.index', compact('surfaceTypes', 'authColorPreferences'));
+        return view('maps.index', compact('surfaceTypes', 'authColorPreferences', 'authWidthPreferences'));
     }
 
     // ─── CBS — Katman Renk Tercihleri (kişisel color-picker) ───
-    // Debounce'lı gizli AJAX ile tetiklenir; kullanıcının users.map_preferences
-    // JSON alanına yazar. Görünür "Kaydet" butonu gerekmez.
+    // Debounce'lı gizli AJAX ile tetiklenir. Kalıcı depo: gis_katman_ayarlari.renk
+    // (Oracle'da users.map_preferences kolonu yok; bu tablo her ortamda var).
+    // users.map_preferences JSON'ı varsa oraya da yedeklenir (MySQL/uyumluluk).
 
     public function renkKaydet(Request $request)
     {
@@ -62,9 +68,11 @@ class MapsController extends Controller
         }
 
         $renkler = $request->input('renkler');
+        $kalinliklar = $request->input('kalinliklar');
         if (!is_array($renkler)) {
             return response()->json(['success' => false, 'message' => 'Geçersiz veri'], 422);
         }
+        if (!is_array($kalinliklar)) $kalinliklar = [];
 
         $kaydedilen = 0;
 
@@ -72,36 +80,46 @@ class MapsController extends Controller
             if (!is_string($layer) || !is_string($hex)) continue;
             if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $hex)) continue;
 
-            // Kullanıcının kişisel JSON'ına yaz
-            $user->setMapColorSetting($layer, $hex);
-            $kaydedilen++;
-        }
+            // Kalınlığı aynı satırda kaydet (kullanıcı width belirttiyse, yoksa 2)
+            $width = isset($kalinliklar[$layer]) ? (int) $kalinliklar[$layer] : 2;
+            if ($width < 1) $width = 1;
+            if ($width > 10) $width = 10;
 
-        // Eski tablo uyumluluğu (isteğe bağlı yedek): gis_katman_ayarlari.renk
-        try {
-            foreach ($renkler as $layer => $hex) {
-                if (!is_string($layer) || !is_string($hex)) continue;
-                if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $hex)) continue;
+            // Birincil depo: gis_katman_ayarlari.renk (Oracle dahil tüm ortamlarda var)
+            try {
                 \DB::table('gis_katman_ayarlari')->updateOrInsert(
                     ['user_id' => $user->id, 'katman_adi' => $layer],
                     [
                         'renk' => strtoupper($hex),
+                        'stroke_width' => $width,
                         'gorunur' => true,
                         'opacity' => 0.70,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]
                 );
+                $kaydedilen++;
+            } catch (\Exception $e) {
+                Log::warning('[maps.renkKaydet] gis_katman_ayarlari kaydı başarısız: ' . $e->getMessage());
+                continue;
             }
-        } catch (\Exception $e) {
-            // tablo yoksa sessiz geç
+
+            // İkincil yedek: users.map_preferences JSON — kolon yalnızca MySQL'de varsa yaz
+            try {
+                if (Schema::hasColumn('users', 'map_preferences')) {
+                    $user->setMapColorSetting($layer, $hex);
+                }
+            } catch (\Exception $e) {
+                // Oracle'da kolon yoksa sessiz geç
+            }
         }
 
-        Log::info('[maps.renkKaydet] kullanıcı katman rengi kaydı (users.map_preferences)', [
-            'user_id'    => $user->id,
-            'toplam'     => $kaydedilen,
-            'renkler'    => $renkler,
-            'kaydeden'   => $user->email ?? $user->name,
+        Log::info('[maps.renkKaydet] kullanıcı katman rengi + kalınlık kaydı (gis_katman_ayarlari)', [
+            'user_id'     => $user->id,
+            'toplam'      => $kaydedilen,
+            'renkler'     => $renkler,
+            'kalinliklar' => $kalinliklar,
+            'kaydeden'    => $user->email ?? $user->name,
         ]);
 
         return response()->json([

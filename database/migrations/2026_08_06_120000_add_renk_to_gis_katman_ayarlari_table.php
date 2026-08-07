@@ -8,8 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Oracle'da AFTER/change desteklenmez; kolonu sade haliyle ekle.
         Schema::table('gis_katman_ayarlari', function (Blueprint $table) {
-            $table->string('renk', 9)->nullable()->after('opacity');
+            $table->string('renk', 9)->nullable();
         });
     }
 
