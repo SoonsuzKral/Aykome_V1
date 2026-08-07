@@ -230,11 +230,7 @@
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium text-slate-700" for="address_text">Adres</label>
                         <div class="mt-1 flex gap-2">
-                            <div class="relative flex-1">
-                                <input id="address_text" type="text" name="address_text" value="{{ old('address_text') }}" class="block w-full rounded-lg border-slate-300 shadow-sm @error('address_text') border-red-300 ring-red-100 @enderror">
-                                <div id="address-autocomplete-list" class="hidden absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white text-left text-xs text-slate-700 shadow-lg"></div>
-                            </div>
-                            <button type="button" id="btn-search-address" class="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 whitespace-nowrap">🔍 Haritada Bul</button>
+                            <input id="address_text" type="text" name="address_text" value="{{ old('address_text') }}" class="block w-full rounded-lg border-slate-300 shadow-sm @error('address_text') border-red-300 ring-red-100 @enderror" placeholder="Adres girin">
                         </div>
                         @error('address_text')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
@@ -311,10 +307,6 @@
             </p>
 
             <div class="relative mt-3">
-                <div id="street-jump-bar" class="absolute top-2 left-10 right-2 z-[1000] flex items-center gap-2 overflow-x-auto pb-1"></div>
-                <input id="map-search-input" type="text"
-                    class="absolute top-4 right-12 z-10 w-72 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm shadow-[0_4px_20px_rgba(250,96,1,0.22)] focus:outline-none focus:ring-2 focus:ring-[#02E0FB] focus:border-[#02E0FB] placeholder:text-slate-400"
-                    placeholder="Sokak, bina veya bölge ara...">
                 <div id="map-style-panel" class="absolute top-[4.5rem] right-12 z-10 flex w-40 flex-col gap-1 rounded-xl border border-gray-200 bg-white/95 p-2 shadow-[0_4px_20px_rgba(250,96,1,0.15)] backdrop-blur-sm">
                     <p class="pb-0.5 pl-1 text-[9px] font-black uppercase tracking-wider text-slate-400">Görünüm</p>
                     <button id="style-standard" class="w-full rounded-lg border border-[#FA6001]/30 bg-[#FA6001]/10 px-3 py-1.5 text-left text-[11px] font-semibold text-[#FA6001] transition hover:bg-[#FA6001]/20">⊙ Standart</button>
@@ -460,6 +452,10 @@
             {{-- Hidden inputs for submit --}}
             <div id="surface-lines-hidden-inputs"></div>
         </div>
+
+        @include('admin.applications.partials._metraj_tahmin', [
+            'tahminEditMode' => false,
+        ])
 
         {{-- Kurum & İmza Yetkili Bilgileri — yalnızca kurum başvurusu (Vatandaş değil) ise görünür --}}
         <fieldset id="imza-yetkili-karti" class="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4 sm:grid-cols-2">
@@ -1660,141 +1656,18 @@
             });
         }
 
-        // ─── MAP FLYTO + ADDRESS AUTOCOMPLETE ────────────────────────────
-        function flyToSuggestion(lat, lon, zoom) {
-            zoom = zoom || 17;
-            var targetMainMap = window.appDrawMap || (typeof map !== 'undefined' ? map : (typeof drawMap !== 'undefined' ? drawMap : null));
-            if (targetMainMap) targetMainMap.setView([lat, lon], zoom);
-            var targetCbsMap = window.appCbsMap || (typeof cbsMap !== 'undefined' ? cbsMap : null);
-            if (targetCbsMap) targetCbsMap.setView([lat, lon], zoom);
-        }
-
-        // ─── ULTIMATE ZEKİ HARİTA ARAMA ALGORİTMASI ──────────────────────
-        function parseAddressForGeocode(raw) {
-            var segs = String(raw || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-            var mahalleIdx = -1;
-            segs.forEach(function (s, i) { if (/mah/i.test(s)) mahalleIdx = i; });
-            var mahalle = mahalleIdx >= 0 ? segs[mahalleIdx] : '';
-            var sokak = '';
-            segs.forEach(function (s, i) {
-                if (i === mahalleIdx) return;
-                if (/eyyübiye|şanlıurfa|sanliurfa|türkiye|turkiye/i.test(s)) return;
-                sokak = sokak ? sokak + ', ' + s : s;
-            });
-            if (!sokak) sokak = String(raw || '').trim();
-            return { mahalle: mahalle, sokak: sokak };
-        }
-
-        async function executeSmartGeocode(mahalleTxt, sokakTxt) {
-            let cMh = (mahalleTxt || "").replace(/MAH\.|MAH|mah\.|mah/gi, "Mahallesi").trim();
-            let cSk = (sokakTxt || "").replace(/(\d+)\.(?![\s\w])/g, '$1 ').replace(/[\.]?\s*(SK\.|SK|SOK\.|SOK)/gi, " Sokak").trim();
-
-            // Düz arama kalıbını direk Local Servisimize paslıyoruz
-            let fetchStr = cSk + ", " + cMh + ", Eyyübiye, Şanlıurfa";
-            try {
-                // Sunucumuz içindeki yeni endpoint
-                let response = await fetch("/admin/api/geocode?q=" + encodeURIComponent(fetchStr));
-                let data = await response.json();
-
-                if (data && data.success) {
-                    let tLat = parseFloat(data.lat); let tLon = parseFloat(data.lon);
-                    // Jitter Hatasina kesin çözüm olarak SetView!! Animasyonlu flyTo yapıp map Engine ini bozma!
-                    let targetMainMap = window.appDrawMap || (typeof drawMap !== 'undefined' ? drawMap : map);
-                    let targetCbsMap = window.appCbsMap || (typeof cbsMap !== 'undefined' ? cbsMap : null);
-                    if(targetMainMap) targetMainMap.setView([tLat, tLon], 19);
-                    if(targetCbsMap) targetCbsMap.setView([tLat, tLon], 19);
-                } else {
-                    alert("Merkezi sunucu veritabanımız / api havuzumuz adresi isabetli bulamadı.");
-                }
-            } catch(err) { console.error('Geocode server fail.'); }
-        }
-
-        function renderStreetJumpBar() {
-            var bar = document.getElementById('street-jump-bar');
-            if (!bar) return;
-            bar.innerHTML = '';
-            document.querySelectorAll('#address-components-container [data-mahalle-idx]').forEach(function (wrapper) {
-                var mahalleInput = wrapper.querySelector('.comp-mahalle');
-                var mahalle = mahalleInput ? mahalleInput.value.trim() : '';
-                wrapper.querySelectorAll('.comp-street').forEach(function (s) {
-                    var street = s.value.trim();
-                    if (!street) return;
-                    var btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-3 rounded shadow-lg border border-emerald-800 text-[11px] uppercase tracking-wide cursor-pointer shrink-0 whitespace-nowrap transition';
-                    btn.textContent = street;
-                    btn.title = (mahalle ? mahalle + ' / ' : '') + street;
-                    if (mahalle) btn.setAttribute('data-mahalle', mahalle);
-                    btn.addEventListener('click', function () {
-                        var mahalleVal = (this.getAttribute('data-mahalle') || '').trim();
-                        executeSmartGeocode(mahalleVal, street);
-                    });
-                    bar.appendChild(btn);
-                });
-            });
-        }
-
-        function initAddressAutocomplete() {
-            var input = document.getElementById('address_text');
-            var listEl = document.getElementById('address-autocomplete-list');
-            if (!input || !listEl) return;
-
-            var debounceTimer = null;
-            var _seq = 0;
-
-            function hideList() { listEl.classList.add('hidden'); listEl.innerHTML = ''; }
-
-            function renderList(results) {
-                var items = Array.isArray(results) ? results : [];
-                listEl.innerHTML = '';
-                if (!items.length) { hideList(); return; }
-                items.forEach(function (r) {
-                    var row = document.createElement('button');
-                    row.type = 'button';
-                    row.className = 'block w-full px-3 py-2 text-left hover:bg-orange-50 truncate';
-                    row.textContent = r.display_name;
-                    row.addEventListener('click', function () {
-                        input.value = r.display_name;
-                        hideList();
-                        flyToSuggestion(parseFloat(r.lat), parseFloat(r.lon), 18);
-                        var statusEl = document.getElementById('map-status');
-                        if (statusEl) statusEl.textContent = '📍 ' + r.display_name;
-                    });
-                    listEl.appendChild(row);
-                });
-                listEl.classList.remove('hidden');
-            }
-
-            input.addEventListener('input', function () {
-                clearTimeout(debounceTimer);
-                var q = input.value.trim();
-                if (q.length < 4) { hideList(); return; }
-                debounceTimer = setTimeout(function () {
-                    var seq = ++_seq;
-                    fetch('/admin/api/geocode?list=1&limit=6&q=' + encodeURIComponent(q))
-                        .then(function (r) { return r.json(); })
-                        .then(function (data) {
-                            if (seq !== _seq) return;
-                            if (data && data.success && Array.isArray(data.list)) renderList(data.list);
-                            else hideList();
-                        })
-                        .catch(function () { if (seq === _seq) hideList(); });
-                }, 500);
-            });
-
-            input.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape') hideList();
-            });
-
-            document.addEventListener('click', function (e) {
-                if (e.target !== input && !listEl.contains(e.target)) hideList();
-            });
-        }
+        // ─── (ESKİ KONUM BULMA SİSTEMİ KALDIRILDI) ────────────────────────
+        // YENİ KONUM BUL (ANİMASYONLU): maps/index'teki search-spinner + pulse
+        // marker + animasyonlu flyTo deseni forma taşındı. WMS konum bulma
+        // ─── CADDE/SOKAK VERİ GİRİŞİ (üst yazı tablosu için) ────────────────
+        // Sadece veri girişi: mahalle + cadde/sokak listesini address_components
+        // hidden alanına serileştirir. Haritaya otomatik gitme YOK (yeşil arama
+        // bağlantıları + geocode kaldırıldı).
+        function esc(v) { return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
         // ─── BOOT ─────────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', function () {
             initTcknLookup();
-            initAddressAutocomplete();
             initInstitutionWatcher();
             initDocumentUpload();
             initAutoDateAdder();
@@ -1804,66 +1677,12 @@
 
             var mapEngine = initMap();
 
-            // Connect search to map
-            if (mapEngine) {
-                var si = document.getElementById('map-search-input');
-                if (si) {
-                    si.addEventListener('keydown', async function (e) {
-                        if (e.key !== 'Enter') return;
-                        e.preventDefault();
-                        var q = si.value.trim();
-                        if (!q) return;
-                        var parts = parseAddressForGeocode(q);
-                        await executeSmartGeocode(parts.mahalle, parts.sokak);
-                    });
-                }
-            }
-
-            // ── Address search button ───────────────────────────────────
-            document.getElementById('btn-search-address')?.addEventListener('click', async function () {
-                var rawQuery = document.getElementById('address_text')?.value?.trim();
-                if (!rawQuery || rawQuery.length < 3) return alert('Lütfen daha detaylı bir adres girin.');
-                var parts = parseAddressForGeocode(rawQuery);
-                await executeSmartGeocode(parts.mahalle, parts.sokak);
-            });
-
             // Add Row button
             document.getElementById('add-row-btn')?.addEventListener('click', function () {
                 addSurfaceLine({});
             });
 
-            // ─── ADDRESS COMPONENTS (NESTED CADDE/SOKAK DOM) ────────────────
-            function prepareAddressComponents() {
-                var container = document.getElementById('address-components-container');
-                if (!container) return;
-                var result = [];
-                container.querySelectorAll('[data-mahalle-idx]').forEach(function (wrapper) {
-                    var mahalleInput = wrapper.querySelector('.comp-mahalle');
-                    if (!mahalleInput) return;
-                    var mahalle = mahalleInput.value.trim();
-                    var streets = [];
-                    wrapper.querySelectorAll('.comp-street').forEach(function (s) {
-                        var v = s.value.trim();
-                        if (v) streets.push(v);
-                    });
-                    result.push({ mahalle: mahalle, streets: streets });
-                });
-                var json = JSON.stringify(result);
-                var h = document.getElementById('address_components_json');
-                if (!h) {
-                    h = document.createElement('input');
-                    h.type = 'hidden';
-                    h.name = 'address_components_json';
-                    h.id = 'address_components_json';
-                    document.getElementById('application-form').appendChild(h);
-                }
-                h.value = json;
-                var main = document.getElementById('address_components');
-                if (main) main.value = json;
-            }
-
-            function esc(v) { return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
+            // ─── MAHALLE & SOKAK VERİ GİRİŞİ (üst yazı tablosu) ─────────────
             function initAddressComponents() {
                 var hiddenInput = document.getElementById('address_components');
                 var container = document.getElementById('address-components-container');
@@ -1919,10 +1738,7 @@
                         container.appendChild(wrapper);
                     });
                     attachEvents();
-                    renderStreetJumpBar();
                 }
-
-                var streetTimers = {};
 
                 function attachEvents() {
                     container.querySelectorAll('.comp-mahalle').forEach(function (el) {
@@ -1930,7 +1746,6 @@
                             var idx = parseInt(this.dataset.idx);
                             if (!isNaN(idx) && components[idx]) components[idx].mahalle = this.value;
                             syncHidden();
-                            renderStreetJumpBar();
                         });
                     });
 
@@ -1942,12 +1757,6 @@
                                 components[idx].streets[si] = this.value;
                             }
                             syncHidden();
-                            renderStreetJumpBar();
-                            clearTimeout(streetTimers[idx + '-' + si]);
-                            streetTimers[idx + '-' + si] = setTimeout(function () {
-                                var mahalle = components[idx] && components[idx].mahalle ? components[idx].mahalle : '';
-                                executeSmartGeocode(mahalle, el.value.trim());
-                            }, 700);
                         });
                     });
 
@@ -2000,7 +1809,6 @@
             // Submit hook
             document.getElementById('application-form')?.addEventListener('submit', function () {
                 prepareSurfaceLinesForSubmit();
-                prepareAddressComponents();
             });
         });
     </script>

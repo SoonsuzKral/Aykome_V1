@@ -568,7 +568,7 @@ class ApplicationsController extends Controller
             'identity_no' => $data['identity_no'] ?? $application->identity_no,
             'applicant_phone' => $data['applicant_phone'] ?? $application->applicant_phone,
             'project_code' => $data['project_code'] ?? $application->project_code,
-            'application_type' => $data['application_type'] ?? $application->application_type,
+            'application_type' => $application->is_additional_permit ? 'ek_ruhsat' : ($data['application_type'] ?? $application->application_type),
             'excavation_reason' => $data['excavation_reason'] ?? $application->excavation_reason,
             'work_type' => $data['work_type'] ?? $application->work_type,
             'start_date' => $data['start_date'] ?? $application->start_date,
@@ -2416,6 +2416,42 @@ HTML;
         }
 
         return $rows;
+    }
+
+    /**
+     * KAZI METRAJ TAHMİNİ (PRO) — POST /admin/applications/metraj-tahmin
+     * -------------------------------------------------------------
+     * Başvuru formundaki "🎯 Metraj Tahmini Al" butonundan çağrılır.
+     * ProjectForecastService geçmiş başvuru istatistiğinden (kurum+mahalle
+     * adaptif; veri azsa global/varsayılan) tam kapsamlı tahmin üretir:
+     * toplam m² + zemin tipi bazlı dağılım + AykomeMath ile fiyat öngörüsü.
+     * Sıfır maliyet, offline, LLM yok.
+     */
+    public function metrajTahmin(Request $request, \App\Services\ProjectForecastService $forecast): JsonResponse
+    {
+        $validated = $request->validate([
+            'institution_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'mahalle' => ['nullable', 'string', 'max:255'],
+            'total_area_m2' => ['required', 'numeric', 'min:0'],
+            'exclude_application_id' => ['nullable', 'integer'],
+        ]);
+
+        $result = $forecast->predict(
+            ! empty($validated['institution_id']) ? (int) $validated['institution_id'] : null,
+            ! empty($validated['mahalle']) ? (string) $validated['mahalle'] : null,
+            (float) $validated['total_area_m2'],
+            ! empty($validated['exclude_application_id']) ? (int) $validated['exclude_application_id'] : null,
+        );
+
+        AuditLogger::log(
+            'metraj.forecast',
+            "Metraj tahmini alındı: {$result['total_m2']} m², seviye={$result['level']}, örnek={$result['sample_count']}",
+            null,
+            null,
+            ['level' => $result['level'], 'sample_count' => $result['sample_count'], 'total_m2' => $result['total_m2']]
+        );
+
+        return response()->json($result);
     }
 
     public function geocodeProxy(Request $request): JsonResponse

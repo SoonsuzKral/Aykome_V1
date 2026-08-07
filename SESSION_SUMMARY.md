@@ -1,4 +1,141 @@
-# Oturum Özeti — 2 Ağustos 2026
+# Oturum Özeti — 7 Ağustos 2026
+
+## Sprint 8b — CADDE/SOKAK INPUT DÜZELTMESİ (geri getirildi, fazlalıklar kaldırıldı)
+
+### 🎯 Öz
+Önceki sprint'te (8a) cadde/sokak input yapısı yanlışlıkla tamamen kaldırılmıştı. Kullanıcı düzeltmesi: **cadde/sokak inputlarını geri getir** (üst yazı tablosu için gerekli), ama **yeşil div arama bağlantılarını** (cadde yazınca harita üstünde çıkan `renderStreetJumpBar`) ve **adres inputundaki "Konum Bul" butonunu** kaldır. Yeni adres bulma algoritması henüz kurulmayacak.
+
+### ✅ Geri Getirilenler (create + edit)
+- **HTML:** "Mahalle & Sokak Listesi" bloğu (`address-components-container`, `+ Mahalle & Sokak Ekle`, hidden `address_components`)
+- **JS:** `esc()`, `initAddressComponents()` — sadece veri girişi (mahalle + cadde/sokak listesini `address_components` JSON'a serileştirir). Cadde yazınca haritaya otomatik gitme YOK.
+- Submit: hidden `address_components` form'da otomatik gider
+
+### ✅ Kaldırılanlar (kullanıcının istemedikleri)
+- `#btn-find-location` "📍 Konum Bul" butonu + locSpin/locPulse animasyon CSS + `flyToAnimated` JS
+- `renderStreetJumpBar` yeşil div arama bağlantıları (cadde yazınca harita üstünde çıkan) + `#street-jump-bar`
+- `executeSmartGeocode`, `initAddressAutocomplete`, `btn-search-address` (eski geocode/arama zinciri kalıntıları)
+
+### ✅ Doğrulama
+- `php artisan view:cache` OK
+- create/edit: cadde/sokak referansı 10/10; kaldırılacaklar 0/0
+- Not: Animasyon kodu maps/index'te duruyor — WMS konum bulma sistemi kurulurken oradan taşınacak
+
+### 📁 Değişen Dosyalar
+- `resources/views/admin/applications/create.blade.php`, `edit.blade.php`
+- `SESSION_SUMMARY.md`
+
+### Sıradaki (BÜYÜK GÖREV)
+- **WMS tabanlı nokta atışı konum bulma sistemi** — mahalle/sokak/kapı numarasına kadar. Kullanıcı algoritmayı anlatacak.
+
+---
+
+## Sprint 8 — KONUM YAPISI TEMİZLİĞİ + ANİMASYONLU KONUM BUL
+
+### 🎯 Öz
+Başvuru oluştur/düzenle sayfalarında eski, hatalı konum bulma yapısı (mahalle/cadde/sokak DOM'u, yeşil sokak jump butonları, eski geocode zinciri, adres autocomplete) tamamen kaldırıldı. Yerine **animasyonlu "📍 Konum Bul"** butonu + pulse marker + animasyonlu flyTo taşındı (maps/index deseni). Bu, yeni WMS konum bulma sisteminin altyapısını hazırlar.
+
+### ✅ Kaldırılanlar (create + edit, ~668 satır)
+- **HTML:** `#btn-search-address` ("🔍 Haritada Bul"), Mahalle & Sokak Listesi bloğu (`#address_components` hidden, `#address-components-container`, `+ Mahalle & Sokak Ekle`), `#street-jump-bar`, `#address-autocomplete-list`, `#map-search-input`
+- **JS fonksiyonları:** `flyToSuggestion`, `parseAddressForGeocode`, `executeSmartGeocode`, `renderStreetJumpBar`, `initAddressAutocomplete` (Nominatim), `prepareAddressComponents`, `initAddressComponents`, `esc`
+- **Event bağları:** autocomplete, btn-search, map-search Enter, nested cadde/sokak debounce-geocode
+- `show.blade.php` readonly görüntüleme + `maps/index` original animasyonuna **dokunulmadı**
+
+### ✅ Eklenenler (animasyon forma taşındı)
+- "📍 Konum Bul" butonu + `locSpin` spinner animasyonu (click'te döner)
+- `flyToAnimated(lat,lon)` — iki haritaya animasyonlu `flyTo({animate:true,duration:1})` + `locPulse` pulse turuncu marker (`loc-marker`)
+- S2S `/admin/api/geocode`'i çağırır (WMS sistemi aynı endpoint'i kullanacak)
+
+### ✅ Doğrulama
+- `php artisan view:cache` OK (tüm blade derlenir)
+- create/edit'te eski referanslar 0; yeni animasyon referansı 8/8
+- `git diff`: toplam -668 satır, +113 satır
+
+### 📁 Değişen Dosyalar
+- `resources/views/admin/applications/create.blade.php`, `edit.blade.php`
+- `SESSION_SUMMARY.md`
+
+### Sıradaki (BÜYÜK GÖREV)
+- **WMS tabanlı nokta atışı konum bulma sistemi** — mahalle/sokak/kapı numarasına kadar. `maps/index`'teki ada/parsel sorgulama mantığının aynısı mahalle/cadde/sokak/kapı sorgulamasına uyarlanacak; `_harita` partial + `ApplicationsController::geocodeProxy`/proxy S2S altyapısı kullanılacak.
+
+---
+
+## Sprint 7 — MERKEZ BELEDİYE (VATANDAŞ) MODÜL SERBEST ERİŞİMİ
+
+### 🎯 Öz
+Alt kurum başvurularında çalışan modül PDF'leri (Tahakkuk/Metraj/Taahhütname/Ruhsat) + Düzenle butonları merkez belediye (vatandaş, `institution.is_municipality=true`) başvurularında görünmüyordu. Kök nedenler bulundu ve tek dosyada (show.blade.php) çözüldü — alt kurum akışına DOKUNULMADI.
+
+### ✅ Kök Nedenler (Explore doğrulandı)
+1. `$passedMetraj` (`show.blade.php:31`) `pre_approved` statüsünü dışlıyordu; merkez başvuruda metraj aşaması tam `pre_approved`'la geliyor (`ApplicationService::approveReceipt` is_municipality dalı → `PreApproved`) → **Metraj PDF + Düzenle gizli**.
+2. Merkez Step 1 (Tahakkuk) kartında `pdf.tahakkuk` linki HİÇ yoktu — sadece tahsilat fişi/makbuz vardı.
+3. PDF route'ları sunucuda çalışıyor (sadece `authorize('view')`) — sorun tamamen UI buton görünürlüğü.
+4. Makbuz no inputları (`ztb_receipt_info`/`deposit_receipt_info`) merkezde de görünüyordu.
+5. "Kuruma Gönder / Devret" butonu merkezde anlamsızdı.
+
+### ✅ Değişiklikler (hepsi `show.blade.php`)
+- **`$isMuniApp`** değişkeni erken tanımlandı: `(bool) ($application->institution?->is_municipality ?? false)`.
+- **`$passedMetraj`** başvuru tipine duyarlı: muni'de `['draft','submitted','pending','rejected']` dışı hepsi geçer (pre_approved dahil); alt kurum eski listesini korur.
+- **Step 1 (Tahakkuk):** muni'de `@if($isMuniApp || in_array(...))` ile Tahsilat Fişi & Makbuz bloğu her aşamada açık + **📄 Tahakkuk Fişi (PDF) Görüntüle/Yazdır** linki + **✏️ Tahakkuk Belgesini Düzenle (Kaydet)** (belediye personeli) eklendi. "Tahakkuk Bilgileri" formu (makbuz no) `$isInstitutionApplication()` şartına bağlandı → merkezde GİZLİ, alt kurumda kalır.
+- **Step 2 (Metraj):** `@if($isMuniApp ? true : $passedMetraj)` — muni'de her aşamada PDF + Düzenle açık.
+- **Step 3 (Taahhütname):** `@if($isMuniApp ? true : ($isCurrent || $isPast))` — muni'de her zaman açık.
+- **Step 4 (Ruhsat):** aynı gevşetme + makbuz no formu `@if(!$isMuniApp && ...)` — merkezde GİZLİ.
+- **Üst Yazı (Dilekçe)** Belge Arşivi'nde muni'de de görünür (`$isMuniApp ||`).
+- **"Kuruma Gönder / Devret"** butonu `$application->isInstitutionApplication()` şartıyla merkezde GİZLİ.
+
+### ✅ Doğrulama
+- `php artisan view:cache` OK (tüm blade derlenir)
+- `workflowStep('pre_approved', true)` → step 2 (Kazı Metraj) — merkez akışı doğrulandı
+- Alt kurum akışına hiç dokunulmadı (`isInstitutionApplication()` şartları korundu)
+
+### 📁 Değişen Dosyalar
+- `resources/views/admin/applications/show.blade.php` (tek dosya, +40/-12)
+- `SESSION_SUMMARY.md`
+
+### Sıradaki
+- Tarayıcıda merkez belediye başvurusu: Step 1→4 modül PDF'leri + Düzenle butonları, makbuz formları gizli, Kuruma Gönder butonu yok
+- Alt kurum başvurusu: akış değişmediğini doğrula
+
+---
+
+## Sprint 6 — KAZI METRAJ TAHMİNİ (PRO) — İstatistiksel Tahmin Motoru
+
+### 🎯 Öz
+BETA→PRO: Başvuru formuna gömülü, **sıfır maliyet / offline / LLM'siz** istatistiksel metraj tahmin motoru. Kurum+mahalle adaptif hiyerarşi; veri azsa global/varsayılan düşüş.
+
+### ✅ 1. `app/Services/ProjectForecastService.php` (YENİ)
+- `predict(institutionId, mahalle, totalM2, excludeAppId)` → tam paket: toplam m² + zemin bazlı yüzde/m²/fiyat satırları + `forecast_total` + güven etiketi
+- Adaptif seviyeler: **L1 kurum+mahalle** (≥3 örnek) → **L2 kurum** (≥5) → **L3 global** (≥5) → **L4 varsayılan dağılım**
+- `defaultDistribution()` — SurfaceTypeSeeder gerçek adlarıyla eşleşen akıllı varsayılan (%55 asfalt, %18 parke, %12 beton, %6 stabilize, %6 toprak, %3 çim; DB'de yoksa ilk aktif tipe bakiye)
+- Oracle uyumlu: ham JSON SQL fonksiyonu YOK — mahalle filtresi PHP tarafında `address_components` array'inde (yavaş ama güvenli)
+- Fiyat öngörüsü AykomeMath çekirdeğiyle uyumlu (amount = m² × birim fiyat; recalculateTotals ile bağlanır)
+
+### ✅ 2. Controller + Route
+- `ApplicationsController::metrajTahmin(Request)` — validasyon (`institution_id/mahalle/total_area_m2/exclude_application_id`) + `ProjectForecastService::predict` + `AuditLogger::log('metraj.forecast', ...)` + JSON
+- `POST admin/applications/metraj-tahmin` → `admin.applications.metraj-tahmin` (check-applicant yanına, resource'dan önce)
+
+### ✅ 3. View — `partials/_metraj_tahmin.blade.php` (YENİ)
+- create + edit'e `@include` (zemin kartı ile Kurum & İmza Yetkili arasına)
+- "🎯 Metraj Tahmini Al" butonu → AJAX POST → sonuç kartı: güven + seviye etiketi + zemin tablosu (pay/m²/birim fiyat/öngörü) + toplam öngörü
+- "♻️ Zemin Satırlarına Uygula" → global `addSurfaceLine()` satır ekler + `recalculateAll()` (mevcut çizim/satır API'sine bağlanır, yeni mimari yok)
+
+### ✅ Doğrulama
+- `php -l` service + controller + routes OK; `php artisan route:list --name=metraj-tahmin` → 1 route
+- `php artisan view:cache` OK (tüm blade derlenir); partial JS `node --check` OK
+- Saf istatistik mantığı birim testi: %55/%45 dengeli, tek tip %100, boş → [] — hepsi geçti
+- Not: host CLI OCI8'siz olduğundan DB'li tinker çalışmadı (bilinen çevresel kısıt) — servis Eloquent sorgusu sadece; Docker Oracle'da `./oracle.sh tinker` ile `app(ProjectForecastService::class)->predict(1,'EYYÜBİYE',180)` test edilebilir
+
+### 📁 Değişen Dosyalar
+- `app/Services/ProjectForecastService.php` (yeni), `resources/views/admin/applications/partials/_metraj_tahmin.blade.php` (yeni)
+- `app/Http/Controllers/Admin/ApplicationsController.php` (+`metrajTahmin`), `routes/admin.php` (+1 route)
+- `resources/views/admin/applications/create.blade.php` + `edit.blade.php` (partial include)
+- `SESSION_SUMMARY.md` (bu özet)
+
+### Sıradaki
+- Docker'da DB'li predict testi; tarayıcıda create/edit "Tahmini Al" → uygula akışı
+- Varsayılan dağılım gerçek veriyle doldukça otomatik isabet kazanır
+
+---
+
+## Önceki — 2 Ağustos 2026
 
 ## Sprint 5 — EBYS 5 MADDELİK İŞ PAKETİ (Backend + Migration + View)
 

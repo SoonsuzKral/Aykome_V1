@@ -48,7 +48,9 @@
         @media print {
             body { background:#fff; margin:0 !important; font-size: 14.5px !important; display: block;}
             .print-bar { display:none !important; }
-            .a4-container { width: 100% !important; padding: 12mm 20mm 0 20mm !important; height:100% !important; box-shadow:none; margin:0; page-break-after: avoid; }
+            /* KATI A4 SINIRI: taşan kısım 2. sayfaya sıçramaz — tek kağıt çıktısı garanti */
+            .a4-container { width: 100% !important; padding: 12mm 20mm 0 20mm !important; height: 297mm; overflow: hidden; box-shadow:none; margin:0; page-break-after: avoid; }
+            .a4-container .footer-line, .a4-container > *:last-child { page-break-inside: avoid; }
         }
         .no-print { display: block; }
         @media print { .no-print { display: none !important; } }
@@ -171,10 +173,9 @@
             </tr>
         </table>
 
-        <div style="margin-top:20px; border-top: 1.5px dashed #444; padding-top:5px; text-align: center; font-family: monospace; font-size: 10px; color:#1f2937;">
-            Bu belge Eyyübiye Belediyesi AYKOME (Altyapı Koordinasyon) Elektronik Yönetim Sistemi ile güvenli ve benzersiz olarak oluşturulmuştur.<br>
-            BELGE DOĞRULAMA KODU : <span style="color:#d97706; font-size:12px; font-weight:bold;">{{ $application->verification_code ?? 'GEÇERSİZ/TASLAK' }}</span>
-            | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b>
+        {{-- FOOTER — TEK SATIR + DAR MARGIN: uzun açıklama silindi, A4 taşması engellenir --}}
+        <div style="margin-top:10px; border-top: 1px dashed #cbd5e1; padding-top:3px; text-align: center; font-family: monospace; font-size: 9px; line-height: 1; color:#64748b;">
+            BELGE DOĞRULAMA KODU: <b style="color:#d97706;">{{ $application->verification_code ?? 'GEÇERSİZ/TASLAK' }}</b> | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b>
         </div>
 
     </div>

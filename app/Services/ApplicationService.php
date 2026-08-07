@@ -150,9 +150,18 @@ class ApplicationService
                 'mudur_unvani' => $parent->mudur_unvani,
             ]);
 
-            $year = now()->year;
+            // Ek Ruhsat — yeni başvuru numarası ÜRETMEZ; asıl başvurunun numarasının devamı olarak
+            // "ANANO-EK" şeklinde türetilir (aynı kayıt ailesi / ID bağlantısı korunur).
+            $baseNo = $parent->application_no ?: sprintf('%s-%04d', now()->year, $parent->id);
+            $candidate = $baseNo . '-EK';
+            $i = 2;
+            while (Application::query()->where('application_no', $candidate)->exists()) {
+                $candidate = $baseNo . '-EK-' . $i;
+                $i++;
+            }
             $application->update([
-                'application_no' => sprintf('%s-%04d', $year, $application->id),
+                'application_no' => $candidate,
+                'parent_id' => $parent->id,
             ]);
 
             // Kazı alanını kopyala
