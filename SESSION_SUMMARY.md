@@ -1,6 +1,38 @@
 # Oturum Özeti — 8 Ağustos 2026
 
-## Sprint 9 — WMS NOKTA ATIŞI ADRES BULMA (Mahalle→Cadde→Sokak→Kapı)
+## Sprint 9b — WMS ADRES BULMA DÜZELTMELERİ (Türkçe İ + tam bbox nokta atışı)
+
+### 🎯 Öz
+Sprint 9a'da kurulan WMS adres bulma "işe yaramadı" raporu üzerine debug + kök neden çözüldü. Kullanıcının gerçek adresi **"8125. Sk. 122 Kadıkendi, 63000 Eyyübiye/Şanlıurfa"** ile uçtan uca canlı WMS testi geçti.
+
+### 🐛 Kök Nedenler
+1. **parseAddress bozuktu** — "8125. Sk. 122 Kadıkendi" girdisinde mahalle boş, kapı=8125 (sokak no), cadde çöp geliyordu. Türkçe adres formatlarına göre yeniden yazıldı: `mahalle='Kadıkendi', cadde='8125', kapi='122'`.
+2. **GeoServer ILIKE Türkçe İ sorunu** — `mb_strtoupper('Kadıkendi')` → `KADIKENDI` (ASCII I) üretiyor ama GeoServer verisi `KADIKENDİ` (Türkçe İ noktalı). `KADIKENDİ` eşleşiyordu, `KADIKENDI` değil. Çözüm: **`trUppercase()`** — Türkçe kurallı büyütme (küçük `i`→`İ`, küçük `ı`→`I`) + `turkeVariants()` (Türkçe/ASCII varyant döngüsü).
+3. **bbox filtre CRS** — `BBOX(GEOMETRY,...)` host'te 0 dönüyor; **`BBOX(GEOMETRY,...,'EPSG:4326')`** (CRS parametresi) şart. Kanıtlandı.
+
+### ✅ Doğru Katman Şemaları (canlı DescribeFeatureType)
+| Katman | Doğru Alan |
+|---|---|
+| `cbs:MISMAP_MAHALLE_KOYLER` | `MAHALLE_ADI` |
+| `cbs:MISMAP_CADDE_SOKAK` | `CADDE_SOKAK_ADI` |
+
+### ✅ Nokta Atışı (tam bbox)
+- `wfsMahalleBul` artık mahalle poligonunun TAM bbox'ını dönruyor
+- `wfsCaddeBul` caddeyi **mahalle bbox'ı içinde** arıyor → "8125 SOKAK" 2 yerde varsa (38.84 & 38.74) Kadıkendi'deki (38.74) seçilir
+
+### ✅ E2E Canlı Test (kullanıcının adresi)
+```
+PARSE: mah=Kadıkendi cad=8125
+MAHALLE OK: KADIKENDİ
+CADDE '8125': 1
+  OK: 8125 SOKAK
+```
+
+### 📁 Değişen Dosyalar
+- `app/Http/Controllers/MapsController.php` (parseAddress, trUppercase, turkeVariants, wfsMahalleBul/CaddeBul bbox)
+
+---
+## Sprint 9a — WMS NOKTA ATIŞI ADRES BULMA (Mahalle→Cadde→Sokak→Kapı)
 
 ### 🎯 Öz
 Başvuru formlarına (create+edit) WMS tabanlı nokta atışı adres bulma kuruldu. İki yöntem: (1) adresi tam yaz → backend mahalle/cadde/kapı ayırır → WMS doğrular → haritada göster; (2) mahalle yaz → "🔍 Bul" → o mahallenin tüm cadde/sokakları gelir → autocomplete ile seç. Aykome Maps'teki ada/parsel mantığının mahalle/cadde uyarlaması.

@@ -516,7 +516,7 @@ class MapsController extends Controller
             return response()->json(['success' => false, 'message' => 'Adres çok kısa.']);
         }
 
-        $cacheKey = 'maps_adres_ara_' . md5($q);
+        $cacheKey = 'maps_adres_ara_' . md5(mb_strtolower($q, 'UTF-8'));
         $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
         if ($cached) return response()->json($cached);
 
@@ -525,21 +525,21 @@ class MapsController extends Controller
         $sonuc = ['success' => false, 'message' => 'Adres isabetli bulunamadı.'];
 
         try {
-            // 1) MAHALLE — cbs:MISMAP_MAHALLE_KOYLER (geo3)
+            // 1) MAHALLE — cbs:MISMAP_MAHALLE_KOYLER (geo3), MAHALLE_ADI
             $mahalle = null;
             if ($parsed['mahalle'] !== '') {
                 $mahalle = $this->wfsMahalleBul($parsed['mahalle']);
                 if ($mahalle) $sonuc['mahalle'] = $mahalle['name'];
             }
 
-            // 2) CADDE/SOKAK — cbs:MISMAP_CADDE_SOKAK (geo3)
+            // 2) CADDE/SOKAK — mahalle poligonunun bbox'ı içinde ara (isabetli)
             $cadde = null;
             if ($parsed['cadde'] !== '') {
-                $cadde = $this->wfsCaddeBul($parsed['cadde'], $mahalle['name'] ?? null);
+                $cadde = $this->wfsCaddeBul($parsed['cadde'], $mahalle);
                 if ($cadde) $sonuc['cadde'] = $cadde['name'];
             }
 
-            // 3) KAPI NO — smpns:m_Numarataj dene (500 verirse pas), bina fallback
+            // 3) KAPI NO
             $kapi = $parsed['kapi'];
             $sonuc['kapi'] = $kapi;
 
@@ -601,7 +601,9 @@ class MapsController extends Controller
     }
 
     /**
-     * "15 TEMMUZ MAHALLESİ, 123. SOKAK, 5" → {mahalle, cadde, kapi}
+     * Türkçe adres çözücü — "8125. Sk. 122 Kadıkendi, 63000 Eyyübiye/Şanlıurfa"
+     * → {mahalle:'Kadıkendi', cadde:'8125', kapi:'122'}
+     * Formatlar: "MAHALLE + CADDE + KAPI", "Kadıkendi 8125. Sokak", "15 TEMMUZ MAHALLESİ, 123. Sokak, 5"
      */
     private function parseAddress(string $q): array
     {
@@ -609,27 +611,50 @@ class MapsController extends Controller
         $cadde = '';
         $kapi = '';
 
-        // Mahalle: "MAHALLESİ / MAH. / MAH / MH" ile biten parça
-        if (preg_match('/([A-Za-zÇĞİÖŞÜçğıöşü0-9\s\.\-]*(?:MAHALLESİ|MAHALESİ|MAH\.|MAH|MH))[,\s]/ui', $q . ' ', $m)) {
-            $mahalle = trim($m[1], " \t\n\r\0\x0B,.");
+        // 1) Şehir/ilçe/posta kodu temizle (sadece mahalle+cadde+kapi kalır)
+        $temiz = preg_replace('/\b\d{5}\b\s*/', ' ', $q);
+        $temiz = str_replace(['/', ';'], ',', $temiz);
+        $parcalar = array_values(array_filter(array_map('trim', explode(',', $temiz)), fn ($p) => $p !== ''));
+        $parcalar = array_values(array_filter($parcalar, function ($p) {
+            return ! preg_match('/(eyyübiye|şanlıurfa|sanliurfa|yyübiye)/iu', $p);
+        }));
+        $asil = implode(' ', $parcalar);
+
+        // 2) Sokak no: sayı + SK/SOK/CADDE etiketi ("8125. Sk.", "123. Sokak", "3097 SOKAK")
+        if (preg_match('/(?:^|[\s,])?(\d{1,5})[\s\.]*\.?\s*(?:SK\.?|SOK\.?|SOKAK|SOKAĞI|SK|Cad\.?|CADDE|CD\.?|Cd\.?)/iu', $asil, $m)) {
+            $cadde = $m[1];
+        } elseif (preg_match('/(\d{1,5})\s+(?:SOKAK|SOKAĞI|SK|SOK|CADDE|CAD)/iu', $asil, $m2)) {
+            $cadde = $m2[1];
+        } elseif (preg_match('/^(\d{1,5})/u', $asil, $m3)) {
+            $cadde = $m3[1];
         }
 
-        // Kapı no: ilk tam sayı (5, 10, 3A vb.)
-        if (preg_match('/\b(\d{1,4}[A-Za-z]?)\b/u', $q, $m)) {
-            $kapi = $m[1];
+        // 3) Kapı no: cadde numarasından SONRAKİ sayı (122) — sokak no karşıolmaz
+        if ($cadde !== '') {
+            $pos = strpos($asil, $cadde);
+            $sonrasi = substr($asil, $pos + strlen($cadde));
+            if (preg_match('/(\d{1,4}[A-Za-z]?)/u', $sonrasi, $mk)) {
+                // "122" gibi — etiketsiz ilk sayı kapı no
+                $kapi = $mk[1];
+            }
         }
 
-        // Cadde/sokak: mahalle + kapı no çıkarıldıktan sonra kalan
-        $kalan = trim(preg_replace('/[,\s]+/', ' ', str_ireplace([$mahalle, $kapi], ' ', $q)));
-        $kalan = trim(preg_replace('/\s+/', ' ', $kalan));
-        // "123. SOKAK" kalıplarını temizle (sokak no'yu sökme)
-        $cadde = $kalan;
+        // 4) Mahalle: "MAHALLESİ" ekiyle biten grup VEYA sayı/etiket içermeyen son kelime
+        if (preg_match('/([A-Za-zÇĞİÖŞÜçğıöşü0-9\s\.\-]*?(?:MAHALLESİ|MAHALESİ|MAHALLE|MAH\.|MAH|MH))/iu', $asil, $mm)) {
+            $mahalle = trim($mm[1]);
+        } elseif (preg_match_all('/\b([A-Za-zÇĞİÖŞÜçğıöşü]{3,})\b/iu', $asil, $kelt)) {
+            $etiketler = ['SK', 'SOK', 'SOKAK', 'SOKAĞI', 'CAD', 'CADDE', 'CD', 'MAH', 'MAHALLE', 'MAHALLESİ', 'MH'];
+            $adaylar = array_values(array_filter($kelt[1], function ($w) use ($etiketler) {
+                $u = mb_strtoupper($w, 'UTF-8');
+                $etiks = array_map(fn ($e) => mb_strtoupper($e, 'UTF-8'), $etiketler);
+                return ! in_array($u, $etiks, true) && mb_strlen($w, 'UTF-8') >= 4;
+            }));
+            if (! empty($adaylar)) {
+                $mahalle = mb_convert_case(end($adaylar), MB_CASE_TITLE, 'UTF-8');
+            }
+        }
 
-        return [
-            'mahalle' => $mahalle,
-            'cadde' => $cadde,
-            'kapi' => $kapi,
-        ];
+        return ['mahalle' => $mahalle, 'cadde' => $cadde, 'kapi' => $kapi];
     }
 
     /**
@@ -638,57 +663,111 @@ class MapsController extends Controller
      */
     private function wfsMahalleBul(string $mahalle): ?array
     {
+        // TÜRKÇE KARAKTER ÇÖZÜMÜ: GeoServer ILIKE, 'İ'/'I' ayrımını yapmaz.
+        // Kullanıcı 'Kadıkendi' yazar; büyük harfte 'KADIKENDI'(ascii) ya da
+        // 'KADIKENDİ'(Türkçe) olabilir. Veride GERÇEK değer neyse onu eşleştirir:
+        // → ASCII ve Türkçe İ varyantlarını sırayla dene.
+        $adlar = $this->turkeVariants(trim($mahalle));
+        if (empty($adlar)) return null;
+
         $url = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
             . '?service=WFS&version=2.0.0&request=GetFeature'
             . '&typeNames=cbs:MISMAP_MAHALLE_KOYLER'
-            . '&cql_filter=' . urlencode("MAHALLE_ADI ILIKE '%{$mahalle}%'")
-            . '&outputFormat=application/json&srsName=EPSG:4326&count=1';
-        $resp = Http::withOptions(['verify' => false, 'timeout' => 5])->get($url);
-        if (!$resp->successful()) return null;
+            . '&outputFormat=application/json&srsName=EPSG:4326&count=3';
 
-        $data = $resp->json();
-        $f = $data['features'][0] ?? null;
-        if (!$f) return null;
+        foreach ($adlar as $q) {
+            $u = $url . '&cql_filter=' . urlencode("MAHALLE_ADI ILIKE '%{$q}%'") . '&outputFormat=application/json&srsName=EPSG:4326&count=1';
+            $resp = Http::withOptions(['verify' => false, 'timeout' => 5])->get($u);
+            if (!$resp->successful()) continue;
 
-        $center = $this->centroidFromGeoJson($f['geometry'] ?? null);
-        if (!$center) return null;
+            $data = $resp->json();
+            $f = $data['features'][0] ?? null;
+            if (!$f) continue;
 
-        return [
-            'name' => trim((string) ($f['properties']['MAHALLE_ADI'] ?? $mahalle)),
-            'lat' => $center['lat'],
-            'lon' => $center['lng'],
-        ];
+            $center = $this->centroidFromGeoJson($f['geometry'] ?? null);
+            if (!$center) continue;
+
+            // Mahalle poligonunun TAM bbox'ı — cadde arama kuruluşu için (KADIKENDİ büyük mahalle)
+            $bbox = null;
+            $geom = $f['geometry'] ?? null;
+            $ring = $geom['coordinates'][0] ?? null;
+            if (is_array($ring) && count($ring) >= 3) {
+                $lons = array_column($ring, 0);
+                $lats = array_column($ring, 1);
+                $bbox = [
+                    'min_x' => min($lons), 'max_x' => max($lons),
+                    'min_y' => min($lats), 'max_y' => max($lats),
+                ];
+            }
+
+            return [
+                'name' => trim((string) ($f['properties']['MAHALLE_ADI'] ?? $mahalle)),
+                'lat' => $center['lat'],
+                'lon' => $center['lng'],
+                'bbox' => $bbox,
+            ];
+        }
+
+        return null;
     }
 
     /**
      * WFS cadde/sokak sorgusu — cbs:MISMAP_CADDE_SOKAK (geo3, WFS 2.0.0)
      * DOĞRULANMIŞ ŞEMA: cadde adı = CADDE_SOKAK_ADI (CADDE_SO_1/2 yok).
-     * Mahalle filtresi: cadde katmanında mahalle yok → isteğe bağlı bbox CRS'li.
+     * Mahalle (array) verilirse BBOX-CRS ile o mahallenin sınırı içinde arar
+     * → "8125 SOKAK" hangi ilçede olduğu belirsizse Kadıkendi'deki bulunur.
+     * @param  array|null  $mahalle  ['name','lat','lon'] wfsMahalleBul sonucu
      * @return array|null ['name', 'lat', 'lon']
      */
-    private function wfsCaddeBul(string $cadde, ?string $mahalle = null): ?array
+    private function wfsCaddeBul(string $cadde, ?array $mahalle = null): ?array
     {
-        $filter = "CADDE_SOKAK_ADI ILIKE '%{$cadde}%'";
+        $adlar = $this->turkeVariants(trim($cadde));
+        if (empty($adlar)) return null;
+
         $url = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
             . '?service=WFS&version=2.0.0&request=GetFeature'
             . '&typeNames=cbs:MISMAP_CADDE_SOKAK'
-            . '&cql_filter=' . urlencode($filter)
             . '&outputFormat=application/json&srsName=EPSG:4326&count=5';
-        $resp = Http::withOptions(['verify' => false, 'timeout' => 5])->get($url);
-        if (!$resp->successful()) return null;
 
-        $data = $resp->json();
-        $f = $data['features'][0] ?? null;
-        if (!$f) return null;
+        foreach ($adlar as $q) {
+            $filter = "CADDE_SOKAK_ADI ILIKE '%{$q}%'";
+            if ($mahalle) {
+                // Mahalle poligonunun TAM bbox'ı (varsa) veya merkez ±0.005 fallback
+                $bbox = $mahalle['bbox'] ?? null;
+                if ($bbox) {
+                    $minX = $bbox['min_x'] - 0.001; $maxX = $bbox['max_x'] + 0.001;
+                    $minY = $bbox['min_y'] - 0.001; $maxY = $bbox['max_y'] + 0.001;
+                } else {
+                    $lat = $mahalle['lat'] ?? null;
+                    $lon = $mahalle['lon'] ?? null;
+                    if ($lat !== null && $lon !== null) {
+                        $minX = $lon - 0.005; $maxX = $lon + 0.005;
+                        $minY = $lat - 0.005; $maxY = $lat + 0.005;
+                    }
+                }
+                if (isset($minX)) {
+                    $filter .= " AND BBOX(GEOMETRY, {$minX},{$minY},{$maxX},{$maxY},'EPSG:4326')";
+                }
+            }
+            $u = $url . '&cql_filter=' . urlencode($filter);
+            $resp = Http::withOptions(['verify' => false, 'timeout' => 6])->get($u);
+            if (!$resp->successful()) continue;
 
-        $center = $this->centroidFromGeoJson($f['geometry'] ?? null);
-        if (!$center) return null;
+            $data = $resp->json();
+            $f = $data['features'][0] ?? null;
+            if (!$f) continue;
 
-        return [
-            'name' => trim((string) ($f['properties']['CADDE_SOKAK_ADI'] ?? $cadde)),
-            'lat' => $center['lat'],
-            'lon' => $center['lng'],
-        ];
+            $center = $this->centroidFromGeoJson($f['geometry'] ?? null);
+            if (!$center) continue;
+
+            return [
+                'name' => trim((string) ($f['properties']['CADDE_SOKAK_ADI'] ?? $cadde)),
+                'lat' => $center['lat'],
+                'lon' => $center['lng'],
+            ];
+        }
+
+        return null;
     }
 
     /**
@@ -699,11 +778,15 @@ class MapsController extends Controller
      */
     private function wfsMahalleCaddeleri(string $mahalle): array
     {
+        // TÜRKÇE İ KORU: trUppercase — GeoServer ILIKE'ında %KADIKENDİ% gerekli
+        $mh = $this->trUppercase(trim($mahalle));
+        if ($mh === '') return [];
+
         // 1) Mahalle poligonu — cbs:MISMAP_MAHALLE_KOYLER (MAHALLE_ADI)
         $mahUrl = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
             . '?service=WFS&version=2.0.0&request=GetFeature'
             . '&typeNames=cbs:MISMAP_MAHALLE_KOYLER'
-            . '&cql_filter=' . urlencode("MAHALLE_ADI ILIKE '%{$mahalle}%'")
+            . '&cql_filter=' . urlencode("MAHALLE_ADI ILIKE '%{$mh}%'")
             . '&outputFormat=application/json&srsName=EPSG:4326&count=1';
         $mahResp = Http::withOptions(['verify' => false, 'timeout' => 6])->get($mahUrl);
         if (!$mahResp->successful()) return [];
@@ -757,6 +840,46 @@ class MapsController extends Controller
 
         usort($caddeler, fn ($a, $b) => strcmp($a['name'], $b['name']));
         return $caddeler;
+    }
+
+    /**
+     * Türkçe/ASCII karakter varyantları — GeoServer ILIKE 'İ' vs 'I' ayrımı yapmaz.
+     * Girdi 'Kadıkendi' ise Türkçe doğru büyütme 'KADIKENDİ' (noktalı İ) üretir;
+     * 'md_strtoupper' ASCII 'I' üretir. İkisi de GeoServer sorgularında denenir.
+     * @return list<string>
+     */
+    private function turkeVariants(string $ad): array
+    {
+        $ad = trim($ad);
+        if ($ad === '') return [];
+
+        $tr = $this->trUppercase($ad);            // Kadıkendi → KADIKENDİ
+        $ascii = strtr($tr, ['İ' => 'I', 'Ş' => 'S', 'Ğ' => 'G', 'Ü' => 'U', 'Ö' => 'O', 'Ç' => 'C']);
+
+        $list = array_values(array_unique(array_filter([$ad, $tr, $ascii], fn ($v) => $v !== '')));
+
+        return $list;
+    }
+
+    /**
+     * Türkçe kurallı büyük harfe çevirir: küçük i → büyük İ (noktalı),
+     * küçük ı → büyük I (noktasız) — mb_strtoupper'ın İ→I hatasını düzeltir.
+     */
+    private function trUppercase(string $s): string
+    {
+        $out = '';
+        $len = mb_strlen($s, 'UTF-8');
+        for ($i = 0; $i < $len; $i++) {
+            $ch = mb_substr($s, $i, 1, 'UTF-8');
+            $out .= match ($ch) {
+                'i' => 'İ',
+                'ı' => 'I',
+                'ş' => 'Ş', 'ğ' => 'Ğ', 'ü' => 'Ü', 'ö' => 'Ö', 'ç' => 'Ç',
+                default => mb_strtoupper($ch, 'UTF-8'),
+            };
+        }
+
+        return $out;
     }
 
     private function centroidFromGeoJson($geom)
