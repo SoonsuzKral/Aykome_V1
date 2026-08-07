@@ -1,5 +1,42 @@
 # Oturum Özeti — 7 Ağustos 2026
 
+## Sprint 7 — MERKEZ BELEDİYE (VATANDAŞ) MODÜL SERBEST ERİŞİMİ
+
+### 🎯 Öz
+Alt kurum başvurularında çalışan modül PDF'leri (Tahakkuk/Metraj/Taahhütname/Ruhsat) + Düzenle butonları merkez belediye (vatandaş, `institution.is_municipality=true`) başvurularında görünmüyordu. Kök nedenler bulundu ve tek dosyada (show.blade.php) çözüldü — alt kurum akışına DOKUNULMADI.
+
+### ✅ Kök Nedenler (Explore doğrulandı)
+1. `$passedMetraj` (`show.blade.php:31`) `pre_approved` statüsünü dışlıyordu; merkez başvuruda metraj aşaması tam `pre_approved`'la geliyor (`ApplicationService::approveReceipt` is_municipality dalı → `PreApproved`) → **Metraj PDF + Düzenle gizli**.
+2. Merkez Step 1 (Tahakkuk) kartında `pdf.tahakkuk` linki HİÇ yoktu — sadece tahsilat fişi/makbuz vardı.
+3. PDF route'ları sunucuda çalışıyor (sadece `authorize('view')`) — sorun tamamen UI buton görünürlüğü.
+4. Makbuz no inputları (`ztb_receipt_info`/`deposit_receipt_info`) merkezde de görünüyordu.
+5. "Kuruma Gönder / Devret" butonu merkezde anlamsızdı.
+
+### ✅ Değişiklikler (hepsi `show.blade.php`)
+- **`$isMuniApp`** değişkeni erken tanımlandı: `(bool) ($application->institution?->is_municipality ?? false)`.
+- **`$passedMetraj`** başvuru tipine duyarlı: muni'de `['draft','submitted','pending','rejected']` dışı hepsi geçer (pre_approved dahil); alt kurum eski listesini korur.
+- **Step 1 (Tahakkuk):** muni'de `@if($isMuniApp || in_array(...))` ile Tahsilat Fişi & Makbuz bloğu her aşamada açık + **📄 Tahakkuk Fişi (PDF) Görüntüle/Yazdır** linki + **✏️ Tahakkuk Belgesini Düzenle (Kaydet)** (belediye personeli) eklendi. "Tahakkuk Bilgileri" formu (makbuz no) `$isInstitutionApplication()` şartına bağlandı → merkezde GİZLİ, alt kurumda kalır.
+- **Step 2 (Metraj):** `@if($isMuniApp ? true : $passedMetraj)` — muni'de her aşamada PDF + Düzenle açık.
+- **Step 3 (Taahhütname):** `@if($isMuniApp ? true : ($isCurrent || $isPast))` — muni'de her zaman açık.
+- **Step 4 (Ruhsat):** aynı gevşetme + makbuz no formu `@if(!$isMuniApp && ...)` — merkezde GİZLİ.
+- **Üst Yazı (Dilekçe)** Belge Arşivi'nde muni'de de görünür (`$isMuniApp ||`).
+- **"Kuruma Gönder / Devret"** butonu `$application->isInstitutionApplication()` şartıyla merkezde GİZLİ.
+
+### ✅ Doğrulama
+- `php artisan view:cache` OK (tüm blade derlenir)
+- `workflowStep('pre_approved', true)` → step 2 (Kazı Metraj) — merkez akışı doğrulandı
+- Alt kurum akışına hiç dokunulmadı (`isInstitutionApplication()` şartları korundu)
+
+### 📁 Değişen Dosyalar
+- `resources/views/admin/applications/show.blade.php` (tek dosya, +40/-12)
+- `SESSION_SUMMARY.md`
+
+### Sıradaki
+- Tarayıcıda merkez belediye başvurusu: Step 1→4 modül PDF'leri + Düzenle butonları, makbuz formları gizli, Kuruma Gönder butonu yok
+- Alt kurum başvurusu: akış değişmediğini doğrula
+
+---
+
 ## Sprint 6 — KAZI METRAJ TAHMİNİ (PRO) — İstatistiksel Tahmin Motoru
 
 ### 🎯 Öz

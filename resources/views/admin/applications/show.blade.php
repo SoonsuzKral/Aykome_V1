@@ -13,6 +13,9 @@
 @section('content')
     @php
         $st = $application->status instanceof \BackedEnum ? $application->status->value : $application->status;
+        // MERKEZ BELEDİYE (VATANDAŞ) AYRIMI: başvurunun institution'ı is_municipality=true ise
+        // bu başvuru serbest-erişimli belediye akışıdır (kuruma gönderme yok, tüm onay belediyede).
+        $isMuniApp = (bool) ($application->institution?->is_municipality ?? false);
         // GÖREV 2 (KATI EDİTÖR KİLİDİ): Enum/string kaçağına karşı raw değere eriş,
         // kullanıcı rolünü boolean'a indir, düzenleme yalnızca belediye VEYA
         // draft/rejected/revision durumlarında açılır. Alt kurum belgeyi submit
@@ -27,8 +30,12 @@
         // GÖREV 2 (PERSISTENT UPSTREAM VISIBILITY): Bir kez üretilen Ön Kazı / Metraj belgesi
         // sonraki TÜM aşamalarda (tahakkuk, taahhütname, ruhsat, arşiv) KALICI görünür.
         // dar statü listesi yerine "aşama aşıldı" semantiğine bağlanır.
+        // MERKEZ BELEDİYE SERBEST ERİŞİM: muni başvurusunda metraj aşaması pre_approved statüsüyle
+        // gelir; $passedMetraj pre_approved'ı dışlarsa Metraj PDF/Düzenle gizli kalır → muni'de gevşet.
         $passedOnKazi = ! in_array($st, ['draft', 'submitted', 'pending', 'rejected']);
-        $passedMetraj = ! in_array($st, ['draft', 'submitted', 'pending', 'pre_excavation_approved', 'pre_approved', 'rejected']);
+        $passedMetraj = $isMuniApp
+            ? ! in_array($st, ['draft', 'submitted', 'pending', 'rejected'])
+            : ! in_array($st, ['draft', 'submitted', 'pending', 'pre_excavation_approved', 'pre_approved', 'rejected']);
 
         $statusMeta = match($st) {
             'draft'                  => ['label' => 'Taslak',                 'class' => 'bg-slate-100 text-slate-700'],
@@ -469,8 +476,8 @@
                 <h2 class="mb-4 text-sm font-semibold text-slate-800">📦 Belge Arşivi / Dökümler</h2>
                 <p class="mb-3 text-xs text-slate-500">Başvuru sürecinde oluşturulmuş tüm belgelere buradan erişebilirsiniz.</p>
                 <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {{-- Üst Yazı (Dilekçe) -- her zaman göster --}}
-                    @if($application->institution && !str_contains(strtolower($application->institution->name ?? ''), 'merkez'))
+                    {{-- Üst Yazı (Dilekçe) -- her zaman göster; MERKEZ BELEDİYE (vatandaş) de görsün --}}
+                    @if($application->institution && ($isMuniApp || !str_contains(strtolower($application->institution->name ?? ''), 'merkez')))
                     <div class="relative">
                     <a href="{{ route('admin.applications.pdf.cover-letter', $application) }}" target="_blank"
                        class="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50/70 p-3 text-center transition hover:border-cyan-300 hover:bg-cyan-50/70 hover:shadow-sm group">
@@ -999,8 +1006,16 @@
                                         </form>
                                     @endif
 
-                                    {{-- Tahsilat Fişi & Makbuz --}}
-                                    @if(in_array($st, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'awaiting_payment', 'receipt_pending', 'pre_approved', 'measurement_done', 'tahakkuk_pending', 'tahakkuk_sent', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
+                                    {{-- Tahsilat Fişi & Makbuz -- MERKEZ BELEDİYE (vatandaş): serbest erişim — statüden bağımsız göster + Tahakkuk Fişi PDF --}}
+                                    @if($isMuniApp || in_array($st, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'awaiting_payment', 'receipt_pending', 'pre_approved', 'measurement_done', 'tahakkuk_pending', 'tahakkuk_sent', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
+                                        {{-- MERKEZ BELEDİYE: Tahakkuk Fişi (PDF) — alt kurum Step 4 ile aynı yapı --}}
+                                        @if($isMuniApp)
+                                        <a href="{{ route('admin.applications.pdf.tahakkuk', $application) }}" target="_blank"
+                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-rose-300 bg-rose-50 py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-100">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                            📄 Tahakkuk Fişi (PDF) Görüntüle / Yazdır
+                                        </a>
+                                        @endif
                                         <a href="{{ route('admin.applications.pdf.tahsilat-fisi', $application) }}"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border-2 border-amber-400 bg-amber-50 py-2.5 text-sm font-semibold text-amber-700 hover:bg-amber-100">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -1013,6 +1028,14 @@
                                             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/></svg>
                                             Tahsilat Makbuzu (Özet)
                                         </a>
+                                        {{-- MERKEZ BELEDİYE: Tahakkuk Belgesini Düzenle (Kaydet) — belediye personeli --}}
+                                        @if($isMuniApp && !$isUserInstitution && ($can['update'] ?? false))
+                                        <a href="{{ route('admin.applications.edit-document', [$application, 'tahakkuk']) }}" target="_blank"
+                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            ✏️ Tahakkuk Belgesini Düzenle (Kaydet)
+                                        </a>
+                                        @endif
                                     @endif
 
                                     {{-- Makbuz Yükleme ve Onay --}}
@@ -1064,8 +1087,8 @@
                                         @endif
                                     @endif
 
-                                    {{-- Tahakkuk Bilgileri --}}
-                                    @if($can['update'] ?? false)
+                                    {{-- Tahakkuk Bilgileri (makbuz no inputları) — MERKEZ BELEDİYE (vatandaş) GİZLİ; yalnızca alt kurum akışında --}}
+                                    @if(($can['update'] ?? false) && $application->isInstitutionApplication())
                                     <form method="POST" action="{{ route('admin.applications.save-receipt-info', $application) }}" class="mb-3 rounded-xl border border-slate-200 bg-white shadow-sm">
                                         <div class="p-4 space-y-3">
                                         @csrf
@@ -1214,7 +1237,8 @@
                                              statüyü FieldWork'a çekip sahte/ileri kilit açabiliyordu; bu yapıda kullanılmıyor. --}}
 
                                         {{-- Belediye personeli için metraj PDF ve düzenleme -- GÖREV 2 kalıcı --}}
-                                        @if($passedMetraj)
+                                        {{-- MERKEZ BELEDİYE (vatandaş) SERBEST ERİŞİM: pre_approved dahil her aşamada göster --}}
+                                        @if($isMuniApp ? true : $passedMetraj)
                                         <a href="{{ route('admin.applications.pdf.metraj', $application) }}" target="_blank"
                                            class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 mb-2">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
@@ -1242,7 +1266,8 @@
                             @elseif($num === 3)
                                 @if($isMunicipality)
                                     {{-- MUNICIPALITY STEP 3: TAAHHÜTNAME --}}
-                                    @if($isCurrent || $isPast)
+                                    {{-- MERKEZ BELEDİYE (vatandaş) SERBEST ERİŞİM: kart her aşamada açık --}}
+                                    @if($isMuniApp ? true : ($isCurrent || $isPast))
                                         <p class="mb-2 text-xs text-slate-500">Taahhütname belgesini buradan yükleyin.</p>
                                         <a href="{{ route('admin.applications.pdf.taahhutname', $application) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
@@ -1394,7 +1419,8 @@
                                             📊 Taslağı Aç & Bu Başvuruya Özel Düzenle (Excel)
                                         </a>
                                     @endif
-                                    @if($isCurrent || $isPast)
+                                    {{-- MERKEZ BELEDİYE (vatandaş) SERBEST ERİŞİM: ruhsat kartı her aşamada açık --}}
+                                    @if($isMuniApp ? true : ($isCurrent || $isPast))
                                         {{-- GÖREV: Belediye Ruhsat modülünü açtığı (licensed) ve ilerlettiği (ruhsat_sent)
                                              andan itibaren Ruhsat belgesi KALICI görünür; makbuz formu PDF'in ALTINDA sunulur. --}}
                                         <div class="mt-4 mb-2">
@@ -1403,7 +1429,8 @@
                                         </a>
                                         @include('admin.applications._signed_document_upload', ['module' => 'ruhsat', 'label' => 'İmzalı Ruhsat Belgesi'])
                                         </div>
-                                        @if(!$makbuzlarDolu && !$isLicensed)
+                                        {{-- MERKEZ BELEDİYE: makbuz no formu GİZLİ (yalnızca alt kurum akışında belediye doldurur) --}}
+                                        @if(!$isMuniApp && !$makbuzlarDolu && !$isLicensed)
                                         <form method="POST" action="{{ route('admin.applications.save-receipt-info', $application) }}" class="space-y-3">
                                             @csrf
                                             @method('PUT')
@@ -1721,7 +1748,8 @@
             </button>
             @endcan
 
-            @if($can['transfer_institution'] ?? false)
+            {{-- MERKEZ BELEDİYE (vatandaş) SERBEST ERİŞİM: kuruma gönderme yok — buton gizli --}}
+            @if(($can['transfer_institution'] ?? false) && $application->isInstitutionApplication())
             <button type="button" onclick="document.getElementById('transfer-institution-modal').classList.remove('hidden')"
                     class="flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:opacity-90"
                     style="background-image:linear-gradient(90deg,#0284c7,#7c3aed);color:#ffffff !important;">
