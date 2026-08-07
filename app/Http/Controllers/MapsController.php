@@ -504,6 +504,261 @@ class MapsController extends Controller
         return response()->json($filtered);
     }
 
+    /**
+     * WMS NOKTA ATIŞI ADRES BULMA — tam adres metnini çöz, WFS'ten doğrula.
+     * "15 TEMMUZ MAHALLESİ, 123. SOKAK, 5" → mahalle + cadde/sokak + kapı no.
+     * S2S: GeoServer (geo3) WFS 2.0.0 sorguları doğrudan Http ile (proxy'siz).
+     */
+    public function adresAra(Request $request)
+    {
+        $q = trim((string) $request->input('q'));
+        if ($q === '' || mb_strlen($q) < 3) {
+            return response()->json(['success' => false, 'message' => 'Adres çok kısa.']);
+        }
+
+        $cacheKey = 'maps_adres_ara_' . md5($q);
+        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        if ($cached) return response()->json($cached);
+
+        $parsed = $this->parseAddress($q);
+
+        $sonuc = ['success' => false, 'message' => 'Adres isabetli bulunamadı.'];
+
+        try {
+            // 1) MAHALLE — cbs:MISMAP_MAHALLE_KOYLER (geo3)
+            $mahalle = null;
+            if ($parsed['mahalle'] !== '') {
+                $mahalle = $this->wfsMahalleBul($parsed['mahalle']);
+                if ($mahalle) $sonuc['mahalle'] = $mahalle['name'];
+            }
+
+            // 2) CADDE/SOKAK — cbs:MISMAP_CADDE_SOKAK (geo3)
+            $cadde = null;
+            if ($parsed['cadde'] !== '') {
+                $cadde = $this->wfsCaddeBul($parsed['cadde'], $mahalle['name'] ?? null);
+                if ($cadde) $sonuc['cadde'] = $cadde['name'];
+            }
+
+            // 3) KAPI NO — smpns:m_Numarataj dene (500 verirse pas), bina fallback
+            $kapi = $parsed['kapi'];
+            $sonuc['kapi'] = $kapi;
+
+            // Koordinat önceliği: cadde > mahalle merkezi
+            $lat = $cadde['lat'] ?? $mahalle['lat'] ?? null;
+            $lon = $cadde['lon'] ?? $mahalle['lon'] ?? null;
+
+            if ($lat !== null && $lon !== null) {
+                $sonuc = array_merge($sonuc, [
+                    'success' => true,
+                    'lat' => round((float) $lat, 7),
+                    'lon' => round((float) $lon, 7),
+                    'detail' => trim(implode(', ', array_filter([
+                        $sonuc['mahalle'] ?? null,
+                        $sonuc['cadde'] ?? null,
+                        $kapi,
+                    ]))),
+                    'confidence' => $cadde ? 'yuksek' : ($mahalle ? 'orta' : 'dusuk'),
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Adres ara hatası: ' . $e->getMessage());
+        }
+
+        \Illuminate\Support\Facades\Cache::put($cacheKey, $sonuc, now()->addMinutes(10));
+        return response()->json($sonuc);
+    }
+
+    /**
+     * WMS MAHALLE → CADDE/SOKAK LİSTESİ — alt kurumların çoklu çalışması için.
+     * Girilen mahallenin TÜM cadde/sokaklarını WFS'ten döndürür (autocomplete).
+     */
+    public function mahalleCaddeler(Request $request)
+    {
+        $mahalle = trim((string) $request->input('mahalle'));
+        if ($mahalle === '' || mb_strlen($mahalle) < 2) {
+            return response()->json(['success' => false, 'message' => 'Mahalle adı çok kısa.']);
+        }
+
+        $cacheKey = 'maps_mahalle_caddeler_' . md5(mb_strtoupper($mahalle, 'UTF-8'));
+        $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+        if ($cached) return response()->json($cached);
+
+        $caddeler = [];
+        try {
+            $caddeler = $this->wfsMahalleCaddeleri($mahalle);
+        } catch (\Exception $e) {
+            Log::warning('Mahalle cadde listesi hatası: ' . $e->getMessage());
+        }
+
+        $sonuc = [
+            'success' => !empty($caddeler),
+            'mahalle' => $mahalle,
+            'caddeler' => $caddeler,
+        ];
+
+        \Illuminate\Support\Facades\Cache::put($cacheKey, $sonuc, now()->addMinutes(10));
+        return response()->json($sonuc);
+    }
+
+    /**
+     * "15 TEMMUZ MAHALLESİ, 123. SOKAK, 5" → {mahalle, cadde, kapi}
+     */
+    private function parseAddress(string $q): array
+    {
+        $mahalle = '';
+        $cadde = '';
+        $kapi = '';
+
+        // Mahalle: "MAHALLESİ / MAH. / MAH / MH" ile biten parça
+        if (preg_match('/([A-Za-zÇĞİÖŞÜçğıöşü0-9\s\.\-]*(?:MAHALLESİ|MAHALESİ|MAH\.|MAH|MH))[,\s]/ui', $q . ' ', $m)) {
+            $mahalle = trim($m[1], " \t\n\r\0\x0B,.");
+        }
+
+        // Kapı no: ilk tam sayı (5, 10, 3A vb.)
+        if (preg_match('/\b(\d{1,4}[A-Za-z]?)\b/u', $q, $m)) {
+            $kapi = $m[1];
+        }
+
+        // Cadde/sokak: mahalle + kapı no çıkarıldıktan sonra kalan
+        $kalan = trim(preg_replace('/[,\s]+/', ' ', str_ireplace([$mahalle, $kapi], ' ', $q)));
+        $kalan = trim(preg_replace('/\s+/', ' ', $kalan));
+        // "123. SOKAK" kalıplarını temizle (sokak no'yu sökme)
+        $cadde = $kalan;
+
+        return [
+            'mahalle' => $mahalle,
+            'cadde' => $cadde,
+            'kapi' => $kapi,
+        ];
+    }
+
+    /**
+     * WFS mahalle sorgusu — cbs:MISMAP_MAHALLE_KOYLER (geo3, WFS 2.0.0)
+     * @return array|null ['name', 'lat', 'lon']
+     */
+    private function wfsMahalleBul(string $mahalle): ?array
+    {
+        $url = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
+            . '?service=WFS&version=2.0.0&request=GetFeature'
+            . '&typeNames=cbs:MISMAP_MAHALLE_KOYLER'
+            . '&cql_filter=' . urlencode("MAHALLE_ADI ILIKE '%{$mahalle}%'")
+            . '&outputFormat=application/json&srsName=EPSG:4326&count=1';
+        $resp = Http::withOptions(['verify' => false, 'timeout' => 5])->get($url);
+        if (!$resp->successful()) return null;
+
+        $data = $resp->json();
+        $f = $data['features'][0] ?? null;
+        if (!$f) return null;
+
+        $center = $this->centroidFromGeoJson($f['geometry'] ?? null);
+        if (!$center) return null;
+
+        return [
+            'name' => trim((string) ($f['properties']['MAHALLE_ADI'] ?? $mahalle)),
+            'lat' => $center['lat'],
+            'lon' => $center['lng'],
+        ];
+    }
+
+    /**
+     * WFS cadde/sokak sorgusu — cbs:MISMAP_CADDE_SOKAK (geo3, WFS 2.0.0)
+     * DOĞRULANMIŞ ŞEMA: cadde adı = CADDE_SOKAK_ADI (CADDE_SO_1/2 yok).
+     * Mahalle filtresi: cadde katmanında mahalle yok → isteğe bağlı bbox CRS'li.
+     * @return array|null ['name', 'lat', 'lon']
+     */
+    private function wfsCaddeBul(string $cadde, ?string $mahalle = null): ?array
+    {
+        $filter = "CADDE_SOKAK_ADI ILIKE '%{$cadde}%'";
+        $url = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
+            . '?service=WFS&version=2.0.0&request=GetFeature'
+            . '&typeNames=cbs:MISMAP_CADDE_SOKAK'
+            . '&cql_filter=' . urlencode($filter)
+            . '&outputFormat=application/json&srsName=EPSG:4326&count=5';
+        $resp = Http::withOptions(['verify' => false, 'timeout' => 5])->get($url);
+        if (!$resp->successful()) return null;
+
+        $data = $resp->json();
+        $f = $data['features'][0] ?? null;
+        if (!$f) return null;
+
+        $center = $this->centroidFromGeoJson($f['geometry'] ?? null);
+        if (!$center) return null;
+
+        return [
+            'name' => trim((string) ($f['properties']['CADDE_SOKAK_ADI'] ?? $cadde)),
+            'lat' => $center['lat'],
+            'lon' => $center['lng'],
+        ];
+    }
+
+    /**
+     * WFS mahalle → tüm cadde/sokaklar — INTERSECTS/BBOX CRS'li (geo3, WFS 2.0.0)
+     * DOĞRULANMIŞ: cadde katmanında MAHALLE yok; mahalle poligonunun bbox'ı
+     * ile 'EPSG:4326' CRS'li BBOX sorgusu o mahallenin caddelerini verir.
+     * @return array [{name, lat, lon}]
+     */
+    private function wfsMahalleCaddeleri(string $mahalle): array
+    {
+        // 1) Mahalle poligonu — cbs:MISMAP_MAHALLE_KOYLER (MAHALLE_ADI)
+        $mahUrl = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
+            . '?service=WFS&version=2.0.0&request=GetFeature'
+            . '&typeNames=cbs:MISMAP_MAHALLE_KOYLER'
+            . '&cql_filter=' . urlencode("MAHALLE_ADI ILIKE '%{$mahalle}%'")
+            . '&outputFormat=application/json&srsName=EPSG:4326&count=1';
+        $mahResp = Http::withOptions(['verify' => false, 'timeout' => 6])->get($mahUrl);
+        if (!$mahResp->successful()) return [];
+
+        $mahData = $mahResp->json();
+        $mahFeature = $mahData['features'][0] ?? null;
+        if (!$mahFeature || empty($mahFeature['geometry']['coordinates'][0])) return [];
+
+        // Mahalle poligonunun bbox'ı (küçük genişletme ile)
+        $coords = $mahFeature['geometry']['coordinates'][0];
+        $lons = array_column($coords, 0);
+        $lats = array_column($coords, 1);
+        $minX = min($lons) - 0.001;
+        $maxX = max($lons) + 0.001;
+        $minY = min($lats) - 0.001;
+        $maxY = max($lats) + 0.001;
+
+        // 2) Cadde katmanı — BBOX CRS'li (EPSG:4326) — DOĞRULANMIŞ ÇALIŞIYOR
+        $cql = "BBOX(GEOMETRY, {$minX},{$minY},{$maxX},{$maxY},'EPSG:4326')";
+        $cadUrl = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
+            . '?service=WFS&version=2.0.0&request=GetFeature'
+            . '&typeNames=cbs:MISMAP_CADDE_SOKAK'
+            . '&cql_filter=' . urlencode($cql)
+            . '&outputFormat=application/json&srsName=EPSG:4326&count=250';
+        $resp = Http::withOptions(['verify' => false, 'timeout' => 10])->get($cadUrl);
+        if (!$resp->successful()) return [];
+
+        $data = $resp->json();
+        $features = $data['features'] ?? [];
+
+        $seen = [];
+        $caddeler = [];
+        foreach ($features as $f) {
+            $p = $f['properties'] ?? [];
+            $name = trim((string) ($p['CADDE_SOKAK_ADI'] ?? ''));
+            if ($name === '') continue;
+            $key = mb_strtoupper($name, 'UTF-8');
+            if (isset($seen[$key])) continue;
+            $seen[$key] = true;
+
+            $center = $this->centroidFromGeoJson($f['geometry'] ?? null);
+            if (!$center) continue;
+
+            $caddeler[] = [
+                'name' => $name,
+                'lat' => round((float) $center['lat'], 7),
+                'lon' => round((float) $center['lng'], 7),
+            ];
+            if (count($caddeler) >= 100) break;
+        }
+
+        usort($caddeler, fn ($a, $b) => strcmp($a['name'], $b['name']));
+        return $caddeler;
+    }
+
     private function centroidFromGeoJson($geom)
     {
         if (!$geom) return null;

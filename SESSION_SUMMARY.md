@@ -1,4 +1,37 @@
-# Oturum Özeti — 7 Ağustos 2026
+# Oturum Özeti — 8 Ağustos 2026
+
+## Sprint 9 — WMS NOKTA ATIŞI ADRES BULMA (Mahalle→Cadde→Sokak→Kapı)
+
+### 🎯 Öz
+Başvuru formlarına (create+edit) WMS tabanlı nokta atışı adres bulma kuruldu. İki yöntem: (1) adresi tam yaz → backend mahalle/cadde/kapı ayırır → WMS doğrular → haritada göster; (2) mahalle yaz → "🔍 Bul" → o mahallenin tüm cadde/sokakları gelir → autocomplete ile seç. Aykome Maps'teki ada/parsel mantığının mahalle/cadde uyarlaması.
+
+### ✅ Backend (`MapsController`)
+- `adresAra(q)` — parseAddress() ile mahalle/cadde/kapı ayırır; WFS sırası: `MAHALLE_KOYLER`→`CADDE_SOKAK`. Cache 10dk.
+- `mahalleCaddeler(mahalle)` — mahalle poligonu (`MAHALLE_ADI ILIKE`) → bbox → `BBOX(GEOMETRY,...,'EPSG:4326')` ile o mahallenin TÜM caddeleri.
+- route: `GET /maps/adres-ara`, `GET /maps/mahalle-caddeler`
+- **DOĞRULANMIŞ ŞEMA (canlı GeoServer testi):**
+  - Mahalle katmanı `cbs:MISMAP_MAHALLE_KOYLER` → `MAHALLE_ADI` (MAHALLE_AD YANLIŞ)
+  - Cadde katmanı `cbs:MISMAP_CADDE_SOKAK` → `CADDE_SOKAK_ADI` (CADDE_SO_1/2 YOK)
+  - `BBOX` filtresinde CRS şart: `BBOX(GEOMETRY, minx,miny,maxx,maxy,'EPSG:4326')` (native bbox 0 döner)
+  - INTERSECTS tam poligon CRS uyumsuz — BBOX-CRS doğru yöntem
+
+### ✅ Frontend (create + edit)
+- "📍 Konum Bul" butonu + locSpin spinner → `maps/adres-ara` → pulse marker + tooltip (cadde adı) 2 haritada (`appDrawMap` + `appCbsMap`) + animasyonlu `flyTo`
+- "+ Mahalle & Sokak Ekle": her mahalle satırında "🔍 Bul" butonu → `mahalle-caddeler` → ufak dropdown (autocomplete) → seçince cadde satırı eklenir (tekrar WMS gitme gerekmez)
+- Her cadde satırında "📍" (Göster) butonu → WMS'ten tek cadde ara → pulse marker
+- `search-spinner` + `locSpin`/`locPulse` animasyon CSS
+
+### ✅ Doğrulama
+- Canlı WMS testi: EYYÜBİYE mahallesi poligonu (63 nokta) + "3097 SOKAK", "3129 SOKAK" vb. 5 cadde geldi
+- php -l, route:list, view:cache, node --check her iki dosya OK
+
+### 📁 Değişen Dosyalar
+- `app/Http/Controllers/MapsController.php` (+adresAra, mahalleCaddeler, parseAddress, wfs* yardımcıları)
+- `routes/web.php` (+2 route)
+- `resources/views/admin/applications/create.blade.php`, `edit.blade.php`
+- `SESSION_SUMMARY.md`
+
+---
 
 ## Sprint 8b — CADDE/SOKAK INPUT DÜZELTMESİ (geri getirildi, fazlalıklar kaldırıldı)
 

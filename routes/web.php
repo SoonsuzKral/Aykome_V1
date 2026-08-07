@@ -76,6 +76,10 @@ Route::middleware(['auth'])->prefix('maps')->name('maps.')->group(function () {
 
     // CBS v7 — Adres Arama (Nominatim proxy)
     Route::get('/ara',                       [MapsController::class, 'search'])->name('ara');
+
+    // WMS NOKTA ATIŞI ADRES BULMA — mahalle/cadde/kapı (S2S GeoServer)
+    Route::get('/adres-ara',                 [MapsController::class, 'adresAra'])->name('adres-ara');
+    Route::get('/mahalle-caddeler',          [MapsController::class, 'mahalleCaddeler'])->name('mahalle-caddeler');
 });
 
 Route::middleware(['auth', 'role:super-admin'])->prefix('db-switch')->name('db-switch.')->controller(\App\Http\Controllers\DatabaseSwitcherController::class)->group(function () {
