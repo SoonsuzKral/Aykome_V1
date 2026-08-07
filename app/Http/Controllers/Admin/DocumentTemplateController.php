@@ -18,14 +18,11 @@ class DocumentTemplateController extends Controller
     {
         $user = auth()->user();
 
-        // Alt kurum personeli (institution-manager/staff) yalnızca KENDİ kurumunun
-        // Üst Yazı şablonunu düzenleyebilir. Diğer tüm erişim belediye yönetimi içindir.
+        // ROBUST İZOLASYON: Şablon/Taslak Yönetimi yalnızca Merkez Belediye yönetimine
+        // (Super Admin + municipality-* rolleri) açıktır. Alt kurum personeli
+        // (institution_id dolu) bu modüle ASLA giremez — şablon bozma riski bloke edilir.
         if (! $user->isMunicipalityPersonel()) {
-            abort_unless(
-                $user->institution_id && $user->hasAnyRole(['institution-manager', 'institution-staff', 'institution-admin']),
-                403,
-                'Şablon yönetimi için yetkiniz yok.'
-            );
+            abort(403, 'Şablon yönetimi yalnızca belediye merkez yönetimine açıktır.');
         }
     }
 

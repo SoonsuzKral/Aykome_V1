@@ -131,6 +131,38 @@
     border: 1px solid rgba(255,255,255,0.2);
 }
 
+/* Kişisel katman renk-seçici: daire arkasına gizlenmiş native color input
+   — adam daireye tıklar, arka planda OS renk çarkı açılır. */
+.layer-color-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex: none !important;
+    min-width: auto !important;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: transform 0.15s;
+}
+.layer-color-wrap:hover { transform: scale(1.15); }
+.layer-color-wrap:active { transform: scale(0.95); }
+.layer-color-wrap .color-dot { pointer-events: none; }
+.layer-color-input,
+.layer-color-picker {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 10;
+    border: none;
+    padding: 0;
+    margin: 0;
+}
+.layer-row .layer-color-wrap + label { flex: 1; min-width: 0; }
+
 .basemap-row {
     display: flex;
     align-items: center;
@@ -553,7 +585,6 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
     <div id="maps-left-panel">
         <div class="panel-header">
             <h2>🗺️ Katmanlar</h2>
-            <span style="font-size:10px;color:#64748b;">Şanlıurfa CBS</span>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -571,8 +602,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label><span class="color-dot" style="background:#f97316;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_MAHALLE_KOYLER"><span>Mahalle Sınırları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#a855f7;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_KADASTRO_ADA"><span>Adalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_MAHALLE_KOYLER" data-color="#f97316" title="Mahalle katmanı rengini değiştir"><span class="color-dot" style="background:#f97316;"></span><input type="color" class="layer-color-picker" value="#f97316"></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_MAHALLE_KOYLER"><span>Mahalle Sınırları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_KADASTRO_ADA" data-color="#a855f7" title="Ada katmanı rengini değiştir"><span class="color-dot" style="background:#a855f7;"></span><input type="color" class="layer-color-picker" value="#a855f7"></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_KADASTRO_ADA"><span>Adalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -580,8 +611,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL"><span>Parseller (Genel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#22c55e;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:TKGM_PARSEL"><span>Parseller (TKGM Güncel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL" data-color="#ef4444" title="Parsel katmanı rengini değiştir"><span class="color-dot" style="background:#ef4444;"></span><input type="color" class="layer-color-picker" value="#ef4444"></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_KADASTRO_PARSEL"><span>Parseller (Genel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:TKGM_PARSEL" data-color="#22c55e" title="Parsel katmanı rengini değiştir"><span class="color-dot" style="background:#22c55e;"></span><input type="color" class="layer-color-picker" value="#22c55e"></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:TKGM_PARSEL"><span>Parseller (TKGM Güncel)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -589,9 +620,9 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label><span class="color-dot" style="background:#94a3b8;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_BINA"><span>Binalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#f59e0b;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:m_Numarataj"><span>Kapı Numaraları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#64748b;"></span><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_CADDE_SOKAK"><span>Cadde/Sokak Hatları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row" title="Binalar rengi sabittir (düzenlenemez)"><label><span class="color-dot" style="background:#94a3b8;cursor:not-allowed;"></span><input type="checkbox" class="katman-checkbox" data-layer="smpns:MISMAP_NUM_BINA"><span>Binalar</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="smpns:m_Numarataj" data-color="#f59e0b" title="Kapı numaraları katmanı rengini değiştir"><span class="color-dot" style="background:#f59e0b;"></span><input type="color" class="layer-color-picker" value="#f59e0b"></label><label><input type="checkbox" class="katman-checkbox" data-layer="smpns:m_Numarataj"><span>Kapı Numaraları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="cbs:MISMAP_CADDE_SOKAK" data-color="#64748b" title="Cadde/sokak katmanı rengini değiştir"><span class="color-dot" style="background:#64748b;"></span><input type="color" class="layer-color-picker" value="#64748b"></label><label><input type="checkbox" class="katman-checkbox" data-layer="cbs:MISMAP_CADDE_SOKAK"><span>Cadde/Sokak Hatları</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -599,9 +630,9 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
             <span class="arrow">▶</span>
         </div>
         <div class="accordion-body hidden">
-            <div class="layer-row"><label><span class="color-dot" style="background:#eab308;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_ELEKTRIK_LINKS"><span>Aykome Elektrik</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#ef4444;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_LINKS"><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
-            <div class="layer-row"><label><span class="color-dot" style="background:#3b82f6;"></span><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_NODES"><span>Doğalgaz (Noktalar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_ELEKTRIK_LINKS" data-color="#eab308" title="Elektrik katmanı rengini değiştir"><span class="color-dot" style="background:#eab308;"></span><input type="color" class="layer-color-picker" value="#eab308"></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_ELEKTRIK_LINKS"><span>Aykome Elektrik</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_DOGALGAZ_LINKS" data-color="#ef4444" title="Doğalgaz hat katmanı rengini değiştir"><span class="color-dot" style="background:#ef4444;"></span><input type="color" class="layer-color-picker" value="#ef4444"></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_LINKS"><span>Doğalgaz (Hatlar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
+            <div class="layer-row"><label class="layer-color-wrap" data-layer="aykome:AYK_DOGALGAZ_NODES" data-color="#3b82f6" title="Doğalgaz nokta katmanı rengini değiştir"><span class="color-dot" style="background:#3b82f6;"></span><input type="color" class="layer-color-picker" value="#3b82f6"></label><label><input type="checkbox" class="katman-checkbox" data-layer="aykome:AYK_DOGALGAZ_NODES"><span>Doğalgaz (Noktalar)</span></label><input type="range" class="layer-opacity" min="0" max="1" step="0.1" value="0.7"></div>
         </div>
 
         <div class="accordion-header" onclick="toggleAccordion(this)">
@@ -1068,6 +1099,7 @@ var mapsMap=null, basemapLayers={}, wmsLayers={};
 var roadLayerAlti=null, roadLayerUstu=null;
 var basvuruLayer=null, drawnItems=null, currentDrawLayer=null, _isDrawing=!1, _drawJustFinished=!1;
 var geo3Layers={};
+var wmsPanes={};   // layer-adi -> Leaflet pane elementi (CSS filter ile renklendirme)
 var statusIcons={
     field_work:       {bg:'#f97316',icon:'⛏',label:'Saha Çalışması',pulse:!0},
     licensed:         {bg:'#22c55e',icon:'✓',label:'Onaylandı',pulse:!1},
@@ -1078,6 +1110,117 @@ var statusIcons={
     completed:        {bg:'#475569',icon:'✓✓',label:'Tamamlandı',pulse:!1},
     approved:         {bg:'#22c55e',icon:'✓',label:'Onaylandı',pulse:!1},
 };
+
+/* Kişisel katman renk tercihleri: DB'den bind edilir + aynı cihaz localStorage ile anında kalıcı */
+var layerColorMap={};                        // layer-adi -> hex
+var authColorPreferences=@json($authColorPreferences ?? []);
+function loadLocalColors(){
+    try{var raw=localStorage.getItem('aykome_map_colors');return raw?JSON.parse(raw):{};}catch(e){return{};}
+}
+function mergeColors(base,extra){
+    var out={};
+    Object.keys(base||{}).forEach(function(k){ if(typeof base[k]==='string')out[k]=base[k]; });
+    Object.keys(extra||{}).forEach(function(k){ if(typeof extra[k]==='string')out[k]=extra[k]; });
+    return out;
+}
+layerColorMap=mergeColors(authColorPreferences,loadLocalColors());
+
+function seedLayerColors(prefs){ Object.keys(prefs||{}).forEach(function(k){ if(typeof prefs[k]==='string')layerColorMap[k]=prefs[k]; }); }
+
+/* HEX -> CSS filter: katman tile pane'ine uygulanır (sunucu resmini istenen tonda boyar).
+   SLD_BODY bu GeoServer'da kabul edilmedi; CSS filter tahribatsız, anında, ağ gerektirmez. */
+function layerFilterFor(hex){
+    hex=(hex||'#E87722').replace('#','');
+    var v=parseInt(hex,16);
+    var r=((v>>16)&255)/255,g=((v>>8)&255)/255,b=(v&255)/255;
+    var mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,sm=0,h=0;
+    if(mx!==mn){
+        var d=mx-mn;
+        sm=l>0.5?d/(2-mx-mn):d/(mx+mn);
+        if(mx===r)h=(g-b)/d+(g<b?6:0);
+        else if(mx===g)h=(b-r)/d+2;
+        else h=(r-g)/d+4;
+        h/=6;
+    }
+    return 'grayscale(1) sepia(1) saturate('+Math.round(sm*100)+'%) hue-rotate('+Math.round(h*360)+'deg) brightness('+Math.round(90+l*120)+'%)';
+}
+
+/* ── RENK RENDER (GÜVENLİ): seçilen HEX → CSS filter, ELLE tile <img> öğelerine uygulanır.
+   Asla ekranı kaplayan overlay oluşturulmaz → pembeye dönme YOK. Katman kapalıykken
+   overlay yok, görsel etki yok. Katman açıkken tile'lar o an boyanır. */
+function colorTileLayer(layer,hex){
+    var css=layerFilterFor(hex);
+    var pane=wmsPanes[layer];
+    if(pane){ pane.style.filter=css; pane.style.webkitFilter=css; }
+    var wl=wmsLayers[layer];
+    if(wl && wl.getContainer){ var c=wl.getContainer(); if(c){ c.style.filter=css; c.style.webkitFilter=css; } }
+    if(pane){
+        var imgs=pane.querySelectorAll('img');
+        for(var i=0;i<imgs.length;i++){ imgs[i].style.filter=css; imgs[i].style.webkitFilter=css; }
+        /* varimli render tetik: rengin tile üzerine doodle işlenmesini zorlar */
+        if(wl && mapsMap && mapsMap.hasLayer(wl)){
+            var keep=wl.options.opacity;
+            wl.setOpacity(0);
+            requestAnimationFrame(function(){ if(wl)wl.setOpacity(keep); });
+        }
+    }
+}
+function clearTileLayerColor(layer){
+    var pane=wmsPanes[layer];
+    if(pane){ pane.style.filter=''; pane.style.webkitFilter=''; }
+    var wl=wmsLayers[layer];
+    if(wl && wl.getContainer){ var c=wl.getContainer(); if(c){ c.style.filter=''; c.style.webkitFilter=''; } }
+    if(pane){
+        var imgs=pane.querySelectorAll('img');
+        for(var i=0;i<imgs.length;i++){ imgs[i].style.filter=''; imgs[i].style.webkitFilter=''; }
+    }
+}
+function applyLayerColor(layer,hex){
+    if(!hex){ clearTileLayerColor(layer); layerColorMap[layer]=null; return; }
+    layerColorMap[layer]=hex;
+    colorTileLayer(layer,hex);
+}
+function ensureLayerColor(layer){
+    var hex=layerColorMap[layer];
+    if(hex)colorTileLayer(layer,hex);
+}
+
+/* DB'ye GİZLİ CANLI kayıt: renk seçimi (change) bitince 800ms debounce'la
+   users.map_preferences JSON'ına otomatik POST edilir. Görünür "Kaydet"
+   butonu YOK — eylem biter bitmez arka planda sessizce kaydedilir. */
+var _renkTimer=null;
+function saveLocalColors(){ try{localStorage.setItem('aykome_map_colors',JSON.stringify(layerColorMap));}catch(e){} }
+function _saveRenkler(){
+    fetch('/maps/renk-kaydet',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-CSRF-TOKEN':document.querySelector('meta[name=csrf-token]').content},
+        body:JSON.stringify({renkler:layerColorMap})
+    }).then(function(r){return r.json()}).then(function(d){
+        if(d&&d.success)saveLocalColors();
+    }).catch(function(){saveLocalColors();});
+}
+function persistLayerColor(forceNow){
+    clearTimeout(_renkTimer);
+    if(forceNow){saveLocalColors();_saveRenkler();return;}
+    _renkTimer=setTimeout(_saveRenkler,800);
+}
+/* Sayfa kapanmadan bekleyen 800ms debounce'ı boşalt — gizli son kayıt da gider */
+window.addEventListener('pagehide',function(){ saveLocalColors(); persistLayerColor(true); });
+
+/* Boot: DB + localStorage kişisel renkleri sol panele (daire + color-input) ve katman pane'ine bas */
+function applyAuthColorsToPanel(){
+    Object.keys(layerColorMap).forEach(function(layer){
+        var hex=layerColorMap[layer];
+        if(!hex)return;
+        var wrap=document.querySelector('.layer-color-wrap[data-layer="'+layer+'"]');
+        if(!wrap)return;
+        var dot=wrap.querySelector('.color-dot');
+        if(dot)dot.style.background=hex;
+        var inp=wrap.querySelector('.layer-color-picker');
+        if(inp)inp.value=hex;
+        applyLayerColor(layer,hex);
+    });
+}
 
 function createWmsLayer(url, layerName, opts){
     var layer=L.tileLayer.wms(url,Object.assign({
@@ -1117,6 +1260,9 @@ function initMaps(){
     if(sidebar){
         document.getElementById('maps-wrapper').style.left=sidebar.offsetWidth+'px';
     }
+
+    /* Kişisel renk tercihlerini panele ve renk-havuzunu base array'ından kur */
+    applyAuthColorsToPanel();
 
     mapsMap=L.map('maps-map-canvas',{
         center:URFA_CENTER,zoom:15,minZoom:12,maxZoom:20,
@@ -1211,7 +1357,14 @@ function initMaps(){
     };
 
     Object.keys(geo3Layers).forEach(function(l){
-        wmsLayers[l]=createWmsLayer(GEO3_WMS,l,{layers:l,opacity:0.7,zIndex:100});
+        var paneKey='wms-'+l.replace(/[^a-zA-Z0-9]+/g,'_');
+        var pane=mapsMap.createPane(paneKey);
+        if(pane){
+            pane.style.zIndex=250;
+            wmsPanes[l]=pane;
+        }
+        wmsLayers[l]=createWmsLayer(GEO3_WMS,l,{layers:l,opacity:0.7,zIndex:100,pane:paneKey});
+        if(layerColorMap[l])applyLayerColor(l,layerColorMap[l]);
         if(geo3Layers[l].on) wmsLayers[l].addTo(mapsMap);
     });
 
@@ -2078,11 +2231,37 @@ function toggleAccordion(el){
 w.toggleAccordion=toggleAccordion;
 
 function setupEventListeners(){
+document.querySelectorAll('.layer-color-picker').forEach(function(inp){
+        inp.addEventListener('input',function(){
+            var wrap=this.closest('.layer-color-wrap');
+            if(!wrap)return;
+            var layer=wrap.dataset.layer;
+            if(!layer)return;
+            var hex=this.value;
+            var dot=wrap.querySelector('.color-dot');
+            if(dot)dot.style.background=hex;
+            applyLayerColor(layer,hex);
+            persistLayerColor(); // debounce + pagehide flush
+        });
+        inp.addEventListener('change',function(){
+            var wrap=this.closest('.layer-color-wrap');
+            if(!wrap)return;
+            var layer=wrap.dataset.layer;
+            if(!layer)return;
+            var dot=wrap.querySelector('.color-dot');
+            if(dot)dot.style.background=this.value;
+            applyLayerColor(layer,this.value);
+            persistLayerColor(); // palette kapandığında da hemen kaydet
+        });
+    });
     document.querySelectorAll('.katman-checkbox').forEach(function(cb){
         cb.addEventListener('change',function(){
             var layer=wmsLayers[this.dataset.layer];
             if(!layer)return;
-            if(this.checked)layer.addTo(mapsMap);
+            if(this.checked){
+                ensureLayerColor(this.dataset.layer);
+                layer.addTo(mapsMap);
+            }
             else mapsMap.removeLayer(layer);
             updateActiveLayerCount();
         });
@@ -3445,3 +3624,4 @@ w.showLoadingOverlay=showLoadingOverlay;
 })(window);
 </script>
 @endpush
+

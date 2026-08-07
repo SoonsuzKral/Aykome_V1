@@ -63,6 +63,8 @@ class ApplicationService
                         'vice_mayor_name' => $data['vice_mayor_name'] ?? null,
                         'process_id' => $data['process_id'] ?? null,
                         'tesis_sorumlusu' => $data['tesis_sorumlusu'] ?? null,
+                        'tesis_sorumlusu_adi' => $data['tesis_sorumlusu_adi'] ?? null,
+                        'duzenleyen_kisi' => $data['duzenleyen_kisi'] ?? null,
                         'mudur_adi' => $data['mudur_adi'] ?? null,
                         'mudur_unvani' => $data['mudur_unvani'] ?? null,
                     ]);
@@ -142,6 +144,8 @@ class ApplicationService
                 'vice_mayor_name' => $parent->vice_mayor_name,
                 'process_id' => $parent->process_id,
                 'tesis_sorumlusu' => $parent->tesis_sorumlusu,
+                'tesis_sorumlusu_adi' => $parent->tesis_sorumlusu_adi,
+                'duzenleyen_kisi' => $parent->duzenleyen_kisi,
                 'mudur_adi' => $parent->mudur_adi,
                 'mudur_unvani' => $parent->mudur_unvani,
             ]);

@@ -54,7 +54,7 @@ class ProcessController extends Controller
             'is_default' => ['nullable', 'boolean'],
         ]);
 
-        $slug = $data['slug'] ?? Str::slug($data['name']) . '-' . Str::lower(Str::random(4));
+        $slug = ($data['slug'] ?? null) ?: Str::slug($data['name']) . '-' . Str::lower(Str::random(4));
 
         if (ProcessDefinition::query()->where('slug', $slug)->exists()) {
             throw ValidationException::withMessages(['slug' => 'Bu süreç adresi zaten kullanılıyor.']);

@@ -111,6 +111,8 @@ class StoreApplicationRequest extends FormRequest
             'vice_mayor_name' => ['nullable', 'string', 'max:255'],
             'process_id' => ['nullable', 'integer', 'exists:process_definitions,id'],
             'tesis_sorumlusu' => ['nullable', 'string', 'max:255'],
+            'tesis_sorumlusu_adi' => ['nullable', 'string', 'max:255'],
+            'duzenleyen_kisi' => ['nullable', 'string', 'max:255'],
             'mudur_adi' => ['nullable', 'string', 'max:255'],
             'mudur_unvani' => ['nullable', 'string', 'max:255'],
             'documents' => ['nullable', 'array'],
