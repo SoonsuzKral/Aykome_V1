@@ -17,6 +17,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'institution_id',
+        'map_preferences',
         'name',
         'email',
         'phone',
@@ -50,12 +51,43 @@ class User extends Authenticatable
             'last_seen_lat'     => 'float',
             'last_seen_lng'     => 'float',
             'last_seen_at'      => 'datetime',
+            'map_preferences'   => 'array',
         ];
     }
 
     public function institution(): BelongsTo
     {
         return $this->belongsTo(Institution::class);
+    }
+
+    /**
+     * Kullanıcının kişisel WMS katman renkleri.
+     * Dönüş: [ 'smpns:MISMAP_NUM_KADASTRO_PARSEL' => '#ef4444', ... ]
+     */
+    public function getMapColorSettings(?string $layer = null): mixed
+    {
+        $prefs = $this->map_preferences ?? [];
+
+        if ($layer !== null) {
+            return $prefs[$layer] ?? null;
+        }
+
+        return $prefs;
+    }
+
+    /**
+     * Tek bir katmanın rengini kişisel JSON'a yazar (yalnızca '#RRGGBB').
+     */
+    public function setMapColorSetting(string $layer, string $colorHex): void
+    {
+        if (!preg_match('/^#[0-9A-Fa-f]{6}$/', $colorHex)) {
+            return;
+        }
+
+        $prefs = $this->map_preferences ?? [];
+        $prefs[$layer] = strtoupper($colorHex);
+
+        $this->forceFill(['map_preferences' => $prefs])->save();
     }
 
     /**

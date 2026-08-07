@@ -404,20 +404,26 @@ class ApplicationService
                 ]);
                 $this->log($application, $user, 'receipt.approved', ['receipt_id' => $receipt->id], 'Makbuz onaylandı, metraj aşamasına geçildi');
             } else {
+                // KATI ADIM KAPISI: Alt kurum başvurusunda makbuz onayı RUHSATI otomatik üretmez.
+                // Modül, belediyenin "RUHSAT MODÜLÜNÜ AÇ" (openRuhsat) tıklamasıyla açılır ve
+                // ruhsat PDF'i ancak o aşamada üretilir (payment_completed → licensed).
                 $application->update([
-                    'status' => ApplicationStatus::Licensed,
-                    'licensed_at' => now(),
+                    'status' => ApplicationStatus::PaymentCompleted,
+                    'licensed_at' => null,
                     'receipt_approved_at' => now(),
                     'receipt_approved_by' => $user->id,
                     'payment_status' => 'paid',
-                    'approval_status' => 'licensed',
+                    'approval_status' => 'payment_completed',
                     'receipt_file_path' => $receiptMedia->getPathRelativeToRoot(),
                 ]);
 
-                $result = $licenseService->generateExcavationPermitPdf($application);
-                $application->update(['license_document_path' => $result['path']]);
-
-                $this->log($application, $user, 'receipt.approved', ['pdf' => $result['path'], 'receipt_id' => $receipt->id], 'Makbuz onaylandı, ruhsat PDF üretildi');
+                $this->log(
+                    $application,
+                    $user,
+                    'receipt.approved',
+                    ['receipt_id' => $receipt->id],
+                    'Makbuz onaylandı, ödeme tamamlandı. Ruhsat modülü belediye yetkisiyle açılacak'
+                );
             }
         });
 

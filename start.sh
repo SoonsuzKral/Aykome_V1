@@ -39,38 +39,37 @@ else
     exit 1
 fi
 
-# 3. Laravel hazırlık
+# 3. Laravel hazırlık (Docker PHP container'ında, host PHP'de oci8 yok)
 echo ""
 echo "[2/4] Laravel hazırlığı..."
 
-php artisan config:clear 2>/dev/null || true
-php artisan route:clear 2>/dev/null || true
+docker exec aykome-v6-php php artisan config:clear >/dev/null 2>&1 || true
+docker exec aykome-v6-php php artisan route:clear >/dev/null 2>&1 || true
 
 # Migration
 echo "  → Migration çalıştırılıyor..."
-php artisan migrate --force 2>&1 | tail -2
+docker exec aykome-v6-php php artisan migrate --force 2>&1 | tail -2
 
-# Seed (sadece SQLite'da, tablo boşsa)
-ROLE_COUNT=$(php artisan tinker --execute="echo \Spatie\Permission\Models\Role::count();" 2>/dev/null)
+# Seed (tablo boşsa)
+ROLE_COUNT=$(docker exec aykome-v6-php php artisan tinker --execute="echo \Spatie\Permission\Models\Role::count();" 2>/dev/null)
 if [ "$ROLE_COUNT" -lt 6 ] 2>/dev/null; then
     echo "  → Veritabanı seed'leniyor..."
-    php artisan db:seed --class=DatabaseSeeder 2>&1 | tail -3
+    docker exec aykome-v6-php php artisan db:seed --class=DatabaseSeeder 2>&1 | tail -3
 else
     echo "  → Roller zaten mevcut, seed atlanıyor"
 fi
 
-# 4. Laravel sunucusu
+# 4. Laravel sunucusu (Docker serve container, port 8001)
 echo ""
 echo "[3/4] Laravel sunucu başlatılıyor (port 8001)..."
-php artisan serve --port=8001 > /tmp/laravel.log 2>&1 &
-echo $! > /tmp/laravel.pid
-sleep 2
+docker compose up -d serve 2>&1 | tail -2
+sleep 4
 
 if curl -s -o /dev/null -w "%{http_code}" http://localhost:8001 | grep -q "200\|302\|404"; then
     echo "  ✅ Laravel: http://localhost:8001"
 else
-    echo "  ⚠️  Laravel başlatılamadı. Log: /tmp/laravel.log"
-    tail -5 /tmp/laravel.log
+    echo "  ⚠️  Laravel başlatılamadı. Log:"
+    docker logs --tail 20 aykome-v6-serve 2>&1
 fi
 
 # 5. Electron

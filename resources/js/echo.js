@@ -19,8 +19,8 @@ if (_broadcastEnabled) {
             wsHost: import.meta.env.VITE_REVERB_HOST ?? 'localhost',
             wsPort: import.meta.env.VITE_REVERB_PORT ?? 8090,
             wssPort: import.meta.env.VITE_REVERB_PORT ?? 8090,
-            forceTLS: false,
-            enabledTransports: ['ws', 'wss'],
+            forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https',
+            enabledTransports: (import.meta.env.VITE_REVERB_SCHEME ?? 'http') === 'https' ? ['wss'] : ['ws'],
             disableStats: true,
             debug: false,  // Echo-level debug log kapatıldı (spam)
         });

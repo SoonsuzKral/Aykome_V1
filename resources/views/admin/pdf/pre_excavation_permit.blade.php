@@ -40,15 +40,32 @@
     .approval-box .date-text { font-size: 10px; color: #475569; }
 
     @page { margin: 20mm 15mm; }
+
+    /* Ortak kurum logosu + Vanilla JS Mini Format Toolbar */
+    .print-logo { max-width: 140px !important; width: auto; height: auto; object-fit: contain; }
+    .toolbar {
+        position: fixed; bottom: 14px; right: 14px; z-index: 99999;
+        display: flex; gap: 5px; align-items: center;
+        background: #1e3a8a; padding: 7px 9px; border-radius: 9px;
+        box-shadow: 0 5px 14px rgba(0,0,0,.35);
+    }
+    .toolbar button {
+        background: #2563eb; color: #fff; border: none;
+        min-width: 32px; height: 32px; border-radius: 6px;
+        font-weight: 700; cursor: pointer; font-size: 13px; line-height: 1;
+    }
+    .toolbar button:hover { background: #1d4ed8; }
+    .toolbar .sep { width: 1px; height: 20px; background: rgba(255,255,255,.25); margin: 0 2px; }
+    @media print { .toolbar { display: none !important; } }
 </style>
 </head>
 <body>
 
 <div class="header">
     @if($settings->logo_path)
-        <img src="{{ \App\Models\PreExcavationPermitSetting::toBase64DataUri($settings->logo_path) }}" alt="Logo">
+        <img src="{{ \App\Models\PreExcavationPermitSetting::toBase64DataUri($settings->logo_path) }}" alt="Logo" class="print-logo">
     @endif
-    <h1>{{ $settings->title ?? 'ÖN KAZI İZİN BELGESİ' }}</h1>
+    <h1 contenteditable="true">{{ $settings->title ?? 'ÖN KAZI İZİN BELGESİ' }}</h1>
     @if($settings->header_text)
         <h2>{{ $settings->header_text }}</h2>
     @endif
@@ -186,5 +203,34 @@
     </div>
 </div>
 
+<!-- Vanilla JS Mini Format Toolbar -->
+<div class="toolbar no-print">
+    <button onclick="fmtCmd('bold')" title="Kalın (Ctrl+B)"><b>B</b></button>
+    <button onclick="fmtCmd('italic')" title="İtalik (Ctrl+I)"><i>I</i></button>
+    <button onclick="fmtCmd('underline')" title="Altı Çizili (Ctrl+U)"><u>U</u></button>
+    <span class="sep"></span>
+    <button onclick="fmtSize(1)" title="Yazıyı Büyüt">A+</button>
+    <button onclick="fmtSize(-1)" title="Yazıyı Küçült">A−</button>
+</div>
+
+<script>
+function fmtCmd(cmd) {
+    document.execCommand(cmd, false, null);
+}
+function fmtSize(delta) {
+    var sel = document.getSelection();
+    var el = sel && sel.anchorNode
+        ? (sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentNode : sel.anchorNode)
+        : null;
+    var size = 3;
+    if (el && el.style && el.style.fontSize) {
+        var px = parseFloat(el.style.fontSize);
+        if (!isNaN(px)) size = Math.min(7, Math.max(1, Math.round(px / 2)));
+    }
+    size = Math.min(7, Math.max(1, size + delta));
+    document.execCommand('fontSize', false, String(size));
+    if (el && el.focus) el.focus();
+}
+</script>
 </body>
 </html>

@@ -61,6 +61,7 @@ Route::middleware(['auth'])->prefix('maps')->name('maps.')->group(function () {
     // CBS v7 — Katman Tercihleri
     Route::post('/katman/kaydet',            [MapsController::class, 'katmanKaydet'])->name('katman.kaydet');
     Route::get('/katman/yukle',              [MapsController::class, 'katmanYukle'])->name('katman.yukle');
+    Route::post('/renk-kaydet',              [MapsController::class, 'renkKaydet'])->name('renk.kaydet');
 
     // CBS v7 — Adres Arama (Nominatim proxy)
     Route::get('/ara',                       [MapsController::class, 'search'])->name('ara');
