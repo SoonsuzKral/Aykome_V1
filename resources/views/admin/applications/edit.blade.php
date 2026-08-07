@@ -169,7 +169,7 @@
                         <label class="block text-sm font-medium text-slate-700 mb-1.5">Başvuru Türü</label>
                         <div class="flex gap-4">
                             <label class="inline-flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="application_type" value="basvuru" {{ old('application_type', $application->application_type ?? 'basvuru') === 'basvuru' ? 'checked' : '' }} class="h-4 w-4 text-sky-600 border-slate-300 focus:ring-sky-500">
+                                <input type="radio" name="application_type" value="basvuru" {{ in_array(old('application_type', $application->application_type ?? 'basvuru'), ['basvuru', 'ek_ruhsat']) ? 'checked' : '' }} class="h-4 w-4 text-sky-600 border-slate-300 focus:ring-sky-500">
                                 <span class="text-sm text-slate-700 font-medium">Normal Başvuru</span>
                             </label>
                             <label class="inline-flex items-center gap-2 cursor-pointer">
@@ -439,6 +439,10 @@
             {{-- Hidden inputs for submit --}}
             <div id="surface-lines-hidden-inputs"></div>
         </div>
+
+        @include('admin.applications.partials._metraj_tahmin', [
+            'tahminEditMode' => true,
+        ])
 
         {{-- Kurum & İmza Yetkili Bilgileri — yalnızca kurum başvurusu (Vatandaş değil) ise görünür --}}
         <fieldset id="imza-yetkili-karti" class="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4 sm:grid-cols-2">

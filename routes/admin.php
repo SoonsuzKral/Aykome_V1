@@ -34,6 +34,7 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
     Route::middleware('license:applications')->group(function () {
         Route::post('applications/data',         [ApplicationsController::class, 'data']          )->name('applications.data');
         Route::post('applications/check-applicant', [ApplicationsController::class, 'checkApplicant'])->name('applications.check-applicant');
+        Route::post('applications/metraj-tahmin',    [ApplicationsController::class, 'metrajTahmin']   )->name('applications.metraj-tahmin');
         Route::resource('applications', ApplicationsController::class)->except(['destroy']);
         Route::delete('applications/{application}', [ApplicationsController::class, 'destroy'])->name('applications.destroy');
         Route::post('applications/bulk-destroy',    [ApplicationsController::class, 'bulkDestroy'])->name('applications.bulk-destroy');

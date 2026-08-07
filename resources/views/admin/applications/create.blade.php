@@ -461,6 +461,10 @@
             <div id="surface-lines-hidden-inputs"></div>
         </div>
 
+        @include('admin.applications.partials._metraj_tahmin', [
+            'tahminEditMode' => false,
+        ])
+
         {{-- Kurum & İmza Yetkili Bilgileri — yalnızca kurum başvurusu (Vatandaş değil) ise görünür --}}
         <fieldset id="imza-yetkili-karti" class="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4 sm:grid-cols-2">
             <legend class="col-span-full text-sm font-semibold text-slate-800">Kurum & İmza Yetkili Bilgileri</legend>

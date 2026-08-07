@@ -1,4 +1,45 @@
-# Oturum Özeti — 2 Ağustos 2026
+# Oturum Özeti — 7 Ağustos 2026
+
+## Sprint 6 — KAZI METRAJ TAHMİNİ (PRO) — İstatistiksel Tahmin Motoru
+
+### 🎯 Öz
+BETA→PRO: Başvuru formuna gömülü, **sıfır maliyet / offline / LLM'siz** istatistiksel metraj tahmin motoru. Kurum+mahalle adaptif hiyerarşi; veri azsa global/varsayılan düşüş.
+
+### ✅ 1. `app/Services/ProjectForecastService.php` (YENİ)
+- `predict(institutionId, mahalle, totalM2, excludeAppId)` → tam paket: toplam m² + zemin bazlı yüzde/m²/fiyat satırları + `forecast_total` + güven etiketi
+- Adaptif seviyeler: **L1 kurum+mahalle** (≥3 örnek) → **L2 kurum** (≥5) → **L3 global** (≥5) → **L4 varsayılan dağılım**
+- `defaultDistribution()` — SurfaceTypeSeeder gerçek adlarıyla eşleşen akıllı varsayılan (%55 asfalt, %18 parke, %12 beton, %6 stabilize, %6 toprak, %3 çim; DB'de yoksa ilk aktif tipe bakiye)
+- Oracle uyumlu: ham JSON SQL fonksiyonu YOK — mahalle filtresi PHP tarafında `address_components` array'inde (yavaş ama güvenli)
+- Fiyat öngörüsü AykomeMath çekirdeğiyle uyumlu (amount = m² × birim fiyat; recalculateTotals ile bağlanır)
+
+### ✅ 2. Controller + Route
+- `ApplicationsController::metrajTahmin(Request)` — validasyon (`institution_id/mahalle/total_area_m2/exclude_application_id`) + `ProjectForecastService::predict` + `AuditLogger::log('metraj.forecast', ...)` + JSON
+- `POST admin/applications/metraj-tahmin` → `admin.applications.metraj-tahmin` (check-applicant yanına, resource'dan önce)
+
+### ✅ 3. View — `partials/_metraj_tahmin.blade.php` (YENİ)
+- create + edit'e `@include` (zemin kartı ile Kurum & İmza Yetkili arasına)
+- "🎯 Metraj Tahmini Al" butonu → AJAX POST → sonuç kartı: güven + seviye etiketi + zemin tablosu (pay/m²/birim fiyat/öngörü) + toplam öngörü
+- "♻️ Zemin Satırlarına Uygula" → global `addSurfaceLine()` satır ekler + `recalculateAll()` (mevcut çizim/satır API'sine bağlanır, yeni mimari yok)
+
+### ✅ Doğrulama
+- `php -l` service + controller + routes OK; `php artisan route:list --name=metraj-tahmin` → 1 route
+- `php artisan view:cache` OK (tüm blade derlenir); partial JS `node --check` OK
+- Saf istatistik mantığı birim testi: %55/%45 dengeli, tek tip %100, boş → [] — hepsi geçti
+- Not: host CLI OCI8'siz olduğundan DB'li tinker çalışmadı (bilinen çevresel kısıt) — servis Eloquent sorgusu sadece; Docker Oracle'da `./oracle.sh tinker` ile `app(ProjectForecastService::class)->predict(1,'EYYÜBİYE',180)` test edilebilir
+
+### 📁 Değişen Dosyalar
+- `app/Services/ProjectForecastService.php` (yeni), `resources/views/admin/applications/partials/_metraj_tahmin.blade.php` (yeni)
+- `app/Http/Controllers/Admin/ApplicationsController.php` (+`metrajTahmin`), `routes/admin.php` (+1 route)
+- `resources/views/admin/applications/create.blade.php` + `edit.blade.php` (partial include)
+- `SESSION_SUMMARY.md` (bu özet)
+
+### Sıradaki
+- Docker'da DB'li predict testi; tarayıcıda create/edit "Tahmini Al" → uygula akışı
+- Varsayılan dağılım gerçek veriyle doldukça otomatik isabet kazanır
+
+---
+
+## Önceki — 2 Ağustos 2026
 
 ## Sprint 5 — EBYS 5 MADDELİK İŞ PAKETİ (Backend + Migration + View)
 
