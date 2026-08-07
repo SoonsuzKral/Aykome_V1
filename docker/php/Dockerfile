@@ -39,4 +39,4 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
 
 WORKDIR /app
 
-CMD ["php", "-a"]
+CMD ["php", "-S", "0.0.0.0:8000", "-t", "/app/public", "/app/router.php"]

@@ -1118,6 +1118,31 @@
 
             // My Location
             var myLocationMarker = null;
+            var markMyLocation = function (lat, lng) {
+                var p = [lat, lng];
+                map.setView(p, 17);
+                if (myLocationMarker) map.removeLayer(myLocationMarker);
+                myLocationMarker = L.marker(p).addTo(map);
+                myLocationMarker.bindPopup('📍 Konumum');
+            };
+            var geoErrorMsg = function (err) {
+                if (!err) return 'Konum alınamadı.';
+                if (err.code === 1) return 'Konum izni reddedildi — tarayıcının adres çubuğundaki kilit simgesinden "Konum" iznini verin.';
+                if (err.code === 2) return 'Konum bulunamadı (cihaz GPS\'i yanıt vermedi). IP\'ye göre deneniyor...';
+                if (err.code === 3) return 'Konum isteği zaman aşımına uğradı — tekrar deneyin.';
+                return 'Konum alınamadı: ' + (err.message || 'bilinmeyen hata');
+            };
+            var ipFallback = function () {
+                if (statusEl) statusEl.textContent = 'IP tabanlı konum deneniyor...';
+                fetch('https://ipapi.co/json/', { cache: 'no-cache' })
+                    .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+                    .then(function (d) {
+                        if (!d || !Number.isFinite(parseFloat(d.latitude)) || !Number.isFinite(parseFloat(d.longitude))) throw new Error('no-coord');
+                        markMyLocation(parseFloat(d.latitude), parseFloat(d.longitude));
+                        if (statusEl) statusEl.textContent = 'IP tabanlı konum işaretlendi (hassas değil) — ' + (d.city ? d.city + ', ' + d.region : '');
+                    })
+                    .catch(function () { if (statusEl) statusEl.textContent = 'Konum alınamadı. Tarayıcı iznini kontrol edin veya haritaya tıklayıp konumu elle işaretleyin.'; });
+            };
             var MyLocationControl = L.Control.extend({
                 onAdd: function () {
                     var btn = L.DomUtil.create('button', 'leaflet-bar leaflet-control leaflet-control-custom');
@@ -1130,19 +1155,18 @@
                     L.DomEvent.on(btn, 'click', function (e) {
                         L.DomEvent.stopPropagation(e);
                         L.DomEvent.preventDefault(e);
-                        if (!navigator.geolocation) { if (statusEl) statusEl.textContent = 'Konum servisi desteklenmiyor.'; return; }
-                        if (statusEl) statusEl.textContent = 'Konum alınıyor...';
+                        if (!navigator.geolocation) { ipFallback(); return; }
+                        if (statusEl) statusEl.textContent = 'Konum alınıyor... (cihaz GPS\'i bekleniyor)';
                         navigator.geolocation.getCurrentPosition(
                             function (pos) {
-                                var p = [pos.coords.latitude, pos.coords.longitude];
-                                map.setView(p, 17);
-                                if (myLocationMarker) map.removeLayer(myLocationMarker);
-                                myLocationMarker = L.marker(p).addTo(map);
-                                myLocationMarker.bindPopup('📍 Konumum');
+                                markMyLocation(pos.coords.latitude, pos.coords.longitude);
                                 if (statusEl) statusEl.textContent = 'Konum işaretlendi.';
                             },
-                            function () { if (statusEl) statusEl.textContent = 'Konum alınamadı.'; },
-                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+                            function (err) {
+                                if (statusEl) statusEl.textContent = geoErrorMsg(err);
+                                if (err && err.code === 2) ipFallback();
+                            },
+                            { enableHighAccuracy: false, timeout: 15000, maximumAge: 0 },
                         );
                     });
                     return btn;
