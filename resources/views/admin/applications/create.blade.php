@@ -6,14 +6,6 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.draw.css') }}" />
     <style>
-        /* KONUM BUL ANİMASYONU (maps/index'ten taşındı — WMS sistemi bunu kullanacak) */
-        @keyframes locSpin { to { transform: rotate(360deg); } }
-        @keyframes locPulse {
-            0% { box-shadow: 0 0 0 0 rgba(232,119,34,0.7); }
-            70% { box-shadow: 0 0 0 14px rgba(232,119,34,0); }
-            100% { box-shadow: 0 0 0 0 rgba(232,119,34,0); }
-        }
-        .loc-marker { background:#E87722; width:16px; height:16px; border-radius:50%; border:3px solid #fff; animation: locPulse 1.5s infinite; }
         #application-drawing-map { min-height: 500px; position: relative; z-index: 1; }
         #application-drawing-map .leaflet-container { border-radius: 0.75rem; }
         .leaflet-pane { z-index: 10 !important; }
@@ -239,12 +231,22 @@
                         <label class="block text-sm font-medium text-slate-700" for="address_text">Adres</label>
                         <div class="mt-1 flex gap-2">
                             <input id="address_text" type="text" name="address_text" value="{{ old('address_text') }}" class="block w-full rounded-lg border-slate-300 shadow-sm @error('address_text') border-red-300 ring-red-100 @enderror" placeholder="Adres girin">
-                            <button type="button" id="btn-find-location" class="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 whitespace-nowrap">
-                                <span id="find-loc-spinner" class="hidden" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:locSpin .6s linear infinite;vertical-align:middle;margin-right:6px"></span>
-                                📍 Konum Bul
-                            </button>
                         </div>
                         @error('address_text')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-medium text-slate-700">Mahalle & Sokak Listesi</label>
+                        <p class="text-xs text-slate-500 mb-2">Başvuruya ait mahalle ve sokakları ekleyin. Üst yazıda otomatik tablo olarak görünecektir.</p>
+                        <input type="hidden" name="address_components" id="address_components" value='{{ old('address_components_json', old('address_components', '[]')) }}'>
+                        <div id="address-components-container" class="space-y-2">
+                        </div>
+                        <button type="button" id="add-address-component-btn" class="mt-2 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition">
+                            + Mahalle & Sokak Ekle
+                        </button>
+                        @error('address_components')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
@@ -1657,56 +1659,11 @@
         // ─── (ESKİ KONUM BULMA SİSTEMİ KALDIRILDI) ────────────────────────
         // YENİ KONUM BUL (ANİMASYONLU): maps/index'teki search-spinner + pulse
         // marker + animasyonlu flyTo deseni forma taşındı. WMS konum bulma
-        // sistemi bu altyapıyı kullanacak; şimdilik S2S geocode endpoint'i çağırır.
-        function flyToAnimated(lat, lon) {
-            var maps = [
-                window.appDrawMap || (window.map || null),
-                window.appCbsMap || (window.cbsMap || null)
-            ];
-            maps.forEach(function (m) {
-                if (m && typeof m.flyTo === 'function') {
-                    m.flyTo([lat, lon], 18, { animate: true, duration: 1 });
-                } else if (m && typeof m.setView === 'function') {
-                    m.setView([lat, lon], 18);
-                }
-            });
-            // Pulse turuncu marker — çizim haritasına (öncelik)
-            var target = window.appDrawMap;
-            if (target) {
-                if (window._locMarker) target.removeLayer(window._locMarker);
-                window._locMarker = L.marker([lat, lon], {
-                    icon: L.divIcon({
-                        className: '',
-                        html: '<div class="loc-marker"></div>',
-                        iconSize: [16, 16], iconAnchor: [8, 8]
-                    })
-                }).addTo(target);
-            }
-            var statusEl = document.getElementById('map-status');
-            if (statusEl) statusEl.textContent = '📍 Konum bulundu.';
-        }
-
-        document.getElementById('btn-find-location')?.addEventListener('click', async function () {
-            var input = document.getElementById('address_text');
-            var spinner = document.getElementById('find-loc-spinner');
-            var q = input ? input.value.trim() : '';
-            if (!q || q.length < 3) { alert('Lütfen adres girin.'); return; }
-            if (spinner) spinner.classList.remove('hidden');
-            try {
-                var resp = await fetch('/admin/api/geocode?q=' + encodeURIComponent(q));
-                var data = await resp.json();
-                if (data && data.success) {
-                    flyToAnimated(parseFloat(data.lat), parseFloat(data.lon));
-                } else {
-                    alert('Adres isabetli bulunamadı. Lütfen mahalle + sokak + kapı no yazın.');
-                }
-            } catch (e) {
-                console.error('Konum bul hatası:', e);
-                alert('Konum bulma sunucusu geçici olarak yanıt vermedi.');
-            } finally {
-                if (spinner) spinner.classList.add('hidden');
-            }
-        });
+        // ─── CADDE/SOKAK VERİ GİRİŞİ (üst yazı tablosu için) ────────────────
+        // Sadece veri girişi: mahalle + cadde/sokak listesini address_components
+        // hidden alanına serileştirir. Haritaya otomatik gitme YOK (yeşil arama
+        // bağlantıları + geocode kaldırıldı).
+        function esc(v) { return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
         // ─── BOOT ─────────────────────────────────────────────────────────
         document.addEventListener('DOMContentLoaded', function () {
@@ -1724,6 +1681,130 @@
             document.getElementById('add-row-btn')?.addEventListener('click', function () {
                 addSurfaceLine({});
             });
+
+            // ─── MAHALLE & SOKAK VERİ GİRİŞİ (üst yazı tablosu) ─────────────
+            function initAddressComponents() {
+                var hiddenInput = document.getElementById('address_components');
+                var container = document.getElementById('address-components-container');
+                var addBtn = document.getElementById('add-address-component-btn');
+                if (!hiddenInput || !container) return;
+
+                var components = [];
+                try { components = JSON.parse(hiddenInput.value || '[]'); } catch(e) { components = []; }
+                if (!Array.isArray(components)) components = [];
+
+                function syncHidden() {
+                    hiddenInput.value = JSON.stringify(components);
+                }
+
+                function render() {
+                    container.innerHTML = '';
+                    components.forEach(function (comp, idx) {
+                        var streets = Array.isArray(comp.streets) ? comp.streets : [];
+                        var wrapper = document.createElement('div');
+                        wrapper.className = 'p-3 rounded-lg border border-slate-200 bg-white space-y-2';
+                        wrapper.setAttribute('data-mahalle-idx', idx);
+
+                        var header = document.createElement('div');
+                        header.className = 'flex items-center gap-2';
+                        header.innerHTML =
+                            '<input type="text" class="comp-mahalle flex-1 rounded border-slate-300 text-xs shadow-sm" value="' + esc(comp.mahalle) + '" placeholder="Mahalle Adı (örn: 15 TEMMUZ MAHALLESİ)" data-idx="' + idx + '">' +
+                            '<button type="button" class="comp-remove flex-shrink-0 rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600" data-idx="' + idx + '" title="Mahalleyi Kaldır">&times;</button>';
+                        wrapper.appendChild(header);
+
+                        var streetsContainer = document.createElement('div');
+                        streetsContainer.className = 'ml-2 space-y-1';
+                        streetsContainer.setAttribute('data-streets-container', idx);
+
+                        streets.forEach(function (s, si) {
+                            var sRow = document.createElement('div');
+                            sRow.className = 'flex items-center gap-1';
+                            sRow.innerHTML =
+                                '<span class="text-[10px] text-slate-400 w-4">' + (si + 1) + '.</span>' +
+                                '<input type="text" class="comp-street flex-1 rounded border-slate-200 text-[11px] shadow-sm" value="' + esc(s) + '" placeholder="Cadde/Sokak adı" data-idx="' + idx + '" data-street-idx="' + si + '">' +
+                                '<button type="button" class="street-remove flex-shrink-0 rounded p-0.5 text-red-300 hover:text-red-500" data-idx="' + idx + '" data-street-idx="' + si + '">&times;</button>';
+                            streetsContainer.appendChild(sRow);
+                        });
+
+                        wrapper.appendChild(streetsContainer);
+
+                        var addStreetBtn = document.createElement('button');
+                        addStreetBtn.type = 'button';
+                        addStreetBtn.className = 'ml-2 text-[10px] font-medium text-cyan-700 hover:text-cyan-900 hover:underline';
+                        addStreetBtn.setAttribute('data-add-street-idx', idx);
+                        addStreetBtn.textContent = '+ Cadde / Sokak Ekle';
+                        wrapper.appendChild(addStreetBtn);
+
+                        container.appendChild(wrapper);
+                    });
+                    attachEvents();
+                }
+
+                function attachEvents() {
+                    container.querySelectorAll('.comp-mahalle').forEach(function (el) {
+                        el.addEventListener('input', function () {
+                            var idx = parseInt(this.dataset.idx);
+                            if (!isNaN(idx) && components[idx]) components[idx].mahalle = this.value;
+                            syncHidden();
+                        });
+                    });
+
+                    container.querySelectorAll('.comp-street').forEach(function (el) {
+                        el.addEventListener('input', function () {
+                            var idx = parseInt(this.dataset.idx);
+                            var si = parseInt(this.dataset.streetIdx);
+                            if (!isNaN(idx) && !isNaN(si) && components[idx] && components[idx].streets) {
+                                components[idx].streets[si] = this.value;
+                            }
+                            syncHidden();
+                        });
+                    });
+
+                    container.querySelectorAll('.street-remove').forEach(function (el) {
+                        el.addEventListener('click', function () {
+                            var idx = parseInt(this.dataset.idx);
+                            var si = parseInt(this.dataset.streetIdx);
+                            if (!isNaN(idx) && !isNaN(si) && components[idx] && components[idx].streets) {
+                                components[idx].streets.splice(si, 1);
+                                syncHidden();
+                                render();
+                            }
+                        });
+                    });
+
+                    container.querySelectorAll('[data-add-street-idx]').forEach(function (el) {
+                        el.addEventListener('click', function () {
+                            var idx = parseInt(this.dataset.addStreetIdx);
+                            if (!isNaN(idx) && components[idx]) {
+                                components[idx].streets.push('');
+                                syncHidden();
+                                render();
+                            }
+                        });
+                    });
+
+                    container.querySelectorAll('.comp-remove').forEach(function (el) {
+                        el.addEventListener('click', function () {
+                            var idx = parseInt(this.dataset.idx);
+                            if (!isNaN(idx) && components[idx]) {
+                                components.splice(idx, 1);
+                                syncHidden();
+                                render();
+                            }
+                        });
+                    });
+                }
+
+                addBtn?.addEventListener('click', function () {
+                    components.push({ mahalle: '', streets: [] });
+                    syncHidden();
+                    render();
+                });
+
+                render();
+            }
+
+            initAddressComponents();
 
             // Submit hook
             document.getElementById('application-form')?.addEventListener('submit', function () {

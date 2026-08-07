@@ -1,5 +1,34 @@
 # Oturum Özeti — 7 Ağustos 2026
 
+## Sprint 8b — CADDE/SOKAK INPUT DÜZELTMESİ (geri getirildi, fazlalıklar kaldırıldı)
+
+### 🎯 Öz
+Önceki sprint'te (8a) cadde/sokak input yapısı yanlışlıkla tamamen kaldırılmıştı. Kullanıcı düzeltmesi: **cadde/sokak inputlarını geri getir** (üst yazı tablosu için gerekli), ama **yeşil div arama bağlantılarını** (cadde yazınca harita üstünde çıkan `renderStreetJumpBar`) ve **adres inputundaki "Konum Bul" butonunu** kaldır. Yeni adres bulma algoritması henüz kurulmayacak.
+
+### ✅ Geri Getirilenler (create + edit)
+- **HTML:** "Mahalle & Sokak Listesi" bloğu (`address-components-container`, `+ Mahalle & Sokak Ekle`, hidden `address_components`)
+- **JS:** `esc()`, `initAddressComponents()` — sadece veri girişi (mahalle + cadde/sokak listesini `address_components` JSON'a serileştirir). Cadde yazınca haritaya otomatik gitme YOK.
+- Submit: hidden `address_components` form'da otomatik gider
+
+### ✅ Kaldırılanlar (kullanıcının istemedikleri)
+- `#btn-find-location` "📍 Konum Bul" butonu + locSpin/locPulse animasyon CSS + `flyToAnimated` JS
+- `renderStreetJumpBar` yeşil div arama bağlantıları (cadde yazınca harita üstünde çıkan) + `#street-jump-bar`
+- `executeSmartGeocode`, `initAddressAutocomplete`, `btn-search-address` (eski geocode/arama zinciri kalıntıları)
+
+### ✅ Doğrulama
+- `php artisan view:cache` OK
+- create/edit: cadde/sokak referansı 10/10; kaldırılacaklar 0/0
+- Not: Animasyon kodu maps/index'te duruyor — WMS konum bulma sistemi kurulurken oradan taşınacak
+
+### 📁 Değişen Dosyalar
+- `resources/views/admin/applications/create.blade.php`, `edit.blade.php`
+- `SESSION_SUMMARY.md`
+
+### Sıradaki (BÜYÜK GÖREV)
+- **WMS tabanlı nokta atışı konum bulma sistemi** — mahalle/sokak/kapı numarasına kadar. Kullanıcı algoritmayı anlatacak.
+
+---
+
 ## Sprint 8 — KONUM YAPISI TEMİZLİĞİ + ANİMASYONLU KONUM BUL
 
 ### 🎯 Öz
