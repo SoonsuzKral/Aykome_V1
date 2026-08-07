@@ -52,7 +52,7 @@
                     <span class="mt-0.5 text-[9px] font-black tracking-[0.2em] text-white">AYKOME</span>
                 </div>
             </div>
-            <p class="mt-3 text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">T.C. Şanlıurfa Büyükşehir Belediyesi · Eyyübiye</p>
+            <p class="mt-3 text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">Eyyübiye Belediyesi</p>
         </div>
 
         <h1 class="text-center text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">
