@@ -1,5 +1,35 @@
 # Oturum Özeti — 7 Ağustos 2026
 
+## Sprint 8 — KONUM YAPISI TEMİZLİĞİ + ANİMASYONLU KONUM BUL
+
+### 🎯 Öz
+Başvuru oluştur/düzenle sayfalarında eski, hatalı konum bulma yapısı (mahalle/cadde/sokak DOM'u, yeşil sokak jump butonları, eski geocode zinciri, adres autocomplete) tamamen kaldırıldı. Yerine **animasyonlu "📍 Konum Bul"** butonu + pulse marker + animasyonlu flyTo taşındı (maps/index deseni). Bu, yeni WMS konum bulma sisteminin altyapısını hazırlar.
+
+### ✅ Kaldırılanlar (create + edit, ~668 satır)
+- **HTML:** `#btn-search-address` ("🔍 Haritada Bul"), Mahalle & Sokak Listesi bloğu (`#address_components` hidden, `#address-components-container`, `+ Mahalle & Sokak Ekle`), `#street-jump-bar`, `#address-autocomplete-list`, `#map-search-input`
+- **JS fonksiyonları:** `flyToSuggestion`, `parseAddressForGeocode`, `executeSmartGeocode`, `renderStreetJumpBar`, `initAddressAutocomplete` (Nominatim), `prepareAddressComponents`, `initAddressComponents`, `esc`
+- **Event bağları:** autocomplete, btn-search, map-search Enter, nested cadde/sokak debounce-geocode
+- `show.blade.php` readonly görüntüleme + `maps/index` original animasyonuna **dokunulmadı**
+
+### ✅ Eklenenler (animasyon forma taşındı)
+- "📍 Konum Bul" butonu + `locSpin` spinner animasyonu (click'te döner)
+- `flyToAnimated(lat,lon)` — iki haritaya animasyonlu `flyTo({animate:true,duration:1})` + `locPulse` pulse turuncu marker (`loc-marker`)
+- S2S `/admin/api/geocode`'i çağırır (WMS sistemi aynı endpoint'i kullanacak)
+
+### ✅ Doğrulama
+- `php artisan view:cache` OK (tüm blade derlenir)
+- create/edit'te eski referanslar 0; yeni animasyon referansı 8/8
+- `git diff`: toplam -668 satır, +113 satır
+
+### 📁 Değişen Dosyalar
+- `resources/views/admin/applications/create.blade.php`, `edit.blade.php`
+- `SESSION_SUMMARY.md`
+
+### Sıradaki (BÜYÜK GÖREV)
+- **WMS tabanlı nokta atışı konum bulma sistemi** — mahalle/sokak/kapı numarasına kadar. `maps/index`'teki ada/parsel sorgulama mantığının aynısı mahalle/cadde/sokak/kapı sorgulamasına uyarlanacak; `_harita` partial + `ApplicationsController::geocodeProxy`/proxy S2S altyapısı kullanılacak.
+
+---
+
 ## Sprint 7 — MERKEZ BELEDİYE (VATANDAŞ) MODÜL SERBEST ERİŞİMİ
 
 ### 🎯 Öz
