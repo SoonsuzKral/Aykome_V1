@@ -658,8 +658,15 @@ class MapsController extends Controller
     }
 
     /**
+     * AYKOME yalnızca Eyyübiye ilçesi için çalışır. Şanlıurfa'da aynı isimli
+     * mahalleler birden çok ilçede olabilir (BATIKENT Eyyübiye + Karaköprü).
+     * Bu sabit, tüm WMS mahalle sorgularında ILCE_NO=63011 (Eyyübiye) filtreler.
+     */
+    private const EYYUBIYE_ILCE_NO = 63011;
+
+    /**
      * WFS mahalle sorgusu — cbs:MISMAP_MAHALLE_KOYLER (geo3, WFS 2.0.0)
-     * @return array|null ['name', 'lat', 'lon']
+     * @return array|null ['name', 'lat', 'lon', 'bbox']
      */
     private function wfsMahalleBul(string $mahalle): ?array
     {
@@ -676,7 +683,8 @@ class MapsController extends Controller
             . '&outputFormat=application/json&srsName=EPSG:4326&count=3';
 
         foreach ($adlar as $q) {
-            $u = $url . '&cql_filter=' . urlencode("MAHALLE_ADI ILIKE '%{$q}%'") . '&outputFormat=application/json&srsName=EPSG:4326&count=1';
+            // EYYÜBİYE İLÇE FİLTRESİ: aynı isimli mahalle başka ilçede olmasın
+            $u = $url . '&cql_filter=' . urlencode("MAHALLE_ADI ILIKE '%{$q}%' AND ILCE_NO=" . self::EYYUBIYE_ILCE_NO) . '&outputFormat=application/json&srsName=EPSG:4326&count=1';
             $resp = Http::withOptions(['verify' => false, 'timeout' => 5])->get($u);
             if (!$resp->successful()) continue;
 
@@ -778,31 +786,40 @@ class MapsController extends Controller
      */
     private function wfsMahalleCaddeleri(string $mahalle): array
     {
-        // TÜRKÇE İ KORU: trUppercase — GeoServer ILIKE'ında %KADIKENDİ% gerekli
-        $mh = $this->trUppercase(trim($mahalle));
-        if ($mh === '') return [];
+        // TÜRKÇE/ASCII varyantları dene (trUppercase tek varyant yetmez)
+        $adlar = $this->turkeVariants(trim($mahalle));
+        if (empty($adlar)) return [];
 
+        $mahFeature = null;
+        $mahResp = null;
         // 1) Mahalle poligonu — cbs:MISMAP_MAHALLE_KOYLER (MAHALLE_ADI)
+        // EYYÜBİYE İLÇE FİLTRESİ: aynı isimli mahalle başka ilçede olmasın
         $mahUrl = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
             . '?service=WFS&version=2.0.0&request=GetFeature'
             . '&typeNames=cbs:MISMAP_MAHALLE_KOYLER'
-            . '&cql_filter=' . urlencode("MAHALLE_ADI ILIKE '%{$mh}%'")
             . '&outputFormat=application/json&srsName=EPSG:4326&count=1';
-        $mahResp = Http::withOptions(['verify' => false, 'timeout' => 6])->get($mahUrl);
-        if (!$mahResp->successful()) return [];
 
-        $mahData = $mahResp->json();
-        $mahFeature = $mahData['features'][0] ?? null;
+        foreach ($adlar as $q) {
+            $mahUrlQ = $mahUrl . '&cql_filter=' . urlencode("MAHALLE_ADI ILIKE '%{$q}%' AND ILCE_NO=" . self::EYYUBIYE_ILCE_NO);
+            $mahResp = Http::withOptions(['verify' => false, 'timeout' => 6])->get($mahUrlQ);
+            if (!$mahResp->successful()) continue;
+            $mahData = $mahResp->json();
+            if (!empty($mahData['features'])) {
+                $mahFeature = $mahData['features'][0];
+                break;
+            }
+        }
         if (!$mahFeature || empty($mahFeature['geometry']['coordinates'][0])) return [];
 
         // Mahalle poligonunun bbox'ı (küçük genişletme ile)
         $coords = $mahFeature['geometry']['coordinates'][0];
         $lons = array_column($coords, 0);
         $lats = array_column($coords, 1);
-        $minX = min($lons) - 0.001;
-        $maxX = max($lons) + 0.001;
-        $minY = min($lats) - 0.001;
-        $maxY = max($lats) + 0.001;
+        // Genişletilmiş bbox (0.002° ~ 200m) — mahalle sınırındaki caddeler de dahil olsun
+        $minX = min($lons) - 0.002;
+        $maxX = max($lons) + 0.002;
+        $minY = min($lats) - 0.002;
+        $maxY = max($lats) + 0.002;
 
         // 2) Cadde katmanı — BBOX CRS'li (EPSG:4326) — DOĞRULANMIŞ ÇALIŞIYOR
         $cql = "BBOX(GEOMETRY, {$minX},{$minY},{$maxX},{$maxY},'EPSG:4326')";
