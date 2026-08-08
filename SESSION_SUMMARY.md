@@ -1,5 +1,43 @@
 # Oturum Özeti — 8 Ağustos 2026
 
+## Sprint 11 — LOCAL SHP CADDE SORGULAMA + 15m KONTROL (Sonnet 4.6 analizi)
+
+### 🎯 Öz
+Kullanıcı hataları Claude Sonnet 4.6'ya verdi; Sonnet `claude_opus/` klasörüne 3 dosya koydu (`AYKOME_ANALIZ_VE_COZUM.md`, `CLAUDE_CODE_PROMPT.md`, `maps-address.js`). Debug ettik + Sonnet'in yaklaşımını (local SHP) düzeltilmiş haliyle entegre ettik.
+
+### 🔍 Debug Bulguları (kanıtlandı)
+1. `15_alti.js` (3288 cadde) + `15_ustu.js` (908 cadde) projede hazır — WFS'e gerek yok.
+2. `KADIKENDİ` bbox'ında local SHP'te **335 cadde** var (dün WFS'te 5'ti) — local çok daha kapsamlı.
+3. **Sonnet'in `maps-address.js` hatalı:** `CADDE_SOKAK_ADI` alanı arıyor ama 15_alti.js'te **YOK** (doğrusu `CADDE_SO_1` + `CADDE_SO_2`).
+4. `MAHALLE_AD` Türkçe karakter sorunlu (`KADIKENDI` vs `KADIKENDİ`) + tutarsız — bbox filtresi doğru yol.
+
+### ✅ Yapılanlar
+1. **`public/js/maps-address.js` (YENİ)** — Sonnet'ten düzeltilmiş:
+   - `caddeAdi()` → `CADDE_SO_1 + ' ' + CADDE_SO_2` (doğru alan)
+   - `buildTumCaddeler()` → 15_alti+15_ustu birleştir (3775 benzersiz cadde)
+   - `caddelerInBbox()` → bbox filtresi (MAHALLE_AD'a güvenme)
+   - `sokakAra()` → "8125" → "8125 SOKAK"
+   - `nearestRoadAnd15()` → 15m ALT/ÜST kararı (local)
+   - `parseAdres()` → adres çözümleme
+2. **Blade (create+edit)** — script tag'lar: `15_alti.js` + `15_ustu.js` + `maps-address.js`
+   - Mahalle-bul handler'ı **local-first**: `aykomeCaddelerInBbox` → WFS yedek
+   - 15m kontrol butonu **local**: `aykome15mKontrol` (roadQuery yerine)
+3. **MapsController** — `wfsCaddeBul` Eyyübiye bbox default (önceki sprintten kalan)
+4. **Harita katman** — Google uydu HTTP→HTTPS + Esri yerine Google uydu
+
+### ✅ Canlı Test Sonuçları
+- `buildTumCaddeler()` → **3775 cadde**
+- `sokakAra('8125')` → **"8125 SOKAK"**
+- `caddelerInBbox(KADIKENDİ)` → **288 cadde** (11 NISAN ÇARSISI, 2078, 8001...)
+- `nearestRoadAnd15(38.74,37.14)` → `{source:'ustu', cadde:'8010 SOKAK', genislik:'20'}` → **15m ÜSTÜ**
+
+### 📁 Değişen Dosyalar
+- `public/js/maps-address.js` (yeni), `resources/views/admin/applications/create+edit.blade.php`
+- `resources/views/maps/index.blade.php` + `_harita.blade.php` (HTTPS Google uydu + search)
+- `app/Http/Controllers/MapsController.php` (Eyyübiye bbox)
+- `claude_opus/` (Sonnet dosyaları — referans)
+
+---
 ## Sprint 10 — OPUS WFS ÇÖZÜMÜ ENTEGRASYONU (WFS 1.1.0 + BBOX + mahalleler öncache)
 
 ### 🎯 Öz

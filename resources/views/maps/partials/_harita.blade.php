@@ -36,6 +36,11 @@
 @endphp
 
 <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
+<style>
+    .cbs-search-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(46,109,164,.3);border-top-color:#2e6da4;border-radius:50%;animation:cbsSpin .7s linear infinite;vertical-align:middle;margin-right:6px}
+    @keyframes cbsSpin{to{transform:rotate(360deg)}}
+    .cbs-search-results button:hover{background:#e8f0fe}
+</style>
 @if($drawingEnabled && !$readOnly)
 <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.draw.css') }}" />
 @endif
@@ -54,6 +59,17 @@
         @if($hatKimligiEnabled)
         <button data-hk="{{ $canvasId }}" class="cbs-hk-btn" style="background:white;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15);">🔍 HK</button>
         @endif
+    </div>
+    @endif
+
+    @if(!$readOnly)
+    {{-- HARİTA ÜST-SOL ADRES ARAMA (Fen İşleri talebi) — form modunda --}}
+    <div style="position:absolute;top:8px;left:8px;z-index:1000;width:240px;max-width:70%;">
+        <input type="text" class="cbs-search-input" data-canvas="{{ $canvasId }}"
+               placeholder="🔍 Adres, cadde veya sokak ara..."
+               autocomplete="off"
+               style="width:100%;padding:7px 10px;border:1.5px solid #2e6da4;border-radius:8px;font-size:12px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15);outline:none;">
+        <div class="cbs-search-results" data-canvas="{{ $canvasId }}" style="display:none;position:absolute;top:calc(100% + 2px);left:0;right:0;background:#fff;border:1.5px solid #2e6da4;border-radius:0 0 8px 8px;max-height:200px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.15);"></div>
     </div>
     @endif
 
@@ -99,8 +115,8 @@
         dragging: true,
     });
 
-    // Basemap
-    L.tileLayer('http://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}', {
+    // Basemap — HTTPS Google Uydu (belediye ağında mixed-content riski önlendi)
+    L.tileLayer('https://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}', {
         maxZoom: 22, maxNativeZoom: 19, attribution: '© Google'
     }).addTo(map);
 
@@ -300,6 +316,47 @@
     window.cbsMap = map;
     window.appCbsMap = map;
     window['cbsDrawnItems_' + opts.canvasId] = drawnItems;
+
+    // ─── HARİTA ÜST-SOL ADRES ARAMA (Fen İşleri talebi) ──────────────
+    if (!opts.readOnly) {
+        var sInput = document.querySelector('.cbs-search-input[data-canvas="' + opts.canvasId + '"]');
+        var sResults = document.querySelector('.cbs-search-results[data-canvas="' + opts.canvasId + '"]');
+        if (sInput && sResults) {
+            var sTimer = null;
+            var sSeq = 0;
+            sInput.addEventListener('input', function () {
+                clearTimeout(sTimer);
+                var q = this.value.trim();
+                if (q.length < 3) { sResults.style.display = 'none'; sResults.innerHTML = ''; return; }
+                sTimer = setTimeout(function () {
+                    var seq = ++sSeq;
+                    sResults.innerHTML = '<div style="padding:8px;color:#94a3b8;text-align:center"><span class="cbs-search-spinner"></span> Aranıyor...</div>';
+                    sResults.style.display = 'block';
+                    fetch('/maps/adres-ara?q=' + encodeURIComponent(q))
+                        .then(function (r) { return r.json(); })
+                        .then(function (d) {
+                            if (seq !== sSeq) return;
+                            if (!d || !d.success || !d.lat) { sResults.innerHTML = '<div style="padding:8px;color:#e74c3c;text-align:center">Bulunamadı</div>'; return; }
+                            var lat = parseFloat(d.lat), lon = parseFloat(d.lon);
+                            var lbl = d.detail || d.cadde || q;
+                            sResults.innerHTML = '<button type="button" style="width:100%;padding:8px 10px;text-align:left;border:none;background:#fff;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f4f8;">📍 ' + lbl + ' <span style="color:#2e6da4">Konuma Git</span></button>';
+                            sResults.querySelector('button').addEventListener('click', function () {
+                                sResults.style.display = 'none';
+                                // Harita üstünde pulse marker + flyTo
+                                if (window._cbsSearchMarker) map.removeLayer(window._cbsSearchMarker);
+                                window._cbsSearchMarker = L.marker([lat, lon], {
+                                    icon: L.divIcon({ className: '', html: '<div style="background:#1e5fa8;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(30,95,168,.3);"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+                                }).addTo(map).bindPopup('<b>' + lbl + '</b>').openPopup();
+                                map.flyTo([lat, lon], 17, { animate: true, duration: 1 });
+                                sInput.value = lbl;
+                            });
+                        })
+                        .catch(function () { sResults.style.display = 'none'; });
+                }, 500);
+            });
+            sInput.addEventListener('blur', function () { setTimeout(function () { sResults.style.display = 'none'; }, 250); });
+        }
+    }
 })();
 
 function showCbsToast(msg){

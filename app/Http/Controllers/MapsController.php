@@ -929,24 +929,25 @@ class MapsController extends Controller
 
         foreach ($adlar as $q) {
             $filter = "CADDE_SOKAK_ADI ILIKE '%{$q}%'";
-            if ($mahalle) {
-                // Mahalle poligonunun TAM bbox'ı (varsa) veya merkez ±0.005 fallback
-                $bbox = $mahalle['bbox'] ?? null;
-                if ($bbox) {
-                    $minX = $bbox['min_x'] - 0.001; $maxX = $bbox['max_x'] + 0.001;
-                    $minY = $bbox['min_y'] - 0.001; $maxY = $bbox['max_y'] + 0.001;
-                } else {
-                    $lat = $mahalle['lat'] ?? null;
-                    $lon = $mahalle['lon'] ?? null;
-                    if ($lat !== null && $lon !== null) {
-                        $minX = $lon - 0.005; $maxX = $lon + 0.005;
-                        $minY = $lat - 0.005; $maxY = $lat + 0.005;
-                    }
-                }
-                if (isset($minX)) {
-                    $filter .= " AND BBOX(GEOMETRY, {$minX},{$minY},{$maxX},{$maxY},'EPSG:4326')";
-                }
+
+            // EYYÜBİYE SINIRI: AYKOME yalnızca Eyyübiye için çalışır.
+            // Mahalle bbox'ı varsa onu kullan, yoksa ilçe geniş bbox'ı zorla
+            // (aynı cadde adı başka ilçede de varsa Karaköprü'ye gitmesin).
+            if ($mahalle && !empty($mahalle['bbox'])) {
+                $b = $mahalle['bbox'];
+                $minX = $b['min_x'] - 0.001; $maxX = $b['max_x'] + 0.001;
+                $minY = $b['min_y'] - 0.001; $maxY = $b['max_y'] + 0.001;
+            } elseif ($mahalle && isset($mahalle['lat'])) {
+                $minX = $mahalle['lon'] - 0.005; $maxX = $mahalle['lon'] + 0.005;
+                $minY = $mahalle['lat'] - 0.005; $maxY = $mahalle['lat'] + 0.005;
+            } else {
+                // Eyyübiye ilçe bbox'ı (Karaköprü 37.19+ / güneyde kapsar; geniş ama
+                // aynı isimli cadde Karaköprü'ye kaçmasın diye üst sınır dar tutulur)
+                $minX = 38.60; $maxX = 39.00;
+                $minY = 36.90; $maxY = 37.18;
             }
+            $filter .= " AND BBOX(GEOMETRY, {$minX},{$minY},{$maxX},{$maxY},'EPSG:4326')";
+
             $u = $url . '&cql_filter=' . urlencode($filter);
             $resp = Http::withOptions(['verify' => false, 'timeout' => 6])->get($u);
             if (!$resp->successful()) continue;
