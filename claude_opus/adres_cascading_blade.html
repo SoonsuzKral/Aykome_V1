@@ -1,0 +1,718 @@
+{{-- ================================================================
+     KULLANIM: create.blade.php veya edit.blade.php içine ekle
+     Bu dosya hem standalone test hem de blade partial olarak çalışır
+     ================================================================ --}}
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+{{-- CSRF token (Laravel) --}}
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>AYKOME — Adres Sistemi</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+/* ======================== GENEL ======================== */
+*, *::before, *::after { box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background:#f0f2f5; margin:0; }
+
+.aykome-card {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.1);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.aykome-card h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin: 0 0 14px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e8f0fe;
+}
+
+/* ======================== ANA ADRES SATIRI ======================== */
+.adres-main-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.adres-main-row input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1.5px solid #d0d9e8;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #1a1f2e;
+    outline: none;
+    transition: border-color .2s;
+}
+
+.adres-main-row input:focus { border-color: #2e6da4; }
+
+.btn-konum-bul {
+    background: linear-gradient(135deg, #1e5fa8, #2e82d4);
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex; align-items: center; gap: 6px;
+    transition: opacity .2s, transform .1s;
+}
+
+.btn-konum-bul:hover  { opacity: .9; transform: translateY(-1px); }
+.btn-konum-bul:active { transform: translateY(0); }
+
+.adres-sonuc-badge {
+    display: none;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #1e7a3c;
+    background: #eafaf1;
+    border: 1px solid #b7eacb;
+    border-radius: 6px;
+    padding: 4px 10px;
+}
+
+/* ======================== CASCADING ADRES LISTESI ======================== */
+.mahalle-sokak-listesi {
+    margin-top: 16px;
+}
+
+.msl-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a3a5c;
+    margin-bottom: 8px;
+}
+
+.msl-desc {
+    font-size: 11px;
+    color: #7a8faa;
+    margin-bottom: 12px;
+}
+
+/* Tek adres satırı */
+.adres-satirlari { display: flex; flex-direction: column; gap: 10px; }
+
+.adres-satir {
+    background: #f7f9fc;
+    border: 1.5px solid #d8e3f0;
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+.adres-satir-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto auto auto;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Autocomplete input wrap */
+.autocomplete-wrap { position: relative; }
+
+.autocomplete-wrap input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1.5px solid #d0d9e8;
+    border-radius: 7px;
+    font-size: 13px;
+    outline: none;
+    background: #fff;
+    transition: border-color .2s;
+}
+
+.autocomplete-wrap input:focus { border-color: #2e6da4; }
+.autocomplete-wrap input:disabled { background: #f0f2f5; color: #aaa; cursor: not-allowed; }
+
+.autocomplete-dd {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0; right: 0;
+    background: #fff;
+    border: 1.5px solid #2e6da4;
+    border-radius: 0 0 8px 8px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 9999;
+    display: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12);
+}
+
+.dd-item {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f4f8;
+    transition: background .1s;
+}
+
+.dd-item:hover    { background: #e8f0fe; color: #1e5fa8; }
+.dd-item.selected { background: #1e5fa8; color: #fff; }
+.dd-item.no-result { color: #e74c3c; cursor: default; font-style: italic; }
+.dd-item.loading  { color: #7a8faa; cursor: default; }
+
+/* Cadde select */
+.cadde-select, .kapi-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1.5px solid #d0d9e8;
+    border-radius: 7px;
+    font-size: 13px;
+    background: #fff;
+    outline: none;
+    cursor: pointer;
+    transition: border-color .2s;
+    color: #1a1f2e;
+}
+
+.cadde-select:focus, .kapi-select:focus { border-color: #2e6da4; }
+.cadde-select:disabled, .kapi-select:disabled {
+    background: #f0f2f5; color: #aaa; cursor: not-allowed;
+}
+
+/* Satır butonları */
+.btn-goster-satir {
+    background: #1e5fa8;
+    color: #fff;
+    border: none;
+    width: 34px; height: 34px;
+    border-radius: 7px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+    flex-shrink: 0;
+}
+
+.btn-goster-satir:hover    { background: #2e82d4; }
+.btn-goster-satir:disabled { background: #c0cfe0; cursor: not-allowed; }
+
+.btn-sil-satir {
+    background: #fdecea;
+    color: #c62828;
+    border: 1.5px solid #f5c6c6;
+    width: 34px; height: 34px;
+    border-radius: 7px;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s;
+    flex-shrink: 0;
+}
+
+.btn-sil-satir:hover { background: #f5c6c6; }
+
+/* Ekle butonu */
+.btn-ekle-satir {
+    background: #fff;
+    border: 2px dashed #2e6da4;
+    color: #2e6da4;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: background .15s;
+    width: fit-content;
+}
+
+.btn-ekle-satir:hover { background: #e8f0fe; }
+
+/* ======================== HARİTA ======================== */
+#aykome-map {
+    height: 420px;
+    width: 100%;
+    border-radius: 10px;
+    border: 2px solid #d0d9e8;
+    z-index: 1;
+}
+
+/* Pulse animasyon */
+@keyframes pulse-ring {
+    0%   { transform: scale(.5); opacity: 1; }
+    100% { transform: scale(2.8); opacity: 0; }
+}
+
+@keyframes pulse-core {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(30,95,168,.7); }
+    70%       { box-shadow: 0 0 0 14px rgba(30,95,168,0); }
+}
+
+.pulse-marker { position: relative; width: 18px; height: 18px; }
+.pulse-marker .core {
+    width: 18px; height: 18px; border-radius: 50%;
+    background: #1e5fa8; position: absolute;
+    animation: pulse-core 2s infinite;
+}
+.pulse-marker .ring {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 3px solid rgba(30,95,168,.5);
+    position: absolute; animation: pulse-ring 2s infinite;
+}
+
+/* Status */
+.wfs-status {
+    font-size: 11px; color: #7a8faa;
+    margin-top: 6px; min-height: 18px;
+    display: flex; align-items: center; gap: 6px;
+}
+
+.spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(46,109,164,.3);
+    border-top-color: #2e6da4;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div style="max-width:900px; margin:30px auto; padding:0 16px;">
+
+    {{-- ANA ADRES KARTI --}}
+    <div class="aykome-card">
+        <h4>📍 Adres</h4>
+
+        <div class="adres-main-row">
+            <input type="text" id="adres-main"
+                   name="adres"
+                   placeholder="Adres: 8125. Sk. 122 Kadıkendi, Eyyübiye/Şanlıurfa"
+                   value="{{ old('adres', $basvuru->adres ?? '') }}" />
+            <button type="button" class="btn-konum-bul" onclick="konumBul()">
+                <span id="konum-bul-icon">📍</span> Konum Bul
+            </button>
+        </div>
+
+        <div class="adres-sonuc-badge" id="adres-badge"></div>
+        <div class="wfs-status" id="adres-status"></div>
+    </div>
+
+    {{-- CASCADING ADRES LİSTESİ --}}
+    <div class="aykome-card">
+        <h4>🗺️ Mahalle & Sokak Listesi</h4>
+        <div class="msl-desc">Başvuruya ait mahalle ve sokakları ekleyin. Mahalle seçince sokaklar otomatik yüklenir.</div>
+
+        <div class="adres-satirlari" id="adres-satirlari"></div>
+
+        <button type="button" class="btn-ekle-satir" onclick="satirEkle()">
+            + Mahalle & Sokak Ekle
+        </button>
+
+        <div class="wfs-status" id="cascading-status"></div>
+    </div>
+
+    {{-- HARİTA --}}
+    <div class="aykome-card">
+        <h4>🗺️ Harita / Alan</h4>
+        <div id="aykome-map"></div>
+    </div>
+
+</div>
+
+{{-- Hidden inputs (Laravel form'a veri göndermek için) --}}
+<input type="hidden" id="lat-input" name="lat" value="{{ old('lat', $basvuru->lat ?? '') }}">
+<input type="hidden" id="lng-input" name="lng" value="{{ old('lng', $basvuru->lng ?? '') }}">
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ============================================================
+// AYARLAR — Laravel route prefix
+// ============================================================
+const ROUTES = {
+    mahalleler:     '/maps/mahalleler',
+    mahalleBul:     '/maps/mahalle-bul',
+    sokakCaddeler:  '/maps/sokak-caddeler',
+    kapiNumaralari: '/maps/kapi-numaralari',
+    adresAra:       '/maps/adres-ara',
+};
+
+const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+// ============================================================
+// HARİTA
+// ============================================================
+const map = L.map('aykome-map').setView([37.1591, 38.7969], 14);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OSM | AYKOME', maxZoom: 22
+}).addTo(map);
+
+// WMS katmanları (harita görseli)
+const wmsBase = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wms';
+const wmsOpts = { format:'image/png', transparent:true, version:'1.1.1', maxZoom:22 };
+function wmsL(name) { return L.tileLayer.wms(wmsBase, { ...wmsOpts, layers: name }); }
+
+wmsL('cbs:MISMAP_MAHALLE_KOYLER').addTo(map);
+wmsL('cbs:MISMAP_CADDE_SOKAK').addTo(map);
+wmsL('smpns:MISMAP_NUM_BINA').addTo(map);
+
+let activeMarker = null;
+
+function pulseIcon(color='#1e5fa8') {
+    return L.divIcon({
+        className: '',
+        html: `<div class="pulse-marker">
+                 <div class="core" style="background:${color};"></div>
+                 <div class="ring" style="border-color:${color};"></div>
+               </div>`,
+        iconSize: [18,18], iconAnchor: [9,9]
+    });
+}
+
+function flyTo(lat, lng, label, zoom=18) {
+    if (activeMarker) map.removeLayer(activeMarker);
+    activeMarker = L.marker([lat,lng], { icon: pulseIcon() })
+        .addTo(map)
+        .bindPopup(`<b>${label}</b><br><small>${lat.toFixed(5)}, ${lng.toFixed(5)}</small>`)
+        .openPopup();
+    map.flyTo([lat,lng], zoom, { animate:true, duration:1.2 });
+    // Hidden input güncelle
+    document.getElementById('lat-input').value = lat;
+    document.getElementById('lng-input').value = lng;
+}
+
+// ============================================================
+// API YARDIMCI FONKSIYONLAR
+// ============================================================
+async function apiGet(url, params={}) {
+    const u = new URL(url, window.location.origin);
+    Object.entries(params).forEach(([k,v]) => u.searchParams.set(k, v));
+    const res = await fetch(u);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+}
+
+async function apiPost(url, body={}) {
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': CSRF,
+            'Accept': 'application/json',
+        },
+        body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+        throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    return res.json();
+}
+
+function setStatus(elId, msg, loading=false) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.innerHTML = loading
+        ? `<span class="spinner"></span>${msg}`
+        : msg;
+}
+
+// ============================================================
+// GÖREV 1: ANA ADRES — KONUM BUL
+// ============================================================
+async function konumBul() {
+    const adres = document.getElementById('adres-main').value.trim();
+    if (!adres) return;
+
+    setStatus('adres-status', 'WFS\'te aranıyor...', true);
+    const badge = document.getElementById('adres-badge');
+    badge.style.display = 'none';
+
+    try {
+        const data = await apiPost(ROUTES.adresAra, { adres });
+
+        if (data.success) {
+            flyTo(data.lat, data.lng, data.label, 18);
+            badge.style.display = 'block';
+            badge.innerHTML = `✅ ${data.label} <span style="color:#888">(güven: ${data.confidence})</span>`;
+            setStatus('adres-status', `Yöntem: ${data.method}`);
+        } else {
+            setStatus('adres-status', `⚠️ ${data.message}`);
+        }
+    } catch(e) {
+        setStatus('adres-status', `❌ Hata: ${e.message}`);
+        console.error('[konumBul]', e);
+    }
+}
+
+// Enter key desteği
+document.getElementById('adres-main')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); konumBul(); }
+});
+
+// ============================================================
+// GÖREV 2: CASCADING SATIR SİSTEMİ
+// ============================================================
+let satirSayac = 0;
+let mahalleler = []; // Global cache
+
+// Mahalleleri önyükle
+async function mahallelerYukle() {
+    setStatus('cascading-status', 'Mahalleler yükleniyor...', true);
+    try {
+        const data = await apiGet(ROUTES.mahalleler);
+        mahalleler = data.data || [];
+        setStatus('cascading-status', `✅ ${mahalleler.length} mahalle hazır.`);
+    } catch(e) {
+        setStatus('cascading-status', `❌ Mahalle yüklenemedi: ${e.message}`);
+        console.error('[mahallelerYukle]', e);
+    }
+}
+
+function satirEkle() {
+    const id = ++satirSayac;
+    const container = document.getElementById('adres-satirlari');
+
+    const div = document.createElement('div');
+    div.className = 'adres-satir';
+    div.id = `satir-${id}`;
+    div.innerHTML = `
+        <div class="adres-satir-controls">
+
+            {{-- 1. MAHALLE --}}
+            <div class="autocomplete-wrap" id="mah-wrap-${id}">
+                <input type="text"
+                       id="mah-input-${id}"
+                       placeholder="Mahalle ara..."
+                       autocomplete="off"
+                       oninput="mahFiltrele(${id})"
+                       onfocus="mahDdAc(${id})"
+                       name="adres_satirlari[${id}][mahalle]" />
+                <div class="autocomplete-dd" id="mah-dd-${id}"></div>
+            </div>
+
+            {{-- 2. CADDE --}}
+            <select class="cadde-select" id="cadde-${id}"
+                    name="adres_satirlari[${id}][cadde]"
+                    disabled
+                    onchange="caddeSecildi(${id})">
+                <option value="">— Mahalle seçin —</option>
+            </select>
+
+            {{-- 3. KAPI --}}
+            <select class="kapi-select" id="kapi-${id}"
+                    name="adres_satirlari[${id}][kapi_no]"
+                    disabled
+                    onchange="kapiSecildi(${id})">
+                <option value="">—</option>
+            </select>
+
+            {{-- Göster --}}
+            <button type="button" class="btn-goster-satir" id="goster-${id}"
+                    title="Haritada Göster" disabled
+                    onclick="satirGoster(${id})">📍</button>
+
+            {{-- Sil --}}
+            <button type="button" class="btn-sil-satir"
+                    title="Satırı Sil"
+                    onclick="satirSil(${id})">✕</button>
+
+        </div>
+        <div class="wfs-status" id="satir-status-${id}"></div>
+    `;
+
+    container.appendChild(div);
+
+    // Mahalle dropdown eventleri
+    setupMahalleDd(id);
+}
+
+function satirSil(id) {
+    document.getElementById(`satir-${id}`)?.remove();
+}
+
+// ---- MAHALLE DROPDOWN ----
+function setupMahalleDd(id) {
+    const inp = document.getElementById(`mah-input-${id}`);
+    // Dışarı tıklayınca kapat
+    document.addEventListener('click', e => {
+        if (!e.target.closest(`#mah-wrap-${id}`)) {
+            document.getElementById(`mah-dd-${id}`).style.display = 'none';
+        }
+    });
+}
+
+function trUpper(s) {
+    return s.replace(/i/g,'İ').replace(/ı/g,'I').toUpperCase();
+}
+
+function mahDdAc(id) {
+    renderMahDd(id, mahalleler);
+}
+
+function mahFiltrele(id) {
+    const q = trUpper(document.getElementById(`mah-input-${id}`).value);
+    const filtered = q.length < 1
+        ? mahalleler
+        : mahalleler.filter(m => trUpper(m.ad).includes(q));
+    renderMahDd(id, filtered);
+}
+
+function renderMahDd(id, list) {
+    const dd = document.getElementById(`mah-dd-${id}`);
+    dd.innerHTML = '';
+
+    if (!list.length) {
+        dd.innerHTML = '<div class="dd-item no-result">Mahalle bulunamadı</div>';
+    } else {
+        list.slice(0, 80).forEach(m => {
+            const div = document.createElement('div');
+            div.className = 'dd-item';
+            div.textContent = m.ad;
+            div.onclick = () => mahalleSecildi(id, m);
+            dd.appendChild(div);
+        });
+    }
+    dd.style.display = 'block';
+}
+
+async function mahalleSecildi(id, m) {
+    document.getElementById(`mah-input-${id}`).value = m.ad;
+    document.getElementById(`mah-dd-${id}`).style.display = 'none';
+
+    // Mahalle merkezine fly
+    if (m.center) flyTo(m.center.lat, m.center.lng, m.ad + ' Mahallesi', 16);
+
+    // Caddeleri yükle
+    await satirCaddeYukle(id, m.bbox);
+}
+
+// ---- CADDE ----
+async function satirCaddeYukle(id, bbox) {
+    const sel = document.getElementById(`cadde-${id}`);
+    sel.disabled = true;
+    sel.innerHTML = '<option>⏳ Yükleniyor...</option>';
+    document.getElementById(`kapi-${id}`).disabled = true;
+    document.getElementById(`kapi-${id}`).innerHTML = '<option>—</option>';
+    document.getElementById(`goster-${id}`).disabled = true;
+
+    setStatus(`satir-status-${id}`, 'Cadde/Sokaklar WFS\'ten çekiliyor...', true);
+
+    try {
+        const data = await apiPost(ROUTES.sokakCaddeler, { bbox });
+
+        sel.innerHTML = `<option value="">— ${data.count} cadde/sokak —</option>`;
+        (data.data || []).forEach((c, i) => {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.dataset.center = JSON.stringify(c.center);
+            opt.dataset.bbox   = c.bbox?.bbox || c.bbox || '';
+            opt.textContent    = c.ad;
+            sel.appendChild(opt);
+        });
+
+        // State'i satıra kaydet
+        sel._caddeler = data.data || [];
+        sel.disabled = false;
+        setStatus(`satir-status-${id}`, `${data.count} cadde/sokak bulundu.`);
+
+    } catch(e) {
+        sel.innerHTML = `<option>❌ ${e.message}</option>`;
+        setStatus(`satir-status-${id}`, `❌ ${e.message}`);
+    }
+}
+
+async function caddeSecildi(id) {
+    const sel   = document.getElementById(`cadde-${id}`);
+    const idx   = sel.value;
+    const cadde = sel._caddeler?.[parseInt(idx)];
+
+    if (!cadde) return;
+
+    // Cadde centroidine fly
+    if (cadde.center) flyTo(cadde.center.lat, cadde.center.lng, cadde.ad, 17);
+    document.getElementById(`goster-${id}`).disabled = false;
+
+    // Kapı numaralarını yükle
+    await satirKapiYukle(id, cadde.bbox?.bbox || cadde.bbox);
+}
+
+// ---- KAPI ----
+async function satirKapiYukle(id, bbox) {
+    const sel = document.getElementById(`kapi-${id}`);
+    sel.disabled = true;
+    sel.innerHTML = '<option>⏳ Kapı aralanıyor...</option>';
+
+    if (!bbox) {
+        sel.innerHTML = '<option value="">— No verisi yok —</option>';
+        sel.disabled = false;
+        return;
+    }
+
+    setStatus(`satir-status-${id}`, 'Kapı numaraları WFS\'ten çekiliyor...', true);
+
+    try {
+        const data = await apiPost(ROUTES.kapiNumaralari, { bbox });
+
+        if (!data.count) {
+            sel.innerHTML = '<option value="">— Kapı no bulunamadı —</option>';
+            setStatus(`satir-status-${id}`, 'Kapı no WFS\'te yok (normal olabilir).');
+        } else {
+            sel.innerHTML = `<option value="">— ${data.count} kapı —</option>`;
+            data.data.forEach(k => {
+                const opt = document.createElement('option');
+                opt.value = JSON.stringify({ lat: k.lat, lng: k.lng, no: k.no });
+                opt.textContent = `No: ${k.no}`;
+                sel.appendChild(opt);
+            });
+            setStatus(`satir-status-${id}`, `${data.count} kapı no bulundu.`);
+        }
+        sel.disabled = false;
+
+    } catch(e) {
+        sel.innerHTML = '<option value="">— Kapı no verisi yok —</option>';
+        sel.disabled = false;
+        setStatus(`satir-status-${id}`, 'Kapı no çekilemedi.');
+        console.warn('[kapiYukle]', e.message);
+    }
+}
+
+function kapiSecildi(id) {
+    const sel = document.getElementById(`kapi-${id}`);
+    if (!sel.value) return;
+
+    try {
+        const k = JSON.parse(sel.value);
+        if (k.lat && k.lng) {
+            const mahAd = document.getElementById(`mah-input-${id}`).value;
+            const cadAd = document.getElementById(`cadde-${id}`)
+                            .options[document.getElementById(`cadde-${id}`).selectedIndex]?.text || '';
+            flyTo(k.lat, k.lng, `${mahAd} — ${cadAd} No:${k.no}`, 19);
+        }
+    } catch(e) {}
+}
+
+function satirGoster(id) {
+    // Cadde centroidine fly (kapı seçilmemişse)
+    const sel = document.getElementById(`cadde-${id}`);
+    const idx = sel.value;
+    const cadde = sel._caddeler?.[parseInt(idx)];
+    if (cadde?.center) {
+        flyTo(cadde.center.lat, cadde.center.lng, cadde.ad, 18);
+    }
+}
+
+// ============================================================
+// BAŞLANGIÇ
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => {
+    mahallelerYukle();
+    satirEkle(); // İlk satırı otomatik ekle
+});
+</script>
+</body>
+</html>

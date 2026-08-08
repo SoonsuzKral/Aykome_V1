@@ -1860,6 +1860,48 @@
                             var idx = parseInt(this.dataset.idx);
                             if (!isNaN(idx) && components[idx]) components[idx].mahalle = this.value;
                             syncHidden();
+                            // MAHALLE AUTOCOMPLETE — önyüklü listeden client-side filtre
+                            var wrapperEl = this.closest('[data-mahalle-idx]');
+                            if (wrapperEl) {
+                                var dd = wrapperEl.querySelector('.mahalle-dd');
+                                if (!dd) {
+                                    dd = document.createElement('div');
+                                    dd.className = 'mahalle-dd hidden mt-1 max-h-40 overflow-y-auto rounded-lg border border-cyan-200 bg-white text-[11px] shadow-sm';
+                                    wrapperEl.insertBefore(dd, wrapperEl.querySelector('.mahalle-cadde-oneri'));
+                                }
+                                var q = this.value.trim().toUpperCase();
+                                var list = window._eyMahalleler || [];
+                                var filt = q.length < 1 ? list : list.filter(function (m) {
+                                    return (m.ad || '').toUpperCase().indexOf(q) !== -1;
+                                });
+                                dd.innerHTML = '';
+                                if (!filt.length) { dd.classList.add('hidden'); return; }
+                                filt.slice(0, 12).forEach(function (m) {
+                                    var it = document.createElement('button');
+                                    it.type = 'button';
+                                    it.className = 'block w-full px-2 py-1 text-left hover:bg-cyan-50 truncate';
+                                    it.textContent = m.ad;
+                                    it.addEventListener('click', function () {
+                                        var inp = wrapperEl.querySelector('.comp-mahalle');
+                                        if (inp) inp.value = m.ad;
+                                        if (components[idx]) components[idx].mahalle = m.ad;
+                                        syncHidden();
+                                        dd.classList.add('hidden');
+                                        // Mahalle Bul'u otomatik tetikle — caddeleri getir
+                                        var bul = wrapperEl.querySelector('.mahalle-bul');
+                                        if (bul) bul.click();
+                                    });
+                                    dd.appendChild(it);
+                                });
+                                dd.classList.remove('hidden');
+                            }
+                        });
+                        el.addEventListener('blur', function () {
+                            var wrapperEl = this.closest('[data-mahalle-idx]');
+                            if (wrapperEl) {
+                                var dd = wrapperEl.querySelector('.mahalle-dd');
+                                if (dd) setTimeout(function () { dd.classList.add('hidden'); }, 250);
+                            }
                         });
                     });
 
@@ -2018,6 +2060,17 @@
 
                 render();
             }
+
+            // WMS MAHALLE ÖN YÜKLEME — cascading autocomplete için (Opus mantığı)
+            window._eyMahalleler = [];
+            try {
+                fetch(@json(route('maps.mahalleler')))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (d && d.success) window._eyMahalleler = d.data || [];
+                    })
+                    .catch(function () { /* sessiz */ });
+            } catch (e) { /* sessiz */ }
 
             initAddressComponents();
 

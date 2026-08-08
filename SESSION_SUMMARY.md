@@ -1,5 +1,45 @@
 # Oturum Özeti — 8 Ağustos 2026
 
+## Sprint 10 — OPUS WFS ÇÖZÜMÜ ENTEGRASYONU (WFS 1.1.0 + BBOX + mahalleler öncache)
+
+### 🎯 Öz
+Kullanıcı WMS konum sorununu Claude Opus 4.5'e verdi; Opus `claude_opus/` klasörüne 3 dosya koydu (`MapsController.php`, `maps_routes.php`, `adres_cascading_blade.html`). Canlı WFS testleriyle doğrulayıp Opus'un İYİ kısımlarını mevcut sisteme entegre ettik; hatalı kısımlarını (trUpper, m_Numarataj) eledik.
+
+### ✅ Opus'un Doğrulanan İyi Katkıları (entegre)
+1. **WFS 1.1.0** — 2.0.0'dan daha stabil. Canlı test: `ILCE_NO='63011'` → 165 Eyyübiye mahallesi, `BBOX=...` → cadde geldi.
+2. **`BBOX` query parametresi** — `BBOX="minLng,minLat,maxLng,maxLat,EPSG:4326"` (CQL'deki karmaşık `BBOX(GEOMETRY,...)`'den basit).
+3. **`mahalleler` öncache endpoint** (`GET /maps/mahalleler`) — tüm Eyyübiye mahalleleri cache'li (1 saat), client-side arama. Frontend autocomplete artık önyüklü listeden filtreler (API isteği yok).
+4. **Cascading autocomplete** — mahalle yazınca öneri dropdown, seçince cadde listesi otomatik (''Bul'' tetik alır).
+
+### ❌ Opus'un Hatalı Kısımları (Elenen)
+1. **`trUpper()` yanlış** — `Kadıkendi`→`KADIKENDI` (ASCII I); bizim `trUppercase()` (i→İ, ı→I) doğru, korunan.
+2. **`smpns:m_Numarataj` (kapı) 500 hatası** — canlı testte XML ExceptionReport; Opus'un `kapiNumaralari` endpoint'i çalışmayacak. Çözüm: `kapiNoAra()` bina fallback (`smpns:MISMAP_NUM_BINA.ULUSAL_BINA_NO` + ADA/PARSEL/MAHALLE).
+
+### ✅ Backend Yeni
+- `wfsGet(array $params)` — ortak WFS 1.1.0 HTTP client (SSL verify=false)
+- `mahalleler(Request)` — tüm Eyyübiye mahalleleri (cache 1h, ?q= filtre)
+- `kapiNoAra(Request)` — bina fallback (ULUSAL_BINA_NO)
+- `centroid()`, `flattenCoords()`, `getBbox()` — GeoJSON geometri yardımcıları
+- route: `GET /maps/mahalleler`, `GET /maps/kapi-no`
+
+### ✅ Frontend Yeni (create + edit)
+- Mahalle inputuna **cascading autocomplete**: sayfa yüklenirken `fetch('/maps/mahalleler')` → client-side filtre (yazınca anında) → seçimde input dolar + "🔍 Bul" otomatik tetiklenir.
+
+### ✅ Canlı WFS Doğrulama
+- `mahalleler` (ILCE_NO=63011) → **165 mahalle** (BATIKENT, BÜYÜKHAN, YENİCE, KÜÇÜKHAN, BEYAZYAPRAK...)
+- Bina fallback → 5 bina BBOX'ta (ADA/PARSEL/MAHALLE dolu, m geen no tespit)
+
+### 📁 Değişen Dosyalar
+- `app/Http/Controllers/MapsController.php` (+wfsGet, mahalleler, kapiNoAra, centroid, getBbox)
+- `routes/web.php` (+mahalleler, kapi-no)
+- `resources/views/admin/applications/create.blade.php`, `edit.blade.php` (cascading autocomplete + önyükleme)
+- `claude_opus/` (Opus dosyaları — referans)
+- `SESSION_SUMMARY.md`
+
+### ⚠️ Bilinen Sınır
+- Gerçek kapı numarası WMS'te yok (m_Numarataj 500). Bina fallback (`ULUSAL_BINA_NO`) çalışır ama kapı no eşleşmesi sınırlı. Kullanıcı kapı no için bina veya serbest metin kullanır.
+
+---
 ## Sprint 9b — WMS ADRES BULMA DÜZELTMELERİ (Türkçe İ + tam bbox nokta atışı)
 
 ### 🎯 Öz

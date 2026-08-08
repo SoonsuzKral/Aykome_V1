@@ -657,12 +657,202 @@ class MapsController extends Controller
         return ['mahalle' => $mahalle, 'cadde' => $cadde, 'kapi' => $kapi];
     }
 
+    /** GeoServer WFS uç noktası — Eyyübiye Büyükşehir. */
+    private const WFS_URL = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs';
+
+    /** Mahalle listesi cache süresi (1 saat — mahalleler nadiren değişir). */
+    private const CACHE_TTL = 3600;
+
     /**
      * AYKOME yalnızca Eyyübiye ilçesi için çalışır. Şanlıurfa'da aynı isimli
      * mahalleler birden çok ilçede olabilir (BATIKENT Eyyübiye + Karaköprü).
      * Bu sabit, tüm WMS mahalle sorgularında ILCE_NO=63011 (Eyyübiye) filtreler.
      */
     private const EYYUBIYE_ILCE_NO = 63011;
+
+    /**
+     * Ortak WFS HTTP client — WFS 1.1.0 (Opus'tan doğrulanmış, 2.0.0'dan stabil).
+     * BBOX query parametresi: "minLng,minLat,maxLng,maxLat,EPSG:4326"
+     */
+    private function wfsGet(array $params): array
+    {
+        $defaults = [
+            'service'      => 'WFS',
+            'version'      => '1.1.0',
+            'request'      => 'GetFeature',
+            'outputFormat' => 'application/json',
+            'srsName'      => 'EPSG:4326',
+        ];
+
+        $query = array_merge($defaults, $params);
+
+        $resp = Http::withOptions(['verify' => false, 'timeout' => 15])->get(self::WFS_URL, $query);
+
+        if (!$resp->successful()) {
+            Log::warning('[maps.wfsGet] Hata', ['status' => $resp->status(), 'params' => $query]);
+            throw new \Exception("WFS HTTP {$resp->status()}");
+        }
+
+        return $resp->json();
+    }
+
+    /**
+     * GET /maps/mahalleler — tüm Eyyübiye mahalleleri (cache'li, client-side arama).
+     * Her mahalle: {ad, center:{lat,lng}, bbox:{minLng,minLat,maxLng,maxLat}}
+     */
+    public function mahalleler(Request $request)
+    {
+        $cacheKey = 'wfs_mahalleler_' . self::EYYUBIYE_ILCE_NO;
+
+        $result = \Illuminate\Support\Facades\Cache::remember($cacheKey, self::CACHE_TTL, function () {
+            $data = $this->wfsGet([
+                'typeName'    => 'cbs:MISMAP_MAHALLE_KOYLER',
+                'CQL_FILTER'  => "ILCE_NO='" . self::EYYUBIYE_ILCE_NO . "'",
+                'maxFeatures' => 300,
+            ]);
+
+            $mahalleler = [];
+            foreach ($data['features'] ?? [] as $f) {
+                $ad = $f['properties']['MAHALLE_ADI'] ?? null;
+                if (!$ad) continue;
+
+                $geom = $f['geometry'] ?? null;
+                $bbox = $geom ? $this->getBbox($geom) : null;
+                $center = $geom ? $this->centroid($geom) : null;
+
+                $mahalleler[] = [
+                    'ad' => $ad,
+                    'center' => $center,
+                    'bbox' => $bbox,
+                ];
+            }
+
+            usort($mahalleler, fn ($a, $b) => strcmp(
+                $this->trUppercase($a['ad']),
+                $this->trUppercase($b['ad'])
+            ));
+
+            return $mahalleler;
+        });
+
+        // Client-side arama filtresi (?q=)
+        $q = $request->get('q', '');
+        if ($q !== '') {
+            $qUpper = $this->trUppercase($q);
+            $result = array_values(array_filter(
+                $result,
+                fn ($m) => str_contains($this->trUppercase($m['ad']), $qUpper)
+            ));
+        }
+
+        return response()->json([
+            'success' => true,
+            'count' => count($result),
+            'data' => $result,
+        ]);
+    }
+
+    /**
+     * Kapı numarası fallback — smpns:MISMAP_NUM_BINA (ULUSAL_BINA_NO).
+     * m_Numarataj katmanı GeoServer'da 500 verdiği için bina katmanı kullanılır.
+     * @param  string  $bbox  "minLng,minLat,maxLng,maxLat"
+     */
+    public function kapiNoAra(Request $request)
+    {
+        $bbox = trim((string) $request->input('bbox', ''));
+        if ($bbox === '') {
+            return response()->json(['success' => false, 'message' => 'bbox gerekli'], 422);
+        }
+
+        try {
+            $data = $this->wfsGet([
+                'typeName'    => 'smpns:MISMAP_NUM_BINA',
+                'BBOX'        => "{$bbox},EPSG:4326",
+                'maxFeatures' => 100,
+            ]);
+
+            $binalar = [];
+            foreach ($data['features'] ?? [] as $f) {
+                $p = $f['properties'] ?? [];
+                $no = $p['ULUSAL_BINA_NO'] ?? $p['BINA_NO'] ?? null;
+                if ($no === null) continue;
+
+                $center = $this->centroid($f['geometry'] ?? null);
+                if (!$center) continue;
+
+                $binalar[] = [
+                    'no' => (string) $no,
+                    'ada' => $p['ADA'] ?? null,
+                    'parsel' => $p['PARSEL'] ?? null,
+                    'mahalle' => $p['MAHALLE_ADI'] ?? null,
+                    'lat' => $center['lat'],
+                    'lng' => $center['lng'],
+                ];
+            }
+
+            // Numerik sıralama
+            usort($binalar, function ($a, $b) {
+                $an = (int) filter_var($a['no'], FILTER_SANITIZE_NUMBER_INT);
+                $bn = (int) filter_var($b['no'], FILTER_SANITIZE_NUMBER_INT);
+                return $an <=> $bn;
+            });
+
+            return response()->json([
+                'success' => true,
+                'count' => count($binalar),
+                'data' => $binalar,
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('[maps.kapiNoAra]', ['err' => $e->getMessage()]);
+            return response()->json(['success' => true, 'count' => 0, 'data' => [], 'note' => $e->getMessage()]);
+        }
+    }
+
+    /** GeoJSON geometrisinden centroid (tüm tipler: Point/Polygon/LineString/Multi*). */
+    private function centroid(array $geometry): ?array
+    {
+        $coords = [];
+        $this->flattenCoords($geometry['coordinates'] ?? [], $coords);
+        if (empty($coords)) return null;
+
+        return [
+            'lat' => round(array_sum(array_column($coords, 1)) / count($coords), 7),
+            'lng' => round(array_sum(array_column($coords, 0)) / count($coords), 7),
+        ];
+    }
+
+    /** Koordinat dizisini düzleştirir. */
+    private function flattenCoords(array $arr, array &$out): void
+    {
+        if (isset($arr[0]) && is_numeric($arr[0])) {
+            $out[] = $arr;
+            return;
+        }
+        foreach ($arr as $item) {
+            if (is_array($item)) {
+                $this->flattenCoords($item, $out);
+            }
+        }
+    }
+
+    /** GeoJSON geometrisinden bbox. */
+    private function getBbox(array $geometry): ?array
+    {
+        $coords = [];
+        $this->flattenCoords($geometry['coordinates'] ?? [], $coords);
+        if (empty($coords)) return null;
+
+        $lngs = array_column($coords, 0);
+        $lats = array_column($coords, 1);
+
+        return [
+            'minLng' => min($lngs),
+            'minLat' => min($lats),
+            'maxLng' => max($lngs),
+            'maxLat' => max($lats),
+            'bbox' => implode(',', [min($lngs), min($lats), max($lngs), max($lats)]),
+        ];
+    }
 
     /**
      * WFS mahalle sorgusu — cbs:MISMAP_MAHALLE_KOYLER (geo3, WFS 2.0.0)
