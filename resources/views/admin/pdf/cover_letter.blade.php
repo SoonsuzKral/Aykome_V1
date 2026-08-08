@@ -5,7 +5,7 @@
     <title>Kurum Başvuru Yazısı</title>
     <style>
         body { font-family: "Times New Roman", Times, serif; font-size: 14.5px; line-height: 1.4; margin: 0; color:#000; background:#e2e8f0; display:flex; justify-content:center; }
-        .a4-container { background: white; width: 210mm; min-height: 297mm; max-height:297mm; overflow:hidden; box-sizing: border-box; padding: 18mm 20mm; margin: 15px auto; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); }
+        .a4-container { background: white; width: 210mm; min-height: 297mm; max-height:297mm; overflow:hidden; box-sizing: border-box; padding: 18mm 20mm; margin: 70px auto 15px; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); }
 
         table { width: 100%; border-collapse: collapse; table-layout: fixed;}
         td { vertical-align: top; }
@@ -16,8 +16,16 @@
 
         .text-center { text-align: center; } .text-right { text-align: right;} .font-bold { font-weight: bold; }
 
-        .print-bar { position: fixed; top: 1rem; left: 1rem; right: auto; z-index: 99999; background:#1f2937; padding:8px 14px; border-radius:10px; box-shadow:0 5px 14px rgba(0,0,0,.35); display:flex; flex-direction:row; gap:8px; align-items:center; text-align:right;}
-        .print-btn { background:#3b82f6; color:#fff; border:none; padding:10px 25px; border-radius:5px; font-weight:bold; cursor:pointer;}
+        .print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 99999; background: linear-gradient(180deg,#1f2937,#111827); padding: 12px 20px; box-shadow: 0 4px 14px rgba(0,0,0,.4); display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; }
+        .print-bar .title { color: #fff; font-weight: 700; font-size: 14px; letter-spacing: .4px; display: flex; align-items: center; gap: 8px; }
+        .print-bar .doc-ico { font-size: 17px; }
+        .print-bar .actions { display: flex; gap: 8px; align-items: center; }
+        .print-btn { background:#3b82f6; color:#fff; border:none; padding:9px 18px; border-radius:8px; font-weight:700; cursor:pointer; font-size:13px; }
+        .print-btn:hover { background:#2563eb; }
+        .btn-pdf { background:#16a34a; color:#fff; border:none; padding:9px 18px; border-radius:8px; font-weight:700; cursor:pointer; font-size:13px; }
+        .btn-pdf:hover { background:#15803d; }
+        .btn-close { background:transparent; color:#94a3b8; border:1px solid #475569; padding:8px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; }
+        .btn-close:hover { background:#334155; color:#fff; }
 
         /* Ortak kurum logosu + Vanilla JS Toolbar */
         .print-logo { max-width: 140px !important; width: auto; height: auto; object-fit: contain; }
@@ -59,8 +67,12 @@
 <body>
 
     <div class="print-bar no-print">
-        <button onclick="window.print()" class="print-btn">🖨️ YAZDIR</button>
-        <button onclick="window.print()" class="print-btn">💾 ŞABLONU DÜZENLE (KAYDET)</button>
+        <span class="title"><span class="doc-ico">📄</span>KURUM BAŞVURU YAZISI</span>
+        <div class="actions">
+            <button type="button" onclick="window.close()" class="btn-close">✕ Kapat</button>
+            <button type="button" onclick="window.print()" class="btn-pdf">📄 PDF Olarak Kaydet</button>
+            <button type="button" onclick="window.print()" class="print-btn">🖨️ Yazdır</button>
+        </div>
     </div>
     @php
         // CELL-BASED AUTH: Üst Yazı (Dilekçe) altkurumun kendi başvuru evrakı olduğundan

@@ -383,7 +383,28 @@ class ProcessEngine
 
     public function roleOptions(): array
     {
-        return Role::query()->orderBy('name')->pluck('name', 'name')->all();
+        $labels = [
+            'super-admin'          => 'Süper Admin',
+            'municipality-admin'   => 'Belediye Yöneticisi',
+            'municipality-staff'   => 'Belediye Personeli',
+            'institution-manager'  => 'Kurum Yöneticisi',
+            'institution-staff'    => 'Kurum Personeli',
+            'field-team'           => 'Saha Personeli',
+            'institution-admin'    => 'Kurum Yöneticisi (Üst)',
+            'municipality-buro'   => 'Büro Personeli',
+            'municipality-sef'    => 'Aykome Şefi',
+            'municipality-mudur'  => 'Fen İşleri Müdürü',
+            'municipality-makam'  => 'Belediye Başkan Yardımcısı',
+        ];
+
+        $roles = Role::query()->orderBy('name')->pluck('name', 'name')->all();
+
+        $result = [];
+        foreach ($roles as $name) {
+            $result[$name] = $labels[$name] ?? $name;
+        }
+
+        return $result;
     }
 
     public function stageLabel(?string $stage): string

@@ -5,12 +5,19 @@
 @section('content')
 @php
     $roleLabels = [
-        'super-admin'          => 'Super Admin',
+        // Ana Roller (AykomeSeeder)
+        'super-admin'          => 'Süper Admin',
         'municipality-admin'   => 'Belediye Yöneticisi',
         'municipality-staff'   => 'Belediye Personeli',
         'institution-manager'  => 'Kurum Yöneticisi',
         'institution-staff'    => 'Kurum Personeli',
         'field-team'           => 'Saha Personeli',
+        'institution-admin'    => 'Kurum Yöneticisi (Üst)',
+        // Hiyerarşi Roller (ProcessFlowSeeder)
+        'municipality-buro'   => 'Büro Personeli',
+        'municipality-sef'    => 'Aykome Şefi',
+        'municipality-mudur'  => 'Fen İşleri Müdürü',
+        'municipality-makam'  => 'Belediye Başkan Yardımcısı',
     ];
 @endphp
     <form method="POST" action="{{ route('admin.users.update', $user) }}" class="max-w-xl space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

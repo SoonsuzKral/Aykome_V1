@@ -17,7 +17,8 @@
       "Bash(jq -e '.hooks.WorktreeRemove[] | .hooks[] | select\\(.type == \"\"command\"\"\\) | .command' \"C:/Users/osman/Desktop/windows_xp/.claude/settings.local.json\")",
       "Bash(npm run:*)",
       "Read(//mnt/c/Users/osman/.claude/worktrees/windows_xp/)",
-      "Read(//mnt/c/Users/osman/Desktop/)"
+      "Read(//mnt/c/Users/osman/Desktop/)",
+      "WebFetch(domain:www.oracle.com)"
     ]
   },
   "hooks": {

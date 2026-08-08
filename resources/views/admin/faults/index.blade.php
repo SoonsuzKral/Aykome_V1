@@ -69,6 +69,20 @@
                     @endforeach
                 </select>
             </div>
+            @if($institutions->count() > 0)
+            <div class="min-w-[180px]">
+                <label class="mb-1 block text-xs font-medium text-slate-500">Kurum</label>
+                <select name="institution_id"
+                    class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-red-400 focus:outline-none focus:ring-1 focus:ring-red-400/30">
+                    <option value="">Tüm Kurumlar</option>
+                    @foreach($institutions as $inst)
+                        <option value="{{ $inst->id }}" @selected($filters['institution_id'] === (string)$inst->id)>
+                            {{ $inst->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            @endif
             <div class="flex gap-2">
                 <button type="submit"
                     class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-black">

@@ -19,18 +19,25 @@
             'system.logs'      => 'Sistem Logları',
             'system.settings'  => 'Belge Ayarları',
         ],
+        'RAPORLAR'              => [
+            'reports.view'     => 'Raporları Gör',
+            'reports.advanced'=> 'Gelişmiş Rapor',
+        ],
         'PRO MODÜLLER'          => [
             'pro.live_map'         => 'Canlı Saha İzleme',
+            'pro.field_tracking'  => 'Saha Check-in / Mesai',
             'pro.work_orders'      => 'Görev Emri Yönetimi',
-            'pro.advanced_reports' => 'Gelişmiş Raporlama',
+            'pro.advanced_reports'=> 'Gelişmiş Raporlama',
+            'pro.field_reports'   => 'Gelismis Saha Raporu',
+            'pro.evrak_tevdi'     => 'Evrak & Tevdi (E-Belge)',
         ],
         'BAŞVURULAR'            => [
             'applications.view'           => 'Görüntüle',
             'applications.create'         => 'Oluştur',
             'applications.edit'           => 'Düzenle',
             'applications.delete'         => 'Sil',
-                'applications.approve_pre_excavation' => 'Ön Kazı Onayla',
-                'applications.approve_price'  => 'Fiyat Onayla',
+            'applications.approve_pre_excavation' => 'Ön Kazı Onayla',
+            'applications.approve_price'  => 'Fiyat Onayla',
             'applications.approve_receipt'=> 'Makbuz Onayla',
             'applications.issue_license'  => 'Ruhsat Düzenle',
             'tasks.transfer'              => 'Göreve Aktar',
@@ -40,29 +47,71 @@
         'KURUMLAR & KULLANICIYLAR' => [
             'users.manage'       => 'Kullanıcı Yönetimi',
             'institutions.manage'=> 'Kurum Yönetimi',
+            'users.view_all_scoped'=> 'Tüm Kullanıcıları Gör (Kapsam)',
+        ],
+        'BELGE & ŞABLON'         => [
+            'document-settings.manage'   => 'Belge Ayarları',
+            'document-templates.manage'   => 'Şablon Yönetimi',
+        ],
+        'SÜREÇ YÖNETİMİ'         => [
+            'processes.manage'    => 'Süreç Yönetimi',
+            'processes.blueprint'=> 'Blueprint Canvas',
+        ],
+        'MAKAM MASASI'           => [
+            'makam.view'         => 'Makam Masası',
+        ],
+        'EK İZİNLER'            => [
+            'extra-permits.view' => 'Ekstra İzinler',
+        ],
+        'TEMİNAT & İADELER'     => [
+            'deposits.view'      => 'Teminat Görüntüle',
+            'deposits.manage'    => 'Teminat Yönetimi',
+        ],
+        'TOPLU ARIZA'           => [
+            'faults.view'        => 'Arıza Görüntüle',
+            'faults.manage'      => 'Toplu Arıza Yönetimi',
         ],
         'SAHA'                  => [
             'field.tasks_view'   => 'Görevleri Gör',
             'field.upload_media' => 'Fotoğraf Yükle',
             'field.upload'       => 'Medya Yükle (legacy)',
         ],
+        'ORACLE'                => [
+            'oracle.manage'      => 'Oracle Veritabanı',
+        ],
     ];
 
     $groupColors = [
-        'SİSTEM'                   => ['dot' => '#FA6001', 'bg' => 'bg-orange-500/10', 'text' => 'text-orange-300', 'border' => 'border-orange-500/20'],
-        'PRO MODÜLLER'             => ['dot' => '#02E0FB', 'bg' => 'bg-cyan-500/10',   'text' => 'text-cyan-300',   'border' => 'border-cyan-500/20'],
-        'BAŞVURULAR'               => ['dot' => '#6366f1', 'bg' => 'bg-indigo-500/10', 'text' => 'text-indigo-300', 'border' => 'border-indigo-500/20'],
-        'KURUMLAR & KULLANICIYLAR' => ['dot' => '#a855f7', 'bg' => 'bg-purple-500/10', 'text' => 'text-purple-300', 'border' => 'border-purple-500/20'],
-        'SAHA'                     => ['dot' => '#10b981', 'bg' => 'bg-emerald-500/10','text' => 'text-emerald-300','border' => 'border-emerald-500/20'],
+        'SİSTEM'                   => ['dot' => '#FA6001', 'bg' => 'bg-gradient-to-r from-orange-500/10 to-amber-500/5', 'text' => 'text-orange-300', 'border' => 'border-orange-500/20'],
+        'RAPORLAR'                 => ['dot' => '#F59E0B', 'bg' => 'bg-gradient-to-r from-amber-500/10 to-yellow-500/5', 'text' => 'text-amber-300',  'border' => 'border-amber-500/20'],
+        'PRO MODÜLLER'             => ['dot' => '#02E0FB', 'bg' => 'bg-gradient-to-r from-cyan-500/10 to-blue-500/5', 'text' => 'text-cyan-300',   'border' => 'border-cyan-500/20'],
+        'BAŞVURULAR'               => ['dot' => '#6366f1', 'bg' => 'bg-gradient-to-r from-indigo-500/10 to-violet-500/5', 'text' => 'text-indigo-300', 'border' => 'border-indigo-500/20'],
+        'KURUMLAR & KULLANICIYLAR' => ['dot' => '#a855f7', 'bg' => 'bg-gradient-to-r from-purple-500/10 to-fuchsia-500/5', 'text' => 'text-purple-300', 'border' => 'border-purple-500/20'],
+        'BELGE & ŞABLON'           => ['dot' => '#8B5CF6', 'bg' => 'bg-gradient-to-r from-violet-500/10 to-purple-500/5', 'text' => 'text-violet-300', 'border' => 'border-violet-500/20'],
+        'SÜREÇ YÖNETİMİ'           => ['dot' => '#EC4899', 'bg' => 'bg-gradient-to-r from-pink-500/10 to-rose-500/5', 'text' => 'text-pink-300',   'border' => 'border-pink-500/20'],
+        'MAKAM MASASI'             => ['dot' => '#F97316', 'bg' => 'bg-gradient-to-r from-orange-500/10 to-red-500/5', 'text' => 'text-orange-300', 'border' => 'border-orange-500/20'],
+        'EK İZİNLER'               => ['dot' => '#14B8A6', 'bg' => 'bg-gradient-to-r from-teal-500/10 to-cyan-500/5', 'text' => 'text-teal-300',   'border' => 'border-teal-500/20'],
+        'TEMİNAT & İADELER'       => ['dot' => '#0EA5E9', 'bg' => 'bg-gradient-to-r from-sky-500/10 to-blue-500/5', 'text' => 'text-sky-300',   'border' => 'border-sky-500/20'],
+        'TOPLU ARIZA'             => ['dot' => '#F59E0B', 'bg' => 'bg-gradient-to-r from-yellow-500/10 to-orange-500/5', 'text' => 'text-yellow-300', 'border' => 'border-yellow-500/20'],
+        'SAHA'                     => ['dot' => '#10b981', 'bg' => 'bg-gradient-to-r from-emerald-500/10 to-green-500/5','text' => 'text-emerald-300','border' => 'border-emerald-500/20'],
+        'ORACLE'                   => ['dot' => '#EF4444', 'bg' => 'bg-gradient-to-r from-red-500/10 to-rose-500/5', 'text' => 'text-red-300',    'border' => 'border-red-500/20'],
     ];
 
     $roleLabels = [
-        'super-admin'          => ['label' => 'Super Admin',        'badge' => 'SA',  'color' => 'text-violet-300  bg-violet-500/15 border-violet-500/30'],
-        'municipality-admin'   => ['label' => 'Bel. Yöneticisi',    'badge' => 'MA',  'color' => 'text-blue-300    bg-blue-500/15   border-blue-500/30'],
-        'municipality-staff'   => ['label' => 'Bel. Personeli',     'badge' => 'MS',  'color' => 'text-sky-300     bg-sky-500/15    border-sky-500/30'],
-        'institution-manager'  => ['label' => 'Kurum Yöneticisi',   'badge' => 'IM',  'color' => 'text-teal-300    bg-teal-500/15   border-teal-500/30'],
-        'institution-staff'    => ['label' => 'Kurum Personeli',    'badge' => 'IS',  'color' => 'text-cyan-300    bg-cyan-500/15   border-cyan-500/30'],
-        'field-team'           => ['label' => 'Saha Personeli',     'badge' => 'FT',  'color' => 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30'],
+        // Ana Roller (AykomeSeeder)
+        'super-admin'          => ['label' => 'Süper Admin',              'badge' => 'SA',  'color' => 'text-purple-100  bg-gradient-to-br from-purple-700/60 to-fuchsia-700/50 border-purple-500/60'],
+        'municipality-admin'   => ['label' => 'Belediye Yöneticisi',       'badge' => 'BY',  'color' => 'text-blue-100    bg-gradient-to-br from-blue-700/60 to-cyan-700/50 border-blue-500/60'],
+        'municipality-staff'   => ['label' => 'Belediye Personeli',        'badge' => 'BP',  'color' => 'text-cyan-100    bg-gradient-to-br from-cyan-700/60 to-sky-700/50 border-cyan-500/60'],
+        'institution-manager'  => ['label' => 'Kurum Yöneticisi',         'badge' => 'KY',  'color' => 'text-teal-100    bg-gradient-to-br from-teal-700/60 to-emerald-700/50 border-teal-500/60'],
+        'institution-staff'    => ['label' => 'Kurum Personeli',           'badge' => 'KP',  'color' => 'text-emerald-100 bg-gradient-to-br from-emerald-700/60 to-green-700/50 border-emerald-500/60'],
+        'field-team'           => ['label' => 'Saha Personeli',           'badge' => 'SP',  'color' => 'text-green-100    bg-gradient-to-br from-green-700/60 to-lime-700/50 border-green-500/60'],
+        // Hiyerarşi Roller (ProcessFlowSeeder — Süreç Onay Rotası)
+        'municipality-buro'   => ['label' => 'Büro Personeli',            'badge' => 'BÜ',  'color' => 'text-yellow-100  bg-gradient-to-br from-yellow-700/60 to-amber-700/50 border-yellow-500/60'],
+        'municipality-sef'    => ['label' => 'Aykome Şefi',               'badge' => 'ŞEF', 'color' => 'text-orange-100  bg-gradient-to-br from-orange-700/60 to-red-700/50 border-orange-500/60'],
+        'municipality-mudur'  => ['label' => 'Fen İşleri Müdürü',        'badge' => 'MÜD', 'color' => 'text-red-100     bg-gradient-to-br from-red-700/60 to-rose-700/50 border-red-500/60'],
+        'municipality-makam'  => ['label' => 'Belediye Başkan Yardımcısı','badge' => 'MKM', 'color' => 'text-rose-100    bg-gradient-to-br from-rose-700/60 to-pink-700/50 border-rose-500/60'],
+        // Kurum Yöneticisi (kodda referans verilen ama seeder'da oluşturulmayan rol)
+        'institution-admin'   => ['label' => 'Kurum Yöneticisi (Üst)',    'badge' => 'KÜ',  'color' => 'text-fuchsia-100 bg-gradient-to-br from-fuchsia-700/60 to-purple-700/50 border-fuchsia-500/60'],
     ];
 @endphp
 
@@ -90,13 +139,13 @@
 <div class="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
     @foreach($allRoles as $role)
         @php
-            $rl = $roleLabels[$role->name] ?? ['label' => $role->name, 'badge' => strtoupper(substr($role->name,0,2)), 'color' => 'text-slate-300 bg-slate-500/15 border-slate-500/30'];
+            $rl = $roleLabels[$role->name] ?? ['label' => $role->name, 'badge' => strtoupper(substr($role->name,0,2)), 'color' => 'text-slate-100 bg-slate-700/60 border-slate-500/60'];
         @endphp
         <div class="rounded-xl border {{ $rl['color'] }} p-3 text-center">
-            <div class="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-current/10 text-xs font-black">{{ $rl['badge'] }}</div>
+            <div class="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-current/25 text-xs font-black">{{ $rl['badge'] }}</div>
             <p class="text-xs font-semibold leading-tight">{{ $rl['label'] }}</p>
-            <p class="mt-1 text-[10px] opacity-70">{{ $role->permissions->count() }} izin</p>
-            <a href="{{ route('admin.roles.edit', $role) }}" class="mt-2 inline-block rounded-md bg-current/10 px-2 py-0.5 text-[10px] font-semibold hover:bg-current/20 transition">Düzenle</a>
+            <p class="mt-1 text-[10px] opacity-80">{{ $role->permissions->count() }} izin</p>
+            <a href="{{ route('admin.roles.edit', $role) }}" class="mt-2 inline-block rounded-md bg-current/25 px-2 py-0.5 text-[10px] font-semibold hover:bg-current/40 transition">Düzenle</a>
         </div>
     @endforeach
 </div>

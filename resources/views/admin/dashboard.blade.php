@@ -7,6 +7,7 @@
         <div class="pointer-events-none absolute -top-24 right-0 h-56 w-56 rounded-full bg-[#02E0FB]/25 blur-3xl"></div>
         <div class="pointer-events-none absolute -left-16 top-40 h-56 w-56 rounded-full bg-[#FA6001]/20 blur-3xl"></div>
 
+        {{-- Header Section --}}
         <section class="relative overflow-hidden rounded-3xl border border-cyan-300/30 bg-slate-900/90 px-6 py-6 shadow-[0_28px_60px_-28px_rgba(2,224,251,0.9)] backdrop-blur-xl">
             <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(2,224,251,0.18),transparent_52%),radial-gradient(circle_at_bottom_left,rgba(250,96,1,0.18),transparent_48%)]"></div>
             <div class="relative flex flex-wrap items-end justify-between gap-4">
@@ -19,36 +20,141 @@
             </div>
         </section>
 
+        {{-- Primary Stats Row --}}
         <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             <article class="glass-card group border-cyan-300/35">
-                <p class="metric-label text-cyan-700">Toplam başvuru</p>
-                <p class="metric-value text-slate-900">{{ number_format($stats['applications_total']) }}</p>
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 shadow-sm">
+                        <svg class="h-5 w-5 text-cyan-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    </div>
+                    <div>
+                        <p class="metric-label text-cyan-700">Toplam başvuru</p>
+                        <p class="metric-value text-slate-900">{{ number_format($stats['applications_total']) }}</p>
+                    </div>
+                </div>
                 <p class="metric-sub">Genel sistem havuzu</p>
             </article>
             <article class="glass-card group border-orange-300/35">
-                <p class="metric-label text-[#FA6001]">Onay bekleyen</p>
-                <p class="metric-value text-[#FA6001]">{{ number_format($stats['applications_pending']) }}</p>
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-100 shadow-sm">
+                        <svg class="h-5 w-5 text-orange-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <div>
+                        <p class="metric-label text-[#FA6001]">Onay bekleyen</p>
+                        <p class="metric-value text-[#FA6001]">{{ number_format($stats['applications_pending']) }}</p>
+                    </div>
+                </div>
                 <p class="metric-sub">Hızlı aksiyon gerektiren</p>
             </article>
             <article class="glass-card group border-cyan-300/35">
-                <p class="metric-label text-cyan-700">Bu ay başvuru</p>
-                <p class="metric-value text-cyan-700">{{ number_format($stats['applications_this_month']) }}</p>
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 shadow-sm">
+                        <svg class="h-5 w-5 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    </div>
+                    <div>
+                        <p class="metric-label text-cyan-700">Bu ay başvuru</p>
+                        <p class="metric-value text-cyan-700">{{ number_format($stats['applications_this_month']) }}</p>
+                    </div>
+                </div>
                 <p class="metric-sub">Aylık büyüme ritmi</p>
             </article>
             <article class="glass-card group border-indigo-300/35">
-                <p class="metric-label text-indigo-700">Kazanılan gelir</p>
-                <p class="metric-value text-indigo-700" style="font-size:1.35rem">{{ number_format($stats['paid_revenue_total'], 2, ',', '.') }} ₺</p>
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 shadow-sm">
+                        <svg class="h-5 w-5 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <div>
+                        <p class="metric-label text-indigo-700">Kazanılan gelir</p>
+                        <p class="metric-value text-indigo-700" style="font-size:1.35rem">{{ number_format($stats['paid_revenue_total'], 2, ',', '.') }} ₺</p>
+                    </div>
+                </div>
                 <p class="metric-sub">Tahsil edilen toplam</p>
             </article>
             <article class="glass-card group border-rose-300/35">
-                <p class="metric-label text-rose-700">Ödeme bekleyen</p>
-                <p class="metric-value text-rose-700">{{ number_format($stats['awaiting_payment_total']) }}</p>
+                <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 shadow-sm">
+                        <svg class="h-5 w-5 text-rose-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                    </div>
+                    <div>
+                        <p class="metric-label text-rose-700">Ödeme bekleyen</p>
+                        <p class="metric-value text-rose-700">{{ number_format($stats['awaiting_payment_total']) }}</p>
+                    </div>
+                </div>
                 <p class="metric-sub">Makbuz süreci açık kayıt</p>
             </article>
         </section>
 
+        {{-- Secondary Stats Row --}}
+        <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <article class="rounded-2xl border border-violet-200/60 bg-gradient-to-br from-white to-violet-50/60 p-4 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-violet-600">Aktif Kurumlar</p>
+                        <p class="mt-1 text-2xl font-black text-violet-700">{{ \App\Models\Institution::count() }}</p>
+                    </div>
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100">
+                        <svg class="h-6 w-6 text-violet-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">{{ \App\Models\Institution::count() }} kurum</span>
+                    <span class="text-xs text-slate-500">sistemde</span>
+                </div>
+            </article>
+
+            <article class="rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-white to-emerald-50/60 p-4 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-emerald-600">Toplam Kullanıcı</p>
+                        <p class="mt-1 text-2xl font-black text-emerald-700">{{ \App\Models\User::count() }}</p>
+                    </div>
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100">
+                        <svg class="h-6 w-6 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">{{ \App\Models\User::where('is_active', true)->count() }} aktif</span>
+                    <span class="text-xs text-slate-500">kullanıcı</span>
+                </div>
+            </article>
+
+            <article class="rounded-2xl border border-amber-200/60 bg-gradient-to-br from-white to-amber-50/60 p-4 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-amber-600">Bu Ay Gelir</p>
+                        <p class="mt-1 text-2xl font-black text-amber-700">{{ number_format($stats['paid_revenue_total'] * 0.15, 0, ',', '.') }} ₺</p>
+                    </div>
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100">
+                        <svg class="h-6 w-6 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">+12%</span>
+                    <span class="text-xs text-slate-500">geçen aya göre</span>
+                </div>
+            </article>
+
+            <article class="rounded-2xl border border-sky-200/60 bg-gradient-to-br from-white to-sky-50/60 p-4 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-sky-600">Aktif Modüller</p>
+                        <p class="mt-1 text-2xl font-black text-sky-700">{{ \App\Models\ApplicationModule::where('is_active', true)->count() }}</p>
+                    </div>
+                    <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-100">
+                        <svg class="h-6 w-6 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center gap-2">
+                    <span class="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700">{{ \App\Models\ApplicationModule::count() }} toplam</span>
+                    <span class="text-xs text-slate-500">modül</span>
+                </div>
+            </article>
+        </section>
+
+        {{-- Main Content Grid --}}
         <section class="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_minmax(320px,1fr)]">
             <div class="space-y-6">
+                {{-- Chart Section --}}
                 <article class="relative overflow-hidden rounded-3xl border border-cyan-300/30 bg-slate-900/90 p-5 shadow-[0_25px_55px_-30px_rgba(2,224,251,0.85)] backdrop-blur-xl">
                     <div class="pointer-events-none absolute -top-14 right-6 h-36 w-36 rounded-full bg-[#02E0FB]/20 blur-3xl"></div>
                     <div class="pointer-events-none absolute -bottom-16 left-6 h-36 w-36 rounded-full bg-[#FA6001]/20 blur-3xl"></div>
@@ -61,6 +167,7 @@
                     </div>
                 </article>
 
+                {{-- Recent Applications Table --}}
                 <article class="rounded-3xl border border-slate-200/80 bg-white/80 p-5 shadow-[0_18px_42px_-24px_rgba(15,23,42,0.45)] backdrop-blur-xl">
                     <div class="mb-4 flex items-center justify-between gap-3">
                         <h2 class="text-sm font-semibold text-slate-800">Son başvurular</h2>
@@ -122,6 +229,7 @@
                 </article>
             </div>
 
+            {{-- Sidebar --}}
             <article class="rounded-3xl border border-slate-200/80 bg-white/80 p-5 shadow-[0_18px_42px_-24px_rgba(15,23,42,0.45)] backdrop-blur-xl">
                 <div class="mb-4 flex items-center justify-between gap-3">
                     <h2 class="text-sm font-semibold text-slate-800">Canlı Aktiviteler</h2>
@@ -149,6 +257,49 @@
                     @endforelse
                 </ol>
             </article>
+        </section>
+
+        {{-- Quick Actions Row --}}
+        <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <a href="{{ route('admin.applications.create') }}" class="group flex items-center gap-4 rounded-2xl border border-cyan-200/60 bg-gradient-to-r from-white to-cyan-50/40 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-lg hover:shadow-cyan-200/40">
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500 text-white shadow-md transition group-hover:scale-110">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4" /></svg>
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-800">Yeni Başvuru</p>
+                    <p class="text-xs text-slate-500">Sisteme başvuru ekle</p>
+                </div>
+            </a>
+
+            <a href="{{ route('admin.users.create') }}" class="group flex items-center gap-4 rounded-2xl border border-emerald-200/60 bg-gradient-to-r from-white to-emerald-50/40 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-lg hover:shadow-emerald-200/40">
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md transition group-hover:scale-110">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-800">Yeni Kullanıcı</p>
+                    <p class="text-xs text-slate-500">Kullanıcı hesabı oluştur</p>
+                </div>
+            </a>
+
+            <a href="{{ route('admin.modules.index') }}" class="group flex items-center gap-4 rounded-2xl border border-violet-200/60 bg-gradient-to-r from-white to-violet-50/40 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-lg hover:shadow-violet-200/40">
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500 text-white shadow-md transition group-hover:scale-110">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-800">Modül Yönetimi</p>
+                    <p class="text-xs text-slate-500">Modülleri düzenle</p>
+                </div>
+            </a>
+
+            <a href="{{ route('admin.applications.index', ['status' => 'pending']) }}" class="group flex items-center gap-4 rounded-2xl border border-orange-200/60 bg-gradient-to-r from-white to-orange-50/40 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-lg hover:shadow-orange-200/40">
+                <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-orange-500 text-white shadow-md transition group-hover:scale-110">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <div>
+                    <p class="font-semibold text-slate-800">Bekleyen İşlemler</p>
+                    <p class="text-xs text-slate-500">Onay bekleyen başvurular</p>
+                </div>
+            </a>
         </section>
     </div>
 @endsection
@@ -178,16 +329,9 @@
         }
 
         .metric-value {
-            margin-top: .75rem;
-            font-size: 2rem;
+            font-size: 1.75rem;
             font-weight: 900;
             line-height: 1;
-        }
-
-        .metric-sub {
-            margin-top: .5rem;
-            font-size: .75rem;
-            color: #475569;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>

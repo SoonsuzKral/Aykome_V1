@@ -1,6 +1,84 @@
-# Oturum Özeti — 7 Ağustos 2026
+# Oturum Özeti — 8 Ağustos 2026
 
-## Sprint 8b — CADDE/SOKAK INPUT DÜZELTMESİ (geri getirildi, fazlalıklar kaldırıldı)
+## Sprint 10 — BİLGİ KATMANI (Dinamik Alan Seçici) + Üst Yazı Hasar Düzeltmeleri
+
+### 🎯 Öz
+Taslak / Şablon Yönetimi editörüne **Bilgi Katmanı** eklendi: sağda sidebar panel, içinde başvurudan gelecek tüm alan adları (sunucudan JSON). Kullanıcı alana tıklayınca imleç konumuna `{alan_adi}` token'ı eklenir; PDF'te başvurunun kendi verisiyle değiştirilir. Böylece başvuru verilerinin NEREYE/NEYE geleceğine kullanıcı karar verir — 21 alan, 5 grup (Başvuru/Kişi/Tarihler/Alanlar/İmza). TÜM belge tiplerinde çalışır.
+
+### ✅ Yeni özellik — `app/Services/DocumentTemplateService.php`
+- `fieldCatalog(): array` — 5 grup, 21 alan (kayıt: key/label/tip).
+- `fieldValue(Application, $key): string` — token→veri eşlemesi (match); bilinmeyen `''` → token dokunulmaz. İmza alanları kurum fallback'li (`$app->mudur_adi ?? $app->institution?->mudur_adi`).
+- `hydrateTemplateTokens($html, $app)` — GENEL hidrasyon: Adım 1 mevcut sabit cover token map'i (`{KURUM_ADI}` vb.) korunur; Adım 2 `preg_replace_callback('/\{([a-z_çğıiöşü0-9]+)\}/u')` dinamik token'ları `fieldValue`'dan besler, `e()` escape.
+- `renderFor()` — cover_letter koşulu KALDIRILDI → TÜM belgelerde token hidrasyonu.
+
+### ✅ Controller + Editör
+- `DocumentTemplateController::editorView()` +`$data['fieldCatalog']` (3 edit metoduna otomatik).
+- `editor.blade.php`: `#fp-toggle` butonu + `#field-panel` sağ panel (300px, translateX animasyon), `renderCatalog()` grup çizimi + `#fp-search` filtre, `insertToken()` → `document.execCommand('insertText')` (imleç korunur; kilitli hücre `isLockedCell` guard; READ_ONLY'de panel gizli). `body.panel-open .editor-wrap { right:300px }`.
+
+### ✅ Hasar düzeltmeleri (kullanıcı raporları)
+- **GEÇERSİZ/TASLAK kök neden:** Kurum şablonları blade'den `sampleApp` (verification_code boş/GEÇERSİZ) ile üretildiğinde footer'daki doğrulama kodu STATİK gömülüyordu → `maskCoverDynamicFields` `{DOGRULAMA_KODU}` token'ına çevirir, hidrasyonda `$app->verification_code` basılır. ✅
+- **Dicle imza yetkilileri basılmama:** Şablon imza kutusu `sampleApp`'te boş statik `<b></b>` gömüyordu → `maskCoverDynamicFields` `{TESIS_SORUMLUSU}`, `{MUDUR_ADI}`, `{MUDUR_UNVAN}`, `{DUZENLEYEN}`, `{KAZI_MIKTAR}` token'larına çevir; hidrasyonda başvuru/kurum verisiyle doldurulur (fallback). ✅
+- **Sayı/proje kodu/adres gelmiyor:** Bu alanlar şablonda hiç token'sızdı → kullanıcı artık Bilgi Katmanı'ndan `{basvuru_no}`, `{proje_kodu}`, `{adres}` vb. ekler. ✅
+- **Çift logo:** `maskCoverDynamicFields` şablona gömülü `<img>`'i siler; runtime'da `downloadCoverLetter` dinamik enjkete eder (tek logo). ✅
+- **Print-bar sıkışıkığı:** `wrapStandalone` + `cover_letter.blade.php` print-bar yeniden tasarlandı: başlık + `✕ Kapat` + `📄 PDF Olarak Kaydet` + `🖨️ Yazdır` (geniş, gradient, butonlar ayrık). ✅
+
+### ✅ Doğrulama
+- `php -l` 3 dosya OK; `view:cache` OK.
+- `fieldValue` uç testi: basvuru_no→2026-0972, proje_kodu→6325121, kurum_adi→DICLE, baslangıc→05.08.2026, kazi_miktari→10,00 m²/m. Bilinmeyen token korunur.
+- `renderFor` (Dicle 972): sabit token kalıntısı 0, print bar YENİ, şablonda logo <img> 0, doğrulama kodu BASILDI, GEÇERSİZ/TASLAK YOK.
+- 7 kurum şablonu reseed edildi (yeni token'lar eklendi).
+
+### 📁 Değişen Dosyalar
+- `app/Services/DocumentTemplateService.php`, `app/Http/Controllers/Admin/DocumentTemplateController.php`
+- `resources/views/admin/document-templates/editor.blade.php`, `resources/views/admin/pdf/cover_letter.blade.php`
+- `SESSION_SUMMARY.md`
+
+### Sıradaki
+- Tarayıcıda: super-admin → Taslak/Şablon → Üst Yazı düzenle → Bilgi Katmanı paneli → alan tıkla → kaydet → PDF'te başvuru verisi basılı. Kurum şablonu düzenleme + yeni kurum otomatik şablonu kontrolü.
+
+---
+
+## Sprint 9 — KURUM BAZLI ÜST YAZI ŞABLON YÖNETİMİ (merkezden, dinamik kurum adı)
+
+### 🎯 Öz
+Alt kurumlara Taslak/Şablon yönetimi kapatılmıştı; artık MERKEZ belediye, her alt kurumun (AKSA, Dicle, ŞUSKİ, TT, Turkcell, Vodafone...) Üst Yazı şablonunu ayrı ayrı düzenliyor. Yeni alt kurum eklenince üst yazı şablonu otomatik oluşuyor (master/blade kopyası + dinamik kurum adı). Alt kurum personeli başvuru detayında "Belediyeye Gönder"den ÖNCE üst yazısını düzenleyebilir (mevcut override akışı — korundu), gönderince kilitli.
+
+### ✅ Yeni metodlar — `app/Services/DocumentTemplateService.php`
+- `seedInstitutionCover(int $institutionId, ?string $masterHtml)` — global master kopyalar/blade fallback; `maskInstitutionName` ile kurum adını `{KURUM_ADI}` token'ına çevirip `saveInstitution('cover_letter')` yazar.
+- `maskInstitutionName(string $html)` — DOMDocument+XPath: antet başlık (`td[text-align:center] span.font-bold`) + imza altı (`span[font-size:12.5px]`) kurum adı text node'larını token'a çevirir. Güvenli: yalnızca tek text node + tam kurum adı regex'i; gömülü adlar (yüklenici paragrafı) dokunulmaz.
+- `hydrateInstitutionTokens(string $html, ?string $kurumAdi)` — PDF'te token'ı `mb_strtoupper(kurum adı)` ile değiştirir (boşsa token'ı siler).
+- `renderFor()` → cover_letter tipinde hidrasyon eklendi (PDF akışı).
+- `KURUM_ADI_TOKEN = '{KURUM_ADI}'` sabiti.
+
+### ✅ Controller + Route
+- `DocumentTemplateController`: `index()` artık alt kurum listesi (`is_municipality=false`) + her kurum için hasTemplate geçiyor. Yeni: `editInstitutionCover`, `updateInstitutionCover`, `destroyInstitutionCover` (üçü de `guardAccess` → merkez personel; `abort_unless(!is_municipality)`).
+- `routes/admin.php`: `document-templates/institutions/{institution}/cover` GET/POST/DELETE (edit-institution-cover / update-institution-cover / destroy-institution-cover).
+- `InstitutionController::store()`: yeni alt kurumda otomatik `seedInstitutionCover`.
+
+### ✅ View
+- `document-templates/index.blade.php`: "🏢 Kurum Üst Yazı Şablonları" bölümü (renk kodu daire + kurum adı + rozet + "Şablon Düzenle"). Master kart korundu.
+- `document-templates/editor.blade.php`: `scope === 'institution_cover'` → "🏢 {kurum} — Üst Yazı Şablonu".
+
+### ✅ DB
+- `institution_document_templates` boştu → 7 mevcut alt kuruma otomatik seed yapıldı (her birinde token=2). Toplam 7 satır.
+- Migration gerekmedi (tablo zaten var).
+
+### ✅ Doğrulama
+- `php -l` 4 dosya OK; `view:cache` OK; 3 route listelendi.
+- Sentinel test: maskelenmiş HTML → token=2, hydrate → AKSA adı basıldı.
+- Uçtan uca: Dicle başvurusu (id=972) `renderFor('cover_letter')` → kurum şablonu seçildi, "DICLE ELEKTRIK DAĞITIM A.Ş." basıldı, token kalıntısı yok, logo img var.
+
+### 📁 Değişen Dosyalar
+- `app/Services/DocumentTemplateService.php`, `app/Http/Controllers/Admin/DocumentTemplateController.php`, `app/Http/Controllers/Admin/InstitutionController.php`, `routes/admin.php`
+- `resources/views/admin/document-templates/index.blade.php`, `editor.blade.php`
+- `SESSION_SUMMARY.md`
+
+### Sıradaki
+- Tarayıcıda: super-admin → Taslak/Şablon → kurum listesi; kurum şablonu düzenle; yeni kurum ekle → otomatik şablon; alt kurum başvurusu PDF üst yazısında kendi kurum adı/logo.
+
+---
+
+## Önceki — Sprint 8b (7 Ağustos)
 
 ### 🎯 Öz
 Önceki sprint'te (8a) cadde/sokak input yapısı yanlışlıkla tamamen kaldırılmıştı. Kullanıcı düzeltmesi: **cadde/sokak inputlarını geri getir** (üst yazı tablosu için gerekli), ama **yeşil div arama bağlantılarını** (cadde yazınca harita üstünde çıkan `renderStreetJumpBar`) ve **adres inputundaki "Konum Bul" butonunu** kaldır. Yeni adres bulma algoritması henüz kurulmayacak.

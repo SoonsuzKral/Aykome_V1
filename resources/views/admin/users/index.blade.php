@@ -55,6 +55,7 @@
 
 {{-- DataTable --}}
 <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
     <table id="usersTable" class="w-full border-collapse bg-white">
         <thead>
             <tr>
@@ -69,6 +70,7 @@
         </thead>
         <tbody></tbody>
     </table>
+    </div>
 </div>
 
 @endsection
@@ -138,7 +140,7 @@ $(function () {
             $(thead).find('th').addClass('bg-gray-50/50');
         },
         drawCallback : function () { stylePagination(); },
-        dom          : '<"flex flex-wrap items-center justify-between gap-3 mb-4 px-4 pt-4"lf><"overflow-x-auto"rt><"flex flex-wrap items-center justify-between gap-3 mt-4 px-4 pb-4"ip>',
+        dom          : '<"flex flex-wrap items-center justify-between gap-3 mb-4 px-4 pt-4"lf><"rounded-xl border border-slate-200"rt><"flex flex-wrap items-center justify-between gap-3 mt-4 px-4 pb-4"ip>',
         language     : { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/tr.json' },
         order        : [[0, 'asc']],
         pageLength   : 15,

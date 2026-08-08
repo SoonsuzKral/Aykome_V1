@@ -23,6 +23,10 @@ use App\Http\Controllers\Admin\DepositController;
 use App\Http\Controllers\Admin\DocumentSettingsController;
 use App\Http\Controllers\Admin\DocumentTemplateController;
 use App\Http\Controllers\Admin\FaultController;
+use App\Http\Controllers\Admin\ModuleController;
+use App\Http\Controllers\Admin\ModuleFieldController;
+use App\Http\Controllers\Admin\ModuleTemplateController;
+use App\Http\Controllers\Admin\ModuleSequenceController;
 use App\Http\Controllers\Admin\MakamController;
 use App\Http\Controllers\Admin\ProcessController;
 use App\Http\Controllers\ProfileController;
@@ -95,11 +99,13 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
     });
 
     // ─── Teminat & İadeler + Toplu Arıza (Acil Kazı) ───────────────────────────
-    Route::middleware('permission:applications.view')->group(function () {
+    Route::middleware('permission:deposits.view')->group(function () {
         Route::get('deposits',                     [DepositController::class, 'index']        )->name('deposits.index');
         Route::post('deposits/{application}/refund', [DepositController::class, 'refund']     )->name('deposits.refund');
         Route::post('deposits/{application}/update', [DepositController::class, 'update']     )->name('deposits.update');
+    });
 
+    Route::middleware('permission:faults.view')->group(function () {
         Route::get('faults',                       [FaultController::class, 'index']         )->name('faults.index');
         Route::post('faults/bulk-tahakkuk',        [FaultController::class, 'bulkTahakkuk']  )->name('faults.bulk-tahakkuk');
     });
@@ -143,7 +149,7 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
         Route::post('map/{application}/drawing', [MapMonitorController::class, 'storeDrawing'])->name('map.drawing.store');
     });
 
-    Route::middleware(['permission:applications.view', 'license:reports'])->group(function () {
+    Route::middleware(['permission:reports.view', 'license:reports'])->group(function () {
         Route::get('reports',            [ReportController::class, 'index']    )->name('reports.index');
         Route::get('reports/advanced',   [ReportController::class, 'advanced'] )->name('reports.advanced');
         Route::post('reports/data',      [ReportController::class, 'data']     )->name('reports.data');
@@ -177,7 +183,7 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
     });
 
     // ─── Evrak & Makam Ayarları (Global Signatory Engine) ─────────────────────
-    Route::prefix('document-settings')->name('document-settings.')->group(function () {
+    Route::middleware('permission:document-settings.manage')->prefix('document-settings')->name('document-settings.')->group(function () {
         Route::get('/',               [DocumentSettingsController::class, 'index']  )->name('index');
         Route::post('/',              [DocumentSettingsController::class, 'store'] )->name('store');
         Route::put('/{setting}',      [DocumentSettingsController::class, 'update'])->name('update');
@@ -185,15 +191,48 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
     });
 
     // ─── EBYS Taslak Motoru — Global Şablon Yönetimi (Word / Excel editör) ────
-    Route::prefix('document-templates')->name('document-templates.')->group(function () {
+    Route::middleware('permission:document-templates.manage')->prefix('document-templates')->name('document-templates.')->group(function () {
         Route::get('/',                  [DocumentTemplateController::class, 'index']       )->name('index');
         Route::get('{documentType}/edit', [DocumentTemplateController::class, 'editGlobal'])->name('edit');
         Route::post('{documentType}',     [DocumentTemplateController::class, 'updateGlobal'])->name('update');
         Route::delete('{documentType}/institution', [DocumentTemplateController::class, 'destroyInstitution'])->name('destroy-institution');
+
+        // Kurum bazlı Üst Yazı şablonu (merkezden düzenleme)
+        Route::get('institutions/{institution}/cover',     [DocumentTemplateController::class, 'editInstitutionCover']  )->name('edit-institution-cover');
+        Route::post('institutions/{institution}/cover',    [DocumentTemplateController::class, 'updateInstitutionCover'])->name('update-institution-cover');
+        Route::delete('institutions/{institution}/cover',  [DocumentTemplateController::class, 'destroyInstitutionCover'])->name('destroy-institution-cover');
+    });
+
+    // ─── Modül Yönetimi ─────────────────────────────────────────────────────────
+    Route::middleware('role_or_permission:super-admin|municipality-admin')->prefix('modules')->name('modules.')->group(function () {
+        Route::get('/',                       [ModuleController::class, 'index']  )->name('index');
+        Route::get('/create',                 [ModuleController::class, 'create'])->name('create');
+        Route::post('/',                      [ModuleController::class, 'store']  )->name('store');
+        Route::post('/reorder',               [ModuleController::class, 'reorder'])->name('reorder');
+        Route::get('/{module}',              [ModuleController::class, 'show'])->name('show');
+        Route::get('/{module}/edit',         [ModuleController::class, 'edit'])->name('edit');
+        Route::put('/{module}',              [ModuleController::class, 'update'])->name('update');
+        Route::delete('/{module}',            [ModuleController::class, 'destroy'])->name('destroy');
+
+        // Fields
+        Route::post('/{module}/fields',            [ModuleFieldController::class, 'store'])->name('fields.store');
+        Route::put('/{module}/fields/{field}',     [ModuleFieldController::class, 'update'])->name('fields.update');
+        Route::delete('/{module}/fields/{field}',  [ModuleFieldController::class, 'destroy'])->name('fields.destroy');
+        Route::post('/{module}/fields/reorder',    [ModuleFieldController::class, 'reorder'])->name('fields.reorder');
+
+        // Templates
+        Route::post('/{module}/templates',           [ModuleTemplateController::class, 'store'])->name('templates.store');
+        Route::put('/{module}/templates/{template}', [ModuleTemplateController::class, 'update'])->name('templates.update');
+        Route::delete('/{module}/templates/{template}', [ModuleTemplateController::class, 'destroy'])->name('templates.destroy');
+
+        // Sequences
+        Route::post('/{module}/sequences',              [ModuleSequenceController::class, 'store'])->name('sequences.store');
+        Route::put('/{module}/sequences/{sequence}',     [ModuleSequenceController::class, 'update'])->name('sequences.update');
+        Route::delete('/{module}/sequences/{sequence}',  [ModuleSequenceController::class, 'destroy'])->name('sequences.destroy');
     });
 
     // ─── Süreç ve Onay Rotası (Hiyerarşi Yönetim Modülü) — merkez yönetim ─────
-    Route::prefix('processes')->name('processes.')->group(function () {
+    Route::middleware('permission:processes.manage')->prefix('processes')->name('processes.')->group(function () {
         Route::get('/',                        [ProcessController::class, 'index']            )->name('index');
         Route::post('/',                       [ProcessController::class, 'storeDefinition']   )->name('store-definition');
         Route::post('/steps',                  [ProcessController::class, 'storeStep']         )->name('store-step');
@@ -211,27 +250,35 @@ Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->nam
     });
 
     // ─── Makam Masası (Başkan / Karar Yeri) ──────────────────────────────────
-    Route::prefix('makam')->name('makam.')->group(function () {
+    Route::middleware('permission:makam.view')->prefix('makam')->name('makam.')->group(function () {
         Route::get('/',                     [MakamController::class, 'index'])->name('index');
         Route::get('/{application}',        [MakamController::class, 'show']  )->name('show');
         Route::post('/{application}/onayla',[MakamController::class, 'onayla'])->name('onayla');
     });
 
     // ─── PRO Modüller ──────────────────────────────────────────────────────────
-    Route::get('work-orders',                    [WorkOrderController::class,  'index']    )->name('work-orders.index');
-    Route::post('work-orders/data',              [WorkOrderController::class,  'data']     )->name('work-orders.data');
-    Route::get('work-orders/export/csv',         [WorkOrderController::class,  'exportCsv'])->name('work-orders.export-csv');
-    Route::get('work-orders/export/pdf',         [WorkOrderController::class,  'exportPdf'])->name('work-orders.export-pdf');
-    Route::get('field-reports-pro',              [FieldReportController::class,'index']    )->name('field-reports-pro.index');
-    Route::get('field-reports-pro/export/csv',   [FieldReportController::class,'exportCsv'])->name('field-reports-pro.export-csv');
-    Route::get('field-reports-pro/export/pdf',   [FieldReportController::class,'exportPdf'])->name('field-reports-pro.export-pdf');
-    Route::middleware('can:pro.evrak_tevdi')->get('e-document', fn () => view('admin.e-document.index'))->name('e-document.index');
+    Route::middleware('can:pro.work_orders')->group(function () {
+        Route::get('work-orders',                    [WorkOrderController::class,  'index']    )->name('work-orders.index');
+        Route::post('work-orders/data',              [WorkOrderController::class,  'data']     )->name('work-orders.data');
+        Route::get('work-orders/export/csv',         [WorkOrderController::class,  'exportCsv'])->name('work-orders.export-csv');
+        Route::get('work-orders/export/pdf',         [WorkOrderController::class,  'exportPdf'])->name('work-orders.export-pdf');
+    });
+    Route::middleware('can:pro.field_reports')->group(function () {
+        Route::get('field-reports-pro',              [FieldReportController::class,'index']    )->name('field-reports-pro.index');
+        Route::get('field-reports-pro/export/csv',   [FieldReportController::class,'exportCsv'])->name('field-reports-pro.export-csv');
+        Route::get('field-reports-pro/export/pdf',   [FieldReportController::class,'exportPdf'])->name('field-reports-pro.export-pdf');
+    });
+    Route::middleware('can:pro.evrak_tevdi')->group(function () {
+        Route::get('e-document', fn () => view('admin.e-document.index'))->name('e-document.index');
+    });
 
     // ─── Canlı Saha İzleme PRO ────────────────────────────────────────────────
-    Route::get( 'live-map-pro',          [LiveMapController::class, 'index']         )->name('live-map-pro.index');
-    Route::get( 'live-map-pro/data',     [LiveMapController::class, 'liveData']      )->name('live-map-pro.data');
-    Route::post('field/checkin',         [LiveMapController::class, 'checkIn']       )->name('field.checkin');
-    Route::post('field/location',        [LiveMapController::class, 'updateLocation'])->name('field.location');
+    Route::middleware('can:pro.live_map')->group(function () {
+        Route::get( 'live-map-pro',          [LiveMapController::class, 'index']         )->name('live-map-pro.index');
+        Route::get( 'live-map-pro/data',     [LiveMapController::class, 'liveData']      )->name('live-map-pro.data');
+        Route::post('field/checkin',         [LiveMapController::class, 'checkIn']       )->name('field.checkin');
+        Route::post('field/location',        [LiveMapController::class, 'updateLocation'])->name('field.location');
+    });
 
     // ─── Oracle Veritabani Yonetimi (Super Admin) ──────────────────────────
     Route::middleware('role:super-admin')->prefix('oracle')->name('oracle.')->group(function () {

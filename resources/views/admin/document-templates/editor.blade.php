@@ -30,7 +30,24 @@
         .save-btn:disabled { opacity: .6; cursor: wait; }
 
         /* ── Çalışma alanı ── */
-        .editor-wrap { position: fixed; top: 58px; left: 0; right: 0; bottom: 0; overflow: auto; padding: 24px 0 60px; background: #eef1f5; }
+        .editor-wrap { position: fixed; top: 58px; left: 0; right: 0; bottom: 0; overflow: auto; padding: 24px 0 60px; background: #eef1f5; transition: right .2s ease; }
+        body.panel-open .editor-wrap { right: 300px; }
+
+        /* ── BİLGİ KATMANI: sağ dinamik alan seçici paneli ── */
+        .fp-toggle { position: fixed; top: 66px; right: 12px; z-index: 960; width: 38px; height: 38px; border-radius: 9px; border: 1px solid #334155; background: #243141; color: #e2e8f0; font-size: 16px; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+        .fp-toggle:hover { background: #334155; color: #fff; }
+        #field-panel { position: fixed; top: 58px; right: 0; bottom: 0; width: 300px; z-index: 950; background: #fff; border-left: 1px solid #cbd5e1; box-shadow: -2px 0 10px rgba(0,0,0,.08); transform: translateX(100%); transition: transform .2s ease; display: flex; flex-direction: column; }
+        #field-panel.panel-open { transform: translateX(0); }
+        .fp-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+        .fp-title { font-weight: 700; font-size: 13px; color: #0f172a; }
+        .fp-close { border: none; background: #e2e8f0; color: #475569; width: 26px; height: 26px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        .fp-close:hover { background: #cbd5e1; }
+        .fp-search { margin: 10px 12px 0; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 7px; font-size: 12px; }
+        .fp-groups { flex: 1; overflow-y: auto; padding: 6px 12px 20px; }
+        .fp-group-title { font-weight: 700; font-size: 11px; color: #334155; margin: 12px 0 4px; text-transform: uppercase; letter-spacing: .4px; }
+        .fp-item { display: flex; align-items: baseline; gap: 6px; width: 100%; text-align: left; margin: 2px 0; padding: 6px 8px; border: none; border-radius: 6px; background: #f1f5f9; color: #0f172a; font-family: Consolas, Menlo, monospace; font-size: 12px; cursor: pointer; }
+        .fp-item:hover { background: #dbeafe; }
+        .fp-item .fp-lbl { font-family: inherit; color: #64748b; font-size: 11px; }
 
         /* ── ContentEditable A4 kağıt ── */
         #doc-editor {
@@ -182,6 +199,8 @@
                         🔒 Bu başvuruya özel taslak — yalnızca bu başvurunun PDF'inde kullanılır
                     @elseif($scope === 'institution')
                         🏢 Kurum şablonu — yalnızca bu kurumun başvurularında kullanılır
+                    @elseif($scope === 'institution_cover')
+                        🏢 {{ $institution?->name ?? 'Kurum' }} — Üst Yazı Şablonu (yalnızca bu kurumun başvurularında kullanılır)
                     @else
                         🌐 Global şablon — başvuruya özel taslağı olmayan tüm PDF'lerde kullanılır
                     @endif
@@ -215,6 +234,19 @@
         <div id="doc-editor"></div>
     </div>
 
+    {{-- BİLGİ KATMANI: sağ dinamik alan seçici — başvuru verisinin {token} ile nereye
+         geleceğine kullanıcı karar verir. Kaydedilen şablonda token kalır, PDF'te
+         başvurunun kendi verisiyle değiştirilir (tüm belge tipleri). --}}
+    <button type="button" id="fp-toggle" class="fp-toggle" onclick="toggleFieldPanel()" title="Bilgi Alanları (başvuru verisi ekle)">⚙</button>
+    <div id="field-panel">
+        <div class="fp-head">
+            <span class="fp-title">📊 Bilgi Alanları</span>
+            <button type="button" class="fp-close" onclick="toggleFieldPanel()" title="Kapat">✕</button>
+        </div>
+        <input type="text" id="fp-search" class="fp-search" placeholder="Alan ara (kurum, tarih, müdür...)" oninput="renderCatalog()">
+        <div id="fp-groups" class="fp-groups"></div>
+    </div>
+
     <div id="toast"></div>
 
     <form id="reset-form" method="POST" action="{{ $resetUrl ?? '#' }}" class="hidden">
@@ -233,6 +265,8 @@
         // (status != draft) editörü SALT-OKUNUR görür — tüm contenteditable devre dışıdır.
         var READ_ONLY = @json($readOnly ?? false);
         var INITIAL_CONTENT = {!! json_encode($hydratedContent) !!};
+        // BİLGİ KATMANI: sunucudan gelen alan kataloğu ({token} → başvuru verisi).
+        var FIELD_CATALOG = @json($fieldCatalog ?? []);
 
         // ── Editör başlatma: orijinal A4 HTML'i bas + contenteditable uygula ──
         // CELL-BASED AUTH (Güvenlik Duvarı):
@@ -323,6 +357,82 @@
                 p = p.parentNode;
             }
             return false;
+        }
+
+        /* ── BİLGİ KATMANI: sağ panel + token ekleme ── */
+        var PANEL_OPEN = false;
+
+        function toggleFieldPanel() {
+            PANEL_OPEN = !PANEL_OPEN;
+            var p = document.getElementById('field-panel');
+            var t = document.getElementById('fp-toggle');
+            if (p) p.classList.toggle('panel-open', PANEL_OPEN);
+            if (t) t.style.display = PANEL_OPEN ? 'none' : '';
+            document.body.classList.toggle('panel-open', PANEL_OPEN);
+            if (PANEL_OPEN) renderCatalog();
+        }
+
+        function renderCatalog() {
+            var wrap = document.getElementById('fp-groups');
+            if (!wrap) return;
+            wrap.innerHTML = '';
+            var q = ((document.getElementById('fp-search') || {}).value || '').toLowerCase().trim();
+            var cat = FIELD_CATALOG || {};
+            Object.keys(cat).forEach(function (g) {
+                var items = (cat[g] || []).filter(function (f) {
+                    return !q || (f.label || '').toLowerCase().indexOf(q) !== -1 || (f.key || '').indexOf(q) !== -1;
+                });
+                if (!items.length) return;
+                var title = document.createElement('div');
+                title.className = 'fp-group-title';
+                title.textContent = g;
+                wrap.appendChild(title);
+                items.forEach(function (f) {
+                    var b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'fp-item';
+                    b.innerHTML = '{' + f.key + '} <span class="fp-lbl">' + f.label + '</span>';
+                    b.onclick = function () { insertToken('{' + f.key + '}'); };
+                    wrap.appendChild(b);
+                });
+            });
+        }
+
+        function insertToken(token) {
+            if (READ_ONLY === true) { toast('Bu belge salt-okunurdur.', 'err'); return; }
+            var el = document.getElementById('doc-editor');
+            if (!el) return;
+            el.focus();
+            var sel = window.getSelection && window.getSelection();
+            var anchor = sel && sel.anchorNode;
+            var anchorEl = anchor ? (anchor.nodeType === 3 ? anchor.parentElement : anchor) : null;
+
+            // Kilitli (belediye makam / salt-okunur) hücrede token eklemeyi engelle
+            if (anchorEl && isLockedCell(anchorEl)) {
+                toast('Bu alan kilitli olduğu için buraya alan eklenemez.', 'err');
+                return;
+            }
+
+            if (anchorEl && el.contains(anchorEl)) {
+                // İmleç contenteditable içinde → imleç konumu korunur, düz metin eklenir.
+                document.execCommand('insertText', false, token);
+            } else {
+                // İmleç belge içinde değil → son düzenlenebilir hücrenin sonuna ekle.
+                var ok = el.querySelectorAll(EDITABLE_SELECTOR);
+                var target = null;
+                for (var i = ok.length - 1; i >= 0; i--) {
+                    if (ok[i].getAttribute('contenteditable') === 'true') { target = ok[i]; break; }
+                }
+                if (!target) { toast('Önce imleci belge içine tıklayın.', 'err'); return; }
+                target.focus();
+                var range = document.createRange();
+                range.selectNodeContents(target);
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+                document.execCommand('insertText', false, token);
+            }
+            toast('Eklendi: ' + token, 'ok');
         }
 
         function onProtectedDown(e) {
@@ -666,6 +776,16 @@
         initEditor();
         annotateLineIds();
         initReactiveMath();
+
+        // BİLGİ KATMANI: salt-okunur durumda panel gizlenir; değilse katalog çizilir.
+        if (READ_ONLY === true) {
+            var fpT = document.getElementById('fp-toggle');
+            var fpP = document.getElementById('field-panel');
+            if (fpT) fpT.style.display = 'none';
+            if (fpP) fpP.style.display = 'none';
+        } else {
+            renderCatalog();
+        }
 
         document.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {

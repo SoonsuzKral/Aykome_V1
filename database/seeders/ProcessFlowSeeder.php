@@ -31,7 +31,15 @@ class ProcessFlowSeeder extends Seeder
         $adminPerms = array_merge($municipalityPerms, [
             'applications.issue_license', 'applications.delete',
             'surface_types.manage', 'users.manage', 'institutions.manage',
-            'pro.live_map', 'pro.work_orders', 'pro.advanced_reports', 'pro.field_reports', 'pro.evrak_tevdi',
+            'users.view_all_scoped',
+            'reports.view', 'reports.advanced',
+            'document-settings.manage', 'document-templates.manage',
+            'processes.manage', 'processes.blueprint',
+            'makam.view', 'extra-permits.view',
+            'deposits.view', 'deposits.manage',
+            'faults.view', 'faults.manage',
+            'pro.live_map', 'pro.work_orders', 'pro.advanced_reports',
+            'pro.field_tracking', 'pro.field_reports', 'pro.evrak_tevdi',
         ]);
 
         // 1. Hiyerarşi rolleri
@@ -41,7 +49,10 @@ class ProcessFlowSeeder extends Seeder
         $makam = Role::query()->firstOrCreate(['name' => 'municipality-makam', 'guard_name' => 'web']);
 
         $buro->syncPermissions($municipalityPerms);
-        $sef->syncPermissions(array_merge($municipalityPerms, ['applications.issue_license', 'surface_types.manage']));
+        $sef->syncPermissions(array_merge($municipalityPerms, [
+            'applications.issue_license', 'surface_types.manage',
+            'users.view_all_scoped',
+        ]));
         $mudur->syncPermissions($adminPerms);
         $makam->syncPermissions($adminPerms);
 

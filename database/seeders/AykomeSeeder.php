@@ -28,6 +28,14 @@ class AykomeSeeder extends Seeder
             'tasks.transfer',
             'licenses.manage',
             'surface_types.manage',
+            // Teminat & İadeler
+            'deposits.view',
+            'deposits.manage',
+            // Toplu Arıza Yönetimi (Acil Kazı)
+            'faults.view',
+            'faults.manage',
+            // Ek İzinler (Ekstra Kazı İzinleri)
+            'extra-permits.view',
             // Kurumlar & Kullanıcılar
             'institutions.manage',
             'users.manage',
@@ -35,6 +43,17 @@ class AykomeSeeder extends Seeder
             'system.license',
             'system.logs',
             'system.settings',
+            // Raporlar
+            'reports.view',
+            'reports.advanced',
+            // Belge & Şablon Yönetimi
+            'document-settings.manage',
+            'document-templates.manage',
+            // Süreç & Onay Rotası
+            'processes.manage',
+            'processes.blueprint',
+            // Makam Masası
+            'makam.view',
             // PRO Modüller — 6 satılabilir lisans kapısı
             'pro.live_map',
             'pro.field_tracking',
@@ -42,10 +61,14 @@ class AykomeSeeder extends Seeder
             'pro.advanced_reports',
             'pro.field_reports',
             'pro.evrak_tevdi',
+            // Kullanıcı Görünürlük
+            'users.view_all_scoped',
             // Saha
             'field.tasks_view',
             'field.upload_media',
             'field.upload',   // geriye dönük uyumluluk
+            // Oracle Veritabanı (Super Admin)
+            'oracle.manage',
         ];
 
         foreach ($permissions as $name) {
@@ -77,31 +100,53 @@ class AykomeSeeder extends Seeder
         $municipalityAdmin = Role::query()->firstOrCreate(['name' => 'municipality-admin', 'guard_name' => 'web']);
         $municipalityStaff = Role::query()->firstOrCreate(['name' => 'municipality-staff', 'guard_name' => 'web']);
         $institutionManager = Role::query()->firstOrCreate(['name' => 'institution-manager', 'guard_name' => 'web']);
+        $institutionAdmin = Role::query()->firstOrCreate(['name' => 'institution-admin', 'guard_name' => 'web']);
 
         // KATMAN 3
         $institutionStaff = Role::query()->firstOrCreate(['name' => 'institution-staff', 'guard_name' => 'web']);
         $fieldTeam = Role::query()->firstOrCreate(['name' => 'field-team', 'guard_name' => 'web']);
 
         $municipalityAdmin->syncPermissions([
-            'applications.view', 'applications.create', 'applications.edit',
+            'applications.view', 'applications.create', 'applications.edit', 'applications.delete',
             'applications.approve_pre_excavation', 'applications.approve_price', 'applications.approve_receipt', 'applications.issue_license',
             'tasks.transfer', 'surface_types.manage', 'users.manage', 'institutions.manage',
+            'users.view_all_scoped',
+            'reports.view', 'reports.advanced',
+            'document-settings.manage', 'document-templates.manage',
+            'processes.manage', 'processes.blueprint',
+            'makam.view',
+            'extra-permits.view',
+            // Teminat & Arıza Yönetimi
+            'deposits.view', 'deposits.manage',
+            'faults.view', 'faults.manage',
             // PRO Modüller — belediye yöneticisi tam yetkili
             'pro.live_map', 'pro.work_orders', 'pro.advanced_reports',
+            'pro.field_tracking', 'pro.field_reports', 'pro.evrak_tevdi',
         ]);
 
         $municipalityStaff->syncPermissions([
             'applications.view', 'applications.create', 'applications.edit',
             'applications.approve_pre_excavation', 'applications.approve_price', 'applications.approve_receipt',
             'tasks.transfer',
+            'reports.view',
         ]);
 
         $institutionManager->syncPermissions([
             'applications.view', 'applications.create', 'applications.edit', 'applications.delete',
+            'reports.view', 'reports.advanced',
+        ]);
+
+        $institutionAdmin->syncPermissions([
+            'applications.view', 'applications.create', 'applications.edit', 'applications.delete',
+            'users.manage', 'institutions.manage',
+            'reports.view', 'reports.advanced',
+            'pro.live_map', 'pro.field_tracking', 'pro.work_orders', 'pro.advanced_reports',
+            'pro.field_reports', 'pro.evrak_tevdi',
         ]);
 
         $institutionStaff->syncPermissions([
             'applications.view', 'applications.create', 'applications.edit',
+            'reports.view',
         ]);
 
         $fieldTeam->syncPermissions([

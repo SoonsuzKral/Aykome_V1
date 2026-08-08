@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     make \
-    libaio1 \
     libnsl2 \
+    && (apt-get install -y libaio1 || apt-get install -y libaio1t64) \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install Oracle Instant Client 21c

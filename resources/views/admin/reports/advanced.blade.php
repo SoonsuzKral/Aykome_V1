@@ -131,6 +131,33 @@ div.dataTables_processing { border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0
                 </div>
             </div>
 
+            {{-- Teminat filtresi ──────────────────────────────────────── --}}
+            <div>
+                <label class="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-500">
+                    Teminat Durumu
+                </label>
+                <div class="flex flex-wrap gap-3">
+                    <label class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-50 has-[:checked]:text-cyan-700 transition">
+                        <input type="radio" name="teminat_filter" value="" class="sr-only" checked>
+                        Tümü
+                    </label>
+                    <label class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-50 has-[:checked]:text-cyan-700 transition">
+                        <input type="radio" name="teminat_filter" value="with_deposit" class="sr-only">
+                        <span class="flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                        Teminatlı (Vatandaş / Kurum)
+                    </label>
+                    <label class="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 cursor-pointer hover:bg-gray-50 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-50 has-[:checked]:text-cyan-700 transition">
+                        <input type="radio" name="teminat_filter" value="without_deposit" class="sr-only">
+                        <span class="flex h-2 w-2 rounded-full bg-amber-500"></span>
+                        Teminatsız (Alt Kurum)
+                    </label>
+                </div>
+                <p class="mt-1.5 text-xs text-gray-400">
+                    <strong class="text-amber-600">Teminatlı:</strong> Vatandaş veya Merkez Belediye başvurusu (teminat yatırılır) &bull;
+                    <strong class="text-gray-600">Teminatsız:</strong> Alt kurum (AKSA, TEDAŞ, ŞUSKİ, Türk Telekom vb.) başvurusu (teminat yatırılmaz)
+                </p>
+            </div>
+
             {{-- Action Buttons ────────────────────────────────────────────── --}}
             <div class="flex flex-wrap items-center gap-3 border-t border-gray-100 pt-4">
                 <button type="button" id="applyFilters"
@@ -242,6 +269,8 @@ div.dataTables_processing { border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0
         if (v('institution_id')) f.institution_id = v('institution_id');
         const st = getActiveStatuses();
         if (st.length) f['statuses[]'] = st;
+        const teminatRadio = document.querySelector('input[name="teminat_filter"]:checked');
+        if (teminatRadio && teminatRadio.value) f.teminat = teminatRadio.value;
         return f;
     }
 
@@ -357,6 +386,10 @@ div.dataTables_processing { border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0
             btn.setAttribute('data-active', 'false');
             btn.classList.remove('bg-[#FA6001]', 'text-white', 'border-[#FA6001]', 'shadow-md');
             btn.classList.add('border-gray-300', 'text-gray-600');
+        });
+        // Reset teminat radio to "Tümü"
+        document.querySelectorAll('input[name="teminat_filter"]').forEach(function (rb) {
+            rb.checked = rb.value === '';
         });
         selectedIds.clear();
         updateSelectionBadge();

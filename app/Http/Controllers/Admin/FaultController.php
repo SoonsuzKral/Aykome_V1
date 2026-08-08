@@ -19,6 +19,7 @@ class FaultController extends Controller
         $filters = [
             'q' => trim((string) $request->query('q', '')),
             'status' => trim((string) $request->query('status', '')),
+            'institution_id' => trim((string) $request->query('institution_id', '')),
         ];
 
         $query = Application::query()
@@ -44,9 +45,19 @@ class FaultController extends Controller
             $query->where('status', $filters['status']);
         }
 
+        if ($filters['institution_id'] !== '') {
+            $query->where('institution_id', $filters['institution_id']);
+        }
+
+        // Sadece belediye personeli tüm kurumları görebilsin
+        $institutions = $user->isMunicipalityPersonel()
+            ? \App\Models\Institution::orderBy('name')->get()
+            : collect();
+
         return view('admin.faults.index', [
             'applications' => $query->paginate(15)->withQueryString(),
             'filters' => $filters,
+            'institutions' => $institutions,
         ]);
     }
 

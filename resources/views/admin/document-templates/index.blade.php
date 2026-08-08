@@ -56,6 +56,51 @@
         @endforeach
     </div>
 
+    {{-- 🏢 KURUM ÜST YAZI ŞABLONLARI (merkez yönetim) --}}
+    @if(empty($institutionScope) && optional($institutions ?? collect())->isNotEmpty())
+    <div class="mt-8">
+        <div class="mb-3 flex items-center justify-between">
+            <div>
+                <h2 class="text-base font-bold text-slate-900">🏢 Kurum Üst Yazı Şablonları</h2>
+                <p class="mt-0.5 text-xs text-slate-500">Her alt kurumun kendi Üst Yazı şablonu düzenlenir; başvuru PDF'inde kurumun logosu ve adı kendiliğinden basılır.</p>
+            </div>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            @foreach($institutions as $inst)
+                <div class="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow-md">
+                    <div class="flex items-start gap-4">
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-black text-white"
+                              style="background: {{ $inst['color_code'] ?? '#6B7280' }};">
+                            {{ mb_strtoupper(mb_substr($inst['name'], 0, 1), 'UTF-8') }}
+                        </span>
+                        <div class="min-w-0 flex-1">
+                            <h3 class="truncate text-sm font-bold text-slate-800">{{ $inst['name'] }}</h3>
+                            <div class="mt-1 flex items-center gap-2">
+                                @if($inst['hasTemplate'])
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 ring-1 ring-indigo-200">
+                                        ● Kurum üst yazı şablonu kayıtlı
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 ring-1 ring-slate-200">
+                                        ○ Varsayılan şablon kullanılıyor
+                                    </span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center gap-2">
+                        <a href="{{ route('admin.document-templates.edit-institution-cover', $inst['id']) }}"
+                           class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700">
+                            <span>📄</span> {{ $inst['name'] }} Üst Yazı Taslağı
+                        </a>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+        <p class="mt-3 text-xs text-slate-400">💡 Yeni alt kurum eklediğinizde bu kurumun Üst Yazı şablonu otomatik oluşturulur; kurumun logosu ve adı PDF'de kendiliğinden yer alır.</p>
+    </div>
+    @endif
+
     @if(!empty($institutionScope) && $institutionScope)
     <div class="mt-6 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 shadow-sm">
         <h2 class="mb-2 text-sm font-bold text-indigo-800">ℹ️ Kurum şablonunuz nasıl çalışır?</h2>
@@ -69,7 +114,7 @@
     <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="mb-2 text-sm font-bold text-slate-800">ℹ️ Nasıl çalışır?</h2>
         <ul class="space-y-1.5 text-xs text-slate-500">
-            <li>• <b>Global şablon</b>: Tüm başvuruların PDF'inde, o başvuruya özel taslak veya kurum şablonu yoksa buradaki içerik basılır.</li>
+            <li>• <b>Global şablon</b>: Tüm başvuruların PDF'inde, o başvuruya özel taslak veya kurum şablonu yoksa bu öğerik basılır.</li>
             <li>• <b>Kurum şablonu</b>: Alt kurumlar kendi Üst Yazı şablonunu düzenler; yalnızca o kurumun başvurularında geçerlidir.</li>
             <li>• <b>Başvuruya özel taslak</b>: Başvuru detayındaki "✏️ Taslak" butonuyla yalnızca o başvuru için düzenlenir ve öncelikli kullanılır.</li>
             <li>• <b>Word editör</b>: Üst Yazı ve Ön Kazı belgeleri, ortada A4 kağıt ve üstte Word şeridiyle düzenlenir.</li>

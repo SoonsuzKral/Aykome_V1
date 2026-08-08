@@ -97,11 +97,18 @@ class DocumentTemplateService
     /** Standalone PDF sarmalayıcısı için temel A4 + yazdırma çubuğu CSS'i. */
     protected const LAYOUT_CSS = <<<'CSS'
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #e5e7eb; padding-top: 56px; display: flex; justify-content: center; font-family: 'Times New Roman', Times, serif; }
+body { background: #e5e7eb; padding-top: 70px; display: flex; justify-content: center; font-family: 'Times New Roman', Times, serif; }
 .a4-container { background: #fff; width: 210mm; min-height: 297mm; padding: 18mm 20mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 16px auto; box-sizing: border-box; }
-.print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: #1e293b; color: #fff; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
-.print-bar .title { font-size: 14px; font-weight: 600; }
-.print-bar .btn-print { background: #2563eb; color: #fff; border: none; padding: 8px 20px; border-radius: 5px; font-weight: 700; cursor: pointer; }
+.print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: linear-gradient(180deg,#1e293b,#0f172a); color: #fff; height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
+.print-bar .title { font-size: 15px; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 8px; }
+.print-bar .title .doc-ico { font-size: 18px; }
+.print-bar .actions { display: flex; align-items: center; gap: 10px; }
+.print-bar .btn-print { background: #2563eb; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.print-bar .btn-print:hover { background: #1d4ed8; }
+.print-bar .btn-pdf { background: #16a34a; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.print-bar .btn-pdf:hover { background: #15803d; }
+.print-bar .btn-close { background: transparent; color: #94a3b8; border: 1px solid #475569; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.print-bar .btn-close:hover { background: #334155; color: #fff; }
 @media print { body { background: #fff; padding: 0; display: block; } .print-bar { display: none !important; } .a4-container { width: 100% !important; box-shadow: none; padding: 0 !important; margin: 0; min-height: auto; } }
 @page { size: A4; margin: 15mm; }
 CSS;
@@ -109,11 +116,18 @@ CSS;
     /** Landscape (metraj) A4 sarmalayıcı CSS'i. */
     protected const LAYOUT_CSS_LANDSCAPE = <<<'CSS'
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #e5e7eb; padding-top: 56px; display: flex; justify-content: center; font-family: 'Times New Roman', Times, serif; }
+body { background: #e5e7eb; padding-top: 70px; display: flex; justify-content: center; font-family: 'Times New Roman', Times, serif; }
 .a4-container { background: #fff; width: 297mm; min-height: 210mm; padding: 12mm 14mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 16px auto; box-sizing: border-box; }
-.print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: #1e293b; color: #fff; height: 48px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }
-.print-bar .title { font-size: 14px; font-weight: 600; }
-.print-bar .btn-print { background: #2563eb; color: #fff; border: none; padding: 8px 20px; border-radius: 5px; font-weight: 700; cursor: pointer; }
+.print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: linear-gradient(180deg,#1e293b,#0f172a); color: #fff; height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
+.print-bar .title { font-size: 15px; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 8px; }
+.print-bar .title .doc-ico { font-size: 18px; }
+.print-bar .actions { display: flex; align-items: center; gap: 10px; }
+.print-bar .btn-print { background: #2563eb; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.print-bar .btn-print:hover { background: #1d4ed8; }
+.print-bar .btn-pdf { background: #16a34a; color: #fff; border: none; padding: 9px 18px; border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.print-bar .btn-pdf:hover { background: #15803d; }
+.print-bar .btn-close { background: transparent; color: #94a3b8; border: 1px solid #475569; padding: 8px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.print-bar .btn-close:hover { background: #334155; color: #fff; }
 @media print { body { background: #fff; padding: 0; display: block; } .print-bar { display: none !important; } .a4-container { width: 100% !important; box-shadow: none; padding: 0 !important; margin: 0; min-height: auto; } }
 @page { size: A4 landscape; margin: 8mm; }
 CSS;
@@ -473,6 +487,257 @@ CSS;
         \App\Models\InstitutionDocumentTemplate::where('institution_id', $institutionId)
             ->where('document_type', $type)
             ->delete();
+    }
+
+    /* ─── Kurum bazlı Üst Yazı şablonu (merkezden yönetim) ─────────────── */
+
+    /** Üst yazı şablonu dinamik alan yer tutucuları (başvuru verisiyle dolar). */
+    public const KURUM_ADI_TOKEN  = '{KURUM_ADI}';
+    public const TESIS_TOKEN      = '{TESIS_SORUMLUSU}';
+    public const DUZENLEYEN_TOKEN = '{DUZENLEYEN}';
+    public const KAZI_MIKTAR_TOKEN = '{KAZI_MIKTAR}';
+    public const MUDUR_ADI_TOKEN  = '{MUDUR_ADI}';
+    public const MUDUR_UNVAN_TOKEN = '{MUDUR_UNVAN}';
+    public const DOGRULAMA_TOKEN  = '{DOGRULAMA_KODU}';
+    public const SAYI_TOKEN       = '{SAYI}';
+    public const TARIH_TOKEN      = '{TARIH}';
+
+    /** Kurum şablonundaki tüm dinamik token listesi (başvuru verisiyle hidrate). */
+    public static function coverTokens(): array
+    {
+        return [
+            self::KURUM_ADI_TOKEN, self::TESIS_TOKEN, self::DUZENLEYEN_TOKEN,
+            self::KAZI_MIKTAR_TOKEN, self::MUDUR_ADI_TOKEN, self::MUDUR_UNVAN_TOKEN,
+            self::DOGRULAMA_TOKEN, self::SAYI_TOKEN, self::TARIH_TOKEN,
+        ];
+    }
+
+    /**
+     * Yeni alt kurum eklendiğinde Üst Yazı şablonunu otomatik oluşturur.
+     * Kaynak: merkez (global) master şablon → varsa kopyalar; yoksa blade
+     * varsayılanından ilk içerik üretir. Kopyalanan içerikte kurum adı, imza
+     * yetkilileri, doğrulama kodu ve tarih bölgeleri yer tutucularına
+     * dönüştürülür, böylece her başvurunun PDF'inde KENDİ verisi basılır.
+     */
+    public static function seedInstitutionCover(int $institutionId, ?string $masterHtml = null): bool
+    {
+        $content = $masterHtml ?? self::globalContent('cover_letter');
+        if (! is_string($content) || trim($content) === '') {
+            // Master yoksa blade varsayılanını (kurum adı dinamik) başlangıç kabul et.
+            $rendered = self::renderBlade('cover_letter', self::sampleApp($institutionId), $institutionId);
+            $content = self::extractA4Fragment($rendered);
+        }
+        if (! is_string($content) || trim($content) === '') {
+            return false;
+        }
+
+        $content = self::maskCoverDynamicFields($content);
+        self::saveInstitution($institutionId, 'cover_letter', $content);
+
+        return true;
+    }
+
+    /**
+     * HTML içindeki dinamik Üst Yazı bölgelerini yer tutuculara çevirir:
+     *   - antet kurum adı + imza altı kurum adı     → {KURUM_ADI}
+     *   - Tesis Kontrol / Yetkilisi                 → {TESIS_SORUMLUSU}
+     *   - Evrağı Düzenleyen                         → {DUZENLEYEN}
+     *   - Yaklaşık Kazı miktarı                     → {KAZI_MIKTAR}
+     *   - Müdür adı / unvanı                        → {MUDUR_ADI} / {MUDUR_UNVAN}
+     *   - BELGE DOĞRULAMA KODU                      → {DOGRULAMA_KODU}
+     *   - Sayı satırı (E-...)                       → {SAYI}
+     *   - Tarih (sağ üst)                           → {TARIH}
+     * Kullanıcının elle yazdığı / boş bıraktığı alanlar dokunulmadan kalır
+     * (yalnızca blade çıktısındaki bilinen placeholder desenleri dönüştürülür).
+     */
+    protected static function maskCoverDynamicFields(string $html): string
+    {
+        // ÖN ADIM (DOM): antet kurum adı + imza sağı kurum adı + gömülü logo temizliği.
+        // Bu adımlar DOM üzerinde, referans bozulmasın diye tek pasda string regex ile yapılır.
+        $doc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $loaded = $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+        libxml_clear_errors();
+        if ($loaded) {
+            $xpath = new \DOMXPath($doc);
+
+            $setText = static function (\DOMElement $el, string $token): void {
+                $el->textContent = ' ' . $token . ' ';
+            };
+
+            // 1) Kurum adı: antet başlık (text-align:center span.font-bold) + imza altı (font-size:12.5px)
+            foreach ($xpath->query('//td[contains(@style,"text-align:center")]/span[contains(@class,"font-bold")] | //span[contains(@style,"font-size:12.5px")]') as $el) {
+                if (! $el instanceof \DOMElement) {
+                    continue;
+                }
+                $txt = trim((string) $el->textContent);
+                if ($txt === '' || preg_match('/^[A-ZÇĞİÖŞÜ0-9\.\&\-\' ]{3,}$/u', $txt)) {
+                    $setText($el, self::KURUM_ADI_TOKEN);
+                }
+            }
+
+            // 2) ANTET LOGO SİL: blade a4-container başına gömülen <img> kaldırılır.
+            //    PDF üretiminde downloadCoverLetter logo bloğunu dinamik enjekte eder —
+            //    çift logo olmaması için şablona gömülü logo parçası atılır.
+            foreach ($doc->getElementsByTagName('img') as $img) {
+                $img->parentNode?->removeChild($img);
+            }
+
+            $html = $doc->saveHTML($doc->getElementsByTagName('body')->item(0));
+        }
+
+        // 3) İmza bölgesi: Tesis Kontrol / Yetkilisi, Evrağı Düzenleyen, Yaklaşık Kazı
+        //    (u flag: &nbsp; = \xC2\xA0 baytı \s ile yakalansın diye UTF-8 modu)
+        $html = (string) preg_replace('/Tesis Kontrol \/ Yetkilisi\s*:\s*<b>[^<]*<\/b>/u', 'Tesis Kontrol / Yetkilisi : <b>' . self::TESIS_TOKEN . '</b>', $html);
+        $html = (string) preg_replace('/Evrağı Düzenleyen\s*:\s*<b>[^<]*<\/b>/u', 'Evrağı Düzenleyen &nbsp;: <b>' . self::DUZENLEYEN_TOKEN . '</b>', $html);
+        $html = (string) preg_replace('/Yaklaşık Kazı\s*:\s*<b>[^<]*<\/b>/u', 'Yaklaşık Kazı &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <b>' . self::KAZI_MIKTAR_TOKEN . '</b>', $html);
+
+        // 4) Müdür adı / unvanı: imza sağı (text-transform:uppercase b + font-size:14px span)
+        $html = (string) preg_replace('/<b[^>]*style="text-transform:uppercase;"[^>]*>[^<]*<\/b>/u', '<b style="text-transform:uppercase;">' . self::MUDUR_ADI_TOKEN . '</b>', $html, 1);
+        $html = (string) preg_replace('/<span style="font-size:14px;">[^<]*<\/span>/u', '<span style="font-size:14px;">' . self::MUDUR_UNVAN_TOKEN . '</span>', $html, 1);
+
+        // 5) Doğrulama kodu + sayı + tarih
+        $html = (string) preg_replace('/BELGE DOĞRULAMA KODU:\s*<b[^>]*>[^<]*<\/b>/u', 'BELGE DOĞRULAMA KODU: <b style="color:#d97706;">' . self::DOGRULAMA_TOKEN . '</b>', $html);
+        $html = (string) preg_replace('/Sayı\s*:\s*[^<]{0,60}<br>/u', 'Sayı &nbsp;&nbsp;&nbsp;: ' . self::SAYI_TOKEN . '<br>', $html);
+        // Tarih: sağ üst contenteditable span — yalnızca tarih deseni varsa
+        $html = (string) preg_replace('/<span[^>]*contenteditable="true"[^>]*>\s*\d{1,2}\.\d{1,2}\.\d{4}\s*<\/span>/u', '<span contenteditable="true">' . self::TARIH_TOKEN . '</span>', $html);
+
+        return $html;
+    }
+
+    /**
+     * PDF üretiminde kurum şablonundaki yer tutucuları başvuru verisiyle doldurur.
+     * Başvuru alanı boşsa yer tutucu boş bırakılır (kullanıcı editörde elle doldurur).
+     */
+    public static function hydrateInstitutionTokens(string $html, Application $app): string
+    {
+        $kurumAdi = $app->institution?->name;
+        $map = [
+            self::KURUM_ADI_TOKEN   => mb_strtoupper(trim((string) $kurumAdi), 'UTF-8'),
+            self::TESIS_TOKEN       => mb_strtoupper(trim((string) $app->tesis_sorumlusu_adi), 'UTF-8'),
+            self::DUZENLEYEN_TOKEN  => mb_strtoupper(trim((string) ($app->duzenleyen_kisi ?? $app->creator?->name)), 'UTF-8'),
+            self::KAZI_MIKTAR_TOKEN => collect($app->surfaceLines ?? [])->sum('quantity') . ' m² / m.',
+            self::MUDUR_ADI_TOKEN   => mb_strtoupper(trim((string) $app->mudur_adi), 'UTF-8'),
+            self::MUDUR_UNVAN_TOKEN => trim((string) $app->mudur_unvani),
+            self::DOGRULAMA_TOKEN   => $app->verification_code ?? 'GEÇERSİZ/TASLAK',
+            self::SAYI_TOKEN        => 'E-50005665001100-100-' . str_pad((string) $app->id, 7, '0', STR_PAD_LEFT),
+            self::TARIH_TOKEN       => $app->created_at?->format('d.m.Y') ?? '',
+        ];
+
+        foreach ($map as $token => $val) {
+            $html = str_replace($token, e((string) $val), $html);
+        }
+
+        return $html;
+    }
+
+    /* ─── BİLGİ KATMANI: dinamik alan seçici (tüm belgeler) ───────────── */
+
+    /**
+     * Editördeki "Bilgi Katmanı" paneli için alan kataloğu (gruplu).
+     * Her kayıt: ['key' => token anahtarı, 'label' => görünen ad, 'tip' => veri tipi].
+     * key değerleri fieldValue() eşlemesiyle birebir örtüşür.
+     */
+    public static function fieldCatalog(): array
+    {
+        return [
+            'Başvuru' => [
+                ['key' => 'basvuru_no',      'label' => 'Başvuru No',            'tip' => 'text'],
+                ['key' => 'dogrulama_kodu',  'label' => 'Doğrulama Kodu',        'tip' => 'text'],
+                ['key' => 'kurum_adi',       'label' => 'Kurum Adı',             'tip' => 'text'],
+                ['key' => 'proje_kodu',      'label' => 'Proje Kodu',            'tip' => 'text'],
+                ['key' => 'proje_adi',       'label' => 'Proje Adı / Açıklama',  'tip' => 'text'],
+                ['key' => 'kazi_nedeni',     'label' => 'Kazı Nedeni',           'tip' => 'text'],
+                ['key' => 'is_cinsi',        'label' => 'İş Cinsi',              'tip' => 'text'],
+                ['key' => 'adres',           'label' => 'Adres',                 'tip' => 'text'],
+            ],
+            'Kişi' => [
+                ['key' => 'basvuran_ad',     'label' => 'Başvuran Ad',           'tip' => 'text'],
+                ['key' => 'basvuran_soyad',  'label' => 'Başvuran Soyad',        'tip' => 'text'],
+                ['key' => 'basvuran_tc',     'label' => 'T.C. Kimlik No',        'tip' => 'text'],
+                ['key' => 'telefon',         'label' => 'Telefon',               'tip' => 'text'],
+                ['key' => 'tesis_sorumlusu', 'label' => 'Tesis Sorumlusu',       'tip' => 'text'],
+            ],
+            'Tarihler' => [
+                ['key' => 'baslangic_tarihi', 'label' => 'Başlangıç Tarihi',     'tip' => 'tarih'],
+                ['key' => 'bitis_tarihi',     'label' => 'Bitiş Tarihi',         'tip' => 'tarih'],
+                ['key' => 'olusturulma_tarihi', 'label' => 'Oluşturulma Tarihi', 'tip' => 'tarih'],
+            ],
+            'Alanlar' => [
+                ['key' => 'toplam_alan_m2',  'label' => 'Toplam Alan (m²)',      'tip' => 'sayi'],
+                ['key' => 'kazi_miktari',    'label' => 'Kazı Miktarı (m²/m)',   'tip' => 'sayi'],
+            ],
+            'İmza' => [
+                ['key' => 'mudur_adi',       'label' => 'Müdür Adı',             'tip' => 'text'],
+                ['key' => 'mudur_unvani',    'label' => 'Müdür Unvanı',          'tip' => 'text'],
+                ['key' => 'duzenleyen',      'label' => 'Evrağı Düzenleyen',     'tip' => 'text'],
+            ],
+        ];
+    }
+
+    /**
+     * Bir token anahtarının başvurudan gelecek değerini üretir.
+     * Bilinmeyen anahtar '' döner → hidrasyonda token dokunulmaz kalır.
+     */
+    public static function fieldValue(Application $app, string $key): string
+    {
+        $d = static fn ($v) => (string) ($v ?? '');
+
+        return match ($key) {
+            'basvuru_no', 'application_no' => $d($app->application_no),
+            'dogrulama_kodu' => $d($app->verification_code),
+            'kurum_adi' => mb_strtoupper(trim($d($app->institution?->name)), 'UTF-8'),
+            'proje_kodu' => $d($app->project_code),
+            'proje_adi' => $d($app->description),
+            'kazi_nedeni' => $d($app->excavation_reason),
+            'is_cinsi' => $d($app->work_type),
+            'basvuran_ad' => $d($app->applicant_first_name),
+            'basvuran_soyad' => $d($app->applicant_last_name),
+            'basvuran_tc' => $d($app->applicant_national_id ?? $app->tc_no ?? $app->identity_no),
+            'telefon' => $d($app->applicant_phone),
+            'tesis_sorumlusu' => mb_strtoupper(trim($d($app->tesis_sorumlusu ?? $app->tesis_sorumlusu_adi ?? $app->institution?->tesis_sorumlusu_adi)), 'UTF-8'),
+            'mudur_adi' => mb_strtoupper(trim($d($app->mudur_adi ?? $app->institution?->mudur_adi)), 'UTF-8'),
+            'mudur_unvani' => $d($app->mudur_unvani ?? $app->institution?->mudur_unvani),
+            'duzenleyen' => $d($app->duzenleyen_kisi ?? $app->creator?->name),
+            'baslangic_tarihi' => $d($app->start_date?->format('d.m.Y')),
+            'bitis_tarihi' => $d($app->end_date?->format('d.m.Y')),
+            'olusturulma_tarihi' => $d($app->created_at?->format('d.m.Y')),
+            'toplam_alan_m2' => $d($app->total_area_m2),
+            'kazi_miktari' => number_format((float) collect($app->surfaceLines ?? [])->sum('quantity'), 2, ',', '.') . ' m² / m.',
+            'adres' => $d($app->address_text),
+            default => '',
+        };
+    }
+
+    /**
+     * GENEL token hidrasyonu (tüm belge tipleri).
+     * Adım 1 — mevcut sabit Üst Yazı token'ları ({KURUM_ADI}, {DOGRULAMA_KODU} vb.):
+     *          eski davranış aynen korunur.
+     * Adım 2 — kullanıcının Bilgi Katmanı'ndan eklediği dinamik {alan_adi} token'ları
+     *          fieldValue() ile doldurur; bilinmeyen anahtar token'ı dokunulmaz bırakır.
+     */
+    public static function hydrateTemplateTokens(string $html, Application $app): string
+    {
+        // Adım 1 — mevcut sabit cover token map'i (eski davranış).
+        $html = self::hydrateInstitutionTokens($html, $app);
+
+        // Adım 2 — dinamik token'lar ({kucuk_harf_alt_cizgi} / Türkçe karakterler)
+        return (string) preg_replace_callback(
+            '/\{([a-z_çğıiöşü0-9]+)\}/u',
+            function (array $m) use ($app): string {
+                $key = $m[1] ?? '';
+                if ($key === '') {
+                    return $m[0];
+                }
+                $val = self::fieldValue($app, $key);
+                if ($val === '') {
+                    return $m[0]; // bilinmeyen / boş → token dokunulmaz
+                }
+
+                return e($val);
+            },
+            $html
+        );
     }
 
     public static function saveOverride(Application $app, string $type, string $content): void
@@ -893,6 +1158,11 @@ CSS;
             $html = self::renderExcelPage($type, $content);
         }
 
+        // BİLGİ KATMANI: şablondaki tüm {alan_adi} / {KURUM_ADI} / {DOGRULAMA_KODU}
+        // yer tutucularını başvurunun kendi verisiyle doldurur (tüm belge tipleri).
+        // Kullanıcı Bilgi Katmanı panelinden hangi alanı nereye koyacağını seçer.
+        $html = self::hydrateTemplateTokens($html, $app);
+
         return $withStamp ? self::applyEImzaStamp($html, $app) : $html;
     }
 
@@ -960,9 +1230,15 @@ CSS;
             . '<style>' . $layoutCss . '</style>'
             . '<style>' . $docCss . '</style>'
             . '</head><body>'
-            . '<div class="print-bar no-print"><span class="title">' . e($title) . '</span>'
-            . '<button class="btn-print" onclick="window.print()">🖨️ Yazdır / PDF Kaydet</button></div>'
+            . '<div class="print-bar no-print">'
+            . '<span class="title"><span class="doc-ico">📄</span>' . e($title) . '</span>'
+            . '<div class="actions">'
+            . '<button type="button" class="btn-close" onclick="window.close()">✕ Kapat</button>'
+            . '<button type="button" class="btn-pdf" onclick="saveAsPdf()">📄 PDF Olarak Kaydet</button>'
+            . '<button type="button" class="btn-print" onclick="window.print()">🖨️ Yazdır</button>'
+            . '</div></div>'
             . '<div class="a4-container">' . $bodyHtml . '</div>'
+            . '<script>function saveAsPdf(){ window.print(); }</script>'
             . '</body></html>';
     }
 

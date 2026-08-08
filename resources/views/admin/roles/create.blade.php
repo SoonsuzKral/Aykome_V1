@@ -11,13 +11,17 @@
             'system.logs'     => 'Sistem Logları',
             'system.settings' => 'Belge Ayarları',
         ],
+        'RAPORLAR' => [
+            'reports.view'     => 'Raporları Gör',
+            'reports.advanced'=> 'Gelişmiş Rapor',
+        ],
         'BAŞVURULAR' => [
             'applications.view'            => 'Başvuruları Görüntüle',
             'applications.create'          => 'Başvuru Oluştur',
             'applications.edit'            => 'Başvuru Düzenle',
             'applications.delete'          => 'Başvuru Sil',
-                    'applications.approve_pre_excavation' => 'Ön Kazı Onayla',
-                    'applications.approve_price'   => 'Fiyat Onayla',
+            'applications.approve_pre_excavation' => 'Ön Kazı Onayla',
+            'applications.approve_price'   => 'Fiyat Onayla',
             'applications.approve_receipt' => 'Makbuz Onayla',
             'applications.issue_license'   => 'Ruhsat Düzenle',
             'tasks.transfer'               => 'Göreve Aktar',
@@ -25,21 +29,55 @@
             'surface_types.manage'         => 'Zemin Türleri',
         ],
         'KURUMLAR & KULLANICIYLAR' => [
-            'users.manage'        => 'Kullanıcı Yönetimi',
-            'institutions.manage' => 'Kurum Yönetimi',
+            'users.manage'           => 'Kullanıcı Yönetimi',
+            'users.view_all_scoped'  => 'Alt Kurum Kullanıcılarını Yönet',
+            'institutions.manage'    => 'Kurum Yönetimi',
+        ],
+        'BELGE & ŞABLON' => [
+            'document-settings.manage'   => 'Belge Ayarları',
+            'document-templates.manage' => 'Şablon Yönetimi',
+        ],
+        'SÜREÇ YÖNETİMİ' => [
+            'processes.manage'    => 'Süreç Yönetimi',
+            'processes.blueprint'  => 'Blueprint Canvas',
+        ],
+        'MAKAM MASASI' => [
+            'makam.view'   => 'Makam Masası',
+        ],
+        'EK İZİNLER' => [
+            'extra-permits.view' => 'Ekstra İzinler',
+        ],
+        'TEMİNAT & İADELER' => [
+            'deposits.view'      => 'Teminat Görüntüle',
+            'deposits.manage'   => 'Teminat Yönetimi',
+        ],
+        'TOPLU ARIZA' => [
+            'faults.view'        => 'Arıza Görüntüle',
+            'faults.manage'     => 'Toplu Arıza Yönetimi',
         ],
         'SAHA' => [
             'field.tasks_view'   => 'Görevleri Gör',
             'field.upload_media' => 'Fotoğraf Yükle',
             'field.upload'       => 'Medya Yükle (legacy)',
         ],
+        'ORACLE' => [
+            'oracle.manage' => 'Oracle Veritabanı',
+        ],
     ];
 
     $groupColors = [
         'SİSTEM'                   => ['badge' => 'bg-orange-100 text-orange-700 border-orange-200',   'check' => 'accent-orange-500'],
+        'RAPORLAR'                 => ['badge' => 'bg-amber-100 text-amber-700 border-amber-200',    'check' => 'accent-amber-600'],
         'BAŞVURULAR'               => ['badge' => 'bg-indigo-100 text-indigo-700 border-indigo-200',   'check' => 'accent-indigo-600'],
         'KURUMLAR & KULLANICIYLAR' => ['badge' => 'bg-purple-100 text-purple-700 border-purple-200',  'check' => 'accent-purple-600'],
+        'BELGE & ŞABLON'           => ['badge' => 'bg-violet-100 text-violet-700 border-violet-200',  'check' => 'accent-violet-600'],
+        'SÜREÇ YÖNETİMİ'           => ['badge' => 'bg-pink-100 text-pink-700 border-pink-200',       'check' => 'accent-pink-600'],
+        'MAKAM MASASI'             => ['badge' => 'bg-orange-100 text-orange-700 border-orange-200',   'check' => 'accent-orange-600'],
+        'EK İZİNLER'               => ['badge' => 'bg-teal-100 text-teal-700 border-teal-200',       'check' => 'accent-teal-600'],
+        'TEMİNAT & İADELER'       => ['badge' => 'bg-sky-100 text-sky-700 border-sky-200',           'check' => 'accent-sky-600'],
+        'TOPLU ARIZA'             => ['badge' => 'bg-yellow-100 text-yellow-700 border-yellow-200',   'check' => 'accent-yellow-600'],
         'SAHA'                     => ['badge' => 'bg-emerald-100 text-emerald-700 border-emerald-200','check' => 'accent-emerald-600'],
+        'ORACLE'                   => ['badge' => 'bg-red-100 text-red-700 border-red-200',           'check' => 'accent-red-600'],
     ];
 
     // ── 6 PRO Şalter — hardcoded, DB koşulundan bağımsız ─────────────────────
@@ -52,9 +90,8 @@
         'pro.evrak_tevdi'      => ['icon' => '📑', 'label' => 'Evrak & Tevdi'],
     ];
 
-    $selected     = old('permissions', []);
-    $allPermNames = $permissions->pluck('name')->all();
-    $proKeys      = array_keys($proPerms);
+    $selected = old('permissions', []);
+    $proKeys  = array_keys($proPerms);
 @endphp
 
 <div class="max-w-3xl">
@@ -152,17 +189,15 @@
                         </div>
                         <div id="group-{{ Str::slug($groupName) }}" class="grid grid-cols-1 gap-px bg-slate-100 sm:grid-cols-2">
                             @foreach($perms as $permName => $permLabel)
-                                @if(in_array($permName, $allPermNames, true))
-                                    <label class="flex cursor-pointer items-center gap-3 bg-white px-4 py-3 hover:bg-slate-50 transition-colors">
-                                        <input type="checkbox" name="permissions[]" value="{{ $permName }}"
-                                            class="perm-checkbox h-4 w-4 rounded border-slate-300 {{ $gc['check'] }} flex-shrink-0"
-                                            @checked(in_array($permName, $selected, true))>
-                                        <div class="min-w-0">
-                                            <span class="block text-sm font-medium text-slate-800">{{ $permLabel }}</span>
-                                            <span class="block font-mono text-[10px] text-slate-400 truncate">{{ $permName }}</span>
-                                        </div>
-                                    </label>
-                                @endif
+                                <label class="flex cursor-pointer items-center gap-3 bg-white px-4 py-3 hover:bg-slate-50 transition-colors">
+                                    <input type="checkbox" name="permissions[]" value="{{ $permName }}"
+                                        class="perm-checkbox h-4 w-4 rounded border-slate-300 {{ $gc['check'] }} flex-shrink-0"
+                                        @checked(in_array($permName, $selected, true))>
+                                    <div class="min-w-0">
+                                        <span class="block text-sm font-medium text-slate-800">{{ $permLabel }}</span>
+                                        <span class="block font-mono text-[10px] text-slate-400 truncate">{{ $permName }}</span>
+                                    </div>
+                                </label>
                             @endforeach
                         </div>
                     </div>
@@ -184,7 +219,10 @@
                                     <input type="checkbox" name="permissions[]" value="{{ $p->name }}"
                                         class="perm-checkbox h-4 w-4 rounded border-slate-300 flex-shrink-0"
                                         @checked(in_array($p->name, $selected, true))>
-                                    <span class="font-mono text-xs text-slate-700">{{ $p->name }}</span>
+                                    <div class="min-w-0">
+                                        <span class="block text-sm font-medium text-slate-800">{{ ucfirst(str_replace(['.', '_'], ' ', $p->name)) }}</span>
+                                        <span class="block font-mono text-[10px] text-slate-400 truncate">{{ $p->name }}</span>
+                                    </div>
                                 </label>
                             @endforeach
                         </div>

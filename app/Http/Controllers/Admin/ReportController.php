@@ -199,6 +199,22 @@ class ReportController extends Controller
         if ($statuses = $request->input('statuses')) {
             $query->whereIn('status', (array) $statuses);
         }
+
+        // Teminatlı / Teminatsız filtresi
+        // 'with_deposit' = kurum değil (teminat > 0 olması beklenir)
+        // 'without_deposit' = kurum başvurusu veya ek ruhsat (teminat = 0)
+        if ($teminat = $request->input('teminat')) {
+            if ($teminat === 'with_deposit') {
+                // Sadece kurum başvurusu OLMAYANLAR (vatandaş veya merkez belediye)
+                $query->where(function (Builder $q): void {
+                    $q->whereNull('institution_id')
+                        ->orWhereHas('institution', fn ($r) => $r->where('is_municipality', true));
+                });
+            } elseif ($teminat === 'without_deposit') {
+                // Sadece kurum başvurusu OLANLAR (alt kurumlar - teminat = 0)
+                $query->whereHas('institution', fn ($r) => $r->where('is_municipality', false)->whereNotNull('institution_id'));
+            }
+        }
         // DataTables global search
         if ($search = $request->input('search.value')) {
             $query->where(function (Builder $q) use ($search) {
@@ -234,6 +250,9 @@ class ReportController extends Controller
                 ->values()
                 ->join(', ');
             $summary[] = 'Durum: ' . $labels;
+        }
+        if ($teminat = $request->input('teminat')) {
+            $summary[] = 'Teminat: ' . ($teminat === 'with_deposit' ? 'Teminatlı (Vatandaş/Kurum)' : 'Teminatsız (Alt Kurum)');
         }
         return $summary;
     }

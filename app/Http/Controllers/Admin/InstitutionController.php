@@ -121,7 +121,14 @@ class InstitutionController extends Controller
             $data['logo_path'] = $request->file('logo')->store('institution-logos', 'public');
         }
 
-        Institution::create($data);
+        $institution = Institution::create($data);
+
+        // Yeni ALT kurum eklendiğinde Üst Yazı şablonu otomatik oluşturulsun
+        // (merkez master şablonun kopyası; kurum adı dinamik). Merkez belediye
+        // kurum şablonu kullanmaz (global master'ı vardır).
+        if (! $data['is_municipality']) {
+            \App\Services\DocumentTemplateService::seedInstitutionCover((int) $institution->id);
+        }
 
         return back()->with('success', 'Kurum başarıyla eklendi.');
     }

@@ -34,7 +34,7 @@ class DocumentTemplateController extends Controller
         return ! $user->isMunicipalityPersonel() && $user->institution_id;
     }
 
-    /** 📝 Taslak / Şablon Yönetimi — 4 kutu. */
+    /** 📝 Taslak / Şablon Yönetimi — Ana Üst Yazı (master) + Kurum üst yazı şablonları. */
     public function index(): View
     {
         $this->guardAccess();
@@ -72,10 +72,28 @@ class DocumentTemplateController extends Controller
             ];
         }
 
+        // KURUM BAZLI ÜST YAZI ŞABLONLARI (merkez yönetim): tüm alt kurumların
+        // ayrı Üst Yazı şablonları listelenir. Kurum şablonu otomatik seed edilir
+        // (InstitutionController::store) — burada yalnızca durumu gösterilir.
+        $institutions = collect();
+        if (! $institutionScope) {
+            $institutions = \App\Models\Institution::query()
+                ->where('is_municipality', false)
+                ->orderBy('name')
+                ->get()
+                ->map(fn ($inst) => [
+                    'id' => $inst->id,
+                    'name' => $inst->name,
+                    'color_code' => $inst->color_code,
+                    'hasTemplate' => DocumentTemplateService::institutionContent($inst->id, 'cover_letter') !== null,
+                ]);
+        }
+
         return view('admin.document-templates.index', [
             'types' => $types,
             'institutionScope' => $institutionScope,
             'institution' => $institutionScope ? $user->institution : null,
+            'institutions' => $institutions,
         ]);
     }
 
@@ -146,6 +164,54 @@ class DocumentTemplateController extends Controller
         }
 
         return back()->with('success', 'Kurum şablonu kaldırıldı. Varsayılan şablona dönüldü.');
+    }
+
+    /** Kurum Üst Yazı şablonunu düzenle (yalnızca belediye merkez yönetimi). */
+    public function editInstitutionCover(\App\Models\Institution $institution): View
+    {
+        $this->guardAccess();
+        abort_unless(! (bool) $institution->is_municipality, 403, 'Yalnızca alt kurum üst yazı şablonları düzenlenebilir.');
+
+        $src = DocumentTemplateService::editorSource('cover_letter', null, $institution->id);
+
+        return $this->editorView([
+            'docType' => 'cover_letter',
+            'docLabel' => 'Üst Yazı',
+            'scope' => 'institution_cover',
+            'institution' => $institution,
+            'applicationId' => null,
+            'editorType' => $src['editor'],
+            'editorGridType' => false,
+            'initialContent' => $src['content'],
+            'docCss' => $src['css'],
+            'saveUrl' => route('admin.document-templates.update-institution-cover', $institution),
+            'resetUrl' => route('admin.document-templates.destroy-institution-cover', $institution),
+            'backUrl' => route('admin.document-templates.index'),
+            'title' => $institution->name . ' — Üst Yazı Şablonu',
+        ]);
+    }
+
+    /** Kurum Üst Yazı şablonunu kaydet. */
+    public function updateInstitutionCover(Request $request, \App\Models\Institution $institution): JsonResponse
+    {
+        $this->guardAccess();
+        abort_unless(! (bool) $institution->is_municipality, 403, 'Yalnızca alt kurum üst yazı şablonları düzenlenebilir.');
+
+        $content = (string) $request->input('content_data');
+        DocumentTemplateService::saveInstitution((int) $institution->id, 'cover_letter', $content);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** Kurum Üst Yazı şablonunu sil → master/global varsayılan akışa dön. */
+    public function destroyInstitutionCover(\App\Models\Institution $institution)
+    {
+        $this->guardAccess();
+        abort_unless(! (bool) $institution->is_municipality, 403, 'Yalnızca alt kurum üst yazı şablonları düzenlenebilir.');
+
+        DocumentTemplateService::deleteInstitution((int) $institution->id, 'cover_letter');
+
+        return back()->with('success', $institution->name . ' üst yazı şablonu kaldırıldı. Varsayılan şablona dönüldü.');
     }
 
     /** Başvuruya özel taslak düzenleme: belediye personeli VEYA başvurunun kendi kurumunun personeli. */
@@ -367,6 +433,9 @@ class DocumentTemplateController extends Controller
             $data['initialContent'] ?? '',
             ! ($data['readOnly'] ?? false)
         );
+
+        // BİLGİ KATMANI: editör sağ panelindeki alan kataloğu (tüm belge tipleri).
+        $data['fieldCatalog'] = DocumentTemplateService::fieldCatalog();
 
         return view('admin.document-templates.editor', $data);
     }
