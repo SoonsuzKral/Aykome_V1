@@ -1,21 +1,25 @@
 /**
- * AYKOME — maps-address.js (LOCAL SHP ÖNCELİK)
- * ════════════════════════════════════════════════════════════════
- * PRIMARY  : storage/shp/15_alti.js (EybAlti) + 15_ustu.js (EybUstu)
- * SECONDARY: WFS (Laravel proxy — yedek)
+ * AYKOME — maps-address.js v2 (JSON TEK KAYNAK + GEOMETRİ KÖPRÜSÜ)
+ * ═══════════════════════════════════════════════════════════
+ * PRİMARY   : storage/shp/caddeler_ve_sokaklar.json (4196 kayıt) → /maps/cadde-veri
+ *              İçerir: mahalle + cadde adı + SORUMLULUK (15m) + CADDE_SOKA köprüsü
+ * GEOMETRİ  : /maps/15m/alti + /maps/15m/ustu (Laravel route → GeoJSON)
+ *              → CADDE_SOKA köprüsüyle koordinat & nokta-atışı
+ * SECONDARY : WFS (Laravel proxy /maps/adres-ara — yedek)
  *
  * 15m SEMANTİĞİ:
- *   - 15_alti.js = 15m ALTINDAKİ yollar (genişlik < 15m)
- *   - 15_ustu.js = 15m ÜSTÜNDEKİ yollar (genişlik >= 15m)
- *   Aynı veri hem cadde listesi hem 15m kontrolü için kullanılır.
+ *   - 15_alti dosyası = SORUMLULUK "15 METRE ALTI" yollar
+ *   - 15_ustu dosyası = SORUMLULUK "15 METRE ÜSTÜ" yollar
+ *   Nokta için en yakın yola bakılır; JSON'daki SORUMLULUK asıl kaynak.
  *
  * KULLANIM (blade'de, harita JS'inden ÖNCE):
- *   <script src="/storage/shp/15_alti.js"></script>
- *   <script src="/storage/shp/15_ustu.js"></script>
  *   <script src="/js/maps-address.js"></script>
+ *   ve kullanmadan önce:  await window.aykomeVeriHazir();
  */
 
 'use strict';
+window.EybAlti = window.EybAlti || null;
+window.EybUsty = window.EybUsty || null;
 
 /* ─── TR BÜYÜK HARF — İ/I krizi yok ─────────────────────────── */
 function trUp(s) {
@@ -49,8 +53,8 @@ function centroidOf(geometry) {
     const pts = flatCoords(geometry);
     if (!pts.length) return null;
     return {
-        lat: pts.reduce((s, p) => s + p[1], 0) / pts.length,  // p[1] = lat
-        lng: pts.reduce((s, p) => s + p[0], 0) / pts.length   // p[0] = lng
+        lat: pts.reduce((s, p) => s + p[1], 0) / pts.length,
+        lng: pts.reduce((s, p) => s + p[0], 0) / pts.length
     };
 }
 
@@ -65,107 +69,6 @@ function bboxOf(geometry) {
     };
 }
 
-/* ═══ LOCAL SHP VERİSİ — 15_alti.js + 15_ustu.js ═══ */
-let _tumCaddeler = null;
-let _tumCaddelerMeta = null; // [ { feature, source, adiToplam, indexAlt } ]
-
-/**
- * Cadde adını 15_alti/15_ustu properties'inden üretir.
- * DOĞRU ALAN: CADDE_SO_1 + CADDE_SO_2 (CADDE_SOKAK_ADI YOK!)
- */
-function caddeAdi(props) {
-    if (!props) return '';
-    const p1 = String(props.CADDE_SO_1 || props.CADDE_SO_1 || '').trim();
-    const p2 = String(props.CADDE_SO_2 || props.CAD_SOKAK_ADI || 'SOKAK').trim();
-    const ad = (p1 + ' ' + p2).trim();
-    return ad || String(props.CADDE_SOKA || '').trim();
-}
-
-/**
- * 15_alti + 15_ustu feature'larını birleştirip benzersiz cadde listesi kurar.
- * @returns {Array<{ad:string, indexAlt:number, indexUst:number, firstIndex:number}>}
- */
-function buildTumCaddeler() {
-    if (_tumCaddeler) return _tumCaddeler;
-
-    const alti = (typeof EybAlti !== 'undefined' && EybAlti && EybAlti.features) ? EybAlti.features : [];
-    const ustu = (typeof EybUstu !== 'undefined' && EybUstu && EybUstu.features) ? EybUstu.features : [];
-
-    const all = [];
-    alti.forEach(f => all.push({ feature: f, source: 'alti' }));
-    ustu.forEach(f => all.push({ feature: f, source: 'ustu' }));
-
-    if (!all.length) {
-        console.warn('[AYKOME] 15_alti.js / 15_ustu.js yüklenmedi!');
-        return [];
-    }
-
-    // İlgi alan adlarını doğrula
-    const sample = all[0].feature.properties || {};
-    console.log('[AYKOME] SHP property keys:', Object.keys(sample).slice(0, 12));
-    console.log('[AYKOME] Örnek cadde adı:', caddeAdi(sample));
-
-    // Unique cadde adları (aynı sokak birden fazla segment olabilir)
-    const map = new Map(); // key=trUp(ad) → {ad, source, firstIndex}
-    all.forEach(function (entry) {
-        const ad = caddeAdi(entry.feature.properties);
-        if (!ad) return;
-        const key = trUp(ad);
-        if (!map.has(key)) {
-            map.set(key, {
-                ad: ad,
-                source: entry.source,
-                firstIndex: map.size,
-            });
-        }
-    });
-
-    _tumCaddeler = [...map.values()].sort((a, b) => a.ad.localeCompare(b.ad, 'tr'));
-    console.log('[AYKOME] Toplam benzersiz cadde/sokak:', _tumCaddeler.length);
-    return _tumCaddeler;
-}
-
-/**
- * Nokta en yakın yolu bulur — 15m ALT mı/ÜST mü kararını üretir.
- * @param {number} lat
- * @param {number} lng
- * @param {number} maxDistKm (varsayılan 0.05 = 50m)
- * @returns {null|{source:string, caddeAdi:string, genislik:string, distKm:number}}
- */
-function nearestRoadAnd15(lat, lng, maxDistKm = 0.05) {
-    let best = null;
-    let bestDist = maxDistKm;
-
-    const files = [
-        { name: 'alti', data: (typeof EybAlti !== 'undefined') ? EybAlti : null },
-        { name: 'ustu', data: (typeof EybUstu !== 'undefined') ? EybUstu : null },
-    ];
-
-    files.forEach(function (fl) {
-        if (!fl.data || !fl.data.features) return;
-        fl.data.features.forEach(function (f) {
-            const geom = f.geometry;
-            if (!geom) return;
-            const pts = flatCoords(geom);
-            pts.forEach(function (p) {
-                const d = haversineKm(lat, lng, p[1], p[0]);
-                if (d < bestDist) {
-                    bestDist = d;
-                    best = {
-                        source: fl.name,
-                        cadde: caddeAdi(f.properties || {}),
-                        mahalle: (f.properties && f.properties.MAHALLE_AD) || '',
-                        genislik: (f.properties && f.properties.GENISLIGI) || '',
-                        uzunluk: (f.properties && f.properties.UZUNLUGU) || '',
-                    };
-                }
-            });
-        });
-    });
-
-    return best;
-}
-
 function haversineKm(lat1, lon1, lat2, lon2) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -176,154 +79,343 @@ function haversineKm(lat1, lon1, lat2, lon2) {
     return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-/**
- * Mahalle BBOX içindeki caddeleri döner (LOCAL SHP — WFS yok).
- * @param {{minLng:number,minLat:number,maxLng:number,maxLat:number}} bbox
- * @param {number} tol derece toleransı (varsayılan 0.002 ≈ 200m)
- */
-function caddelerInBbox(mahalleBbox, tol = 0.002) {
-    const bb = mahalleBbox || {};
-    const minLng = parseFloat(bb.minLng);
-    const minLat = parseFloat(bb.minLat);
-    const maxLng = parseFloat(bb.maxLng);
-    const maxLat = parseFloat(bb.maxLat);
-    if ([minLng, minLat, maxLng, maxLat].some(isNaN)) return [];
+/* ═══ CADDE VERİ — /maps/cadde-veri (TEK KAYNAK) ═══ */
+let _caddeVeri = null;
+let _caddeVeriLoaded = false;
 
-    const found = new Map(); // key=trUp(ad) → list item
-
-    function scan(data, source) {
-        if (!data || !data.features) return;
-        data.features.forEach(function (f) {
-            const geom = f.geometry;
-            if (!geom) return;
-            const ad = caddeAdi(f.properties || {});
-            if (!ad) return;
-            const pts = flatCoords(geom);
-            const hit = pts.some(function (p) {
-                return p[0] >= minLng - tol && p[0] <= maxLng + tol &&
-                       p[1] >= minLat - tol && p[1] <= maxLat + tol;
-            });
-            if (hit) {
-                const key = trUp(ad);
-                if (!found.has(key)) {
-                    found.set(key, {
-                        ad: ad,
-                        center: centroidOf(geom),
-                        bbox: bboxOf(geom),
-                        source: source,
-                    });
-                }
-            }
-        });
+async function buildCaddeVeri(url = '/maps/cadde-veri') {
+    if (_caddeVeriLoaded) return _caddeVeri;
+    try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+        if (data && data.success && Array.isArray(data.data)) {
+            _caddeVeri = data.data;
+            _caddeVeriLoaded = true;
+            console.log('[AYKOME] Cadde veri yüklendi:', _caddeVeri.length);
+            return _caddeVeri;
+        }
+        console.warn('[AYKOME] cadde-veri yanıtı bozuk', data);
+    } catch (e) {
+        console.warn('[AYKOME] cadde-veri fetch hatası:', e.message);
     }
-
-    if (typeof EybAlti !== 'undefined') scan(EybAlti, 'alti');
-    if (typeof EybUstu !== 'undefined') scan(EybUstu, 'ustu');
-
-    const list = [...found.values()].sort((a, b) => a.ad.localeCompare(b.ad, 'tr'));
-    console.log('[AYKOME] Mahalle bbox içinde', list.length, 'cadde/sokak');
-    return list;
+    return [];
 }
 
-/**
- * Sokak numarası/adı ile cadde ara (local SHP).
- * @param {string} query örn: "8125" veya "EVREN 72"
- */
-function sokakAra(query) {
-    const all = buildTumCaddeler();
-    const q = trUp(String(query || '').trim());
-    if (!q) return null;
+/* ─── Mahalle bazlı cadde listesi (JSON) ──────────────────── */
+function mahalleCaddeleri(mahalle) {
+    const mh = trUp(mahalle || '').trim();
+    if (!mh) return [];
+    const kayitlar = _caddeVeri || [];
+    return kayitlar.filter(r => trUp(r.mahalle || '') === mh);
+}
 
-    const hits = all.filter(c => trUp(c.ad).includes(q));
-    if (!hits.length) return null;
-
-    // En tam eşleşme önce
-    hits.sort((a, b) => {
-        const aEx = trUp(a.ad) === q ? 0 : 1;
-        const bEx = trUp(b.ad) === q ? 0 : 1;
-        return aEx - bEx;
+/* ─── CADDE_SOKA → koordinat (geometri köprüsü) ───────────── */
+function _geomIndex() {
+    if (window._geomByIdx) return window._geomByIdx;
+    const idx = {};
+    const files = [
+        { src: (typeof window.EybAlti !== 'undefined' && window.EybAlti) ? window.EybAlti : null, srcname: 'alti' },
+        { src: (typeof window.EybUsty !== 'undefined' && window.EybUsty) ? window.EybUsty : null, srcname: 'ustu' },
+    ];
+    files.forEach(function (fl) {
+        if (!fl.src || !fl.src.features) return;
+        fl.src.features.forEach(function (f) {
+            const cid = f.properties && f.properties.CADDE_SOKA;
+            if (cid === undefined || cid === null) return;
+            const key = String(cid).trim();
+            if (!idx[key]) {
+                idx[key] = {
+                    source: fl.srcname,
+                    geometry: f.geometry,
+                    ad: (((f.properties && f.properties.CADDE_SO_1) || '') + ' ' + ((f.properties && f.properties.CADDE_SO_2) || '')).trim(),
+                };
+            }
+        });
     });
+    window._geomByIdx = idx;
+    console.log('[AYKOM] Geometri index:', Object.keys(idx).length);
+    return idx;
+}
 
-    const best = hits[0];
-    const geom = firstGeometryFor(best.ad);
+function caddeKoordinat(caddeSoka) {
+    if (caddeSoka === null || caddeSoka === undefined || caddeSoka === '') return null;
+    const idx = _geomIndex();
+    const key = String(caddeSoka).trim();
+    const hit = idx[key];
+    if (!hit || !hit.geometry) return null;
+    const c = centroidOf(hit.geometry);
+    return c ? { lat: c.lat, lng: c.lng, source: hit.source, adi: hit.ad } : null;
+}
+
+function caddeAdi(props) {
+    if (!props) return '';
+    const p1 = String(props.CADDE_SO_1 || '').trim();
+    const p2 = String(props.CADDE_SO_2 || '').trim();
+    const ad = (p1 + ' ' + p2).trim();
+    return ad || String(props.CADDE_SOKA || '').trim();
+}
+
+/* ─── Sokak detay: mahalle + cadde adı ile TAM JSON satırı + koordinat ── */
+function normalizeCadde(s) {
+    // "8013. SK", "8013.SOKAK", "16 ANADOLU CADDE" → normalize: nokta/sonekleri sil
+    let v = trUp(String(s || '').trim())
+        .replace(/\./g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    v = v.replace(/\b(SK|SOKAK|CADDE|CD|MAH|MAHALLE|YOL|BULVAR|MEYDAN)\b/gi, '').replace(/\s+/g, ' ').trim();
+    v = v.replace(/(\d+)\s*(\d+)/g, '$1$2');
+    return v;
+}
+
+function extractDigits(s) {
+    const m = String(s || '').match(/\d+/g);
+    return m ? m.join('') : '';
+}
+
+function sokakDetay(mahalle, caddeStr) {
+    if (!caddeStr) return null;
+    const rows = _caddeVeri || [];
+    if (!rows.length) return null;
+
+    const mU = trUp(mahalle || '').trim();
+    const target = normalizeCadde(caddeStr);
+    if (!target) return null;
+
+    // Skor: 0 = mahalle+ad tam, 1 = mahalle+parça/sayı, 2 = yalnız cadde
+    let best = null;
+    let bestScore = null;
+    for (let i = 0; i < rows.length; i++) {
+        const r = rows[i];
+        const adi = trUp(r.cadde_adi || '').trim();
+        if (!adi) continue;
+        const adNorm = normalizeCadde(adi);
+        const mahHit = (mU === '' || trUp(r.mahalle || '').trim() === mU);
+        const adHit = (adNorm === target);
+        const containsHit = (adNorm.indexOf(target) !== -1 || target.indexOf(adNorm) !== -1);
+        const numHit = (extractDigits(adNorm) !== '' && extractDigits(adNorm) === extractDigits(target));
+
+        let score = null;
+        if (mahHit && adHit) score = 0;
+        else if (mahHit && (containsHit || numHit)) score = 1;
+        else if (adHit) score = 2;
+        else if (numHit) score = 2;
+
+        if (score !== null && (bestScore === null || score < bestScore)) {
+            bestScore = score;
+            best = r;
+            if (bestScore === 0) break;
+        }
+    }
+    if (!best) return null;
+
+    const coord = caddeKoordinat(best.cadde_soka);
     return {
-        ad: best.ad,
-        center: geom ? centroidOf(geom) : null,
-        bbox: geom ? bboxOf(geom) : null,
-        source: best.source,
+        cadde_soka: best.cadde_soka,
+        mahalle: best.mahalle,
+        cadde_adi: best.cadde_adi,
+        turu: best.turu,
+        sorumluluk: best.sorumluluk,
+        genislik: best.genislik,
+        uzunluk: best.uzunluk,
+        kaplama: best.kaplama,
+        arter: best.arter,
+        trafik_yolu: best.trafik_yolu,
+        serit: best.serit,
+        uavt_turu: best.uavt_turu,
+        center: coord ? { lat: coord.lat, lng: coord.lng } : null,
+        source: (best.sorumluluk || '').indexOf('ÜSTÜ') !== -1 ? 'ustu' : 'alti',
+        bulunamadi: false,
     };
 }
 
-function trims(s) { return String(s || '').trim(); }
-
-function firstFeatureFor(caddeAd) {
-    const ad = caddeAd.trim();
-    const srcs = [
-        { name: 'alti', data: (typeof EybAlti !== 'undefined') ? EybAlti : null },
-        { name: 'ustu', data: (typeof EybUstu !== 'undefined') ? EybUstu : null },
-    ];
-    for (let i = 0; i < srcs.length; i++) {
-        const src = srcs[i];
-        if (!src.data || !src.data.features) continue;
-        const found = src.data.features.find(f => caddeAdi(f.properties) === ad);
-        if (found) return { feature: found, source: src.name };
-    }
-    return null;
+/* ─── Sokak ara: cadde_adi veya cadde_soka ile ────────────── */
+function sokakAra(query) {
+    const q = trUp(String(query || '').trim());
+    if (!q) return null;
+    const rows = _caddeVeri || [];
+    const hits = rows.filter(r => {
+        const adi = trUp(String(r.cadde_adi || ''));
+        return adi.indexOf(q) !== -1;
+    });
+    if (!hits.length) return null;
+    const best = hits[0];
+    const coord = caddeKoordinat(best.cadde_soka);
+    return {
+        ad: best.cadde_adi,
+        mahalle: best.mahalle,
+        sorumluluk: best.sorumluluk,
+        genislik: best.genislik,
+        center: coord ? { lat: coord.lat, lng: coord.lng } : null,
+    };
 }
 
-function firstGeometryFor(caddeAd) {
-    const hit = firstFeatureFor(caddeAd);
-    return hit ? hit.feature.geometry : null;
-}
-
-/* ═══ ADRES PARSE ═══ */
+/* ─── Adres parse: "Kadıkendi, 4203. Sk." ─────────────────── */
 function parseAdres(raw) {
-    raw = trims(raw);
-    if (!raw) return { sokakNo: null, kapiNo: null, mahalleAdi: null, raw: '' };
+    raw = String(raw || '').trim();
+    if (!raw) return { mahalle: null, cadde: null, kapiNo: null, raw: '' };
 
-    // Sokak numarası: "8125. Sk." / "8125 SOKAK" / "8125 SK" / "8125.SK"
-    const sokakM =
-        raw.match(/(\d{3,5})\s*\.?\s*(?:sk|sokak|cad|cadde)\.?/i) ||
-        raw.match(/(\d{3,5})\s+(?:nolu\s+)?(?:sk|sokak|cad|cadde)/i);
-    const sokakNo = sokakM ? sokakM[1] : null;
+    let mahalle = null;
+    const mahM = raw.match(/([\wçğışöüÇĞİŞÖÜ]+(?:\s+[\wçğışöüÇĞİŞÖÜ]+)?)\s+(?:mah|mahalle|mahallesi)\b/i);
+    if (mahM) {
+        mahalle = mahM[1].trim().toUpperCase();
+    } else if (raw.indexOf(',') > -1) {
+        const ilk = raw.split(',')[0].trim();
+        if (ilk && !/\d/.test(ilk)) mahalle = ilk.toUpperCase();
+    }
 
-    // Kapı no: sokaktan sonraki ilk sayı VEYA "No:122"
+    let cadde = null;
+    const caddeM = raw.match(/(\d{2,4})\s*\.?\s*(?:sk|sokak|cad|cadde)\.?/i);
+    if (caddeM) cadde = caddeM[1];
+
     let kapiNo = null;
-    if (sokakM) {
-        const after = raw.slice(sokakM.index + sokakM[0].length);
-        const kM = after.match(/^\s*\.?\s*(\d{1,4})\b/) ||
-                   raw.match(/\bno\.?\s*:?\s*(\d{1,4})\b/i);
+    if (caddeM) {
+        const after = raw.slice(caddeM.index + caddeM[0].length);
+        const kM = after.match(/^\s*\.?\s*(\d{1,4})\b/) || raw.match(/\bno\.?\s*:?\s*(\d{1,4})\b/i);
         kapiNo = kM ? kM[1] : null;
     }
 
-    // Mahalle: "Kadıkendi" / "15 TEMMUZ" / "BATIKENT MAH"
-    const mahM =
-        raw.match(/([\wçğışöüÇĞİŞÖÜ]+(?:\s+[\wçğışöüÇĞİŞÖÜ]+)?)\s+(?:mah|mahalle|mahallesi)\b/i) ||
-        raw.match(/\b([\wçğışöüÇĞİŞÖÜ]+)\s+mahallesinde\b/i);
-    const mahalleAdi = mahM ? mahM[1].trim() : null;
-
-    return { sokakNo, kapiNo, mahalleAdi, raw };
+    return { mahalle, cadde, kapiNo, raw };
 }
 
-/* ═══ ANA ADRES ARAMA (çok katmanlı strateji) ═══ */
+/* ─── En yakın yol + 15m kararı (geometri + JSON SORUMLULUK) ── */
+function nearestRoadAnd15(lat, lng, maxDistKm = 0.06) {
+    let best = null;
+    let bestDist = maxDistKm;
+    const files = [
+        { data: (window.EybAlti && window.EybAlti.features) ? window.EybAlti : null, src: 'alti' },
+        { data: (window.EybUsty && window.EybUsty.features) ? window.EybUsty : null, src: 'ustu' },
+    ];
+    files.forEach(function (fl) {
+        if (!fl.data) return;
+        fl.data.features.forEach(function (f) {
+            const pts = flatCoords(f.geometry);
+            pts.forEach(function (p) {
+                const d = haversineKm(lat, lng, p[1], p[0]);
+                if (d < bestDist) {
+                    bestDist = d;
+                    best = {
+                        source: fl.src,
+                        caddeSoka: f.properties ? f.properties.CADDE_SOKA : null,
+                        mahalle: f.properties ? (f.properties.MAHALLE_AD || '') : '',
+                        cadde: ((f.properties && f.properties.CADDE_SO_1) || '') + ' ' + ((f.properties && f.properties.CADDE_SO_2) || ''),
+                        genislik: f.properties ? (f.properties.GENISLIGI || '') : '',
+                    };
+                }
+            });
+        });
+    });
+    if (!best) return null;
+
+    // JSON'dan SORUMLULUK (15m) asıl kaynak — geometri sadece yedek
+    let sorumluluk = null;
+    if (best.caddeSoka !== null && best.caddeSoka !== undefined && (_caddeVeri || []).length) {
+        const row = _caddeVeri.find(r => String(r.cadde_soka) === String(best.caddeSoka));
+        if (row) {
+            sorumluluk = row.sorumluluk;
+            best.genislik = row.genislik || best.genislik;
+            best.mahalle = row.mahalle || best.mahalle;
+            best.cadde = row.cadde_adi || best.cadde;
+        }
+    }
+    if (sorumluluk) {
+        best.source = sorumluluk.indexOf('ÜSTÜ') !== -1 ? 'ustu' : 'alti';
+    }
+
+    return {
+        source: best.source,          // 'alti' | 'ustu'
+        caddeSoka: best.caddeSoka,
+        mahalle: best.mahalle,
+        cadde: best.cadde.trim(),
+        genislik: best.genislik,
+        sorumluluk: sorumluluk || (best.source === 'alti' ? '15 METRE ALTI' : '15 METRE ÜSTÜ'),
+        distKm: bestDist,
+    };
+}
+
+/* ─── Mahalle BBOX → cadde/sokak listesi (JSON + geometri) ── */
+function caddelerInBbox(mahalleObj, tol = 0.004) {
+    // mahalleObj: { ad, bbox:{minLng..} } ya da doğrudan bbox objesi
+    const bb = (mahalleObj && mahalleObj.bbox) ? mahalleObj.bbox : mahalleObj;
+    const minLng = parseFloat(bb && bb.minLng);
+    const minLat = parseFloat(bb && bb.minLat);
+    const maxLng = parseFloat(bb && bb.maxLng);
+    const maxLat = parseFloat(bb && bb.maxLat);
+    if ([minLng, minLat, maxLng, maxLat].some(isNaN)) return [];
+
+    const adMahalle = (mahalleObj && mahalleObj.ad) ? trUp(mahalleObj.ad).trim() : '';
+    const pad = 0.003; // ~300m bbox genişletme
+
+    function inBox(lng, lat) {
+        return lng >= minLng - pad && lng <= maxLng + pad &&
+               lat >= minLat - pad && lat <= maxLat + pad;
+    }
+
+    const mapped = new Map();
+    function putAd(name, lat, lon, extra) {
+        if (!name) return;
+        const k = trUp(name);
+        if (!mapped.has(k)) {
+            mapped.set(k, { name: name, lat: (lat === null || isNaN(lat)) ? null : lat, lon: (lon === null || isNaN(lon)) ? null : lon, ...(extra || {}) });
+        }
+    }
+
+    // 1) JSON — mahalle ismiyle TAM liste (BatiKENT 8013 dahil)
+    const kayitlar = _caddeVeri || [];
+    if (adMahalle) {
+        kayitlar.forEach(function (r) {
+            if (trUp(r.mahalle || '').trim() !== adMahalle) return;
+            const coord = caddeKoordinat(r.cadde_soka);
+            putAd(r.cadde_adi, coord ? coord.lat : null, coord ? coord.lng : null, {
+                mahalle: r.mahalle, sorumluluk: r.sorumluluk, genislik: r.genislik,
+            });
+        });
+    }
+
+    // 2) Geometri — BBOX içi yollar (JSON'da yoksa ad + koordinat)
+    const files = [
+        { src: window.EybAlti, source: 'alti' },
+        { src: window.EybUsty, source: 'ustu' },
+    ];
+    files.forEach(function (fl) {
+        if (!fl.src || !fl.src.features) return;
+        fl.src.features.forEach(function (f) {
+            const cid = f.properties && f.properties.CADDE_SOKA;
+            const adi = caddeAdi(f.properties || {});
+            if (!adi) return;
+            const pts = flatCoords(f.geometry);
+            const hit = pts.some(function (p) { return inBox(p[0], p[1]); });
+            if (!hit) return;
+            if (cid !== null && cid !== undefined && (kayitlar || []).length) {
+                const row = kayitlar.find(function (r) { return String(r.cadde_soka) === String(cid); });
+                if (row) { putAd(row.cadde_adi || adi, null, null, { mahalle: row.mahalle, sorumluluk: row.sorumluluk }); return; }
+            }
+            const c = centroidOf(f.geometry);
+            putAd(adi, c ? c.lat : null, c ? c.lng : null);
+        });
+    });
+
+    const list = [...mapped.values()].filter(function (x) { return x.name; })
+        .sort(function (a, b) { return (a.name || '').localeCompare(b.name || '', 'tr'); });
+    return list;
+}
+
+/* ─── Ana adres arama (yerel → WFS) ─── */
 async function adresKonumBul(raw, wfsProxy = '/maps/adres-ara', csrfToken = '') {
+    await aykomeVeriHazir();
+
     const parsed = parseAdres(raw);
 
-    // STRATEJİ 1: Local SHP'de sokak no / ad ile ara
-    if (parsed.sokakNo) {
-        const hit = sokakAra(parsed.sokakNo);
+    if (parsed.cadde) {
+        const hit = sokakAra(parsed.cadde);
         if (hit && hit.center) {
             return {
-                lat: hit.center.lat,
-                lng: hit.center.lng,
-                label: hit.ad,
-                method: '✅ Local SHP',
-                confidence: 'high',
+                lat: hit.center.lat, lng: hit.center.lng,
+                label: hit.ad + (hit.mahalle ? ' — ' + hit.mahalle : ''),
+                method: 'Local JSON', confidence: 'high',
             };
         }
     }
 
-    // STRATEJİ 2: WFS Laravel proxy (yedek)
     try {
         const res = await fetch(wfsProxy, {
             method: 'POST',
@@ -333,27 +425,62 @@ async function adresKonumBul(raw, wfsProxy = '/maps/adres-ara', csrfToken = '') 
         if (res.ok) {
             const data = await res.json();
             if (data && data.success) {
-                return {
-                    lat: data.lat,
-                    lng: data.lon,
-                    label: data.detail || data.cadde || raw,
-                    method: '⚡ WFS Proxy',
-                    confidence: data.confidence || 'medium',
-                };
+                return { lat: data.lat, lng: data.lon, label: data.detail || data.cadde || raw, method: 'WFS', confidence: data.confidence || 'medium' };
             }
         }
-    } catch (e) {
-        console.warn('[AYKOME] WFS proxy hatası:', e.message);
-    }
+    } catch (e) { console.warn('[AYKOM] WFS hatası:', e.message); }
 
     return null;
 }
 
-/* ═══ GLOBAL ERİŞİM ═══ */
-window.AykomeMapsBuild = buildTumCaddeler;
+/* ═══ BİRLEŞİK VERİ HAZIRLIK (tek async) ═══ */
+let _veriYukleme = null;
+function aykomeVeriHazir() {
+    if (!_veriYukleme) {
+        _veriYukleme = (async function () {
+            await Promise.all([
+                buildCaddeVeri(),
+                fetch('/maps/15m/alti').then(function (r) { return r.json(); }).then(function (d) { window.EybAlti = d; return d; }).catch(function () { return null; }),
+                fetch('/maps/15m/ustu').then(function (r) { return r.json(); }).then(function (d) { window.EybUsty = d; return d; }).catch(function () { return null; }),
+            ]);
+            window._geomByIdx = null;
+            _geomIndex();
+            return true;
+        }());
+    }
+    return _veriYukleme;
+}
+
+/* ═══ GLOBAL ERİŞİM (yeni isimler + blade beklediği eski adlar) ═══ */
+window.buildCaddeVeri = buildCaddeVeri;
+window.mahalleCaddeleri = mahalleCaddeleri;
+window.caddeKoordinat = caddeKoordinat;
+window.sokakAra = sokakAra;
+window.sokakDetay = sokakDetay;
+window.parseAdres = parseAdres;
+window.adresKonumBul = adresKonumBul;
+window.aykomeTrUp = trUp;
+window.caddeAdi = caddeAdi;
+window.nearestRoadAnd15 = nearestRoadAnd15;
+window.caddelerInBbox = caddelerInBbox;
+
+// Blade'lerin çağırdığı isimler (kritik!):
+window.aykome15mKontrol = function (lat, lng, maxDistKm) { return nearestRoadAnd15(lat, lng, maxDistKm); };
+window.aykomeCaddelerInBbox = function (bboxObj, tol) { return caddelerInBbox(bboxObj, tol); };
 window.aykomeSokakAra = sokakAra;
+window.aykomeSokakDetay = sokakDetay;
 window.aykomeParseAdres = parseAdres;
-window.aykomeCaddelerInBbox = caddelerInBbox;
-window.aykome15mKontrol = nearestRoadAnd15;
 window.aykomeCaddeAdi = caddeAdi;
 window.aykomeAdresKonumBul = adresKonumBul;
+window.AykomeMapsBuild = function () { return caddelerInBbox; };
+
+// AykomeManzara hazır promise (blade'de await)
+window.aykomeVeriHazir = aykomeVeriHazir;
+window.aykomeVeriYukle = aykomeVeriHazir;
+
+// Otomatik başlat
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { aykomeVeriHazir(); });
+} else {
+    aykomeVeriHazir();
+}

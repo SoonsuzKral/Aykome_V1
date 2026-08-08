@@ -511,7 +511,7 @@ class MapsController extends Controller
      */
     public function adresAra(Request $request)
     {
-        $q = trim((string) $request->input('q'));
+        $q = trim((string) ($request->input('q') ?? $request->input('adres') ?? ''));
         if ($q === '' || mb_strlen($q) < 3) {
             return response()->json(['success' => false, 'message' => 'Adres çok kısa.']);
         }
@@ -524,6 +524,34 @@ class MapsController extends Controller
 
         $sonuc = ['success' => false, 'message' => 'Adres isabetli bulunamadı.'];
 
+        if ($parsed['cadde'] !== '') {
+            // LOCAL-FIRST — caddeler_ve_sokaklar.json + 15_alti/15_ustu geometrisi.
+            // Doğru adres, WFS'e gerek kalmadan yerel veriden bulunur (hız + isabet).
+            $yerel = $this->localCaddeBul($parsed['cadde'], $parsed['mahalle']);
+            if ($yerel && isset($yerel['lat'], $yerel['lon']) && $yerel['lat'] !== null && $yerel['lon'] !== null) {
+                $sonuc = array_merge($sonuc, [
+                    'success' => true,
+                    'lat' => round((float) $yerel['lat'], 7),
+                    'lon' => round((float) $yerel['lon'], 7),
+                    'mahalle' => $yerel['mahalle'],
+                    'cadde' => $yerel['name'],
+                    'kapi' => $parsed['kapi'],
+                    'detail' => trim(implode(', ', array_filter([
+                        $yerel['mahalle'],
+                        $yerel['name'],
+                        $parsed['kapi'],
+                    ]))),
+                    'sorumluluk' => $yerel['sorumluluk'],
+                    'genislik' => $yerel['genislik'],
+                    'source' => 'local',
+                    'confidence' => 'yuksek',
+                ]);
+                \Illuminate\Support\Facades\Cache::put($cacheKey, $sonuc, now()->addMinutes(10));
+                return response()->json($sonuc);
+            }
+        }
+
+        // WFS YEDEĞİ — yerel veride bulunamazsa geoserver (geo3) doğrulaması.
         try {
             // 1) MAHALLE — cbs:MISMAP_MAHALLE_KOYLER (geo3), MAHALLE_ADI
             $mahalle = null;
@@ -532,7 +560,7 @@ class MapsController extends Controller
                 if ($mahalle) $sonuc['mahalle'] = $mahalle['name'];
             }
 
-            // 2) CADDE/SOKAK — mahalle poligonunun bbox'ı içinde ara (isabetli)
+            // 2) CADDE/SOKAK — mahalle poligonunun bboxı içinde ara (isabetli)
             $cadde = null;
             if ($parsed['cadde'] !== '') {
                 $cadde = $this->wfsCaddeBul($parsed['cadde'], $mahalle);
@@ -567,6 +595,100 @@ class MapsController extends Controller
         \Illuminate\Support\Facades\Cache::put($cacheKey, $sonuc, now()->addMinutes(10));
         return response()->json($sonuc);
     }
+
+    /**
+     * LOCAL-FIRST cadde çözümü — caddeler_ve_sokaklar.json + geometri (CADDE_SOKA köprüsü).
+     * Mahalle + cadde no verilir; yerel veride CADDE_SOKA ile eşleşen kaydın
+     * 15_alti.js/15_ustu.js geometrisinden centroid koordinatı döner.
+     * @return array|null ['name','mahalle','lat','lon','sorumluluk','genislik','source']
+     */
+    private function localCaddeBul(string $cadde, string $mahalle = ''): ?array
+    {
+        $path = storage_path('shp/caddeler_ve_sokaklar.json');
+        if (!file_exists($path)) return null;
+        $json = file_get_contents($path);
+        if (!$json) return null;
+
+        // NDJSON normalize (JSON array'e çevir)
+        $fixed = preg_replace('/\}\s*\n\s*\{/', '},' . "\n" . '{', $json);
+        $data  = json_decode('[' . $fixed . ']', true);
+        if (!is_array($data)) return null;
+
+        $caddeNo = trim((string) $cadde);
+        if ($caddeNo === '') return null;
+
+        // CADDE_SOKA ADI alanı sayısal olabilir ("8013") — string karşılaştır
+        $adaylar = [];
+        $mahU = $this->trUppercase(trim($mahalle));
+        foreach ($data as $r) {
+            $ad = trim((string) ($r['CADDE SOKAK ADI'] ?? ''));
+            if ($ad === '' || ltrim($ad, '0') !== ltrim($caddeNo, '0')) continue;
+            $adaylar[] = $r;
+        }
+        if (empty($adaylar)) return null;
+
+        // Mahalle varsa onunla eşleştir
+        $secim = null;
+        $secimMahalle = null;
+        foreach ($adaylar as $a) {
+            $m = trim((string) ($a['MAHALLE_AD'] ?? ''));
+            if ($mahU !== '' && $this->trUppercase($m) === $mahU) {
+                $secim = $a;
+                $secimMahalle = $m;
+                break;
+            }
+        }
+        if (!$secim) {
+            $secim = $adaylar[0];
+            $secimMahalle = trim((string) ($secim['MAHALLE_AD'] ?? ''));
+        }
+
+        $csa = (int) ($secim['CADDE_SOKA'] ?? 0);
+
+        // Geometri centroid — 15_alti.js + 15_ustu.js
+        $coord = $this->shpCaddeSokaCentroid($csa);
+
+        return [
+            'name' => trim((string) ($secim['CADDE SOKAK ADI'] ?? $caddeNo)),
+            'mahalle' => $secimMahalle,
+            'lat' => $coord ? $coord['lat'] : null,
+            'lon' => $coord ? $coord['lng'] : null,
+            'sorumluluk' => trim((string) ($secim['SORUMLULUK'] ?? '')),
+            'genislik' => (float) ($secim['GENISLIGI'] ?? 0),
+            'source' => 'local',
+        ];
+    }
+
+    /**
+     * 15_alti.js / 15_ustu.js'de CADDE_SOKA ile eşleşen geometriden centroid döner.
+     * @return array{lat:float,lng:float}|null
+     */
+    private function shpCaddeSokaCentroid(int $caddeSoka): ?array
+    {
+        if ($caddeSoka <= 0) return null;
+
+        $files = ['15_alti.js', '15_ustu.js'];
+        foreach ($files as $fn) {
+            $path = storage_path('shp/' . $fn);
+            if (!file_exists($path)) continue;
+            $raw = file_get_contents($path);
+            if (!$raw) continue;
+            // "var EybAlti = {...;" → "{...}"
+            $json = preg_replace('/^var\s+[\w]+\s*=\s*/', '', $raw);
+            $json = rtrim($json, "; \n\r");
+            $fdc = json_decode($json, true);
+            if (!is_array($fdc) || !isset($fdc['features'])) continue;
+
+            foreach ($fdc['features'] as $f) {
+                $cid = (int) ($f['properties']['CADDE_SOKA'] ?? 0);
+                if ($cid !== $caddeSoka) continue;
+                $centroid = $this->centroid($f['geometry'] ?? []);
+                if ($centroid) return $centroid;
+            }
+        }
+        return null;
+    }
+
 
     /**
      * WMS MAHALLE → CADDE/SOKAK LİSTESİ — alt kurumların çoklu çalışması için.
@@ -806,6 +928,60 @@ class MapsController extends Controller
             Log::warning('[maps.kapiNoAra]', ['err' => $e->getMessage()]);
             return response()->json(['success' => true, 'count' => 0, 'data' => [], 'note' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * GET /maps/cadde-veri — Eyyübiye tüm cadde/sokak kayıtları (caddeler_ve_sokaklar.json).
+     * TEK DOĞRU KAYNAK: mahalle + cadde adı + 15m durumu (SORUMLULUK) + CADDE_SOKA köprüsü.
+     * 15_alti.js/15_ustu.js geometrisiyle CADDE_SOKA üzerinden eşleşir (%100 kanıtlandı).
+     */
+    public function caddeVeri(Request $request)
+    {
+        $cacheKey = 'wfs_cadde_veri_eyyubiye';
+        $result = \Illuminate\Support\Facades\Cache::remember($cacheKey, self::CACHE_TTL, function () {
+            $path = storage_path('shp/caddeler_ve_sokaklar.json');
+            if (!file_exists($path)) {
+                return ['success' => false, 'message' => 'Cadde veri dosyası bulunamadı'];
+            }
+
+            $content = file_get_contents($path);
+            // NDJSON formatı: {..} {..} arka arkaya, köşeli parantez yok → normalize et
+            $fixed = preg_replace('/\}\s*\n\s*\{/', '},' . "\n" . '{', $content);
+            $json = '[' . $fixed . ']';
+            $data = json_decode($json, true);
+
+            if (!is_array($data)) {
+                return ['success' => false, 'message' => 'Cadde veri parse edilemedi'];
+            }
+
+            // Sadeleştirilmiş kayıtlar (gereksiz alanları çıkar, boyut küçük)
+            $kayitlar = [];
+            foreach ($data as $r) {
+                $mahalle = trim((string) ($r['MAHALLE_AD'] ?? ''));
+                $caddeAdi = (string) ($r['CADDE SOKAK ADI'] ?? '');
+                if ($mahalle === '' || $caddeAdi === '') continue;
+
+$kayitlar[] = [
+                    'cadde_soka' => (int) ($r['CADDE_SOKA'] ?? 0),
+                    'mahalle' => $mahalle,
+                    'cadde_adi' => trim($caddeAdi),
+                    'turu' => trim((string) ($r['TÜRÜ'] ?? '')),
+                    // 15 METRE ALTI / 15 METRE ÜSTÜ — direkt 15m bilgisi
+                    'sorumluluk' => trim((string) ($r['SORUMLULUK'] ?? '')),
+                    'genislik' => (float) ($r['GENISLIGI'] ?? 0),
+                    'uzunluk' => (string) ($r['UZUNLUGU'] ?? ''),
+                    'kaplama' => trim(html_entity_decode((string) ($r['KAPLAMA_CI'] ?? ''))),
+                    'arter' => trim((string) ($r['ANA__ARTER'] ?? '')),
+                    'trafik_yolu' => trim((string) ($r['TRAFIK_YÖ'] ?? '')),
+                    'serit' => trim((string) ($r['SERIT_SAYI'] ?? '')),
+                    'uavt_turu' => trim(html_entity_decode((string) ($r['UAVT_YOL_T'] ?? ''))),
+                ];
+            }
+
+            return ['success' => true, 'count' => count($kayitlar), 'data' => $kayitlar];
+        });
+
+        return response()->json($result);
     }
 
     /** GeoJSON geometrisinden centroid (tüm tipler: Point/Polygon/LineString/Multi*). */
