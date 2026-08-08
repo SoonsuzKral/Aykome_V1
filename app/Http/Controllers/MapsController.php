@@ -202,8 +202,20 @@ class MapsController extends Controller
 
                 // Koordinat ile ara (noktanın 50m yakınındaki yol)
                 if ($lat && $lng) {
+                    $geomType = $feature['geometry']['type'] ?? '';
                     $coords = $feature['geometry']['coordinates'] ?? [];
-                    foreach ($coords as $segment) {
+                    // LineString → düz [lon,lat] listesi; MultiLineString → segment listesi
+                    $segments = [];
+                    if ($geomType === 'MultiLineString') {
+                        $segments = $coords;
+                    } elseif ($geomType === 'LineString') {
+                        $segments = [$coords];
+                    } elseif (is_array($coords) && isset($coords[0]) && is_array($coords[0]) && isset($coords[0][0]) && !is_array($coords[0][0])) {
+                        $segments = [$coords];
+                    } else {
+                        $segments = $coords;
+                    }
+                    foreach ($segments as $segment) {
                         foreach ($segment as $coord) {
                             if (is_array($coord) && count($coord) >= 2) {
                                 $d = $this->haversineDistance((float)$lat, (float)$lng, (float)$coord[1], (float)$coord[0]);
@@ -430,34 +442,42 @@ class MapsController extends Controller
         $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
         if ($cached) return response()->json($cached);
 
-        try {
-            $caddeUrl = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
-                . '?service=WFS&version=2.0.0&request=GetFeature'
-                . '&typeNames=cbs:MISMAP_CADDE_SOKAK'
-                . '&cql_filter=' . urlencode("CADDE_SO_1 ILIKE '%{$q}%' OR CADDE_SO_2 ILIKE '%{$q}%'")
-                . '&outputFormat=application/json&srsName=EPSG:4326&count=6';
-            $resp = Http::withOptions(['verify' => false, 'timeout' => 5])->get($caddeUrl);
-            if ($resp->successful()) {
-                $data = $resp->json();
-                if (!empty($data['features'])) {
-                    foreach ($data['features'] as $f) {
-                        $p = $f['properties'] ?? [];
-                        $name = trim(($p['CADDE_SO_1'] ?? '') . ' ' . ($p['CADDE_SO_2'] ?? ''));
-                        if (!$name) continue;
-                        $center = $this->centroidFromGeoJson($f['geometry']);
-                        if (!$center) continue;
-                        $results[] = [
-                            'type' => 'cadde',
-                            'label' => $name,
-                            'detail' => ($p['MAHALLE_AD'] ?? '') . ', ' . ($p['ILCE'] ?? ''),
-                            'lat' => $center['lat'],
-                            'lon' => $center['lng'],
-                        ];
+        // 0) LOCAL-FIRST — caddeler_ve_sokaklar.json + geometri (hız + %100 yerel veri).
+        //    Mahalle + cadde/sokak eşleşmesi anında döner; WFS sadece parsel/ada yedeği.
+        $results = array_merge($results, $this->searchLocal($q));
+
+        // Yerel cadde sonuçları yetersizse WFS cadde yedeği (geo3)
+        $yerelCaddeSayisi = count(array_filter($results, fn ($r) => $r['type'] === 'cadde'));
+        if ($yerelCaddeSayisi < 3) {
+            try {
+                $caddeUrl = 'https://geo3.sanliurfa.bel.tr:8091/geoserver/wfs'
+                    . '?service=WFS&version=2.0.0&request=GetFeature'
+                    . '&typeNames=cbs:MISMAP_CADDE_SOKAK'
+                    . '&cql_filter=' . urlencode("CADDE_SO_1 ILIKE '%{$q}%' OR CADDE_SO_2 ILIKE '%{$q}%'")
+                    . '&outputFormat=application/json&srsName=EPSG:4326&count=6';
+                $resp = Http::withOptions(['verify' => false, 'timeout' => 5])->get($caddeUrl);
+                if ($resp->successful()) {
+                    $data = $resp->json();
+                    if (!empty($data['features'])) {
+                        foreach ($data['features'] as $f) {
+                            $p = $f['properties'] ?? [];
+                            $name = trim(($p['CADDE_SO_1'] ?? '') . ' ' . ($p['CADDE_SO_2'] ?? ''));
+                            if (!$name) continue;
+                            $center = $this->centroidFromGeoJson($f['geometry']);
+                            if (!$center) continue;
+                            $results[] = [
+                                'type' => 'cadde',
+                                'label' => $name,
+                                'detail' => ($p['MAHALLE_AD'] ?? '') . ', ' . ($p['ILCE'] ?? ''),
+                                'lat' => $center['lat'],
+                                'lon' => $center['lng'],
+                            ];
+                        }
                     }
                 }
+            } catch (\Exception $e) {
+                Log::warning('Cadde arama hatası: ' . $e->getMessage());
             }
-        } catch (\Exception $e) {
-            Log::warning('Cadde arama hatası: ' . $e->getMessage());
         }
 
         try {
@@ -502,6 +522,134 @@ class MapsController extends Controller
         \Illuminate\Support\Facades\Cache::put($cacheKey, $filtered, now()->addMinutes(10));
 
         return response()->json($filtered);
+    }
+
+    /**
+     * LOCAL-FIRST arama — caddeler_ve_sokaklar.json (mahalle + cadde/sokak) +
+     * geometri centroid'i. WFS'e gerek kalmadan anında sonuç üretir.
+     * @return array<int, array{type:string,label:string,detail:string,lat:float,lon:float}>
+     */
+    private function searchLocal(string $q): array
+    {
+        $path = storage_path('shp/caddeler_ve_sokaklar.json');
+        if (!file_exists($path)) return [];
+        $content = file_get_contents($path);
+        if (!$content) return [];
+
+        $fixed = preg_replace('/\}\s*\n\s*\{/', '},' . "\n" . '{', $content);
+        $data = json_decode('[' . $fixed . ']', true);
+        if (!is_array($data)) return [];
+
+        $qU = $this->trUppercase(trim($q));
+        if ($qU === '') return [];
+
+        // Hızlı geometri centroid index (bir kez oku, tekrar tekrar centroid)
+        $geomIndex = $this->geomCentroidIndex();
+
+        $results = [];
+        $mahalleSet = [];      // mahalle → koordinat toplamı (centroid ortalaması için)
+        $mahalleCount = [];
+
+        foreach ($data as $r) {
+            $mahalle = trim((string) ($r['MAHALLE_AD'] ?? ''));
+            $caddeAdi = trim((string) ($r['CADDE SOKAK ADI'] ?? ''));
+            if ($mahalle === '') continue;
+
+            $mahU = $this->trUppercase($mahalle);
+
+            // 1) MAHALLE EŞLEŞMESİ
+            if (str_contains($mahU, $qU)) {
+                $csa = (int) ($r['CADDE_SOKA'] ?? 0);
+                $coord = $csa > 0 ? ($geomIndex[$csa] ?? null) : null;
+                if ($coord) {
+                    if (!isset($mahalleSet[$mahU])) {
+                        $mahalleSet[$mahU] = ['ad' => $mahalle, 'lat' => 0, 'lon' => 0];
+                        $mahalleCount[$mahU] = 0;
+                    }
+                    $mahalleSet[$mahU]['lat'] += $coord['lat'];
+                    $mahalleSet[$mahU]['lon'] += $coord['lng'];
+                    $mahalleCount[$mahU]++;
+                }
+            }
+
+            // 2) CADDE/SOKAK EŞLEŞMESİ
+            // 2) CADDE/SOKAK EŞLEŞMESİ — sayısal sorguda ters-substring istemeyiz (8013→"1" gürültü)
+            $caddeU = $this->trUppercase($caddeAdi);
+            $qIsNumeric = preg_match('/^\d+$/', $qU);
+            $caddeDirTan = $this->containsU($caddeU, $qU);
+            $caddeTers = !$qIsNumeric && mb_strlen($caddeU) >= 3 && $this->containsU($qU, $caddeU);
+            if ($caddeAdi !== '' && ($caddeDirTan || $caddeTers)) {
+                $csa = (int) ($r['CADDE_SOKA'] ?? 0);
+                $coord = $csa > 0 ? ($geomIndex[$csa] ?? null) : null;
+                $sorumluluk = trim((string) ($r['SORUMLULUK'] ?? ''));
+                $genislik = (float) ($r['GENISLIGI'] ?? 0);
+                $results[] = [
+                    'type' => 'cadde',
+                    'label' => $caddeAdi,
+                    'detail' => $mahalle . ($sorumluluk !== '' ? ' · ' . $sorumluluk : '') . ($genislik > 0 ? ' · ' . $genislik . ' m' : ''),
+                    'lat' => $coord ? $coord['lat'] : 0,
+                    'lon' => $coord ? $coord['lng'] : 0,
+                ];
+            }
+        }
+
+        // Mahalle sonuçları (cadde centroid ortalaması)
+        foreach ($mahalleSet as $mahU => $m) {
+            if (($mahalleCount[$mahU] ?? 0) <= 0) continue;
+            $results[] = [
+                'type' => 'mahalle',
+                'label' => $m['ad'],
+                'detail' => 'Eyyübiye',
+                'lat' => round($m['lat'] / $mahalleCount[$mahU], 7),
+                'lon' => round($m['lon'] / $mahalleCount[$mahU], 7),
+            ];
+        }
+
+        // En fazla 12 sonuç (cadde öncelik, mahalle sonra)
+        usort($results, function ($a, $b) {
+            if ($a['type'] === $b['type']) return 0;
+            return $a['type'] === 'cadde' ? -1 : 1;
+        });
+        $results = array_slice($results, 0, 12);
+
+        return $results;
+    }
+
+    /** TR-duyarlı büyük-harfe çevrilmiş stringlerde \tdkısmı "q substr içerir" testi. */
+    private function containsU(string $hay, string $needle): bool
+    {
+        return str_contains($hay, $needle);
+    }
+
+    /**
+     * 15_alti.js + 15_ustu.js geometrilerinden CADDE_SOKA → centroid index.
+     * @return array<int, array{lat:float,lng:float}>
+     */
+    private function geomCentroidIndex(): array
+    {
+        static $index = null;
+        if ($index !== null) return $index;
+        $index = [];
+
+        foreach (['15_alti.js', '15_ustu.js'] as $fn) {
+            $path = storage_path('shp/' . $fn);
+            if (!file_exists($path)) continue;
+            $raw = file_get_contents($path);
+            if (!$raw) continue;
+            $json = preg_replace('/^var\s+[\w]+\s*=\s*/', '', $raw);
+            $json = rtrim($json, "; \n\r");
+            $fdc = json_decode($json, true);
+            if (!is_array($fdc) || !isset($fdc['features'])) continue;
+
+            foreach ($fdc['features'] as $f) {
+                $cid = (int) ($f['properties']['CADDE_SOKA'] ?? 0);
+                if ($cid <= 0 || isset($index[$cid])) continue;
+                $ct = $this->centroid($f['geometry'] ?? []);
+                if ($ct) $index[$cid] = $ct;
+            }
+        }
+
+        return $index;
     }
 
     /**

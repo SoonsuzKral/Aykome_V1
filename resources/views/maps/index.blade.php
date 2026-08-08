@@ -383,6 +383,18 @@
     gap: 6px;
 }
 
+#maps-search-control {
+    position: absolute;
+    top: 46px;
+    right: 12px;
+    z-index: 1000;
+    width: 340px;
+}
+@media (max-width: 768px) {
+    #maps-quick-actions { top: 8px; right: 8px; gap: 4px; }
+    #maps-search-control { width: calc(100vw - 120px); right: 8px; top: 44px; }
+}
+
 .qa-btn {
     background: white;
     border: none;
@@ -635,14 +647,8 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 .ortak-kurum-item:hover { border-color: #E87722; }
 .ortak-kurum-item.selected { border-color: #E87722; background: rgba(232,119,34,0.1); }
 
-#maps-search-control {
-    position: absolute;
-    top: 10px; left: 50px;
-    z-index: 1000;
-    width: 320px;
-}
 @media (max-width: 768px) {
-    #maps-search-control { width: calc(100vw - 120px); left: 10px; }
+    #maps-search-control { width: calc(100vw - 120px); right: 8px; left: auto; }
 }
 .search-box input {
     width: 100%; padding: 8px 14px;
@@ -667,6 +673,10 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 .search-result-item .result-icon { color: #94a3b8; margin-top: 2px; }
 .search-result-item .result-main { font-weight: 500; color: #1e293b; }
 .search-result-item .result-sub { color: #64748b; font-size: 12px; }
+.result-body { flex:1; min-width:0; }
+.search-badge { display:inline-block;font-size:10px;font-weight:700;padding:1px 6px;border-radius:6px;margin-left:6px;vertical-align:middle }
+.search-badge.badge-ustu { background:#fef3c7;color:#92400e }
+.search-badge.badge-alti { background:#dbeafe;color:#1e40af }
 .search-spinner { display:inline-block;width:16px;height:16px;border:2px solid #e2e8f0;border-top-color:#E87722;border-radius:50%;animation:searchSpin 0.6s linear infinite;vertical-align:middle;margin-right:6px }
 @keyframes searchSpin { to { transform:rotate(360deg) } }
 
@@ -1211,6 +1221,7 @@ body.maps-fullscreen #btn-fullscreen { background: #ef4444; color: white; }
 <script src="{{ asset('assets/vendor/leaflet/leaflet.js') }}"></script>
 <script src="{{ asset('assets/vendor/leaflet/leaflet.draw.js') }}"></script>
 <script src="{{ asset('assets/vendor/leaflet/leaflet-rotate.js') }}"></script>
+<script src="{{ asset('js/maps-address.js') }}"></script>
 
 <script>
 (function() {
@@ -2964,14 +2975,25 @@ function initSearchControl(){
             resultsEl.style.display='none';
         }
     });
+    // Enter → ilk sonucu seç (haritaya uç)
+    input.addEventListener('keydown',function(e){
+        if(e.key==='Enter'){
+            var first=resultsEl.querySelector('.search-result-item');
+            if(first)first.click();
+            e.preventDefault();
+        }
+    });
 }
 function renderSearchResults(data,input,resultsEl){
     if(!data||!data.length){resultsEl.style.display='none';return}
     resultsEl.innerHTML=data.map(function(r){
-        var icons={cadde:'🛣️',parsel:'📋'};
+        var icons={cadde:'🛣️',parsel:'📋',mahalle:'📍'};
+        var badge='';
+        if(r.detail&&(r.detail.indexOf('15 METRE ÜSTÜ')>-1))badge='<span class="search-badge badge-ustu">15m Üstü</span>';
+        else if(r.detail&&(r.detail.indexOf('15 METRE ALTI')>-1))badge='<span class="search-badge badge-alti">15m Altı</span>';
         return '<div class="search-result-item" data-lat="'+r.lat+'" data-lon="'+r.lon+'">'
             +'<span class="result-icon">'+(icons[r.type]||'📍')+'</span>'
-            +'<div><div class="result-main">'+escHtml(r.label)+'</div>'
+            +'<div class="result-body"><div class="result-main">'+escHtml(r.label)+badge+'</div>'
             +'<div class="result-sub">'+escHtml(r.detail||'')+'</div></div>'
             +'</div>';
     }).join('');

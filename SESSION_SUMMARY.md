@@ -713,3 +713,7 @@ BETA→PRO: Başvuru formuna gömülü, **sıfır maliyet / offline / LLM'siz** 
 - **GÖREV 2 — Harita İçi arama (Leaflet L.Control):** create/edit'teki `#draw-search-box` DOM overlay'i (haritanın DIŞINDA/harf) KALDIRILDI. Yerine initMap içinde `L.Control.extend` → `mapInsideSearch` input + `btn_map_inside_search` → `/maps/adres-ara` fetch → başarılıysa `haritadaGoster` animasyonu. KeyDown Enter ve click tetikli.
 - **_harita.blade.php partial:** HTML gömülü arama overlay'i (`cbs-search-input`/`cbs-coord-input`) de aynı şekilde native `L.Control`'e çevrildi (`cbs-native-search`/`cbs-native-coord`), id çakışmasız (canvas-scoped yerine kontrol içi closure). Adres arama `/maps/adres-ara`, koordinat Enter ile pulse + flyTo.
 - **Korundu:** geo4/geo3 WMS/WFS, proxy, `/maps` route'ları, hiçbir endpoint logic'i değişmedi.
+
+### 🔧 GERİ BİLDİRİM DÜZELTMESİ — commit ef33a13
+- **GÖREV 1:** Çift koordinat kutusu (ayrık `coord_lat`+`coord_lon`) tamamen silindi → tek `coord_single_input` + "Kordinat İle Bul" butonu (bg #0ea5e9, `sm:col-span-2`, Tailwind ile hizalandı). JS: `.split(',')` + regex fallback (`;` `/` `|` boşluk), Şanlıurfa bbox doğrulaması, `haritadaGoster(parsedLat, parsedLng, 'Özel Koordinat Konumu')`.
+- **GÖREV 2:** `_harita.blade.php` (CBS referans/WMS haritası) üzerindeki `Leaflet L.Control` arama + HTML overlay + `cbs-search-*` CSS'i tamamen kaldırıldı. Arama artık SADECE ana çizim haritasının (`initMap` içindeki `MapInsideSearchControl`) üzerinde.
