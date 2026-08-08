@@ -37,9 +37,7 @@
 
 <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
 <style>
-    .cbs-search-spinner{display:inline-block;width:12px;height:12px;border:2px solid rgba(46,109,164,.3);border-top-color:#2e6da4;border-radius:50%;animation:cbsSpin .7s linear infinite;vertical-align:middle;margin-right:6px}
-    @keyframes cbsSpin{to{transform:rotate(360deg)}}
-    .cbs-search-results button:hover{background:#e8f0fe}
+    .cbs-draw-btn:hover{background:#f8fafc}
 </style>
 @if($drawingEnabled && !$readOnly)
 <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.draw.css') }}" />
@@ -59,7 +57,7 @@
     </div>
     @endif
 
-    {{-- Harita içi arama + koordinat → Leaflet L.Control ile JS'te oluşturuluyor (blade'de input YOK) --}}
+    {{-- Arama/koordinat overlay YOK — yalnızca ana çizim haritası (appDrawMap) Leaflet L.Control araması taşır --}}
 
     <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(15,23,42,0.85);color:#94a3b8;padding:3px 10px;font-size:10px;font-family:monospace;z-index:500;display:flex;justify-content:space-between;">
         <span class="cbs-coords-{{ $canvasId }}">📍 —</span>
@@ -285,84 +283,6 @@
         }).addTo(m).bindPopup('<b>' + (label || '') + '</b><br>Koordinat ile bulundu').openPopup();
         m.flyTo([lat, lon], 17, { animate: true, duration: 1 });
     };
-
-// ─── HARİTA-İÇİ ARAMA + KOORDİNABAK (Leaflet L.Control — harita yüzeyine gömülü) ────
-    if (!opts.readOnly) {
-        var MapInsSearchControl = L.Control.extend({
-            options: { position: 'topleft' },
-            onAdd: function () {
-                var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-                L.DomEvent.disableClickPropagation(div);
-                L.DomEvent.disableScrollPropagation(div);
-                div.style.cssText = 'display:flex;flex-direction:column;gap:4px;padding:6px;background:#fff;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.2);';
-
-                div.innerHTML =
-                    '<input type="text" class="cbs-native-search" placeholder="Cadde, sokak ara..." autocomplete="off" style="width:220px;padding:6px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px;outline:none;">' +
-                    '<div class="cbs-native-results" style="display:none;max-height:180px;overflow-y:auto;background:#fff;border:1px solid #2e6da4;border-radius:0 0 6px 6px;"></div>' +
-                    '<input type="text" class="cbs-native-coord" placeholder="🧭 veya koordinat: 37.161298, 38.782200" autocomplete="off" style="width:220px;padding:6px 8px;border:1px dashed #94a3b8;border-radius:6px;font-size:11px;background:#f8fafc;color:#334155;outline:none;">';
-
-                var sInput = div.querySelector('.cbs-native-search');
-                var sResults = div.querySelector('.cbs-native-results');
-                var cInput = div.querySelector('.cbs-native-coord');
-                var sMarker = null;
-
-                var goTo = function (lat, lon, lbl) {
-                    if (sMarker) map.removeLayer(sMarker);
-                    sMarker = L.marker([lat, lon], {
-                        icon: L.divIcon({ className: '', html: '<div style="background:#1e5fa8;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(30,95,168,.3);"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
-                    }).addTo(map).bindPopup('<b>' + (lbl || '') + '</b>').openPopup();
-                    map.flyTo([lat, lon], 17, { animate: true, duration: 1 });
-                    if (sInput) sInput.value = lbl;
-                };
-
-                // Adres / cadde arama
-                var sTimer = null, sSeq = 0;
-                sInput.addEventListener('input', function () {
-                    clearTimeout(sTimer);
-                    var q = this.value.trim();
-                    if (q.length < 3) { sResults.style.display = 'none'; sResults.innerHTML = ''; return; }
-                    sTimer = setTimeout(function () {
-                        var seq = ++sSeq;
-                        sResults.innerHTML = '<div style="padding:8px;color:#94a3b8;text-align:center"><span class="cbs-search-spinner"></span> Aranıyor...</div>';
-                        sResults.style.display = 'block';
-                        fetch('/maps/adres-ara?q=' + encodeURIComponent(q))
-                            .then(function (r) { return r.json(); })
-                            .then(function (d) {
-                                if (seq !== sSeq) return;
-                                if (!d || !d.success || !d.lat) { sResults.innerHTML = '<div style="padding:8px;color:#e74c3c;text-align:center">Bulunamadı</div>'; return; }
-                                var lat = parseFloat(d.lat), lon = parseFloat(d.lon);
-                                var lbl = d.detail || d.cadde || q;
-                                sResults.innerHTML = '<button type="button" style="width:100%;padding:8px 10px;text-align:left;border:none;background:#fff;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f4f8;">📍 ' + lbl + ' <span style="color:#2e6da4">Konuma Git</span></button>';
-                                sResults.querySelector('button').addEventListener('click', function () {
-                                    sResults.style.display = 'none';
-                                    goTo(lat, lon, lbl);
-                                });
-                            })
-                            .catch(function () { sResults.style.display = 'none'; });
-                    }, 500);
-                });
-                sInput.addEventListener('blur', function () { setTimeout(function () { sResults.style.display = 'none'; }, 250); });
-
-                // Koordinat ile bul
-                cInput.addEventListener('keydown', function (e) {
-                    if (e.key !== 'Enter') return;
-                    e.preventDefault();
-                    var m = cInput.value.trim().match(/^([-+]?\d+(?:[.,]\d+)?)\s*[,;\s]\s*([-+]?\d+(?:[.,]\d+)?)$/);
-                    if (!m) { alert('⚠ Format hatalı — örn: 37.161298, 38.782200'); return; }
-                    var lat = parseFloat(m[1].replace(',', '.'));
-                    var lon = parseFloat(m[2].replace(',', '.'));
-                    if (isNaN(lat) || isNaN(lon) || lat < 33 || lat > 43 || lon < 26 || lon > 45) {
-                        alert('⚠️ Geçersiz koordinat — Şanlıurfa bölgesi için girin (örn: 37.161298, 38.782200)');
-                        return;
-                    }
-                    goTo(lat, lon, lat.toFixed(6) + ', ' + lon.toFixed(6));
-                });
-
-                return div;
-            }
-        });
-        map.addControl(new MapInsSearchControl());
-    }
 })();
 
 function showCbsToast(msg){

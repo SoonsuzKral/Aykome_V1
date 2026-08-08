@@ -262,10 +262,14 @@
                         @enderror
                     </div>
 
-                    <div class="w-full flex gap-3 mt-3 mb-3 p-3 bg-gray-50 border rounded">
-                        <input type="text" id="coord_lat" placeholder="Enlem (Örn: 37.1598)" class="form-control text-sm w-full">
-                        <input type="text" id="coord_lon" placeholder="Boylam (Örn: 38.7969)" class="form-control text-sm w-full">
-                        <button type="button" id="btn_coord_search" class="btn btn-sm btn-info text-white font-bold whitespace-nowrap px-4 py-2 bg-teal-500 rounded">📌 Koordinatla Konumlan</button>
+                    <div class="flex items-center gap-3 mt-4 mb-2 w-full p-2 bg-gray-50/50 border border-gray-100 rounded shadow-sm sm:col-span-2">
+                        <div class="relative w-full">
+                            <span class="absolute left-3 top-2 text-gray-500">📍</span>
+                            <input type="text" id="coord_single_input" placeholder="Tam koordinatı buraya kopyalayın (Örn: 37.161939, 38.775730)" class="form-control text-sm w-full py-2 pl-9 pr-3 border border-gray-300 rounded focus:border-teal-400 focus:ring-1">
+                        </div>
+                        <button type="button" id="btn_coord_search" class="btn text-white font-semibold text-sm px-5 py-2 rounded shadow transition whitespace-nowrap" style="background-color: #0ea5e9;">
+                            Kordinat İle Bul
+                        </button>
                     </div>
                     <p id="coord-result-info" class="mb-2 text-xs text-slate-500"></p>
 
@@ -1846,24 +1850,32 @@
             }
         });
 
-        // ─── KOORDİNAT İLE BUL (enlem/boylam) — WMS nokta atışı ─────────────
+        // ─── KOORDİNAT İLE BUL (tek kutu, virgülle ayrık) — WMS nokta atışı ────
         document.getElementById('btn_coord_search')?.addEventListener('click', function () {
-            var latStr = (document.getElementById('coord_lat').value || '').trim();
-            var lonStr = (document.getElementById('coord_lon').value || '').trim();
-            var lat = parseFloat(latStr.replace(',', '.'));
-            var lon = parseFloat(lonStr.replace(',', '.'));
+            var input = document.getElementById('coord_single_input');
+            var rawCoord = input ? (input.value || '') : '';
             var info = document.getElementById('coord-result-info');
-            if (!isFinite(lat) || !isFinite(lon)) {
-                if (info) { info.textContent = '⚠️ Geçerli bir enlem ve boylam girin (örn: 37.1598, 38.7969).'; info.className = 'mb-2 text-xs text-red-600'; }
-                return;
+            var fail = function (msg, dangerously) {
+                if (info) { info.textContent = msg || 'Geçersiz Koordinat, Lütfen Örnekteki gibi virgüllü ayırarak (X, Y) kopyalayın.'; info.className = 'mb-2 text-xs ' + (dangerously ? 'text-red-600' : 'text-slate-500'); }
+                if (!info) alert(msg || 'Geçersiz Koordinat, Lütfen Örnekteki gibi virgüllü ayırarak (X, Y) kopyalayın.');
+            };
+            if (!rawCoord.trim()) { fail('Lütfen koordinat girin.'); return; }
+            var coords = rawCoord.split(',');
+            // Gelişmiş regex bölücü: virgül yoksa boşluk / noktalı virgül / " - " ayraçlarını da kabul et
+            if (coords.length < 2) {
+                var m = rawCoord.trim().match(/^([-+]?\d+(?:[.,]\d+)?)\s*[,;\s/\-|]+\s*([-+]?\d+(?:[.,]\d+)?)$/);
+                if (m) coords = [m[1], m[2]];
             }
-            if (lat < 33 || lat > 43 || lon < 26 || lon > 45) {
-                if (info) { info.textContent = '⚠️ Geçersiz koordinat — Şanlıurfa bölgesi için girin (örn: 37.1598, 38.7969).'; info.className = 'mb-2 text-xs text-red-600'; }
+            if (coords.length < 2) { fail(); return; }
+            var parsedLat = parseFloat((coords[0] || '').replace(',', '.'));
+            var parsedLng = parseFloat((coords[1] || '').replace(',', '.'));
+            if (!isFinite(parsedLat) || !isFinite(parsedLng) || parsedLat < 30 || parsedLat > 45 || parsedLng < 20 || parsedLng > 50) {
+                fail('⚠️ Geçersiz koordinat — Şanlıurfa bölgesi (33-40 K, 26-45 D) için girin. Farklı bir koordinat mı kopyaladınız?');
                 return;
             }
             if (info) { info.textContent = ''; info.className = 'mb-2 text-xs text-slate-500'; }
-            haritadaGoster(lat, lon, lat.toFixed(6) + ', ' + lon.toFixed(6));
-            if (info) { info.textContent = '📍 Konum haritada işaretlendi: ' + lat.toFixed(6) + ', ' + lon.toFixed(6); info.className = 'mb-2 text-xs text-emerald-700'; }
+            haritadaGoster(parsedLat, parsedLng, 'Özel Koordinat Konumu');
+            if (info) { info.textContent = '📍 Konum haritada işaretlendi: ' + parsedLat.toFixed(6) + ', ' + parsedLng.toFixed(6); info.className = 'mb-2 text-xs text-emerald-700'; }
         });
 
         // ─── 15M ALT/ÜST YOL KONTROLÜ — local veri (maps-address.js) ────────

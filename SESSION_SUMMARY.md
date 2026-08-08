@@ -707,3 +707,9 @@ BETA→PRO: Başvuru formuna gömülü, **sıfır maliyet / offline / LLM'siz** 
 - **Geliştirme:** macOS (Apple Silicon) + OrbStack; hedef sunucu Windows Server 2025 + Docker
 - **Oracle:** `aykome_user/aykome123@FREEPDB1` (port 1521), ağ `aykome_default`
 - **Kullanıcı tercihleri:** butonlar `bg-blue-600 text-white font-bold` + inline style; modallar `z-[99999] fixed`; tüm metinler Türkçe
+
+### ✅ Kullanıcı GÖREVİ: Haritada Tam Yerleşim Fixleri (UI Placement) — commit 7e52753
+- **GÖREV 1 — Koordinat (lat/lon) ile bul:** create/edit.blade.php'de Adres (`address_text`) div'inin bittiği yerin ALTINA, "Mahalle & Sokak Listesi" kısmının HEMEN ÜSTÜNE `coord_lat` + `coord_lon` + `btn_coord_search` ("📌 Koordinatla Konumlan") bloğu eklendi. JS: `btn_coord_search` → parse + Şanlıurfa bbox doğrulama (33-43 / 26-45) → `haritadaGoster(lat, lon)` (pulse marker + flyTo, 2 harita). `coord-result-info` ile durum mesajı.
+- **GÖREV 2 — Harita İçi arama (Leaflet L.Control):** create/edit'teki `#draw-search-box` DOM overlay'i (haritanın DIŞINDA/harf) KALDIRILDI. Yerine initMap içinde `L.Control.extend` → `mapInsideSearch` input + `btn_map_inside_search` → `/maps/adres-ara` fetch → başarılıysa `haritadaGoster` animasyonu. KeyDown Enter ve click tetikli.
+- **_harita.blade.php partial:** HTML gömülü arama overlay'i (`cbs-search-input`/`cbs-coord-input`) de aynı şekilde native `L.Control`'e çevrildi (`cbs-native-search`/`cbs-native-coord`), id çakışmasız (canvas-scoped yerine kontrol içi closure). Adres arama `/maps/adres-ara`, koordinat Enter ile pulse + flyTo.
+- **Korundu:** geo4/geo3 WMS/WFS, proxy, `/maps` route'ları, hiçbir endpoint logic'i değişmedi.
