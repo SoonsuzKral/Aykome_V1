@@ -36,6 +36,9 @@
 @endphp
 
 <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
+<style>
+    .cbs-draw-btn:hover{background:#f8fafc}
+</style>
 @if($drawingEnabled && !$readOnly)
 <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.draw.css') }}" />
 @endif
@@ -51,11 +54,10 @@
         <button data-draw="{{ $canvasId }}" data-tool="line" class="cbs-draw-btn" style="background:white;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15);">📏</button>
         <button data-draw="{{ $canvasId }}" data-tool="clear" class="cbs-draw-btn" style="background:white;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15);">🗑️</button>
         @endif
-        @if($hatKimligiEnabled)
-        <button data-hk="{{ $canvasId }}" class="cbs-hk-btn" style="background:white;border:none;border-radius:6px;padding:5px 8px;font-size:11px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.15);">🔍 HK</button>
-        @endif
     </div>
     @endif
+
+    {{-- Arama/koordinat overlay YOK — yalnızca ana çizim haritası (appDrawMap) Leaflet L.Control araması taşır --}}
 
     <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(15,23,42,0.85);color:#94a3b8;padding:3px 10px;font-size:10px;font-family:monospace;z-index:500;display:flex;justify-content:space-between;">
         <span class="cbs-coords-{{ $canvasId }}">📍 —</span>
@@ -99,8 +101,8 @@
         dragging: true,
     });
 
-    // Basemap
-    L.tileLayer('http://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}', {
+    // Basemap — HTTPS Google Uydu (belediye ağında mixed-content riski önlendi)
+    L.tileLayer('https://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}', {
         maxZoom: 22, maxNativeZoom: 19, attribution: '© Google'
     }).addTo(map);
 
@@ -187,40 +189,9 @@
         });
     }
 
-    // Harita tıklama — GetFeatureInfo (parsel sorgusu) veya Hat Kimliği
-    var hkBtn = document.querySelector('[data-hk="'+opts.canvasId+'"]');
-    var hkActive = false;
-    if(hkBtn){
-        hkBtn.addEventListener('click', function(){
-            hkActive = !hkActive;
-            map.getContainer().style.cursor = hkActive ? 'crosshair' : '';
-            hkBtn.style.background = hkActive ? '#E87722' : 'white';
-            hkBtn.style.color = hkActive ? 'white' : '';
-        });
-    }
+    // Harita tıklama — koordinat + WFS parsel sorgusu
     map.on('click', function(e){
         var lat = e.latlng.lat, lng = e.latlng.lng;
-
-        // Hat Kimliği aktifse önce yol sorgula
-        if(hkActive && opts.hatKimligiEnabled){
-            fetch('/maps/15m/sorgula?lat='+lat+'&lng='+lng)
-                .then(function(r){ return r.json(); })
-                .then(function(data){
-                    if(!data.found){ showCbsToast('Bu noktada yol bulunamadı'); return; }
-                    var p = data.properties;
-                    var html = '<div style="min-width:220px;font-size:12px;">'+
-                        '<div style="font-weight:700;font-size:14px;margin-bottom:4px;color:#1e293b;">🛣️ HAT KİMLİĞİ: #'+(p.CADDE_SOKA||'')+'</div>'+
-                        '<hr style="margin:4px 0;border-color:#e2e8f0;">'+
-                        '<table style="width:100%;font-size:12px;">'+
-                        '<tr><td style="color:#64748b;padding:2px 4px;">Yol:</td><td style="padding:2px 4px;font-weight:500;">'+(p.CADDE_SO_1||'')+' '+(p.CADDE_SO_2||'')+'</td></tr>'+
-                        '<tr><td style="color:#64748b;padding:2px 4px;">Mahalle:</td><td style="padding:2px 4px;">'+(p.MAHALLE_AD||'')+'</td></tr>'+
-                        '<tr><td style="color:#64748b;padding:2px 4px;">Genişlik:</td><td style="padding:2px 4px;">'+(p.GENISLIGI||'')+' m</td></tr>'+
-                        '<tr><td style="color:#64748b;padding:2px 4px;">Yetki:</td><td style="padding:2px 4px;">'+(p.SORUMLULUK||'')+'</td></tr>'+
-                        '</table></div>';
-                    L.popup({maxWidth:300}).setLatLng(e.latlng).setContent(html).openOn(map);
-                }).catch(function(){});
-            return;
-        }
 
         // Normal tıklama — WFS parsel sorgusu (GetFeatureInfo)
         var bbox = getBboxForPoint(lat, lng, 10);
@@ -300,6 +271,18 @@
     window.cbsMap = map;
     window.appCbsMap = map;
     window['cbsDrawnItems_' + opts.canvasId] = drawnItems;
+
+    // Koordinat ile bul → CBS haritasında işaretle (istenen canvas için)
+    window.aykomeCbsGoster = function (lat, lon, label) {
+        var tgt = document.getElementById(opts.canvasId);
+        var m = window['cbsMap_' + opts.canvasId] || map;
+        var mk = window._cbsGlobalMarker;
+        if (mk) m.removeLayer(mk);
+        window._cbsGlobalMarker = L.marker([lat, lon], {
+            icon: L.divIcon({ className: '', html: '<div style="background:#1e5fa8;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(30,95,168,.3);"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+        }).addTo(m).bindPopup('<b>' + (label || '') + '</b><br>Koordinat ile bulundu').openPopup();
+        m.flyTo([lat, lon], 17, { animate: true, duration: 1 });
+    };
 })();
 
 function showCbsToast(msg){

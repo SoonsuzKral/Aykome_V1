@@ -1,5 +1,148 @@
 # Oturum Özeti — 8 Ağustos 2026
 
+## Sprint 11 — LOCAL SHP CADDE SORGULAMA + 15m KONTROL (Sonnet 4.6 analizi)
+
+### 🎯 Öz
+Kullanıcı hataları Claude Sonnet 4.6'ya verdi; Sonnet `claude_opus/` klasörüne 3 dosya koydu (`AYKOME_ANALIZ_VE_COZUM.md`, `CLAUDE_CODE_PROMPT.md`, `maps-address.js`). Debug ettik + Sonnet'in yaklaşımını (local SHP) düzeltilmiş haliyle entegre ettik.
+
+### 🔍 Debug Bulguları (kanıtlandı)
+1. `15_alti.js` (3288 cadde) + `15_ustu.js` (908 cadde) projede hazır — WFS'e gerek yok.
+2. `KADIKENDİ` bbox'ında local SHP'te **335 cadde** var (dün WFS'te 5'ti) — local çok daha kapsamlı.
+3. **Sonnet'in `maps-address.js` hatalı:** `CADDE_SOKAK_ADI` alanı arıyor ama 15_alti.js'te **YOK** (doğrusu `CADDE_SO_1` + `CADDE_SO_2`).
+4. `MAHALLE_AD` Türkçe karakter sorunlu (`KADIKENDI` vs `KADIKENDİ`) + tutarsız — bbox filtresi doğru yol.
+
+### ✅ Yapılanlar
+1. **`public/js/maps-address.js` (YENİ)** — Sonnet'ten düzeltilmiş:
+   - `caddeAdi()` → `CADDE_SO_1 + ' ' + CADDE_SO_2` (doğru alan)
+   - `buildTumCaddeler()` → 15_alti+15_ustu birleştir (3775 benzersiz cadde)
+   - `caddelerInBbox()` → bbox filtresi (MAHALLE_AD'a güvenme)
+   - `sokakAra()` → "8125" → "8125 SOKAK"
+   - `nearestRoadAnd15()` → 15m ALT/ÜST kararı (local)
+   - `parseAdres()` → adres çözümleme
+2. **Blade (create+edit)** — script tag'lar: `15_alti.js` + `15_ustu.js` + `maps-address.js`
+   - Mahalle-bul handler'ı **local-first**: `aykomeCaddelerInBbox` → WFS yedek
+   - 15m kontrol butonu **local**: `aykome15mKontrol` (roadQuery yerine)
+3. **MapsController** — `wfsCaddeBul` Eyyübiye bbox default (önceki sprintten kalan)
+4. **Harita katman** — Google uydu HTTP→HTTPS + Esri yerine Google uydu
+
+### ✅ Canlı Test Sonuçları
+- `buildTumCaddeler()` → **3775 cadde**
+- `sokakAra('8125')` → **"8125 SOKAK"**
+- `caddelerInBbox(KADIKENDİ)` → **288 cadde** (11 NISAN ÇARSISI, 2078, 8001...)
+- `nearestRoadAnd15(38.74,37.14)` → `{source:'ustu', cadde:'8010 SOKAK', genislik:'20'}` → **15m ÜSTÜ**
+
+### 📁 Değişen Dosyalar
+- `public/js/maps-address.js` (yeni), `resources/views/admin/applications/create+edit.blade.php`
+- `resources/views/maps/index.blade.php` + `_harita.blade.php` (HTTPS Google uydu + search)
+- `app/Http/Controllers/MapsController.php` (Eyyübiye bbox)
+- `claude_opus/` (Sonnet dosyaları — referans)
+
+---
+## Sprint 10 — OPUS WFS ÇÖZÜMÜ ENTEGRASYONU (WFS 1.1.0 + BBOX + mahalleler öncache)
+
+### 🎯 Öz
+Kullanıcı WMS konum sorununu Claude Opus 4.5'e verdi; Opus `claude_opus/` klasörüne 3 dosya koydu (`MapsController.php`, `maps_routes.php`, `adres_cascading_blade.html`). Canlı WFS testleriyle doğrulayıp Opus'un İYİ kısımlarını mevcut sisteme entegre ettik; hatalı kısımlarını (trUpper, m_Numarataj) eledik.
+
+### ✅ Opus'un Doğrulanan İyi Katkıları (entegre)
+1. **WFS 1.1.0** — 2.0.0'dan daha stabil. Canlı test: `ILCE_NO='63011'` → 165 Eyyübiye mahallesi, `BBOX=...` → cadde geldi.
+2. **`BBOX` query parametresi** — `BBOX="minLng,minLat,maxLng,maxLat,EPSG:4326"` (CQL'deki karmaşık `BBOX(GEOMETRY,...)`'den basit).
+3. **`mahalleler` öncache endpoint** (`GET /maps/mahalleler`) — tüm Eyyübiye mahalleleri cache'li (1 saat), client-side arama. Frontend autocomplete artık önyüklü listeden filtreler (API isteği yok).
+4. **Cascading autocomplete** — mahalle yazınca öneri dropdown, seçince cadde listesi otomatik (''Bul'' tetik alır).
+
+### ❌ Opus'un Hatalı Kısımları (Elenen)
+1. **`trUpper()` yanlış** — `Kadıkendi`→`KADIKENDI` (ASCII I); bizim `trUppercase()` (i→İ, ı→I) doğru, korunan.
+2. **`smpns:m_Numarataj` (kapı) 500 hatası** — canlı testte XML ExceptionReport; Opus'un `kapiNumaralari` endpoint'i çalışmayacak. Çözüm: `kapiNoAra()` bina fallback (`smpns:MISMAP_NUM_BINA.ULUSAL_BINA_NO` + ADA/PARSEL/MAHALLE).
+
+### ✅ Backend Yeni
+- `wfsGet(array $params)` — ortak WFS 1.1.0 HTTP client (SSL verify=false)
+- `mahalleler(Request)` — tüm Eyyübiye mahalleleri (cache 1h, ?q= filtre)
+- `kapiNoAra(Request)` — bina fallback (ULUSAL_BINA_NO)
+- `centroid()`, `flattenCoords()`, `getBbox()` — GeoJSON geometri yardımcıları
+- route: `GET /maps/mahalleler`, `GET /maps/kapi-no`
+
+### ✅ Frontend Yeni (create + edit)
+- Mahalle inputuna **cascading autocomplete**: sayfa yüklenirken `fetch('/maps/mahalleler')` → client-side filtre (yazınca anında) → seçimde input dolar + "🔍 Bul" otomatik tetiklenir.
+
+### ✅ Canlı WFS Doğrulama
+- `mahalleler` (ILCE_NO=63011) → **165 mahalle** (BATIKENT, BÜYÜKHAN, YENİCE, KÜÇÜKHAN, BEYAZYAPRAK...)
+- Bina fallback → 5 bina BBOX'ta (ADA/PARSEL/MAHALLE dolu, m geen no tespit)
+
+### 📁 Değişen Dosyalar
+- `app/Http/Controllers/MapsController.php` (+wfsGet, mahalleler, kapiNoAra, centroid, getBbox)
+- `routes/web.php` (+mahalleler, kapi-no)
+- `resources/views/admin/applications/create.blade.php`, `edit.blade.php` (cascading autocomplete + önyükleme)
+- `claude_opus/` (Opus dosyaları — referans)
+- `SESSION_SUMMARY.md`
+
+### ⚠️ Bilinen Sınır
+- Gerçek kapı numarası WMS'te yok (m_Numarataj 500). Bina fallback (`ULUSAL_BINA_NO`) çalışır ama kapı no eşleşmesi sınırlı. Kullanıcı kapı no için bina veya serbest metin kullanır.
+
+---
+## Sprint 9b — WMS ADRES BULMA DÜZELTMELERİ (Türkçe İ + tam bbox nokta atışı)
+
+### 🎯 Öz
+Sprint 9a'da kurulan WMS adres bulma "işe yaramadı" raporu üzerine debug + kök neden çözüldü. Kullanıcının gerçek adresi **"8125. Sk. 122 Kadıkendi, 63000 Eyyübiye/Şanlıurfa"** ile uçtan uca canlı WMS testi geçti.
+
+### 🐛 Kök Nedenler
+1. **parseAddress bozuktu** — "8125. Sk. 122 Kadıkendi" girdisinde mahalle boş, kapı=8125 (sokak no), cadde çöp geliyordu. Türkçe adres formatlarına göre yeniden yazıldı: `mahalle='Kadıkendi', cadde='8125', kapi='122'`.
+2. **GeoServer ILIKE Türkçe İ sorunu** — `mb_strtoupper('Kadıkendi')` → `KADIKENDI` (ASCII I) üretiyor ama GeoServer verisi `KADIKENDİ` (Türkçe İ noktalı). `KADIKENDİ` eşleşiyordu, `KADIKENDI` değil. Çözüm: **`trUppercase()`** — Türkçe kurallı büyütme (küçük `i`→`İ`, küçük `ı`→`I`) + `turkeVariants()` (Türkçe/ASCII varyant döngüsü).
+3. **bbox filtre CRS** — `BBOX(GEOMETRY,...)` host'te 0 dönüyor; **`BBOX(GEOMETRY,...,'EPSG:4326')`** (CRS parametresi) şart. Kanıtlandı.
+
+### ✅ Doğru Katman Şemaları (canlı DescribeFeatureType)
+| Katman | Doğru Alan |
+|---|---|
+| `cbs:MISMAP_MAHALLE_KOYLER` | `MAHALLE_ADI` |
+| `cbs:MISMAP_CADDE_SOKAK` | `CADDE_SOKAK_ADI` |
+
+### ✅ Nokta Atışı (tam bbox)
+- `wfsMahalleBul` artık mahalle poligonunun TAM bbox'ını dönruyor
+- `wfsCaddeBul` caddeyi **mahalle bbox'ı içinde** arıyor → "8125 SOKAK" 2 yerde varsa (38.84 & 38.74) Kadıkendi'deki (38.74) seçilir
+
+### ✅ E2E Canlı Test (kullanıcının adresi)
+```
+PARSE: mah=Kadıkendi cad=8125
+MAHALLE OK: KADIKENDİ
+CADDE '8125': 1
+  OK: 8125 SOKAK
+```
+
+### 📁 Değişen Dosyalar
+- `app/Http/Controllers/MapsController.php` (parseAddress, trUppercase, turkeVariants, wfsMahalleBul/CaddeBul bbox)
+
+---
+## Sprint 9a — WMS NOKTA ATIŞI ADRES BULMA (Mahalle→Cadde→Sokak→Kapı)
+
+### 🎯 Öz
+Başvuru formlarına (create+edit) WMS tabanlı nokta atışı adres bulma kuruldu. İki yöntem: (1) adresi tam yaz → backend mahalle/cadde/kapı ayırır → WMS doğrular → haritada göster; (2) mahalle yaz → "🔍 Bul" → o mahallenin tüm cadde/sokakları gelir → autocomplete ile seç. Aykome Maps'teki ada/parsel mantığının mahalle/cadde uyarlaması.
+
+### ✅ Backend (`MapsController`)
+- `adresAra(q)` — parseAddress() ile mahalle/cadde/kapı ayırır; WFS sırası: `MAHALLE_KOYLER`→`CADDE_SOKAK`. Cache 10dk.
+- `mahalleCaddeler(mahalle)` — mahalle poligonu (`MAHALLE_ADI ILIKE`) → bbox → `BBOX(GEOMETRY,...,'EPSG:4326')` ile o mahallenin TÜM caddeleri.
+- route: `GET /maps/adres-ara`, `GET /maps/mahalle-caddeler`
+- **DOĞRULANMIŞ ŞEMA (canlı GeoServer testi):**
+  - Mahalle katmanı `cbs:MISMAP_MAHALLE_KOYLER` → `MAHALLE_ADI` (MAHALLE_AD YANLIŞ)
+  - Cadde katmanı `cbs:MISMAP_CADDE_SOKAK` → `CADDE_SOKAK_ADI` (CADDE_SO_1/2 YOK)
+  - `BBOX` filtresinde CRS şart: `BBOX(GEOMETRY, minx,miny,maxx,maxy,'EPSG:4326')` (native bbox 0 döner)
+  - INTERSECTS tam poligon CRS uyumsuz — BBOX-CRS doğru yöntem
+
+### ✅ Frontend (create + edit)
+- "📍 Konum Bul" butonu + locSpin spinner → `maps/adres-ara` → pulse marker + tooltip (cadde adı) 2 haritada (`appDrawMap` + `appCbsMap`) + animasyonlu `flyTo`
+- "+ Mahalle & Sokak Ekle": her mahalle satırında "🔍 Bul" butonu → `mahalle-caddeler` → ufak dropdown (autocomplete) → seçince cadde satırı eklenir (tekrar WMS gitme gerekmez)
+- Her cadde satırında "📍" (Göster) butonu → WMS'ten tek cadde ara → pulse marker
+- `search-spinner` + `locSpin`/`locPulse` animasyon CSS
+
+### ✅ Doğrulama
+- Canlı WMS testi: EYYÜBİYE mahallesi poligonu (63 nokta) + "3097 SOKAK", "3129 SOKAK" vb. 5 cadde geldi
+- php -l, route:list, view:cache, node --check her iki dosya OK
+
+### 📁 Değişen Dosyalar
+- `app/Http/Controllers/MapsController.php` (+adresAra, mahalleCaddeler, parseAddress, wfs* yardımcıları)
+- `routes/web.php` (+2 route)
+- `resources/views/admin/applications/create.blade.php`, `edit.blade.php`
+- `SESSION_SUMMARY.md`
+
+---
+
 ## Sprint 10 — BİLGİ KATMANI (Dinamik Alan Seçici) + Üst Yazı Hasar Düzeltmeleri
 
 ### 🎯 Öz
@@ -642,3 +785,13 @@ BETA→PRO: Başvuru formuna gömülü, **sıfır maliyet / offline / LLM'siz** 
 - **Geliştirme:** macOS (Apple Silicon) + OrbStack; hedef sunucu Windows Server 2025 + Docker
 - **Oracle:** `aykome_user/aykome123@FREEPDB1` (port 1521), ağ `aykome_default`
 - **Kullanıcı tercihleri:** butonlar `bg-blue-600 text-white font-bold` + inline style; modallar `z-[99999] fixed`; tüm metinler Türkçe
+
+### ✅ Kullanıcı GÖREVİ: Haritada Tam Yerleşim Fixleri (UI Placement) — commit 7e52753
+- **GÖREV 1 — Koordinat (lat/lon) ile bul:** create/edit.blade.php'de Adres (`address_text`) div'inin bittiği yerin ALTINA, "Mahalle & Sokak Listesi" kısmının HEMEN ÜSTÜNE `coord_lat` + `coord_lon` + `btn_coord_search` ("📌 Koordinatla Konumlan") bloğu eklendi. JS: `btn_coord_search` → parse + Şanlıurfa bbox doğrulama (33-43 / 26-45) → `haritadaGoster(lat, lon)` (pulse marker + flyTo, 2 harita). `coord-result-info` ile durum mesajı.
+- **GÖREV 2 — Harita İçi arama (Leaflet L.Control):** create/edit'teki `#draw-search-box` DOM overlay'i (haritanın DIŞINDA/harf) KALDIRILDI. Yerine initMap içinde `L.Control.extend` → `mapInsideSearch` input + `btn_map_inside_search` → `/maps/adres-ara` fetch → başarılıysa `haritadaGoster` animasyonu. KeyDown Enter ve click tetikli.
+- **_harita.blade.php partial:** HTML gömülü arama overlay'i (`cbs-search-input`/`cbs-coord-input`) de aynı şekilde native `L.Control`'e çevrildi (`cbs-native-search`/`cbs-native-coord`), id çakışmasız (canvas-scoped yerine kontrol içi closure). Adres arama `/maps/adres-ara`, koordinat Enter ile pulse + flyTo.
+- **Korundu:** geo4/geo3 WMS/WFS, proxy, `/maps` route'ları, hiçbir endpoint logic'i değişmedi.
+
+### 🔧 GERİ BİLDİRİM DÜZELTMESİ — commit ef33a13
+- **GÖREV 1:** Çift koordinat kutusu (ayrık `coord_lat`+`coord_lon`) tamamen silindi → tek `coord_single_input` + "Kordinat İle Bul" butonu (bg #0ea5e9, `sm:col-span-2`, Tailwind ile hizalandı). JS: `.split(',')` + regex fallback (`;` `/` `|` boşluk), Şanlıurfa bbox doğrulaması, `haritadaGoster(parsedLat, parsedLng, 'Özel Koordinat Konumu')`.
+- **GÖREV 2:** `_harita.blade.php` (CBS referans/WMS haritası) üzerindeki `Leaflet L.Control` arama + HTML overlay + `cbs-search-*` CSS'i tamamen kaldırıldı. Arama artık SADECE ana çizim haritasının (`initMap` içindeki `MapInsideSearchControl`) üzerinde.

@@ -76,6 +76,15 @@ Route::middleware(['auth'])->prefix('maps')->name('maps.')->group(function () {
 
     // CBS v7 — Adres Arama (Nominatim proxy)
     Route::get('/ara',                       [MapsController::class, 'search'])->name('ara');
+
+    // WMS NOKTA ATIŞI ADRES BULMA — mahalle/cadde/kapı (S2S GeoServer)
+    Route::match(['get', 'post'], '/adres-ara',   [MapsController::class, 'adresAra'])->name('adres-ara');
+    Route::get('/mahalle-caddeler',             [MapsController::class, 'mahalleCaddeler'])->name('mahalle-caddeler');
+
+    // WMS CASCADING — Opus mantığı (WFS 1.1.0 + BBOX + öncache)
+    Route::get('/mahalleler',                [MapsController::class, 'mahalleler'])->name('mahalleler');
+    Route::get('/kapi-no',                   [MapsController::class, 'kapiNoAra'])->name('kapi-no');
+    Route::get('/cadde-veri',                [MapsController::class, 'caddeVeri'])->name('cadde-veri');
 });
 
 Route::middleware(['auth', 'role:super-admin'])->prefix('db-switch')->name('db-switch.')->controller(\App\Http\Controllers\DatabaseSwitcherController::class)->group(function () {

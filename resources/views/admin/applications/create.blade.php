@@ -6,6 +6,18 @@
     <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
     <link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.draw.css') }}" />
     <style>
+        /* WMS KONUM BUL ANİMASYONU */
+        @keyframes locSpin { to { transform: rotate(360deg); } }
+        @keyframes locPulse {
+            0% { box-shadow: 0 0 0 0 rgba(232,119,34,0.7); }
+            70% { box-shadow: 0 0 0 14px rgba(232,119,34,0); }
+            100% { box-shadow: 0 0 0 0 rgba(232,119,34,0); }
+        }
+        .loc-marker { background:#E87722; width:16px; height:16px; border-radius:50%; border:3px solid #fff; animation: locPulse 1.5s infinite; }
+        .loc-tooltip { background:#0f172a !important; color:#fff !important; border:none !important; border-radius:6px !important; padding:2px 8px !important; font-size:11px !important; font-weight:600 !important; box-shadow:0 2px 8px rgba(0,0,0,0.3) !important; }
+        .loc-tooltip::before { border-top-color:#0f172a !important; }
+        .search-spinner { display:inline-block;width:14px;height:14px;border:2px solid #e2e8f0;border-top-color:#E87722;border-radius:50%;animation:searchSpin 0.6s linear infinite;vertical-align:middle;margin-right:6px }
+        @keyframes searchSpin { to { transform: rotate(360deg); } }
         #application-drawing-map { min-height: 500px; position: relative; z-index: 1; }
         #application-drawing-map .leaflet-container { border-radius: 0.75rem; }
         .leaflet-pane { z-index: 10 !important; }
@@ -230,12 +242,36 @@
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium text-slate-700" for="address_text">Adres</label>
                         <div class="mt-1 flex gap-2">
-                            <input id="address_text" type="text" name="address_text" value="{{ old('address_text') }}" class="block w-full rounded-lg border-slate-300 shadow-sm @error('address_text') border-red-300 ring-red-100 @enderror" placeholder="Adres girin">
+                            <input id="address_text" type="text" name="address_text" value="{{ old('address_text') }}" class="block w-full rounded-lg border-slate-300 shadow-sm @error('address_text') border-red-300 ring-red-100 @enderror" placeholder="Mahalle, cadde/sokak, kapı no girin (örn: 15 Temmuz Mah. 123. Sokak 5)">
+                            <button type="button" id="btn-find-location" class="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 whitespace-nowrap">
+                                <span id="find-loc-spinner" class="hidden" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:locSpin .6s linear infinite;vertical-align:middle;margin-right:6px"></span>
+                                📍 Konum Bul
+                            </button>
+                        </div>
+                        <p id="loc-result-info" class="mt-1 text-xs text-slate-500"></p>
+                        {{-- 15M ALT/ÜST KONTROLÜ — konum bulunduktan sonra görünür --}}
+                        <div id="road15-wrap" class="mt-1 hidden flex-wrap items-center gap-2">
+                            <button type="button" id="btn-road15" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700">
+                                <span id="road15-spinner" class="hidden" style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:locSpin .6s linear infinite;vertical-align:middle;margin-right:5px"></span>
+                                📏 15m Yol Kontrolü
+                            </button>
+                            <span id="road15-result" class="rounded-full px-3 py-1 text-[11px] font-bold hidden"></span>
                         </div>
                         @error('address_text')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
+
+                    <div class="flex items-center gap-3 mt-4 mb-2 w-full p-2 bg-gray-50/50 border border-gray-100 rounded shadow-sm sm:col-span-2">
+                        <div class="relative w-full">
+                            <span class="absolute left-3 top-2 text-gray-500">📍</span>
+                            <input type="text" id="coord_single_input" placeholder="Tam koordinatı buraya kopyalayın (Örn: 37.161939, 38.775730)" class="form-control text-sm w-full py-2 pl-9 pr-3 border border-gray-300 rounded focus:border-teal-400 focus:ring-1">
+                        </div>
+                        <button type="button" id="btn_coord_search" class="btn text-white font-semibold text-sm px-5 py-2 rounded shadow transition whitespace-nowrap" style="background-color: #0ea5e9;">
+                            Kordinat İle Bul
+                        </button>
+                    </div>
+                    <p id="coord-result-info" class="mb-2 text-xs text-slate-500"></p>
 
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium text-slate-700">Mahalle & Sokak Listesi</label>
@@ -246,6 +282,13 @@
                         <button type="button" id="add-address-component-btn" class="mt-2 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition">
                             + Mahalle & Sokak Ekle
                         </button>
+                        <div class="mt-2 flex flex-wrap items-center gap-2">
+                            <button type="button" id="toplu-kontrol-btn" class="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">
+                                🧮 Toplu Kontrol Et (15m + Tüm Bilgiler)
+                            </button>
+                            <span id="toplu-kontrol-spinner" class="text-[10px] text-slate-500 hidden"> Kontrol ediliyor…</span>
+                        </div>
+                        <div id="toplu-kontrol-sonuc" class="mt-2 hidden"></div>
                         @error('address_components')
                             <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                         @enderror
@@ -523,6 +566,8 @@
 @endsection
 
 @push('scripts')
+    {{-- ADRES ARAMA MODÜLÜ — cadde/sokak geometrileri kendisi /maps/15m/alti + /maps/15m/ustu'dan yükler --}}
+    <script src="{{ asset('js/maps-address.js') }}"></script>
     <script>
         window.imzaKartGuncelle = function () {
             const kart = document.getElementById('imza-yetkili-karti');
@@ -1085,20 +1130,68 @@
             var map = L.map('application-drawing-map', {
                 center: defaultCenter,
                 zoom: 14,
-                zoomControl: true,
+                zoomControl: false,
             });
+
+            // CBS "Koordinat ile Bul" → çizim haritasına da konum göstermek için
+            window.aykomeDrawingGoster = function (lat, lon, label) {
+                var mk = window._drawingSearchMarker;
+                if (mk) map.removeLayer(mk);
+                window._drawingSearchMarker = L.marker([lat, lon], {
+                    icon: L.divIcon({ className: '', html: '<div style="background:#FA6001;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(250,96,1,.3);"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+                }).addTo(map).bindPopup('<b>' + (label || '') + '</b><br>Koordinat ile bulundu').openPopup();
+                map.flyTo([lat, lon], 17, { animate: true, duration: 1 });
+            };
 
             var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 22, maxNativeZoom: 19, attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
             });
-            var satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 22, maxNativeZoom: 19, attribution: '&copy; <a href="https://esri.com">Esri</a>',
+            var satellite = L.tileLayer('https://mt0.google.com/vt/lyrs=s&hl=tr&x={x}&y={y}&z={z}', {
+                maxZoom: 22, maxNativeZoom: 19, attribution: '&copy; <a href="https://google.com">Google</a>',
             });
             var terrain = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
                 maxZoom: 22, maxNativeZoom: 17, attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
             });
             osm.addTo(map);
-            L.control.layers({ Standart: osm, Uydu: satellite, Arazi: terrain }, null, { position: 'topleft' }).addTo(map);
+            L.control.zoom({ position: 'bottomright', zoomInTitle: 'Yakınlaştır', zoomOutTitle: 'Uzaklaştır' }).addTo(map);
+            L.control.layers({ Standart: osm, Uydu: satellite, Arazi: terrain }, null, { position: 'topright' }).addTo(map);
+
+            // ─── HARİTA-İÇİ ADRES ARAMA (Leaflet L.Control — harita yüzeyine gömülü, blade'de input YOK) ────
+            var MapInsideSearchControl = L.Control.extend({
+                options: { position: 'topleft' },
+                onAdd: function () {
+                    var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+                    L.DomEvent.disableClickPropagation(div);
+                    L.DomEvent.disableScrollPropagation(div);
+                    div.style.cssText = 'display:flex;align-items:center;gap:2px;padding:4px;background:#fff;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.2);';
+                    div.innerHTML = '<input type="text" id="mapInsideSearch" placeholder="Cadde, sokak ara..." autocomplete="off" class="px-2 py-1 w-64 border rounded shadow" style="font-size:13px;border:1px solid #cbd5e1;outline:none;"> <button type="button" id="btn_map_inside_search" class="bg-blue-600 text-white px-2 py-1 rounded" style="border:none;cursor:pointer;font-size:13px;">Ara</button>';
+                    return div;
+                }
+            });
+            map.addControl(new MapInsideSearchControl());
+
+            var mapInsideSearchGo = function () {
+                var inp = document.getElementById('mapInsideSearch');
+                var btn = document.getElementById('btn_map_inside_search');
+                var q = (inp ? inp.value : '').trim();
+                if (q.length < 3) { alert('Lütfen cadde, sokak veya mahalle adı girin.'); return; }
+                if (btn) btn.textContent = '...';
+                fetch(@json(route('maps.adres-ara')) + '?q=' + encodeURIComponent(q))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (btn) btn.textContent = 'Ara';
+                        if (d && d.success && d.lat) {
+                            haritadaGoster(parseFloat(d.lat), parseFloat(d.lon), d.cadde || d.detail || q);
+                        } else {
+                            alert(d.message || 'Cadde sistemde bulunamadı.');
+                        }
+                    })
+                    .catch(function () { if (btn) btn.textContent = 'Ara'; alert('Arama servisi yanıt vermedi.'); });
+            };
+            document.getElementById('btn_map_inside_search')?.addEventListener('click', mapInsideSearchGo);
+            document.getElementById('mapInsideSearch')?.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); mapInsideSearchGo(); }
+            });
 
             // Style panel
             var styleRow = document.getElementById('map-style-panel');
@@ -1663,6 +1756,164 @@
         // Sadece veri girişi: mahalle + cadde/sokak listesini address_components
         // hidden alanına serileştirir. Haritaya otomatik gitme YOK (yeşil arama
         // bağlantıları + geocode kaldırıldı).
+        // ─── WMS KONUM GÖSTER (2 harita: çizim + CBS) ─────────────────────
+        function wmsMaps() {
+            return [
+                window.appDrawMap || (window.map || null),
+                window.appCbsMap || (window.cbsMap || null)
+            ].filter(Boolean);
+        }
+
+        // Pulse marker + animasyonlu flyTo + cadde etiketi — 2 haritada
+        function haritadaGoster(lat, lon, etiket) {
+            var maps = wmsMaps();
+            if (!maps.length) return;
+            maps.forEach(function (m) {
+                var key = m === (window.appDrawMap || window.map) ? '_locMarkerMain' : '_locMarkerCbs';
+                if (window[key]) m.removeLayer(window[key]);
+                var mk = L.marker([lat, lon], {
+                    icon: L.divIcon({ className: '', html: '<div class="loc-marker"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+                }).addTo(m);
+                if (etiket) {
+                    mk.bindTooltip(etiket, { permanent: true, direction: 'top', offset: [0, -12], className: 'loc-tooltip' }).openTooltip();
+                }
+                window[key] = mk;
+                if (typeof m.flyTo === 'function') {
+                    m.flyTo([lat, lon], 17, { animate: true, duration: 1 });
+                } else if (typeof m.setView === 'function') {
+                    m.setView([lat, lon], 17);
+                }
+            });
+        }
+
+        // Birden çok caddeyi toplu göster + fitBounds
+        function haritadaCaddeleriGoster(caddeler) {
+            var maps = wmsMaps();
+            if (!maps.length) return;
+            var bounds = [];
+            var etiketler = [];
+            maps.forEach(function (m) {
+                if (window._locBatchMain && m === (window.appDrawMap || window.map)) {
+                    m.removeLayer(window._locBatchMain); window._locBatchMain = null;
+                }
+                if (window._locBatchCbs && m === (window.appCbsMap || window.cbsMap)) {
+                    m.removeLayer(window._locBatchCbs); window._locBatchCbs = null;
+                }
+            });
+            var layerGroup = L.layerGroup();
+            caddeler.forEach(function (c) {
+                var marker = L.marker([c.lat, c.lon], {
+                    icon: L.divIcon({ className: '', html: '<div class="loc-marker"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+                });
+                marker.bindPopup('<b>' + (c.etiket || c.name || '') + '</b>');
+                layerGroup.addLayer(marker);
+                bounds.push([c.lat, c.lon]);
+            });
+            var main = window.appDrawMap || window.map;
+            if (main) { layerGroup.addTo(main); window._locBatchMainQt = layerGroup; }
+            if (bounds.length) {
+                maps.forEach(function (m) {
+                    if (typeof m.fitBounds === 'function') m.fitBounds(bounds, { padding: [40, 40], animate: true, duration: 0.8 });
+                });
+            }
+        }
+
+        // ─── KONUM BUL — WMS adres doğrulama (S2S) ─────────────────────────
+        document.getElementById('btn-find-location')?.addEventListener('click', async function () {
+            var input = document.getElementById('address_text');
+            var spinner = document.getElementById('find-loc-spinner');
+            var info = document.getElementById('loc-result-info');
+            var q = input ? input.value.trim() : '';
+            if (!q || q.length < 3) { alert('Lütfen adres girin.'); return; }
+            if (spinner) spinner.classList.remove('hidden');
+            if (info) info.textContent = 'Konum aranıyor...';
+            try {
+                var resp = await fetch(@json(route('maps.adres-ara')) + '?q=' + encodeURIComponent(q));
+                var data = await resp.json();
+                if (data && data.success && data.lat) {
+                    haritadaGoster(parseFloat(data.lat), parseFloat(data.lon), data.cadde || data.detail || '');
+                    if (info) info.textContent = '✅ ' + (data.detail || 'Konum bulundu') + ' (güven: ' + (data.confidence || '') + ')';
+                    // 15m kontrol butonunu göster + son konumu sakla
+                    var wrap = document.getElementById('road15-wrap');
+                    if (wrap) wrap.classList.remove('hidden');
+                    window._sonKonum = { lat: parseFloat(data.lat), lon: parseFloat(data.lon), etiket: data.detail || data.cadde || '' };
+                } else {
+                    if (info) info.textContent = '';
+                    alert(data.message || 'Adres WMS veritabanında bulunamadı.\nLütfen mahalle + cadde/sokak + kapı no formatında girin.');
+                }
+            } catch (e) {
+                console.error('Konum bul hatası:', e);
+                if (info) info.textContent = '';
+                alert('Konum bulma servisi yanıt vermedi.');
+            } finally {
+                if (spinner) spinner.classList.add('hidden');
+            }
+        });
+
+        // ─── KOORDİNAT İLE BUL (tek kutu, virgülle ayrık) — WMS nokta atışı ────
+        document.getElementById('btn_coord_search')?.addEventListener('click', function () {
+            var input = document.getElementById('coord_single_input');
+            var rawCoord = input ? (input.value || '') : '';
+            var info = document.getElementById('coord-result-info');
+            var fail = function (msg, dangerously) {
+                if (info) { info.textContent = msg || 'Geçersiz Koordinat, Lütfen Örnekteki gibi virgüllü ayırarak (X, Y) kopyalayın.'; info.className = 'mb-2 text-xs ' + (dangerously ? 'text-red-600' : 'text-slate-500'); }
+                if (!info) alert(msg || 'Geçersiz Koordinat, Lütfen Örnekteki gibi virgüllü ayırarak (X, Y) kopyalayın.');
+            };
+            if (!rawCoord.trim()) { fail('Lütfen koordinat girin.'); return; }
+            var coords = rawCoord.split(',');
+            // Gelişmiş regex bölücü: virgül yoksa boşluk / noktalı virgül / " - " ayraçlarını da kabul et
+            if (coords.length < 2) {
+                var m = rawCoord.trim().match(/^([-+]?\d+(?:[.,]\d+)?)\s*[,;\s/\-|]+\s*([-+]?\d+(?:[.,]\d+)?)$/);
+                if (m) coords = [m[1], m[2]];
+            }
+            if (coords.length < 2) { fail(); return; }
+            var parsedLat = parseFloat((coords[0] || '').replace(',', '.'));
+            var parsedLng = parseFloat((coords[1] || '').replace(',', '.'));
+            if (!isFinite(parsedLat) || !isFinite(parsedLng) || parsedLat < 30 || parsedLat > 45 || parsedLng < 20 || parsedLng > 50) {
+                fail('⚠️ Geçersiz koordinat — Şanlıurfa bölgesi (33-40 K, 26-45 D) için girin. Farklı bir koordinat mı kopyaladınız?');
+                return;
+            }
+            if (info) { info.textContent = ''; info.className = 'mb-2 text-xs text-slate-500'; }
+            haritadaGoster(parsedLat, parsedLng, 'Özel Koordinat Konumu');
+            if (info) { info.textContent = '📍 Konum haritada işaretlendi: ' + parsedLat.toFixed(6) + ', ' + parsedLng.toFixed(6); info.className = 'mb-2 text-xs text-emerald-700'; }
+        });
+
+        // ─── 15M ALT/ÜST YOL KONTROLÜ — local veri (maps-address.js) ────────
+        document.getElementById('btn-road15')?.addEventListener('click', async function () {
+            var spin = document.getElementById('road15-spinner');
+            var result = document.getElementById('road15-result');
+            var konum = window._sonKonum;
+            if (!konum) { alert('Önce konum bulun.'); return; }
+            if (spin) spin.classList.remove('hidden');
+            if (result) { result.classList.add('hidden'); result.textContent = ''; }
+
+            // Yerel cadde verisi hazır olmasını bekle (JSON + geometri)
+            try { await window.aykomeVeriHazir(); } catch (e) {}
+            if (typeof window.aykome15mKontrol !== 'function') {
+                if (spin) spin.classList.add('hidden');
+                if (result) { result.textContent = '⚠️ Yerel yol verisi yüklenmedi'; result.className = 'rounded-full px-3 py-1 text-[11px] font-bold bg-slate-100 text-slate-600'; result.classList.remove('hidden'); }
+                return;
+            }
+
+            var hit = window.aykome15mKontrol(konum.lat, konum.lon);
+            if (spin) spin.classList.add('hidden');
+            if (!hit) {
+                if (result) { result.textContent = '⚠️ Yakın yol bulunamadı'; result.className = 'rounded-full px-3 py-1 text-[11px] font-bold bg-slate-100 text-slate-600'; result.classList.remove('hidden'); }
+                return;
+            }
+            // source: alti → 15m ALTINDA / ustu → 15m ÜSTÜ
+            var ust = hit.source === 'ustu';
+            var genislik = hit.genislik || '?';
+            var yolAd = hit.cadde || '?';
+            if (result) {
+                result.textContent = ust
+                    ? '🔴 15m ÜSTÜ (genişlik: ' + genislik + 'm) — ' + yolAd
+                    : '🟢 15m ALTINDA (genişlik: ' + genislik + 'm) — ' + yolAd;
+                result.className = 'rounded-full px-3 py-1 text-[11px] font-bold ' + (ust ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700');
+                result.classList.remove('hidden');
+            }
+        });
+
         function esc(v) { return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
         // ─── BOOT ─────────────────────────────────────────────────────────
@@ -1709,8 +1960,14 @@
                         header.className = 'flex items-center gap-2';
                         header.innerHTML =
                             '<input type="text" class="comp-mahalle flex-1 rounded border-slate-300 text-xs shadow-sm" value="' + esc(comp.mahalle) + '" placeholder="Mahalle Adı (örn: 15 TEMMUZ MAHALLESİ)" data-idx="' + idx + '">' +
+                            '<button type="button" class="mahalle-bul flex-shrink-0 rounded bg-cyan-600 px-2 py-1 text-[10px] font-bold text-white hover:bg-cyan-700" data-idx="' + idx + '" title="Bu mahallenin cadde/sokaklarını getir">🔍 Bul</button>' +
                             '<button type="button" class="comp-remove flex-shrink-0 rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600" data-idx="' + idx + '" title="Mahalleyi Kaldır">&times;</button>';
                         wrapper.appendChild(header);
+                        // Cadde/sokak öneri kutusu (WMS mahalleCaddeler sonucu)
+                        var oneri = document.createElement('div');
+                        oneri.className = 'mahalle-cadde-oneri hidden mt-1 max-h-40 overflow-y-auto rounded-lg border border-cyan-200 bg-white text-[11px] shadow-sm';
+                        oneri.setAttribute('data-idx', idx);
+                        wrapper.appendChild(oneri);
 
                         var streetsContainer = document.createElement('div');
                         streetsContainer.className = 'ml-2 space-y-1';
@@ -1721,9 +1978,16 @@
                             sRow.className = 'flex items-center gap-1';
                             sRow.innerHTML =
                                 '<span class="text-[10px] text-slate-400 w-4">' + (si + 1) + '.</span>' +
-                                '<input type="text" class="comp-street flex-1 rounded border-slate-200 text-[11px] shadow-sm" value="' + esc(s) + '" placeholder="Cadde/Sokak adı" data-idx="' + idx + '" data-street-idx="' + si + '">' +
+                                '<input type="text" class="comp-street flex-1 rounded border-slate-200 text-[11px] shadow-sm" value="' + esc(s) + '" placeholder="Cadde/Sokak adı" data-idx="' + idx + '" data-street-idx="' + si + '" data-lat="" data-lon="">' +
+                                '<button type="button" class="street-show flex-shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-700" data-idx="' + idx + '" data-street-idx="' + si + '" title="Haritada göster">📍</button>' +
+                                '<button type="button" class="street-kontrol flex-shrink-0 rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-indigo-700" data-idx="' + idx + '" data-street-idx="' + si + '" title="15m kontrolü ve tüm bilgiler">📋</button>' +
                                 '<button type="button" class="street-remove flex-shrink-0 rounded p-0.5 text-red-300 hover:text-red-500" data-idx="' + idx + '" data-street-idx="' + si + '">&times;</button>';
                             streetsContainer.appendChild(sRow);
+                            var sRes = document.createElement('div');
+                            sRes.className = 'street-kontrol-sonuc ml-6 hidden text-[10px] leading-5';
+                            sRes.setAttribute('data-idx', idx);
+                            sRes.setAttribute('data-street-idx', si);
+                            streetsContainer.appendChild(sRes);
                         });
 
                         wrapper.appendChild(streetsContainer);
@@ -1746,6 +2010,48 @@
                             var idx = parseInt(this.dataset.idx);
                             if (!isNaN(idx) && components[idx]) components[idx].mahalle = this.value;
                             syncHidden();
+                            // MAHALLE AUTOCOMPLETE — önyüklü listeden client-side filtre
+                            var wrapperEl = this.closest('[data-mahalle-idx]');
+                            if (wrapperEl) {
+                                var dd = wrapperEl.querySelector('.mahalle-dd');
+                                if (!dd) {
+                                    dd = document.createElement('div');
+                                    dd.className = 'mahalle-dd hidden mt-1 max-h-40 overflow-y-auto rounded-lg border border-cyan-200 bg-white text-[11px] shadow-sm';
+                                    wrapperEl.insertBefore(dd, wrapperEl.querySelector('.mahalle-cadde-oneri'));
+                                }
+                                var q = this.value.trim().toUpperCase();
+                                var list = window._eyMahalleler || [];
+                                var filt = q.length < 1 ? list : list.filter(function (m) {
+                                    return (m.ad || '').toUpperCase().indexOf(q) !== -1;
+                                });
+                                dd.innerHTML = '';
+                                if (!filt.length) { dd.classList.add('hidden'); return; }
+                                filt.slice(0, 12).forEach(function (m) {
+                                    var it = document.createElement('button');
+                                    it.type = 'button';
+                                    it.className = 'block w-full px-2 py-1 text-left hover:bg-cyan-50 truncate';
+                                    it.textContent = m.ad;
+                                    it.addEventListener('click', function () {
+                                        var inp = wrapperEl.querySelector('.comp-mahalle');
+                                        if (inp) inp.value = m.ad;
+                                        if (components[idx]) components[idx].mahalle = m.ad;
+                                        syncHidden();
+                                        dd.classList.add('hidden');
+                                        // Mahalle Bul'u otomatik tetikle — caddeleri getir
+                                        var bul = wrapperEl.querySelector('.mahalle-bul');
+                                        if (bul) bul.click();
+                                    });
+                                    dd.appendChild(it);
+                                });
+                                dd.classList.remove('hidden');
+                            }
+                        });
+                        el.addEventListener('blur', function () {
+                            var wrapperEl = this.closest('[data-mahalle-idx]');
+                            if (wrapperEl) {
+                                var dd = wrapperEl.querySelector('.mahalle-dd');
+                                if (dd) setTimeout(function () { dd.classList.add('hidden'); }, 250);
+                            }
                         });
                     });
 
@@ -1757,6 +2063,149 @@
                                 components[idx].streets[si] = this.value;
                             }
                             syncHidden();
+                            // Autocomplete: cadde yazınca mahallenin cache'inden filtrele
+                            var val = this.value.trim();
+                            if (val.length >= 2) {
+                                var wrapper = this.closest('[data-mahalle-idx]');
+                                var oneri = wrapper ? wrapper.querySelector('.mahalle-cadde-oneri') : null;
+                                if (oneri && window._mahalleCaddeler) {
+                                    var filt = window._mahalleCaddeler.filter(function (c) {
+                                        return c.name.toLowerCase().indexOf(val.toLowerCase()) !== -1;
+                                    });
+                                    oneri.innerHTML = '';
+                                    filt.slice(0, 8).forEach(function (c) {
+                                        var it = document.createElement('button');
+                                        it.type = 'button';
+                                        it.className = 'block w-full px-2 py-1 text-left hover:bg-cyan-50 truncate';
+                                        it.textContent = c.name;
+                                        it.addEventListener('click', function () {
+                                            var input = this.closest('[data-mahalle-idx]').querySelector('.comp-street[data-street-idx="' + si + '"]');
+                                            if (input) {
+                                                input.value = c.name;
+                                                input.dataset.lat = c.lat;
+                                                input.dataset.lon = c.lon;
+                                                if (components[idx]) components[idx].streets[si] = c.name;
+                                                syncHidden();
+                                            }
+                                            oneri.classList.add('hidden');
+                                        });
+                                        oneri.appendChild(it);
+                                    });
+                                    oneri.classList.remove('hidden');
+                                }
+                            }
+                        });
+                    });
+
+                    // Mahalle Bul — WMS mahalleCaddeler (S2S + cache)
+                    // ─── MAHALLE BUL → CADDE LİSTVİEW + SEARCH ──────────────
+                    container.querySelectorAll('.mahalle-bul').forEach(function (el) {
+                        el.addEventListener('click', async function () {
+                            var idx = parseInt(this.dataset.idx);
+                            var mahalleInput = container.querySelector('.comp-mahalle[data-idx="' + idx + '"]');
+                            var oneri = container.querySelector('.mahalle-cadde-oneri[data-idx="' + idx + '"]');
+                            if (!mahalleInput) return;
+                            var mh = mahalleInput.value.trim();
+                            if (mh.length < 2) { alert('Önce mahalle adı yazın.'); return; }
+
+                            // LISTVIEW: arama inputu + scroll'lu sonuç listesi
+                            function renderCaddeListesi() {
+                                if (!oneri) return;
+                                var q = '';
+                                var aramaInput = oneri.querySelector('.cadde-liste-ara');
+                                if (aramaInput) q = aramaInput.value.trim().toLowerCase();
+                                var liste = oneri.querySelector('.cadde-liste-icerik');
+                                if (!liste) return;
+                                liste.innerHTML = '';
+                                var filt = window._mahalleCaddeler || [];
+                                if (q) filt = filt.filter(function (c) { return (c.name || '').toLowerCase().indexOf(q) !== -1; });
+                                if (!filt.length) { liste.innerHTML = '<div style="padding:8px;color:#94a3b8;text-align:center">Cadde bulunamadı.</div>'; return; }
+                                filt.slice(0, 60).forEach(function (c) {
+                                    var satir = document.createElement('div');
+                                    satir.className = 'flex items-center gap-1 px-2 py-1 hover:bg-cyan-50 cursor-pointer border-b border-slate-50';
+                                    satir.innerHTML = '<span class="flex-1 truncate">' + (c.name || '') + '</span>' +
+                                        '<button type="button" class="cadde-liste-sec flex-shrink-0 rounded bg-cyan-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-cyan-700" title="Ekle">+ Ekle</button>' +
+                                        '<button type="button" class="cadde-liste-goster flex-shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white hover:bg-emerald-700" title="Haritada göster">📍</button>';
+                                    satir.querySelector('.cadde-liste-sec').addEventListener('click', function () {
+                                        if (!components[idx]) return;
+                                        components[idx].streets.push(c.name);
+                                        syncHidden();
+                                        render();
+                                    });
+                                    satir.querySelector('.cadde-liste-goster').addEventListener('click', function () {
+                                        if (c.lat && c.lon) haritadaGoster(parseFloat(c.lat), parseFloat(c.lon), c.name);
+                                    });
+                                    liste.appendChild(satir);
+                                });
+                            }
+
+                            if (oneri) {
+                                oneri.innerHTML =
+                                    '<div style="padding:6px;border-bottom:1px solid #e2e8f0;">' +
+                                        '<input type="text" class="cadde-liste-ara w-full rounded border border-cyan-300 px-2 py-1 text-[11px]" placeholder="Cadde/sokak ara (bu mahallede)..." style="outline:none;">' +
+                                    '</div>' +
+                                    '<div class="cadde-liste-icerik" style="max-height:220px;overflow-y:auto;"></div>';
+                                oneri.classList.remove('hidden');
+                                oneri.querySelector('.cadde-liste-ara').addEventListener('input', renderCaddeListesi);
+                                oneri.querySelector('.cadde-liste-ara').addEventListener('keydown', function (e) {
+                                    if (e.key === 'Enter') { e.preventDefault(); renderCaddeListesi(); }
+                                });
+                                oneri.querySelector('.cadde-liste-ara').focus();
+                            }
+                            try {
+                                // ── Yerel veri hazır olsun (JSON + geometri) ──
+                                await window.aykomeVeriHazir();
+                                window._mahalleCaddeler = [];
+                                var mahalleBbox = (window._eyMahalleler || []).find(function (m) {
+                                    return (m.ad || '').toUpperCase() === (mh || '').toUpperCase();
+                                });
+                                if (mahalleBbox && mahalleBbox.bbox && typeof window.aykomeCaddelerInBbox === 'function') {
+                                    window._mahalleCaddeler = window.aykomeCaddelerInBbox(mahalleBbox);
+                                }
+                                if (!window._mahalleCaddeler.length && typeof window.aykomeCaddelerInBbox === 'function') {
+                                    // İlçe geniş bbox fallback (Eyyübiye)
+                                    window._mahalleCaddeler = window.aykomeCaddelerInBbox({ minLng: 38.60, minLat: 36.90, maxLng: 39.00, maxLat: 37.30 });
+                                }
+                                // ── YEDEK: WFS proxy ──
+                                if (!window._mahalleCaddeler.length) {
+                                    var resp = await fetch(@json(route('maps.mahalle-caddeler')) + '?mahalle=' + encodeURIComponent(mh));
+                                    var data = await resp.json();
+                                    window._mahalleCaddeler = (data && data.caddeler) ? data.caddeler : [];
+                                }
+                                renderCaddeListesi();
+                            } catch (e) {
+                                console.error('Mahalle cadde hatası:', e);
+                                if (oneri) oneri.classList.add('hidden');
+                            }
+                        });
+                    });
+
+                    // Her cadde için "Göster" — WMS'te nokta atışı
+                    container.querySelectorAll('.street-show').forEach(function (el) {
+                        el.addEventListener('click', function () {
+                            var sRow = this.closest('.flex');
+                            var input = sRow ? sRow.querySelector('.comp-street') : null;
+                            if (!input) return;
+                            var lat = parseFloat(input.dataset.lat);
+                            var lon = parseFloat(input.dataset.lon);
+                            var name = input.value.trim();
+                            if (!name) { alert('Cadde/sokak adı girin.'); return; }
+                            if (!isNaN(lat) && !isNaN(lon)) {
+                                haritadaGoster(lat, lon, name);
+                                return;
+                            }
+                            // WMS'ten tek cadde ara
+                            fetch(@json(route('maps.adres-ara')) + '?q=' + encodeURIComponent(name))
+                                .then(function (r) { return r.json(); })
+                                .then(function (d) {
+                                    if (d && d.success && d.lat) {
+                                        input.dataset.lat = d.lat; input.dataset.lon = d.lon;
+                                        haritadaGoster(parseFloat(d.lat), parseFloat(d.lon), d.cadde || name);
+                                    } else {
+                                        alert('Cadde sistemde bulunamadı.');
+                                    }
+                                })
+                                .catch(function () { alert('Sorgu hatası.'); });
                         });
                     });
 
@@ -1769,6 +2218,26 @@
                                 syncHidden();
                                 render();
                             }
+                        });
+                    });
+
+                    container.querySelectorAll('.street-kontrol').forEach(function (el) {
+                        el.addEventListener('click', async function () {
+                            var idx = parseInt(this.dataset.idx);
+                            var si = parseInt(this.dataset.streetIdx);
+                            if (isNaN(idx) || isNaN(si) || !components[idx] || !components[idx].streets || !components[idx].streets[si]) return;
+                            var streetName = (components[idx].streets[si] || '').trim();
+                            var mahalle = (components[idx].mahalle || '').trim();
+                            var resEl = container.querySelector('.street-kontrol-sonuc[data-idx="' + idx + '"][data-street-idx="' + si + '"]');
+                            if (!streetName) {
+                                if (resEl) { resEl.classList.remove('hidden'); resEl.textContent = 'Önce cadde/sokak adı girin.'; }
+                                return;
+                            }
+                            try { await window.aykomeVeriHazir(); } catch (e) {}
+                            var d = (typeof window.aykomeSokakDetay === 'function') ? window.aykomeSokakDetay(mahalle, streetName) : null;
+                            if (!resEl) return;
+                            resEl.classList.remove('hidden');
+                            resEl.innerHTML = streetDetayHtml(d, mahalle, streetName).html;
                         });
                     });
 
@@ -1804,7 +2273,117 @@
                 render();
             }
 
+            // WMS MAHALLE ÖN YÜKLEME — cascading autocomplete için (Opus mantığı)
+            window._eyMahalleler = [];
+            try {
+                fetch(@json(route('maps.mahalleler')))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (d && d.success) window._eyMahalleler = d.data || [];
+                    })
+                    .catch(function () { /* sessiz */ });
+            } catch (e) { /* sessiz */ }
+
             initAddressComponents();
+
+            // ─── CADDE KONTROL SONUCU RENDER (tek satır + toplu için ortak) ──
+            function streetDetayHtml(d, mahalle, query) {
+                if (!d) {
+                    return {
+                        html: '<span class="inline-block rounded bg-red-100 px-2 py-0.5 font-bold text-red-700">⚠️ Bulunamadı</span> ' +
+                              '<span class="text-slate-500">' + esc(mahalle + (mahalle ? ' / ' : '') + query) + ' eşleşen kayıt bulunamadı.</span>',
+                        sorumluluk: null
+                    };
+                }
+                var ust = (d.sorumluluk || '').indexOf('ÜSTÜ') !== -1;
+                var badge = '<span class="inline-block rounded-full px-2 py-0.5 font-bold ' +
+                    (ust ? 'bg-amber-100 text-amber-700' : 'bg-sky-100 text-sky-700') + '">' +
+                    esc(d.sorumluluk || '') + '</span>';
+                var cols = [
+                    ['Türü', d.turu], ['Genişlik', d.genislik ? d.genislik + ' m' : '—'],
+                    ['Uzunluk', d.uzunluk ? d.uzunluk + ' m' : '—'], ['Şerit', d.serit || '—'],
+                    ['Trafik Yönü', d.trafik_yolu || '—'], ['Kaplama', d.kaplama || '—'],
+                    ['An Arter', d.arter || '—'], ['UAVT Tür', d.uavt_turu || '—']
+                ];
+                var info = cols.map(function (c) {
+                    return '<span class="whitespace-nowrap"><b>' + c[0] + ':</b> ' + esc(c[1] == null ? '—' : String(c[1])) + '</span>';
+                }).join(' &nbsp;·&nbsp; ');
+                var caddeNo = (d.cadde_soka == null ? '' : d.cadde_soka);
+                return {
+                    html: badge +
+                        '<div class="mt-0.5 text-slate-600">' + info + '</div>' +
+                        '<div class="text-[10px] text-slate-400">' + esc(d.mahalle || '') + ' · ' + esc(d.cadde_adi || '') + ' · Sokak No: ' + esc(caddeNo) + '</div>',
+                    sorumluluk: d.sorumluluk
+                };
+            }
+
+            // ─── TOPLU KONTROL ET ────────────────────────────────
+            var topluBtn = document.getElementById('toplu-kontrol-btn');
+            var topluSonuc = document.getElementById('toplu-kontrol-sonuc');
+            var topluSpin = document.getElementById('toplu-kontrol-spinner');
+            if (topluBtn) topluBtn.addEventListener('click', async function () {
+                var hiddenInput = document.getElementById('address_components');
+                if (!hiddenInput) return;
+                var comps = [];
+                try { comps = JSON.parse(hiddenInput.value || '[]'); } catch (e) { comps = []; }
+                if (!Array.isArray(comps)) comps = [];
+
+                var toplamCadd = comps.reduce(function (n, c) { return n + (Array.isArray(c.streets) ? c.streets.length : 0); }, 0);
+                if (toplamCadd === 0) {
+                    topluSonuc.classList.remove('hidden');
+                    topluSonuc.innerHTML = '<div class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">Önce en az bir mahalle ve cadde/sokak ekleyin.</div>';
+                    return;
+                }
+
+                topluBtn.disabled = true;
+                if (topluSpin) topluSpin.classList.remove('hidden');
+                if (topluSonuc) topluSonuc.classList.add('hidden');
+                try { await window.aykomeVeriHazir(); } catch (e) {}
+
+                var satirlar = [];
+                var sayac = { alt: 0, ust: 0, yok: 0 };
+                comps.forEach(function (c, ci) {
+                    var mah = (c.mahalle || '').trim();
+                    (c.streets || []).forEach(function (s, si) {
+                        var ad = (s || '').trim();
+                        if (!ad) return;
+                        var d = (typeof window.aykomeSokakDetay === 'function') ? window.aykomeSokakDetay(mah, ad) : null;
+                        if (!d) { sayac.yok++; } else if ((d.sorumluluk || '').indexOf('ÜSTÜ') !== -1) { sayac.ust++; } else { sayac.alt++; }
+                        satirlar.push({ m: mah, mIdx: ci, si: si, ad: ad, d: d });
+                    });
+                });
+
+                var ozet = '<div class="mb-2 flex flex-wrap items-center gap-2">' +
+                    '<span class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-700">🔵 15 Metre Altı: ' + sayac.alt + '</span>' +
+                    '<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">🟡 15 Metre Üstü: ' + sayac.ust + '</span>' +
+                    '<span class="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">❌ Bulunamadı: ' + sayac.yok + '</span>' +
+                    '<span class="text-[11px] text-slate-400">Toplam ' + toplamCadd + ' cadde/sokak</span>' +
+                    '</div>';
+
+                var html = ozet;
+                // Mahalle grubu başına tablo
+                var gruplar = {};
+                satirlar.forEach(function (r) {
+                    if (!gruplar[r.m]) gruplar[r.m] = [];
+                    gruplar[r.m].push(r);
+                });
+                Object.keys(gruplar).forEach(function (mmm) {
+                    var grp = gruplar[mmm];
+                    html += '<div class="mb-3 rounded-lg border border-slate-200 bg-white"><div class="rounded-t-lg bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-700 border-b border-slate-200">📌 ' + esc(mmm || '—') + ' (' + grp.length + ' cadence)</div><table class="w-full text-[11px]"><tbody>';
+                    grp.forEach(function (r) {
+                        html += '<tr class="border-b border-slate-50 align-top">' +
+                            '<td class="px-3 py-1.5 font-medium whitespace-nowrap">' + esc(r.ad) + '</td>' +
+                            '<td class="px-3 py-1.5">' + streetDetayHtml(r.d, r.m, r.ad).html.replace('<div class="mt-0.5 text-slate-600">', '<div class="flex flex-wrap gap-x-3 gap-y-0.5 text-slate-600">') + '</td>' +
+                            '</tr>';
+                    });
+                    html += '</tbody></table></div>';
+                });
+
+                topluSonuc.innerHTML = html;
+                topluSonuc.classList.remove('hidden');
+                topluBtn.disabled = false;
+                if (topluSpin) topluSpin.classList.add('hidden');
+            });
 
             // Submit hook
             document.getElementById('application-form')?.addEventListener('submit', function () {
