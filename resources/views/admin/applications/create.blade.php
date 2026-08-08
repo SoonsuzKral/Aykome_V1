@@ -262,6 +262,13 @@
                         @enderror
                     </div>
 
+                    <div class="w-full flex gap-3 mt-3 mb-3 p-3 bg-gray-50 border rounded">
+                        <input type="text" id="coord_lat" placeholder="Enlem (Örn: 37.1598)" class="form-control text-sm w-full">
+                        <input type="text" id="coord_lon" placeholder="Boylam (Örn: 38.7969)" class="form-control text-sm w-full">
+                        <button type="button" id="btn_coord_search" class="btn btn-sm btn-info text-white font-bold whitespace-nowrap px-4 py-2 bg-teal-500 rounded">📌 Koordinatla Konumlan</button>
+                    </div>
+                    <p id="coord-result-info" class="mb-2 text-xs text-slate-500"></p>
+
                     <div class="sm:col-span-2">
                         <label class="block text-sm font-medium text-slate-700">Mahalle & Sokak Listesi</label>
                         <p class="text-xs text-slate-500 mb-2">Başvuruya ait mahalle ve sokakları ekleyin. Üst yazıda otomatik tablo olarak görünecektir.</p>
@@ -1119,8 +1126,18 @@
             var map = L.map('application-drawing-map', {
                 center: defaultCenter,
                 zoom: 14,
-                zoomControl: true,
+                zoomControl: false,
             });
+
+            // CBS "Koordinat ile Bul" → çizim haritasına da konum göstermek için
+            window.aykomeDrawingGoster = function (lat, lon, label) {
+                var mk = window._drawingSearchMarker;
+                if (mk) map.removeLayer(mk);
+                window._drawingSearchMarker = L.marker([lat, lon], {
+                    icon: L.divIcon({ className: '', html: '<div style="background:#FA6001;width:16px;height:16px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 4px rgba(250,96,1,.3);"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
+                }).addTo(map).bindPopup('<b>' + (label || '') + '</b><br>Koordinat ile bulundu').openPopup();
+                map.flyTo([lat, lon], 17, { animate: true, duration: 1 });
+            };
 
             var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 22, maxNativeZoom: 19, attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
@@ -1132,7 +1149,45 @@
                 maxZoom: 22, maxNativeZoom: 17, attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>',
             });
             osm.addTo(map);
-            L.control.layers({ Standart: osm, Uydu: satellite, Arazi: terrain }, null, { position: 'topleft' }).addTo(map);
+            L.control.zoom({ position: 'bottomright', zoomInTitle: 'Yakınlaştır', zoomOutTitle: 'Uzaklaştır' }).addTo(map);
+            L.control.layers({ Standart: osm, Uydu: satellite, Arazi: terrain }, null, { position: 'topright' }).addTo(map);
+
+            // ─── HARİTA-İÇİ ADRES ARAMA (Leaflet L.Control — harita yüzeyine gömülü, blade'de input YOK) ────
+            var MapInsideSearchControl = L.Control.extend({
+                options: { position: 'topleft' },
+                onAdd: function () {
+                    var div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+                    L.DomEvent.disableClickPropagation(div);
+                    L.DomEvent.disableScrollPropagation(div);
+                    div.style.cssText = 'display:flex;align-items:center;gap:2px;padding:4px;background:#fff;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.2);';
+                    div.innerHTML = '<input type="text" id="mapInsideSearch" placeholder="Cadde, sokak ara..." autocomplete="off" class="px-2 py-1 w-64 border rounded shadow" style="font-size:13px;border:1px solid #cbd5e1;outline:none;"> <button type="button" id="btn_map_inside_search" class="bg-blue-600 text-white px-2 py-1 rounded" style="border:none;cursor:pointer;font-size:13px;">Ara</button>';
+                    return div;
+                }
+            });
+            map.addControl(new MapInsideSearchControl());
+
+            var mapInsideSearchGo = function () {
+                var inp = document.getElementById('mapInsideSearch');
+                var btn = document.getElementById('btn_map_inside_search');
+                var q = (inp ? inp.value : '').trim();
+                if (q.length < 3) { alert('Lütfen cadde, sokak veya mahalle adı girin.'); return; }
+                if (btn) btn.textContent = '...';
+                fetch(@json(route('maps.adres-ara')) + '?q=' + encodeURIComponent(q))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (btn) btn.textContent = 'Ara';
+                        if (d && d.success && d.lat) {
+                            haritadaGoster(parseFloat(d.lat), parseFloat(d.lon), d.cadde || d.detail || q);
+                        } else {
+                            alert(d.message || 'Cadde sistemde bulunamadı.');
+                        }
+                    })
+                    .catch(function () { if (btn) btn.textContent = 'Ara'; alert('Arama servisi yanıt vermedi.'); });
+            };
+            document.getElementById('btn_map_inside_search')?.addEventListener('click', mapInsideSearchGo);
+            document.getElementById('mapInsideSearch')?.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); mapInsideSearchGo(); }
+            });
 
             // Style panel
             var styleRow = document.getElementById('map-style-panel');
@@ -1789,6 +1844,26 @@
             } finally {
                 if (spinner) spinner.classList.add('hidden');
             }
+        });
+
+        // ─── KOORDİNAT İLE BUL (enlem/boylam) — WMS nokta atışı ─────────────
+        document.getElementById('btn_coord_search')?.addEventListener('click', function () {
+            var latStr = (document.getElementById('coord_lat').value || '').trim();
+            var lonStr = (document.getElementById('coord_lon').value || '').trim();
+            var lat = parseFloat(latStr.replace(',', '.'));
+            var lon = parseFloat(lonStr.replace(',', '.'));
+            var info = document.getElementById('coord-result-info');
+            if (!isFinite(lat) || !isFinite(lon)) {
+                if (info) { info.textContent = '⚠️ Geçerli bir enlem ve boylam girin (örn: 37.1598, 38.7969).'; info.className = 'mb-2 text-xs text-red-600'; }
+                return;
+            }
+            if (lat < 33 || lat > 43 || lon < 26 || lon > 45) {
+                if (info) { info.textContent = '⚠️ Geçersiz koordinat — Şanlıurfa bölgesi için girin (örn: 37.1598, 38.7969).'; info.className = 'mb-2 text-xs text-red-600'; }
+                return;
+            }
+            if (info) { info.textContent = ''; info.className = 'mb-2 text-xs text-slate-500'; }
+            haritadaGoster(lat, lon, lat.toFixed(6) + ', ' + lon.toFixed(6));
+            if (info) { info.textContent = '📍 Konum haritada işaretlendi: ' + lat.toFixed(6) + ', ' + lon.toFixed(6); info.className = 'mb-2 text-xs text-emerald-700'; }
         });
 
         // ─── 15M ALT/ÜST YOL KONTROLÜ — local veri (maps-address.js) ────────
