@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eyyübiye AYKOME - E-İmza Kurulum</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 32px;
+      width: 500px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    h2 { text-align: center; margin-bottom: 24px; color: #f1f5f9; font-size: 20px; }
+    .icon-header { text-align: center; font-size: 40px; margin-bottom: 8px; }
+    .step { margin-bottom: 20px; }
+    .step-header {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #94a3b8;
+    }
+    .step.active .step-header { color: #f1f5f9; }
+    .step-content { padding: 0 0 0 16px; }
+    select, input {
+      width: 100%;
+      padding: 10px 14px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 14px;
+      outline: none;
+    }
+    select:focus, input:focus { border-color: #94a3b8; }
+    select { cursor: pointer; }
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: #334155;
+      color: #f1f5f9;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+    .btn:hover { background: #475569; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      background: #1e293b;
+      border: 1px solid #475569;
+      margin-top: 8px;
+    }
+    .btn-secondary:hover { background: #334155; }
+    .btn-success {
+      background: #134e4a;
+    }
+    .btn-success:hover { background: #155e5b; }
+    .info {
+      font-size: 13px;
+      color: #94a3b8;
+      margin: 8px 0;
+      line-height: 1.5;
+    }
+    .result { margin-top: 12px; padding: 12px; border-radius: 8px; font-size: 13px; display: none; }
+    .result.success { display: block; background: #134e4a; color: #5eead4; }
+    .result.error { display: block; background: #3f1d1d; color: #fca5a5; }
+    .result.info { display: block; background: #0f172a; color: #cbd5e1; }
+    .step-indicator {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #334155;
+    }
+    .dot.active { background: #f1f5f9; }
+    .dot.done { background: #34d399; }
+    .sim-badge {
+      display: inline-block;
+      background: #475569;
+      color: #e2e8f0;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+    .token-panel {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      display: none;
+    }
+    .token-panel .badge-aktif {
+      display: inline-block;
+      background: #134e4a;
+      color: #5eead4;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+    .token-panel .badge-yok {
+      display: inline-block;
+      background: #3f1d1d;
+      color: #fca5a5;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon-header">🖊️</div>
+    <h2>Eyyübiye AYKOME E-İmza Kurulum</h2>
+
+    <div class="token-panel" id="tokenPanel">
+      <div><strong>GÜNCEL AKILLI KART (TOKEN):</strong></div>
+      <div id="tokenDetail">Taranıyor...</div>
+    </div>
+
+    <div class="step-indicator">
+      <div class="dot active" id="dot1"></div>
+      <div class="dot" id="dot2"></div>
+      <div class="dot" id="dot3"></div>
+    </div>
+
+    <div class="step active" id="step1">
+      <div class="step-header">Adım 1/3: Token Seçimi</div>
+      <div class="step-content">
+        <div class="info">USB token'nızı takın ve aşağıdaki kütüphanelerden birini seçin.<br>Mac'teyseniz <strong>Simülasyon Modu</strong>'nu kullanın.</div>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <select id="pkcs11Select" style="flex:1;">
+            <option value="">-- Kütüphane Seçin --</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" onclick="scanPkcs11()">🔍 Kütüphaneleri Tara</button>
+        <div class="info" id="pkcs11Status">Token takılı değilse veya Mac kullanıyorsanız aşağıdaki simülasyon butonunu kullanın.</div>
+        <button class="btn btn-success" onclick="useSimulation()">💻 Mac Simülasyon Modu <span class="sim-badge">TOKEN GEREKMEZ</span></button>
+      </div>
+    </div>
+
+    <div class="step" id="step2" style="display:none">
+      <div class="step-header">Adım 2/3: Sertifika Seçimi</div>
+      <div class="step-content">
+        <div class="info">İmza için kullanılacak sertifikayı seçin.<br>Önce <strong>Token PIN</strong>'inizi girin, ardından sertifikaları tarayın.</div>
+        <label style="font-size:13px; color:#a0a0b0; margin-bottom:4px; display:block;">Token PIN</label>
+        <input type="password" id="certPin" placeholder="PIN" style="margin-bottom:8px; width:100%; padding:10px 14px; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:14px; outline:none;">
+        <select id="certSelect" style="margin-bottom:8px;">
+          <option value="">Sertifika seçin</option>
+        </select>
+        <div class="info" id="certInfo"></div>
+        <button class="btn btn-secondary" onclick="scanCerts()">📜 Sertifikaları Tara</button>
+      </div>
+    </div>
+
+    <div class="step" id="step3" style="display:none">
+      <div class="step-header">Adım 3/3: Sunucu Bilgileri</div>
+      <div class="step-content">
+        <div class="info">Aykome sunucusunun adresini girin.</div>
+        <label style="font-size:13px; color:#a0a0b0; margin-bottom:4px; display:block;">Sunucu Adresi</label>
+        <input type="text" id="serverUrl" value="http://127.0.0.1:8001" placeholder="https://belediye.gov.tr">
+        <div class="info" style="margin-top:12px;">
+          <label style="display:block; margin-bottom:4px;">API Anahtarı</label>
+          <input type="text" id="apiKey" value="eimza_aykome_dev_2026" placeholder="API anahtarı" style="font-size:12px;">
+        </div>
+      </div>
+    </div>
+
+    <div class="result" id="result"></div>
+
+    <button class="btn" id="mainBtn" onclick="nextStep()">Devam</button>
+  </div>
+
+  <script>
+    let currentStep = 1;
+    let p11Path = '';
+    let certSerial = '';
+    let isSimulation = false;
+
+    async function scanPkcs11() {
+      const status = document.getElementById('pkcs11Status');
+      const select = document.getElementById('pkcs11Select');
+      status.textContent = '🔍 Taranıyor...';
+
+      const result = await window.eImza.scanTokens();
+      select.innerHTML = '<option value="">-- Kütüphane Seçin --</option>';
+
+      if (result.error) {
+        status.innerHTML = '❌ ' + result.error + '<br>Mac kullanıyorsanız Simülasyon Modu\'nu kullanın.';
+        return;
+      }
+
+      if (Array.isArray(result) && result.length > 0) {
+        result.forEach(function(lib) {
+          var opt = document.createElement('option');
+          opt.value = lib.path;
+          opt.textContent = lib.label + ' - ' + lib.path;
+          select.appendChild(opt);
+        });
+        status.innerHTML = '✅ ' + result.length + ' kütüphane bulundu';
+      } else {
+        status.innerHTML = '⚠️ PKCS#11 kütüphanesi bulunamadı. Token takılı mı?<br>Mac kullanıyorsanız Simülasyon Modu\'nu kullanın.';
+        select.innerHTML += '<option value="">(bulunamadı)</option>';
+      }
+    }
+
+    function step2Simulation() {
+      document.getElementById('step1').style.display = 'none';
+      document.getElementById('step2').style.display = 'block';
+      document.getElementById('dot1').className = 'dot done';
+      document.getElementById('dot2').className = 'dot active';
+      currentStep = 2;
+
+      document.getElementById('certSelect').innerHTML =
+        '<option value="SIMULATED">[Simülasyon] Ahmet YILMAZ (Kamu SM)</option>';
+      document.getElementById('certInfo').innerHTML = '✅ Simülasyon modu: Gerçek token gerekmez, test için kullanılır.';
+
+      document.getElementById('mainBtn').textContent = 'Devam';
+    }
+
+    function useSimulation() {
+      isSimulation = true;
+      p11Path = 'SIMULATION';
+      certSerial = 'SIMULATED';
+      step2Simulation();
+    }
+
+    async function scanCerts() {
+      const select = document.getElementById('certSelect');
+      const info = document.getElementById('certInfo');
+
+      if (isSimulation) {
+        select.innerHTML = '<option value="SIMULATED">[Simülasyon] Ahmet YILMAZ (Kamu SM)</option>';
+        info.innerHTML = '✅ Simülasyon sertifikası hazır';
+        return;
+      }
+
+      const pin = document.getElementById('certPin').value.trim();
+      if (!pin) {
+        info.innerHTML = '⚠️ Lütfen önce Token PIN\'inizi girin.';
+        return;
+      }
+
+      info.textContent = '🔍 Taranıyor...';
+      select.innerHTML = '<option value="">Sertifika seçin</option>';
+
+      const result = await window.eImza.listCerts({ pkcs11Path: p11Path, pin: pin });
+
+      if (result.error) {
+        info.innerHTML = '❌ ' + result.error;
+        return;
+      }
+
+      if (result.certs && result.certs.length > 0) {
+        result.certs.forEach(function(cert) {
+          var opt = document.createElement('option');
+          opt.value = cert.serial;
+          opt.textContent = cert.label;
+          select.appendChild(opt);
+        });
+        info.innerHTML = '✅ ' + result.certs.length + ' sertifika bulundu';
+      } else {
+        info.innerHTML = '⚠️ Sertifika bulunamadı.';
+      }
+    }
+
+    function nextStep() {
+      hideResult();
+
+      if (currentStep === 1) {
+        if (isSimulation) {
+          step2Simulation();
+          return;
+        }
+
+        p11Path = document.getElementById('pkcs11Select').value;
+        if (!p11Path) {
+          showResult('Lütfen bir kütüphane seçin veya Simülasyon Modu kullanın.', 'error');
+          return;
+        }
+        document.getElementById('step1').style.display = 'none';
+        document.getElementById('step2').style.display = 'block';
+        document.getElementById('dot1').className = 'dot done';
+        document.getElementById('dot2').className = 'dot active';
+        currentStep = 2;
+        document.getElementById('mainBtn').textContent = 'Devam';
+        document.getElementById('certPin').focus();
+        return;
+      }
+
+      if (currentStep === 2) {
+        certSerial = document.getElementById('certSelect').value;
+        if (!certSerial) {
+          showResult('Lütfen bir sertifika seçin.', 'error');
+          return;
+        }
+        document.getElementById('step2').style.display = 'none';
+        document.getElementById('step3').style.display = 'block';
+        document.getElementById('dot2').className = 'dot done';
+        document.getElementById('dot3').className = 'dot active';
+        currentStep = 3;
+        document.getElementById('mainBtn').textContent = 'Kaydet ve Başla';
+        return;
+      }
+
+      if (currentStep === 3) {
+        finishSetup();
+      }
+    }
+
+    async function finishSetup() {
+      const serverUrl = document.getElementById('serverUrl').value.trim();
+      const apiKey = document.getElementById('apiKey').value.trim();
+
+      if (!serverUrl) {
+        showResult('Lütfen sunucu adresini girin.', 'error');
+        return;
+      }
+
+      const settings = {
+        pkcs11_path: p11Path,
+        cert_serial: certSerial,
+        server_url: serverUrl,
+        api_key: apiKey,
+        setup_complete: true,
+      };
+
+      const result = await window.eImza.saveSettings(settings);
+
+      if (result.saved) {
+        var modeTxt = isSimulation ? ' (Simülasyon Modu)' : '';
+        showResult('✅ Kurulum tamamlandı!' + modeTxt + '<br>Uygulama systray\'de çalışmaya devam edecek.', 'success');
+        document.getElementById('mainBtn').disabled = true;
+        document.getElementById('mainBtn').textContent = 'Kapatılıyor...';
+        setTimeout(function() { window.eImza.closeSetup(); }, 1500);
+      }
+    }
+
+    function showResult(msg, type) {
+      var el = document.getElementById('result');
+      el.innerHTML = msg;
+      el.className = 'result ' + type;
+    }
+
+    function hideResult() {
+      document.getElementById('result').style.display = 'none';
+    }
+
+    window.eImza.getSettings().then(function(settings) {
+      if (settings.server_url) document.getElementById('serverUrl').value = settings.server_url;
+      if (settings.api_key) document.getElementById('apiKey').value = settings.api_key;
+    });
+
+    document.getElementById('certPin').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') scanCerts();
+    });
+
+    // AUTO-SLOT TCKN FETCH: kurulum ekranı açılır açılmaz takılı token/sertifika sahibi bilgisi
+    function refreshTokenDurum() {
+      window.eImza.tokenDurumu().then(function(t) {
+        var panel = document.getElementById('tokenPanel');
+        var detail = document.getElementById('tokenDetail');
+        var isim = t.sertifikaCN || '—';
+        if (t.durum === 'aktif') {
+          detail.innerHTML = '<strong>İSİM: ' + isim + '</strong>' +
+            ' <span class="badge-aktif">AKTİF</span>' +
+            (t.tokenLabel ? '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">Kart: ' + t.tokenLabel + '</div>' : '') +
+            (t.certSerial ? '<div style="color:#64748b;font-size:11px;margin-top:2px;">Seri: ' + t.certSerial + '</div>' : '');
+        } else if (t.durum === 'kutuphane') {
+          detail.innerHTML = '<strong>İSİM: ' + isim + '</strong>' +
+            ' <span class="badge-yok">KART TAKILI DEĞİL</span>' +
+            '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">Kütüphane bulundu, token algılanamadı.</div>';
+        } else {
+          detail.innerHTML = '<strong>İSİM: ' + isim + '</strong>' +
+            ' <span class="badge-yok">KART TESPİT EDİLEMEDİ</span>' +
+            '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">Lütfen tokenınızın takılı olduğundan emin olun.</div>';
+        }
+        panel.style.display = 'block';
+      });
+    }
+
+    scanPkcs11();
+    refreshTokenDurum();
+    document.getElementById('pkcs11Select').addEventListener('change', refreshTokenDurum);
+
+    // GÖREV 4: main'den push edilen canlı slot durumu — kart takılıp çıkartılınca anında güncellenir
+    if (window.eImza.onSlotDetect) {
+      window.eImza.onSlotDetect(function () {
+        refreshTokenDurum();
+      });
+    }
+  </script>
+</body>
+</html>

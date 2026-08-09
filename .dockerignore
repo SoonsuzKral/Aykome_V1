@@ -1,0 +1,10 @@
+vendor
+node_modules
+.git
+.env
+storage
+public/build
+index/
+docker/nginx/ssl
+*.log
+aykome_backup.dmp

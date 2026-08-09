@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aykome E-İmza</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 32px;
+      width: 380px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    .icon {
+      text-align: center;
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    h2 {
+      text-align: center;
+      color: #f1f5f9;
+      margin-bottom: 24px;
+      font-size: 18px;
+    }
+    .info {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .info strong { color: #e2e8f0; }
+    .token-panel {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      font-size: 13px;
+      line-height: 1.6;
+      display: none;
+    }
+    .token-panel .badge-aktif {
+      display: inline-block;
+      background: #134e4a;
+      color: #5eead4;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+    .token-panel .badge-yok {
+      display: inline-block;
+      background: #3f1d1d;
+      color: #fca5a5;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 6px;
+      color: #94a3b8;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 18px;
+      letter-spacing: 4px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus {
+      border-color: #94a3b8;
+    }
+    .buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .buttons button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .buttons button:hover { opacity: 0.9; }
+    .btn-cancel {
+      background: #334155;
+      color: #cbd5e1;
+    }
+    .btn-sign {
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #f1f5f9;
+    }
+    .btn-sign:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .error {
+      background: #3f1d1d;
+      color: #fca5a5;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-top: 12px;
+      display: none;
+    }
+    .status {
+      text-align: center;
+      font-size: 13px;
+      margin-top: 16px;
+      color: #64748b;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      margin-top: 16px;
+    }
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid #334155;
+      border-top-color: #94a3b8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon">🖊️</div>
+    <h2>E-İmza İşlemi</h2>
+
+    <div class="info" id="info">
+      <div><strong>Belge:</strong> Yükleniyor...</div>
+    </div>
+
+    <div class="token-panel" id="tokenPanel">
+      <div><strong>GÜNCEL AKILLI KART (TOKEN):</strong></div>
+      <div id="tokenDetail">Taranıyor...</div>
+    </div>
+
+    <div class="form-group">
+      <label for="pin">Token PIN'inizi girin</label>
+      <input type="password" id="pin" placeholder="••••••" maxlength="16" autofocus>
+    </div>
+
+    <div class="buttons">
+      <button class="btn-cancel" onclick="cancelSign()">İptal</button>
+      <button class="btn-sign" id="signBtn" onclick="signPdf()">İmzala</button>
+    </div>
+
+    <div class="error" id="error"></div>
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <div style="margin-top: 8px">İmzalanıyor...</div>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <script>
+    document.getElementById('pin').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') signPdf();
+    });
+
+    document.getElementById('pin').focus();
+
+    window.eImza.getSettings().then(settings => {
+      document.getElementById('info').innerHTML =
+        '<div><strong>Sunucu:</strong> ' + (settings.server_url || 'Ayarlanmamış') + '</div>';
+    });
+
+    // AUTO-SLOT TCKN FETCH: PIN sorulmadan önce takılı token ve sertifika sahibi bilgisi
+    function renderToken(t) {
+      const panel = document.getElementById('tokenPanel');
+      const detail = document.getElementById('tokenDetail');
+      const isim = t.sertifikaCN || '—';
+      if (t.durum === 'aktif') {
+        detail.innerHTML = '<strong>İSİM: ' + isim + '</strong>' +
+          ' <span class="badge-aktif">AKTİF</span>' +
+          (t.tokenLabel ? '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">Kart: ' + t.tokenLabel + '</div>' : '') +
+          (t.certSerial ? '<div style="color:#64748b;font-size:11px;margin-top:2px;">Seri: ' + t.certSerial + '</div>' : '');
+      } else if (t.durum === 'kutuphane') {
+        detail.innerHTML = '<strong>İSİM: ' + isim + '</strong>' +
+          ' <span class="badge-yok">KART TAKILI DEĞİL</span>' +
+          '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">Kütüphane bulundu, token algılanamadı.</div>';
+      } else {
+        detail.innerHTML = '<strong>İSİM: ' + isim + '</strong>' +
+          ' <span class="badge-yok">KART TESPİT EDİLEMEDİ</span>' +
+          '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">Lütfen tokenınızın takılı olduğundan emin olun.</div>';
+      }
+      panel.style.display = 'block';
+    }
+
+    window.eImza.tokenDurumu().then(renderToken);
+
+    // GÖREV 4: main'den push edilen canlı slot durumu — kart takılıp çıkartılınca anında güncellenir
+    if (window.eImza.onSlotDetect) {
+      window.eImza.onSlotDetect(function (t) {
+        t.sertifikaCN = t.sertifikaCN || '';
+        t.certSerial = t.certSerial || '';
+        renderToken(t);
+      });
+    }
+
+    async function signPdf() {
+      const pin = document.getElementById('pin').value.trim();
+      if (!pin) {
+        showError('Lütfen PIN girin');
+        return;
+      }
+
+      setLoading(true);
+      hideError();
+
+      const result = await window.eImza.signPdf({ pin });
+      setLoading(false);
+
+      if (result.error) {
+        showError(result.error);
+        return;
+      }
+
+      if (result.success) {
+        document.getElementById('status').textContent = '✅ İmza başarıyla tamamlandı!';
+        document.getElementById('status').style.color = '#4caf50';
+        document.getElementById('pin').value = '';
+        document.getElementById('signBtn').disabled = true;
+        setTimeout(() => window.eImza.cancelSign(), 2000);
+      }
+    }
+
+    async function cancelSign() {
+      await window.eImza.cancelSign();
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    function hideError() {
+      document.getElementById('error').style.display = 'none';
+    }
+
+    function setLoading(loading) {
+      document.getElementById('loading').style.display = loading ? 'block' : 'none';
+      document.getElementById('signBtn').disabled = loading;
+      document.getElementById('pin').disabled = loading;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $this->call(AykomeSeeder::class);
+        $this->call(ApplicationSeeder::class);
+        $this->call(ProcessFlowSeeder::class);
+        $this->call(ApplicationModuleSeeder::class);
+    }
+}

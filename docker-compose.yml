@@ -1,0 +1,112 @@
+services:
+  oracle:
+    image: gvenzl/oracle-free:slim
+    container_name: aykome-v6-oracle
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: aykome123
+      APP_USER: aykome_user
+      APP_USER_PASSWORD: aykome123
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "sqlplus", "-s", "aykome_user/aykome123@FREEPDB1", "SELECT 1 FROM DUAL"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: aykome-v6-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aykome-v6-app
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www/html
+      - ./storage:/var/www/html/storage
+    depends_on:
+      oracle:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_URL=http://localhost:8000
+      - DB_CONNECTION=oracle
+      - DB_HOST=oracle
+      - DB_PORT=1521
+      - DB_DATABASE=FREEPDB1
+      - DB_USERNAME=aykome_user
+      - DB_PASSWORD=aykome123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=null
+      - SESSION_DRIVER=redis
+      - CACHE_DRIVER=redis
+      - BROADCAST_CONNECTION=redis
+      - LOG_CHANNEL=daily
+      - MIX_PUSHER_APP_KEY="${MIX_PUSHER_APP_KEY}"
+      - MIX_PUSHER_APP_CLUSTER="${MIX_PUSHER_APP_CLUSTER}"
+    restart: unless-stopped
+
+  php:
+    image: aykome-v6-php
+    container_name: aykome-v6-php
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment: &php-env
+      DB_CONNECTION: oracle
+      DB_HOST: oracle
+      DB_PORT: 1521
+      DB_DATABASE: FREEPDB1
+      DB_USERNAME: aykome_user
+      DB_PASSWORD: aykome123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    command: ["tail", "-f", "/dev/null"]
+
+  serve:
+    image: aykome-v6-php
+    container_name: aykome-v6-serve
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "8001:8000"
+    environment:
+      <<: *php-env
+    depends_on:
+      oracle:
+        condition: service_healthy
+    command: ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+
+  reverb:
+    image: aykome-v6-php
+    container_name: aykome-v6-reverb
+    working_dir: /app
+    volumes:
+      - .:/app
+    ports:
+      - "8090:8090"
+    environment:
+      <<: *php-env
+    depends_on:
+      - redis
+    command: ["php", "artisan", "reverb:start", "--host=0.0.0.0", "--port=8090"]
+
+volumes:
+  oracle_data:
+  redis_data:

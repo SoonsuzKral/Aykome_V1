@@ -1,0 +1,13 @@
+ALTER TABLE applications ADD (ztb_receipt_info VARCHAR2(255) NULL);
+ALTER TABLE applications ADD (deposit_receipt_info VARCHAR2(255) NULL);
+COMMIT;
+
+-- MEDIA_SEQ fix: ORA-00001 unique constraint hatası için sequence'i güncelle
+DECLARE
+    v_max_id NUMBER;
+BEGIN
+    SELECT NVL(MAX(ID), 0) + 1 INTO v_max_id FROM AYKOME_USER.MEDIA;
+    EXECUTE IMMEDIATE 'DROP SEQUENCE AYKOME_USER.MEDIA_SEQ';
+    EXECUTE IMMEDIATE 'CREATE SEQUENCE AYKOME_USER.MEDIA_SEQ START WITH ' || v_max_id || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+END;
+/
