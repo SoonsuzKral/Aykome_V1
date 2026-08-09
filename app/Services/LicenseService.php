@@ -140,10 +140,16 @@ class LicenseService
             'receiptApprover',
         ]);
 
-        $pdf = Pdf::loadView('admin.pdf.ruhsat', [
-            'application' => $application,
-            'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
-        ])->setPaper('a4', 'portrait');
+        // GÖREV 1+2: blade'deki print-bar/toolbar kalıntıları + Latin-1 fontlar temizlenir.
+        $html = \App\Services\DocumentTemplateService::pdfCssEnjekte(
+            \Illuminate\Support\Facades\View::make('admin.pdf.ruhsat', [
+                'application' => $application,
+                'signatories' => app(\App\Services\SignerPlacementService::class)
+            ->yerlesimHazirla($application, 'ruhsat'),
+            ])->render()
+        );
+
+        $pdf = Pdf::loadHTML($html)->setPaper('a4', 'portrait');
 
         $filename = 'ruhsat-'.$applicationNo.'.pdf';
         $path = 'licenses/'.$application->id.'/'.$filename;

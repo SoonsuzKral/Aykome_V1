@@ -212,7 +212,9 @@ CSS;
         if ($type === 'on_kazi') {
             $app = $app ?? self::sampleApp($institutionId);
             $settings = \App\Models\PreExcavationPermitSetting::first();
-            $signatories = $app->id > 0 ? SignatoryEngine::roleMap('pre_permit', $app) : [];
+            $signatories = $app->id > 0
+                ? app(\App\Services\SignerPlacementService::class)->yerlesimHazirla($app, 'pre_permit')
+                : [];
 
             return [
                 'belediye' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI',
@@ -276,7 +278,9 @@ CSS;
                 'kurum' => mb_strtoupper($app->institution?->name ?? $app->applicant_first_name . ' ' . $app->applicant_last_name, 'UTF-8'),
                 'birim' => 'PROJE TESİS YÖNETİCİLİĞİ',
                 'alici' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ',
-                'signatories' => $app->id > 0 ? SignatoryEngine::roleMap('metraj', $app) : [],
+                'signatories' => $app->id > 0
+                ? app(\App\Services\SignerPlacementService::class)->yerlesimHazirla($app, 'metraj')
+                : [],
                 'proje_kodu' => $app->project_code ?? '',
                 'tarih' => $app->start_date?->format('d.m.Y') ?? '',
                 'rows' => $rows,
@@ -302,7 +306,8 @@ CSS;
                 'talep_sahibi' => mb_strtoupper($app->institution?->name ?? 'DİCLE ELEKTRİK', 'UTF-8'),
                 'metraj_satirlari' => $metraj,
                 'application' => $app,
-                'signatories' => SignatoryEngine::roleMap('tahakkuk', $app),
+                'signatories' => app(\App\Services\SignerPlacementService::class)
+                    ->yerlesimHazirla($app, 'tahakkuk'),
             ];
         }
 
@@ -321,7 +326,8 @@ CSS;
             return [
                 'application' => $app,
                 'isim' => trim(($app->applicant_first_name ?? '') . ' ' . ($app->applicant_last_name ?? '')),
-                'signatories' => SignatoryEngine::roleMap('ruhsat', $app),
+                'signatories' => app(\App\Services\SignerPlacementService::class)
+                    ->yerlesimHazirla($app, 'ruhsat'),
             ];
         }
 

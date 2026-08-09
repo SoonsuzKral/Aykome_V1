@@ -147,7 +147,11 @@ class EImzaService
             'application' => $application,
             'appNo' => $application->application_no,
             'institution' => $application->institution,
-            'signatories' => SignatoryEngine::roleMap($pdfType, $application),
+            // GÖREV 5 — İmza yerleşimi süreç adımlarına göre: tamamlanan adımın
+            // onaylayanının adı dolar, tamamlanmamış adımların adı BOŞ kalır
+            // ("Başkan Yardımcısı" gibi dinamik pozisyonlar imzalayana kadar boş).
+            'signatories' => app(\App\Services\SignerPlacementService::class)
+                ->yerlesimHazirla($application, $pdfType),
         ]);
 
         if ($pdfType === 'cover_letter') {

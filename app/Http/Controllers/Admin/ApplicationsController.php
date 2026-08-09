@@ -1058,7 +1058,8 @@ class ApplicationsController extends Controller
         $application->load(['institution', 'creator']);
         $settings = PreExcavationPermitSetting::first();
 
-        $signatories = SignatoryEngine::roleMap('pre_permit', $application);
+        $signatories = app(\App\Services\SignerPlacementService::class)
+            ->yerlesimHazirla($application, 'pre_permit');
 
         $data = [
             'application' => $application,
@@ -1168,7 +1169,8 @@ class ApplicationsController extends Controller
         $ruhsatHtml = \Illuminate\Support\Facades\View::make('admin.pdf.ruhsat', [
             'application' => $application,
             'surfaceRows' => $surfaceRows,
-            'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
+            'signatories' => app(\App\Services\SignerPlacementService::class)
+                ->yerlesimHazirla($application, 'ruhsat'),
             'talep_sahibi' => mb_strtoupper(
                 trim($application->tesis_sorumlusu ?? $application->institution?->tesis_sorumlusu_adi ?? 'Yetkili Görevli'),
                 'UTF-8'
@@ -1208,7 +1210,8 @@ class ApplicationsController extends Controller
             'kurum' => mb_strtoupper($application->institution?->name ?? 'DİCLE ELEKTRİK DAĞITIM A.Ş. ŞANLIURFA İL MÜDÜRLÜĞÜ', 'UTF-8'),
             'birim' => 'PROJE TESİS YÖNETİCİLİĞİ',
             'alici' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ',
-            'signatories' => SignatoryEngine::roleMap('metraj', $application),
+            'signatories' => app(\App\Services\SignerPlacementService::class)
+            ->yerlesimHazirla($application, 'metraj'),
             'proje_kodu' => implode(' / ', $combinedParts),
             'tarih' => now()->format('d.m.Y'),
             'rows' => $rows,
@@ -1285,7 +1288,8 @@ class ApplicationsController extends Controller
 
         // TEK MUHASEBE KAYNAĞI: Tutarlar Model accessor'larından gelir (calcFigures).
         // Controller/Blade içinde KDV/keşif/teminat asla yeniden hesaplanmaz.
-        $tahakkukSignatories = SignatoryEngine::roleMap('tahakkuk', $application);
+        $tahakkukSignatories = app(\App\Services\SignerPlacementService::class)
+            ->yerlesimHazirla($application, 'tahakkuk');
 
         $data = [
             'belediye' => 'EYYÜBİYE BELEDİYESİ',
@@ -1639,7 +1643,8 @@ class ApplicationsController extends Controller
         $html = DocumentTemplateService::pdfCssEnjekte(
             \Illuminate\Support\Facades\View::make('admin.pdf.ruhsat', [
                 'application' => $application,
-                'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
+                'signatories' => app(\App\Services\SignerPlacementService::class)
+                    ->yerlesimHazirla($application, 'ruhsat'),
             ])->render()
         );
 
