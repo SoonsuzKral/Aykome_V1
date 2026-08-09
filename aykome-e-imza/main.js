@@ -20,6 +20,38 @@ let tray = null;
 let pinWindow = null;
 let currentTransaction = null;
 let localServerPort = null;
+let slotPollTimer = null;
+
+/**
+ * GÖREV 4 — Token/slot durumunu renderer'a canlı it (ipcRenderer.on ile dinlenir).
+ * Açık pencere (pin/setup) yoksa tarama yapılmaz; her 3 saniyede bir taranır.
+ */
+function startSlotPolling() {
+  if (slotPollTimer) return;
+  slotPollTimer = setInterval(async () => {
+    const wins = BrowserWindow.getAllWindows();
+    if (wins.length === 0) return;
+    try {
+      const { scanner } = require('./src/pkcs11/scanner');
+      const det = await scanner.detectWithPkcs11();
+      let payload = { durum: 'yok' };
+      if (det && det.tokens && det.tokens.length > 0) {
+        payload = {
+          durum: 'aktif',
+          tokenLabel: det.tokens[0].label.trim(),
+          vendor: det.tokens[0].manufacturer,
+          serial: det.tokens[0].serial,
+        };
+      } else {
+        const lib = await scanner.detect();
+        if (lib) payload = { durum: 'kutuphane', tokenLabel: lib.path };
+      }
+      for (const win of wins) {
+        win.webContents.send('slot-detect', payload);
+      }
+    } catch {}
+  }, 3000);
+}
 
 function createPinWindow(transaction, serverUrl) {
   if (pinWindow) {
@@ -131,6 +163,9 @@ function registerAutoStart() {
 app.on('ready', () => {
   createTray();
   registerAutoStart();
+
+  // GÖREV 4: Token durumu polling (renderer'a push)
+  startSlotPolling();
 
   // Local HTTP server — protocol handler'a alternatif
   localServer.start().then(port => {

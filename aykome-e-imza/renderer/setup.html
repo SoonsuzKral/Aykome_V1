@@ -408,6 +408,13 @@
     scanPkcs11();
     refreshTokenDurum();
     document.getElementById('pkcs11Select').addEventListener('change', refreshTokenDurum);
+
+    // GÖREV 4: main'den push edilen canlı slot durumu — kart takılıp çıkartılınca anında güncellenir
+    if (window.eImza.onSlotDetect) {
+      window.eImza.onSlotDetect(function () {
+        refreshTokenDurum();
+      });
+    }
   </script>
 </body>
 </html>

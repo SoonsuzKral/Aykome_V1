@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
             'license'            => \App\Http\Middleware\CheckLicense::class,
             'field-team-scope'   => \App\Http\Middleware\FieldTeamScope::class,
+            'makam-only'         => \App\Http\Middleware\MakamOnlyAccess::class,
             'e-imza.api-key'     => \App\Http\Middleware\EImzaApiKey::class,
         ]);
 

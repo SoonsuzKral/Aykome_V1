@@ -9,4 +9,8 @@ contextBridge.exposeInMainWorld('eImza', {
   listCerts: (data) => ipcRenderer.invoke('list-certs', data),
   tokenDurumu: () => ipcRenderer.invoke('token-durumu'),
   closeSetup: () => ipcRenderer.invoke('close-setup'),
+  // GÖREV 4: main'den push edilen canlı token/slot durumu (ipcRenderer.on)
+  onSlotDetect: (callback) => {
+    ipcRenderer.on('slot-detect', (_event, data) => callback(data));
+  },
 });

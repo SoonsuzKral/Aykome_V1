@@ -76,6 +76,7 @@
     </div>
 
     {{-- Main nav --}}
+    @php $isMakamUser = auth()->user()->hasRole('municipality-makam'); @endphp
     <nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-3" aria-label="Ana menü">
         {{-- Vitrin Butonu — SADECE Super Admin görür --}}
         @hasrole('super-admin')
@@ -91,8 +92,8 @@
         </a>
         @endhasrole
 
-        {{-- Kullanım Kılavuzu — Saha ekibi GÖREMEZ, admin/belediye/kurum görür --}}
-        @if(!auth()->user()->hasRole('field-team'))
+        {{-- Kullanım Kılavuzu — Saha ekibi GÖREMEZ, admin/belediye/kurum görür; Başkan görmez --}}
+        @if(!auth()->user()->hasRole('field-team') && !$isMakamUser)
         <a
             href="{{ route('docs.index') }}"
             target="_blank"
@@ -107,9 +108,14 @@
         <div class="mb-1 border-t border-slate-700/40"></div>
 
         @php $settingsHeaderShown = false; @endphp
+        {{-- Belediye Başkanı (municipality-makam): SADECE Makam Masası + Profil --}}
         @foreach($items as $item)
             {{-- field-team: only Dashboard and Profil --}}
             @if(auth()->user()->hasRole('field-team') && !in_array($item['route'], ['admin.dashboard', 'admin.profile.edit']))
+                @continue
+            @endif
+            {{-- makam: only Makam Masası and Profil --}}
+            @if($isMakamUser && !in_array($item['route'], ['admin.makam.index', 'admin.profile.edit']))
                 @continue
             @endif
             @if(isset($item['perm']) && ! auth()->user()->can($item['perm']))
@@ -144,7 +150,8 @@
             </a>
         @endforeach
 
-        {{-- CBS Entegrasyon — Aykome Maps --}}
+        {{-- CBS Entegrasyon — Aykome Maps (Başkan görmez) --}}
+        @unless($isMakamUser)
         @php $cbsActive = request()->routeIs('maps.*'); @endphp
         <div class="my-3 border-t border-slate-700/50"></div>
         <p class="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">CBS & Harita</p>
@@ -157,6 +164,7 @@
             <span class="flex-1 truncate">Aykome Maps</span>
             @if($cbsActive)<span class="ms-auto h-1.5 w-1.5 rounded-full bg-emerald-400"></span>@endif
         </a>
+        @endunless
 
         {{-- Saha Personeli — Görevlerim linki (@can tabanlı) --}}
         @can('field.tasks_view')
@@ -175,8 +183,8 @@
         </a>
         @endcan
 
-        {{-- Divider & PRO Active Modules — permission-based (@can) --}}
-        @if(auth()->user()->canAny(['pro.live_map', 'pro.work_orders', 'pro.advanced_reports']))
+        {{-- Divider & PRO Active Modules — permission-based (@can) — Başkan görmez --}}
+        @if(!$isMakamUser && auth()->user()->canAny(['pro.live_map', 'pro.work_orders', 'pro.advanced_reports']))
         <div class="my-3 border-t border-slate-700/50"></div>
         <p class="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">PRO Modüller</p>
 
@@ -204,8 +212,8 @@
 
         @endif {{-- end canAny PRO --}}
 
-        {{-- Yakında gelecek — tıklanabilir PRO öneri modüller — yönetici/yetkili kullanıcılara göster --}}
-        @if(!auth()->user()->hasRole('field-team'))
+        {{-- Yakında gelecek — tıklanabilir PRO öneri modüller — yönetici/yetkili kullanıcılara göster (Başkan görmez) --}}
+        @if(!auth()->user()->hasRole('field-team') && !$isMakamUser)
         <div class="my-2 border-t border-slate-700/30"></div>
         <p class="mb-1 px-3 text-[9px] font-semibold uppercase tracking-[0.15em] text-slate-600">Yakında</p>
 

@@ -66,27 +66,25 @@ class ApplicationPolicy
     }
 
     /**
-     * Süreç & Onay Rotası: Belediye personeli yalnızca 'staff' adımındaysa
-     * ve rolü bu adıma atanmışsa onaylayabilir.
+     * Süreç & Onay Rotası: Belediye personeli yalnızca rolü şu anki süreç
+     * adımına atanmışsa onaylayabilir. Eski sabit stage adları ('staff',
+     * 'director', 'vice_mayor') yerine approval_stage artık role_key tutar;
+     * yetki tamamen ProcessEngine::userCanApprove (engineAllows) ile çözülür.
      */
     public function approveStaff(User $user, Application $application): bool
     {
-        if (! $user->can('applications.approve_pre_excavation') || ! $this->managesMunicipality($user)) {
-            return false;
-        }
-        return in_array($application->approval_stage ?? 'staff', ['staff', null], true)
+        return $user->can('applications.approve_pre_excavation')
+            && $this->managesMunicipality($user)
             && $this->engineAllows($user, $application);
     }
 
     /**
-     * Süreç & Onay Rotası: Müdür yalnızca 'director' adımındaysa ve rolü
-     * bu adıma atanmışsa onaylayabilir.
+     * Süreç & Onay Rotası: Müdür adımı — rolü şu anki adıma atanmışsa.
      */
     public function approveDirector(User $user, Application $application): bool
     {
         return $user->can('applications.approve_pre_excavation')
             && $this->managesMunicipality($user)
-            && $application->approval_stage === 'director'
             && $this->engineAllows($user, $application);
     }
 
@@ -97,7 +95,6 @@ class ApplicationPolicy
     {
         return $user->can('applications.approve_pre_excavation')
             && $this->managesMunicipality($user)
-            && $application->approval_stage === 'vice_mayor'
             && $this->engineAllows($user, $application);
     }
 

@@ -15,7 +15,7 @@
         'institution-admin'    => 'Kurum Yöneticisi (Üst)',
         // Hiyerarşi Roller (ProcessFlowSeeder)
         'municipality-buro'   => 'Büro Personeli',
-        'municipality-sef'    => 'Aykome Şefi',
+        'municipality-sef'    => 'Aykome Birim Şefi',
         'municipality-mudur'  => 'Fen İşleri Müdürü',
         'municipality-makam'  => 'Belediye Başkan Yardımcısı',
     ];

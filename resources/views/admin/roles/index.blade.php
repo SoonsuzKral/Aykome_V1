@@ -107,7 +107,7 @@
         'field-team'           => ['label' => 'Saha Personeli',           'badge' => 'SP',  'color' => 'text-green-100    bg-gradient-to-br from-green-700/60 to-lime-700/50 border-green-500/60'],
         // Hiyerarşi Roller (ProcessFlowSeeder — Süreç Onay Rotası)
         'municipality-buro'   => ['label' => 'Büro Personeli',            'badge' => 'BÜ',  'color' => 'text-yellow-100  bg-gradient-to-br from-yellow-700/60 to-amber-700/50 border-yellow-500/60'],
-        'municipality-sef'    => ['label' => 'Aykome Şefi',               'badge' => 'ŞEF', 'color' => 'text-orange-100  bg-gradient-to-br from-orange-700/60 to-red-700/50 border-orange-500/60'],
+        'municipality-sef'    => ['label' => 'Aykome Birim Şefi',        'badge' => 'ŞEF', 'color' => 'text-orange-100  bg-gradient-to-br from-orange-700/60 to-red-700/50 border-orange-500/60'],
         'municipality-mudur'  => ['label' => 'Fen İşleri Müdürü',        'badge' => 'MÜD', 'color' => 'text-red-100     bg-gradient-to-br from-red-700/60 to-rose-700/50 border-red-500/60'],
         'municipality-makam'  => ['label' => 'Belediye Başkan Yardımcısı','badge' => 'MKM', 'color' => 'text-rose-100    bg-gradient-to-br from-rose-700/60 to-pink-700/50 border-rose-500/60'],
         // Kurum Yöneticisi (kodda referans verilen ama seeder'da oluşturulmayan rol)

@@ -32,7 +32,7 @@ use App\Http\Controllers\Admin\ProcessController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'license', 'field-team-scope'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
     Route::middleware('license:applications')->group(function () {

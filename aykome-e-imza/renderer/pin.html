@@ -203,7 +203,7 @@
     });
 
     // AUTO-SLOT TCKN FETCH: PIN sorulmadan önce takılı token ve sertifika sahibi bilgisi
-    window.eImza.tokenDurumu().then(t => {
+    function renderToken(t) {
       const panel = document.getElementById('tokenPanel');
       const detail = document.getElementById('tokenDetail');
       const isim = t.sertifikaCN || '—';
@@ -222,7 +222,18 @@
           '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">Lütfen tokenınızın takılı olduğundan emin olun.</div>';
       }
       panel.style.display = 'block';
-    });
+    }
+
+    window.eImza.tokenDurumu().then(renderToken);
+
+    // GÖREV 4: main'den push edilen canlı slot durumu — kart takılıp çıkartılınca anında güncellenir
+    if (window.eImza.onSlotDetect) {
+      window.eImza.onSlotDetect(function (t) {
+        t.sertifikaCN = t.sertifikaCN || '';
+        t.certSerial = t.certSerial || '';
+        renderToken(t);
+      });
+    }
 
     async function signPdf() {
       const pin = document.getElementById('pin').value.trim();

@@ -6,10 +6,25 @@
     $badgeMap = [
         'draft'                  => ['Taslak',                'bg-slate-100 text-slate-700'],
         'submitted'              => ['Ön Kazı Bekliyor',      'bg-sky-100 text-sky-700'],
+        'pending'                => ['Yeni Başvuru',          'bg-sky-100 text-sky-700'],
         'pre_excavation_approved'=> ['Ön Kazı Onaylı',        'bg-cyan-100 text-cyan-700'],
+        'pre_approved'           => ['Ön Kazı Çıktı',         'bg-cyan-100 text-cyan-700'],
+        'measurement_done'       => ['Metraj Güncellendi',    'bg-indigo-100 text-indigo-700'],
+        'accrued'                => ['Tahakkuk Edildi',       'bg-amber-100 text-amber-700'],
         'priced'                 => ['Fiyatlandı',            'bg-indigo-100 text-indigo-700'],
         'awaiting_payment'       => ['Ödeme Bekliyor',        'bg-amber-100 text-amber-700'],
         'receipt_pending'        => ['Makbuz Bekliyor',       'bg-orange-100 text-orange-700'],
+        'excavation_completed'   => ['Kazı Tamamlandı',       'bg-green-100 text-green-700'],
+        'metrage_pending'        => ['Metraj Açıldı',         'bg-indigo-100 text-indigo-700'],
+        'metrage_sent'           => ['Metraj Kuruma Gönderildi', 'bg-indigo-100 text-indigo-700'],
+        'metrage_revision'       => ['Metraj Revizyon',       'bg-purple-100 text-purple-700'],
+        'metrage_approved'       => ['Metraj Onaylı',         'bg-teal-100 text-teal-700'],
+        'tahakkuk_pending'       => ['Tahakkuk & Makbuz Açıldı', 'bg-amber-100 text-amber-700'],
+        'tahakkuk_sent'          => ['Tahakkuk & Makbuz Kuruma Gönderildi', 'bg-amber-100 text-amber-700'],
+        'taahhutname_pending'    => ['Taahhütname Açıldı',    'bg-violet-100 text-violet-700'],
+        'taahhutname_sent'       => ['Taahhütname Kuruma Gönderildi', 'bg-violet-100 text-violet-700'],
+        'ruhsat_sent'            => ['Ruhsat Kuruma Gönderildi', 'bg-green-100 text-green-700'],
+        'payment_completed'      => ['Ödeme Tamamlandı',      'bg-emerald-100 text-emerald-700'],
         'approved'               => ['Onaylandı',             'bg-emerald-100 text-emerald-700'],
         'licensed'               => ['Ruhsatlandı',           'bg-teal-100 text-teal-700'],
         'field_work'             => ['Saha Çalışması',        'bg-violet-100 text-violet-700'],
@@ -19,6 +34,15 @@
         'cancelled'              => ['İptal Edildi',          'bg-rose-100 text-rose-700'],
     ];
     $filters = $filters ?? ['q' => '', 'status' => '', 'institution_id' => ''];
+
+    // ── Sıralama yardımcıları ──
+    $sortField = $sort['field'] ?? 'created_at';
+    $sortDir   = $sort['dir'] ?? 'desc';
+    $sortUrl   = fn (string $field) => route('admin.applications.index', array_merge(
+        $filters,
+        ['sort' => $field, 'dir' => ($sortField === $field && $sortDir === 'asc') ? 'desc' : 'asc']
+    ));
+    $sortArrow = fn (string $field) => $sortField === $field ? ($sortDir === 'asc' ? '↑' : '↓') : '↕';
 @endphp
 
 {{-- ── Header ──────────────────────────────────────────────────────────────── --}}
@@ -127,12 +151,22 @@
                         <th class="bg-gray-50/50 px-4 py-4 text-left border-b border-gray-200 w-10">
                             <input type="checkbox" id="select-all" class="rounded border-slate-300 text-sky-600 shadow-sm focus:ring-sky-400/30">
                         </th>
-                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Başvuru No</th>
-                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Kurum</th>
-                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Başvuran</th>
+                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                            <a href="{{ $sortUrl('application_no') }}" class="inline-flex items-center gap-1.5 hover:text-sky-600 transition" title="Sırala">Başvuru No <span class="text-slate-400">{{ $sortArrow('application_no') }}</span></a>
+                        </th>
+                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                            <a href="{{ $sortUrl('institution_name') }}" class="inline-flex items-center gap-1.5 hover:text-sky-600 transition" title="Sırala">Kurum <span class="text-slate-400">{{ $sortArrow('institution_name') }}</span></a>
+                        </th>
+                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                            <a href="{{ $sortUrl('applicant') }}" class="inline-flex items-center gap-1.5 hover:text-sky-600 transition" title="Sırala">Başvuran <span class="text-slate-400">{{ $sortArrow('applicant') }}</span></a>
+                        </th>
                         <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Tür</th>
-                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Durum</th>
-                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Tarih</th>
+                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                            <a href="{{ $sortUrl('status') }}" class="inline-flex items-center gap-1.5 hover:text-sky-600 transition" title="Sırala">Durum <span class="text-slate-400">{{ $sortArrow('status') }}</span></a>
+                        </th>
+                        <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                            <a href="{{ $sortUrl('created_at') }}" class="inline-flex items-center gap-1.5 hover:text-sky-600 transition" title="Sırala">Tarih <span class="text-slate-400">{{ $sortArrow('created_at') }}</span></a>
+                        </th>
                         <th class="bg-gray-50/50 px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">İşlem</th>
                     </tr>
             </thead>
@@ -140,7 +174,8 @@
                 @forelse($applications as $row)
                     @php
                         $sv = $row->status instanceof \BackedEnum ? $row->status->value : (string)$row->status;
-                        [$slabel, $sclass] = $badgeMap[$sv] ?? [str_replace('_',' ',$sv), 'bg-slate-100 text-slate-700'];
+                        $fallback = \App\Enums\ApplicationStatus::tryFrom($sv)?->label() ?? str_replace('_', ' ', $sv);
+                        [$slabel, $sclass] = $badgeMap[$sv] ?? [$fallback, 'bg-slate-100 text-slate-700'];
                     @endphp
                     <tr class="hover:bg-gray-50/70 transition">
                         <td class="px-4 py-4 whitespace-nowrap border-b border-gray-100">

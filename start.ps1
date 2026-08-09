@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # AYKOME v6 - Development Start (Windows Native + Docker)
 # Kullanim: PowerShell'de .\start.ps1
 #
@@ -87,7 +87,7 @@ if (-not $oracleReady) {
 Write-Host ""
 Write-Host "[3/7] Laravel serve baslatiliyor (port 8001)..." -ForegroundColor $YELLOW
 
-$laravelJob = Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "cd '$ScriptDir'; php.cmd artisan serve --port=8001 --host=0.0.0.0" -WindowStyle Minimized -PassThru
+$laravelJob = Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "cd '$ScriptDir'; php artisan serve --port=8001 --host=0.0.0.0" -WindowStyle Minimized -PassThru
 Start-Sleep -Seconds 3
 
 if ($laravelJob.HasExited) {
@@ -117,7 +117,7 @@ if ($viteJob.HasExited) {
 Write-Host ""
 Write-Host "[5/7] Reverb baslatiliyor (port 8090)..." -ForegroundColor $YELLOW
 
-$reverbJob = Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "cd '$ScriptDir'; php.cmd artisan reverb:start --host=0.0.0.0 --port=8090" -WindowStyle Minimized -PassThru
+$reverbJob = Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "cd '$ScriptDir'; php artisan reverb:start --host=0.0.0.0 --port=8090" -WindowStyle Minimized -PassThru
 Start-Sleep -Seconds 3
 
 if ($reverbJob.HasExited) {
@@ -132,7 +132,7 @@ if ($reverbJob.HasExited) {
 Write-Host ""
 Write-Host "[6/7] Queue worker baslatiliyor..." -ForegroundColor $YELLOW
 
-$queueJob = Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "cd '$ScriptDir'; php.cmd artisan queue:work --sleep=3 --tries=3" -WindowStyle Minimized -PassThru
+$queueJob = Start-Process -FilePath "powershell" -ArgumentList "-NoExit", "-Command", "cd '$ScriptDir'; php artisan queue:work --sleep=3 --tries=3" -WindowStyle Minimized -PassThru
 Start-Sleep -Seconds 3
 
 if ($queueJob.HasExited) {
@@ -180,3 +180,4 @@ Write-Host "  Oracle:     aykome_user / aykome123 @ FREEPDB1" -ForegroundColor $
 Write-Host "  Redis:      localhost:6379" -ForegroundColor $YELLOW
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor $CYAN
+

@@ -3,6 +3,7 @@ const os = require('os');
 
 const COMMON_P11_PATHS = {
   win32: [
+    // ── Sistem klasörleri (64-bit + 32-bit) ──
     'C:\\Windows\\System32\\akisp11.dll',
     'C:\\Windows\\SysWOW64\\akisp11.dll',
     'C:\\Windows\\System32\\egsp11.dll',
@@ -11,6 +12,36 @@ const COMMON_P11_PATHS = {
     'C:\\Windows\\SysWOW64\\turksp11.dll',
     'C:\\Windows\\System32\\liteP11.dll',
     'C:\\Windows\\SysWOW64\\liteP11.dll',
+    'C:\\Windows\\System32\\mpayp11.dll',
+    'C:\\Windows\\SysWOW64\\mpayp11.dll',
+    'C:\\Windows\\System32\\opensc-pkcs11.dll',
+    'C:\\Windows\\SysWOW64\\opensc-pkcs11.dll',
+    'C:\\Windows\\System32\\gsp11.dll',
+    'C:\\Windows\\SysWOW64\\gsp11.dll',
+    'C:\\Windows\\System32\\aetpkss1.dll',
+    'C:\\Windows\\SysWOW64\\aetpkss1.dll',
+    'C:\\Windows\\System32\\cntgsp11.dll',
+    'C:\\Windows\\SysWOW64\\cntgsp11.dll',
+    'C:\\Windows\\System32\\bilesimsp11.dll',
+    'C:\\Windows\\SysWOW64\\bilesimsp11.dll',
+    // ── Sağlayıcı kurulum dizinleri (spesifik fallback lokasyonları) ──
+    'C:\\Program Files\\TÜBİTAK\\AKİS\\bin\\akisp11.dll',
+    'C:\\Program Files\\AKİS\\bin\\akisp11.dll',
+    'C:\\Program Files (x86)\\AKİS\\bin\\akisp11.dll',
+    'C:\\Program Files\\TÜBİTAK\\BİLGEM\\AKİS\\bin\\akisp11.dll',
+    'C:\\Program Files (x86)\\TÜBİTAK\\AKİS\\bin\\akisp11.dll',
+    'C:\\Program Files\\TÜRKTRUST\\TÜRKTRUST Elektronik Sertifika Hizmet Sağlayıcısı\\bin\\turksp11.dll',
+    'C:\\Program Files (x86)\\TÜRKTRUST\\TÜRKTRUST Elektronik Sertifika Hizmet Sağlayıcısı\\bin\\turksp11.dll',
+    'C:\\Program Files\\E-GÜVEN\\EGSP11\\bin\\egsp11.dll',
+    'C:\\Program Files (x86)\\E-GÜVEN\\EGSP11\\bin\\egsp11.dll',
+    'C:\\Program Files\\e-Tugra\\e-TugraKit\\bin\\liteP11.dll',
+    'C:\\Program Files (x86)\\e-Tugra\\e-TugraKit\\bin\\liteP11.dll',
+    'C:\\Program Files\\e-Tugra\\e-TugraKit\\bin\\mpayp11.dll',
+    'C:\\Program Files (x86)\\e-Tugra\\e-TugraKit\\bin\\mpayp11.dll',
+    'C:\\Program Files\\Bileşim\\Bileşim PKCS#11\\bin\\bilesimsp11.dll',
+    'C:\\Program Files (x86)\\Bileşim\\Bileşim PKCS#11\\bin\\bilesimsp11.dll',
+    'C:\\Program Files\\OpenSC Project\\OpenSC\\lib\\opensc-pkcs11.dll',
+    'C:\\Program Files (x86)\\OpenSC Project\\OpenSC\\lib\\opensc-pkcs11.dll',
   ],
   darwin: [
     '/usr/local/lib/libakisp11.dylib',
@@ -51,9 +82,14 @@ const scanner = {
       try {
         if (fs.existsSync(p)) {
           let label = 'Bilinmeyen Token';
-          if (p.includes('akis')) label = 'Kamu SM';
-          else if (p.includes('egs')) label = 'E-Güven';
-          else if (p.includes('turk')) label = 'TÜRKTRUST';
+          const lc = p.toLowerCase();
+          if (lc.includes('akis') || lc.includes('litep11') || lc.includes('mpay')) label = 'Kamu SM';
+          else if (lc.includes('egs')) label = 'E-Güven';
+          else if (lc.includes('turk')) label = 'TÜRKTRUST';
+          else if (lc.includes('opensc')) label = 'OpenSC';
+          else if (lc.includes('aet')) label = 'AET';
+          else if (lc.includes('cntg')) label = 'CNT';
+          else if (lc.includes('bilesim')) label = 'Bileşim';
 
           results.push({ path: p, label, found: true });
         }

@@ -19,10 +19,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Download and install Oracle Instant Client 21c
-RUN curl -sL https://download.oracle.com/otn_software/linux/instantclient/2113000/instantclient-basiclite-linux.x64-21.13.0.0.0.zip -o /tmp/instantclient.zip \
+RUN curl -sL https://download.oracle.com/otn_software/linux/instantclient/2114000/instantclient-basiclite-linux.x64-21.14.0.0.0dbru.zip -o /tmp/instantclient.zip \
     && unzip -q /tmp/instantclient.zip -d /opt/oracle \
     && rm /tmp/instantclient.zip \
-    && ln -s /opt/oracle/instantclient_21_13 /opt/oracle/instantclient
+    && ln -s /opt/oracle/instantclient_21_14 /opt/oracle/instantclient
 
 # Set Oracle environment
 ENV ORACLE_HOME=/opt/oracle/instantclient

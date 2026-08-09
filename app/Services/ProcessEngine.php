@@ -392,7 +392,7 @@ class ProcessEngine
             'field-team'           => 'Saha Personeli',
             'institution-admin'    => 'Kurum Yöneticisi (Üst)',
             'municipality-buro'   => 'Büro Personeli',
-            'municipality-sef'    => 'Aykome Şefi',
+            'municipality-sef'    => 'Aykome Birim Şefi',
             'municipality-mudur'  => 'Fen İşleri Müdürü',
             'municipality-makam'  => 'Belediye Başkan Yardımcısı',
         ];

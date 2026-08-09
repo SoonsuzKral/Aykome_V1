@@ -49,7 +49,24 @@ class ApplicationsController extends Controller
             'application_type' => trim((string) $request->query('application_type', '')),
         ];
 
-        $query = Application::query()->with(['institution', 'creator'])->latest();
+        // ── Sıralama (tıklanabilir tablo başlıkları) ────────────────────────
+        $sortFields = [
+            'application_no'   => 'applications.application_no',
+            'institution_name' => 'institutions.name',
+            'applicant'        => 'applications.applicant_last_name',
+            'status'           => 'applications.status',
+            'created_at'       => 'applications.created_at',
+        ];
+        $sortField = (string) $request->query('sort', 'created_at');
+        if (! isset($sortFields[$sortField])) {
+            $sortField = 'created_at';
+        }
+        $sortDir = strtolower((string) $request->query('dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        $query = Application::query()->with(['institution', 'creator'])
+            ->leftJoin('institutions', 'institutions.id', '=', 'applications.institution_id')
+            ->select('applications.*')
+            ->reorder($sortFields[$sortField], $sortDir);
 
         // ── Data isolation ────────────────────────────────────────────────
         if ($user->hasRole('field-team')) {
@@ -57,25 +74,25 @@ class ApplicationsController extends Controller
             $query->whereHas('fieldTasks', fn ($q) => $q->where('assigned_to', $user->id));
         } elseif (! $user->isMunicipalityPersonel()) {
             // Kurum çalışanı: sadece kendi kurumunun başvuruları
-            $query->where('institution_id', $user->institution_id);
+            $query->where('applications.institution_id', $user->institution_id);
             $filters['institution_id'] = (string) $user->institution_id;
         }
 
         if ($filters['q'] !== '') {
             $needle = $filters['q'];
             $query->where(function ($q) use ($needle): void {
-                $q->where('application_no', 'like', "%{$needle}%")
-                    ->orWhere('applicant_first_name', 'like', "%{$needle}%")
-                    ->orWhere('applicant_last_name', 'like', "%{$needle}%")
-                    ->orWhere('applicant_national_id', 'like', "%{$needle}%")
-                    ->orWhere('address_text', 'like', "%{$needle}%");
+                $q->where('applications.application_no', 'like', "%{$needle}%")
+                    ->orWhere('applications.applicant_first_name', 'like', "%{$needle}%")
+                    ->orWhere('applications.applicant_last_name', 'like', "%{$needle}%")
+                    ->orWhere('applications.applicant_national_id', 'like', "%{$needle}%")
+                    ->orWhere('applications.address_text', 'like', "%{$needle}%");
             });
         }
 
         $statusValues = collect(ApplicationStatus::cases())->map(fn (ApplicationStatus $status) => $status->value);
 
         if ($filters['status'] !== '' && $statusValues->contains($filters['status'])) {
-            $query->where('status', $filters['status']);
+            $query->where('applications.status', $filters['status']);
         } else {
             $filters['status'] = '';
         }
@@ -83,17 +100,18 @@ class ApplicationsController extends Controller
         if ($filters['institution_id'] !== '' && $user->isMunicipalityPersonel()) {
             $institutionId = (int) $filters['institution_id'];
             if ($institutionId > 0) {
-                $query->where('institution_id', $institutionId);
+                $query->where('applications.institution_id', $institutionId);
             }
         }
 
         if ($filters['application_type'] !== '') {
-            $query->where('application_type', $filters['application_type']);
+            $query->where('applications.application_type', $filters['application_type']);
         }
 
         return view('admin.applications.index', [
             'applications' => $query->paginate(15)->withQueryString(),
             'filters' => $filters,
+            'sort' => ['field' => $sortField, 'dir' => $sortDir],
             'statuses' => ApplicationStatus::cases(),
             'institutions' => $user->isMunicipalityPersonel()
                 ? Institution::query()->orderBy('name')->get(['id', 'name'])

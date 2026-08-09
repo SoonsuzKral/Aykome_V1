@@ -1,5 +1,49 @@
 # Oturum Özeti — 9 Ağustos 2026
 
+## Sprint 13 — PDF TÜRKÇE FONT + MAVİ BUTON TEMİZLİĞİ + İMZALAYAN OTOMASYONU (G1-G6)
+
+### 🎯 Öz
+Görevler: G1 Türkçe karakter (Helvetica çirkinliği), G2 PDF'te mavi UI butonları (B/I/A+/A-/Yazdır/Şablonu Düzenle), G3 PDF'lerin hâlâ indirilmesi, G4 Electron dll/token polling, G5 kırmızı EBYS imza damgası, G6 imzalayan bilgisinin otomatik alınması. **G1-G5 tamam ve doğrulandı; G6 tamam. Proje ayakta.**
+
+### ✅ G1 — Türkçe karakter (KÖK NEDEN + KESİN ÇÖZÜM)
+- Kök neden: dompdf Type1 (Helvetica/Times/Courier) Türkçe render EDEMEZ; config font_family remap built-in fontlara işlemiyordu.
+- Çözüm: `DocumentTemplateService::pdfCssEnjekte($html)` — dompdf'e verilen HER HTML'e `<style>*{font-family:"DejaVu Sans",sans-serif !important}</style>` enjekte edilir (`</head>` öncesi).
+- DejaVu fontlar storage/fonts'ta (24 dosya) + config/dompdf.php remap/isfontSubsettingEnabled.
+
+### ✅ G2 — PDF'teki mavi butonlar (KÖK NEDEN + ÇÖZÜM)
+- Kök neden: `admin/pdf/*.blade.php` blade'leri print-bar + toolbar (B/I/A+/A-) + "Yazdır/Şablonu Düzenle" HTML'ini gömüyor; `@media print{display:none}` ile gizleniyorlar AMA **dompdf `@media` kurallarını UYGULAMAZ** → hepsi PDF'e sızıyordu.
+- Çözüm: `pdfCssEnjekte` aynı CSS ile `.no-print,.no-print-bar,.print-bar,.toolbar{display:none !important}` ekler.
+- Uygulanan noktalar (7): EImzaService::pdfOlustur (template + blade akışı), ApplicationsController::generatePaymentReceipt + downloadPermitLive (loadView→render+enjekte+loadHTML), LicenseService::downloadPermit, FieldReportController::exportPdf, ReportController::exportPdf, WorkOrderController::exportPdf.
+
+### ✅ G3 — PDF indirme → yeni sekmede açma (önceki sprint) + bu oturumda imzali_url akışı doğrulandı.
+
+### ✅ G4 — Electron dll/token polling (önceki sprint'te tamamlandı; start.ps1'de çalışır).
+
+### ✅ G5 — Kırmızı EBYS damga (önceki sprint'te kuruldu; bu oturumda doğrulandı)
+- Damga: "Bu çıktı, 5070 sayılı... kağıt kopyasıdır." + "Bu belge güvenli elektronik imza ile imzalanmıştır." + "İmzalayan: Ad Soyad (Unvan)" — PyMuPDF ile 7 PDF türünde doğrulandı (damga ✓, İmzalayan ✓, sadece DejaVu ✓, Türkçe karakter ✓, toolbar kelimesi 0 ✓).
+
+### ✅ G6 — İmzalayan Bilgisi modali KALDIRILDI (YENİ)
+- `show.blade.php`: "İmzalayan Bilgisi" Swal formu (makam/ad/soyad/checkbox) TAMAMEN silindi; `E-İmza ile İmzala` → doğrudan `POST /api/e-imza/baslat` (imzalayan body'de YOK).
+- `EImzaService::kullanicidanImzalayan(User $user)` (YENİ): ad/soyad `users.name`'den ayrıştırılır, unvan Spatie rolünden Türkçe map: municipality-makam→"Belediye Başkan Yardımcısı", municipality-admin→"Belediye Başkanı", municipality-mudur→"Fen İşleri Müdürü", municipality-sef→"Şef", municipality-buro→"Büro Personeli (Paraf)", institution-*→Kurum rolleri, field-team→"Saha Personeli". `ad_yazilsin=true` (ad HER imzada yazılır).
+- `EImzaController::baslat`: imzalayan validasyonu kaldırıldı; `EImzaService::kullanicidanImzalayan(auth()->user())` ile backend'de doldurulur.
+- Test: "Test Personeli" → `{"ad":"Test","soyad":"Personeli","unvan":"Büro Personeli (Paraf)","ad_yazilsin":true}` + PDF damga satırı "İmzalayan: Test Personeli (Büro Personeli (Paraf))" doğrulandı.
+
+### 🔧 Altyapı (ayakta)
+- `start.ps1` düzeltildi: `php.cmd` → `php` (winget PHP'de php.cmd yoktu; tüm servisler bu yüzden açılmıyordu).
+- Çalışanlar: Oracle+Redis (Docker), Laravel 8001, Vite 5173 (npm run dev), Reverb 8090, queue:work, Electron. Doğrulama: Vite 200 ✓.
+
+### 📁 Değişen Dosyalar (bu sprint)
+- `app/Services/DocumentTemplateService.php` (+pdfCssEnjekte), `app/Services/EImzaService.php` (+kullanicidanImzalayan), `app/Http/Controllers/Api/EImzaController.php` (baslat imzalayan Auth'ten), `resources/views/admin/applications/show.blade.php` (Swal modali silindi), `app/Http/Controllers/Admin/ApplicationsController.php`, `app/Services/LicenseService.php`, `FieldReportController.php`, `ReportController.php`, `WorkOrderController.php` (loadView→pdfCssEnjekte+loadHTML), `start.ps1` (php.cmd→php).
+
+### ⚠️ CLAUDE'A DEVREDİLECEK — "İMZALANDIKTAN SONRA ÇIKAN HATALI PDF" (kullanıcının tarifine göre)
+1. **İmzalı PDF akışı (electron)**: orijinal.pdf artık temiz; imzalı nüsha (PAdES sonrası imzali_pdf) yerleşim/görsel bozuklukları için kontrol: dompdf subset fontlarının pdf-lib normalize + node-signpdf akışında korunması.
+2. **Şablon (renderFor) akışı**: global/override şablon HTML'i kendi CSS'ini içerebilir (`@media print` blokları, font shorthand `font: bold 10pt Helvetica`). pdfCssEnjekte `* !important` ile eziyor ama şablon içindeki `.no-print` benzeri UI kalıntıları şablonda yoksa sorun yok; yine de şablonlu PDF'ler (ruhsat/tahakkuk excel-grid) DejaVu genişliğiyle taşma yapabilir → yerleşim kontrolü şart.
+3. **Logolar**: şablon/blade `<img src="/storage/...">` → dompdf `isRemoteEnabled` kapalıysa boş kutu. Base64 embed önerilir (cover_letter'da logo_base64 yapılıyor; diğer belgeler kontrol edilsin).
+4. **isRemoteEnabled / setOptions** kontrolü config/dompdf.php'de.
+5. Doğrulama aracı hazır: PyMuPDF — font listesi (Helvetica/Courier/Times OLMAMALI), toolbar kelimeleri (Yazdır/Şablonu Düzenle/Bold/Italic OLMAMALI), damga satırları + "İmzalayan: ..." VAR olmalı. Kullanıcı imzalı PDF'te tam olarak NEYİN bozuk olduğunu söylerse ona göre kök neden bulunur.
+
+---
+
 ## Sprint 12 — E-İMZA GERÇEK TOKEN İLE UÇTAN UCA DOĞRULANDI + BUG-1..4 ÇÖZÜMÜ
 
 ### 🎯 Öz
