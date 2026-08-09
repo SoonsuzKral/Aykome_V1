@@ -97,6 +97,7 @@ class StoreApplicationRequest extends FormRequest
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'address_text' => ['nullable', 'string', 'max:500'],
             'address_components_json' => ['nullable', 'string'],
+            'address_components' => ['nullable', 'string'],
             'polygon_geojson' => ['nullable', 'string'],
             'total_area_m2' => ['nullable', 'numeric', 'min:0'],
             'center_lat' => ['nullable', 'numeric'],

@@ -5,13 +5,14 @@
     <title>Kurum Başvuru Yazısı</title>
     <style>
         body { font-family: "Times New Roman", Times, serif; font-size: 14.5px; line-height: 1.4; margin: 0; color:#000; background:#e2e8f0; display:flex; justify-content:center; }
-        .a4-container { background: white; width: 210mm; min-height: 297mm; max-height:297mm; overflow:hidden; box-sizing: border-box; padding: 18mm 20mm; margin: 70px auto 15px; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); }
+        .a4-container { background: white; width: 210mm; min-height: 297mm; max-height:297mm; overflow:hidden; box-sizing: border-box; padding: 18mm 20mm 48mm 20mm; margin: 70px auto 15px; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); position: relative; }
 
         table { width: 100%; border-collapse: collapse; table-layout: fixed;}
         td { vertical-align: top; }
 
         .mahalle-title { font-weight: bold; font-size: 14px; text-decoration: underline; margin-bottom: 2px; text-transform: uppercase; font-family: Arial, sans-serif;}
         .list-table { border-collapse: collapse; margin-bottom: 20px; font-family: Arial, sans-serif; font-size: 13px; }
+        .list-table th { border: 1.5px solid black; padding: 4px; }
         .list-table td { border: 1.5px solid black; padding: 4px; width: 50%; vertical-align: middle; font-weight:bold;}
 
         .text-center { text-align: center; } .text-right { text-align: right;} .font-bold { font-weight: bold; }
@@ -47,17 +48,22 @@
         /* EK-1 sayfası stilleri */
         .ek-sayfa { page-break-before: always; }
         .ek-baslik { font-size: 15px; font-weight: 900; text-align: center; margin-bottom: 20px; text-decoration: underline; }
-        .ek-mahalle-td { font-size: 14px; font-weight: bold; padding: 10px 8px; }
         .ek-tablo { width: 100%; border-collapse: collapse; margin-top: 6px; }
         .ek-tablo th, .ek-tablo td { border: 1px solid #000; padding: 6px 8px; }
         .ek-tablo th { text-align: left; font-weight: bold; }
+
+        /* ALT BLOK (bottom absolute): imza hizası + doğrulama + kırmızı e-imza — A4 dibine sabitlenir, asla yırtılmaz */
+        .a4-footer { position: absolute; bottom: 10mm; left: 20mm; right: 20mm; }
+        .sig-table { width: 100%; page-break-inside: avoid; }
+        .footer-line { border-top: 1px dashed #cbd5e1; padding-top: 3px; text-align: center; font-family: monospace; font-size: 9px; line-height: 1; color:#64748b; }
+        .footer-red { color: #dc2626; font-weight: bold; font-size: 10px; font-family: Arial, sans-serif; }
 
         @page { size: A4 portrait; margin: 0 !important; }
         @media print {
             body { background:#fff; margin:0 !important; font-size: 14.5px !important; display: block;}
             .print-bar { display:none !important; }
             /* KATI A4 SINIRI: taşan kısım 2. sayfaya sıçramaz — tek kağıt çıktısı garanti */
-            .a4-container { width: 100% !important; padding: 12mm 20mm 0 20mm !important; height: 297mm; overflow: hidden; box-shadow:none; margin:0; page-break-after: avoid; }
+            .a4-container { width: 100% !important; padding: 12mm 20mm 48mm 20mm !important; height: 297mm; overflow: hidden; box-shadow:none; margin:0; page-break-after: avoid; }
             .a4-container .footer-line, .a4-container > *:last-child { page-break-inside: avoid; }
         }
         .no-print { display: block; }
@@ -78,6 +84,13 @@
         // CELL-BASED AUTH: Üst Yazı (Dilekçe) altkurumun kendi başvuru evrakı olduğundan
         // tüm alanlar iki tarafa açıktır; helper tutarlılık için tanımlıdır.
         $isMuni = auth()->check() && auth()->user()->isMunicipalityPersonel();
+
+        // MUHTELİF KAÇIŞ MANTIĞI: model kuralı isMuhtelif() (>3 sokak) + A4 agresif limit
+        // (5+ sokak asla ana sayfada inline dökülmez → EK-1'e sürülür). Footer asla yırtılmaz.
+        $muhtelif = $application->isMuhtelif() || $application->streetCount() > 5;
+        $adresGruplari = $application->streetLinesGroupedByMahalle();
+        $imzaliMi = ! empty($application->module_documents['cover_letter']['e_imza']['durum'])
+            || ! empty($application->module_documents['cover_letter']['status']);
     @endphp
     <div class="a4-container">
 
@@ -139,29 +152,32 @@
         </div>
 
         <div style="margin-top:25px;">
-            @if($application->isMuhtelif())
+            @if($muhtelif)
                 <div class="mahalle-title" contenteditable="true">MUHTELİF CADDE VE SOKAK</div>
                 <table class="list-table">
-                    <tr><td colspan="2" contenteditable="true" style="font-weight:normal; font-size:12.5px;">Başvuru kapsamındaki tüm cadde ve sokaklar EK-1: KAZI ADRESLERİ LİSTESİ sayfasında detaylandırılmıştır.</td></tr>
+                    <tr><td colspan="2" contenteditable="true" style="font-weight:normal; font-size:12.5px;">Belirtilen tesislerin yapım süreci ile ilgili adresler MUHTELİF CADDE VE SOKAKLARDAN OLUŞMAKTA OLUP (EK-1: KAZI ADRESLERİ LİSTESİNDE) SUNULMUŞTUR.</td></tr>
                 </table>
-            @elseif(is_array($application->address_components) && count($application->address_components) > 0)
-                @foreach($application->address_components as $adres)
-                    <div class="mahalle-title" contenteditable="true">{{ mb_strtoupper($adres['mahalle'] ?? '', 'UTF-8') }}</div>
-                    <table class="list-table">
+            @elseif(! empty($adresGruplari))
+                {{-- 2 KOLONLU HÜCRESEL DÖKÜM (Grouped By Mahalle): yan yana hücreler, yer israfı yok --}}
+                <table class="list-table">
+                    @foreach($adresGruplari as $mahalle => $sokaklar)
                         @php
-                            $sokaklar = isset($adres['streets']) && is_array($adres['streets']) ? $adres['streets'] : [];
-                            $satirlar = array_chunk($sokaklar, 2);
+                            $mahalleUst = mb_strtoupper($mahalle, 'UTF-8');
+                            $mahalleSon = preg_replace('/[İIıi]/u', 'I', $mahalleUst);
+                            $baslik = $mahalleUst . (str_ends_with($mahalleSon, 'MAHALLE') || str_ends_with($mahalleSon, 'MAHALLESI') ? '' : ' MAHALLESİ');
                         @endphp
-                        @forelse($satirlar as $satir)
+                        <tr>
+                            <th colspan="2" style="background:#f1f1f1; text-align:left; font-weight:bold;" contenteditable="true">{{ $baslik }}</th>
+                        </tr>
+                        @foreach(collect($sokaklar)->chunk(2) as $ikiliSokakGrubu)
+                            @php $hucreler = $ikiliSokakGrubu->values(); @endphp
                             <tr>
-                                <td contenteditable="true">{{ mb_strtoupper($satir[0] ?? '', 'UTF-8') }}</td>
-                                <td contenteditable="true">{{ mb_strtoupper($satir[1] ?? '', 'UTF-8') }}</td>
+                                <td style="width:50%" contenteditable="true">{{ $hucreler->get(0) ?? '' }}</td>
+                                <td style="width:50%" contenteditable="true">{{ $hucreler->get(1) ?? '' }}</td>
                             </tr>
-                        @empty
-                            <tr><td colspan="2" contenteditable="true" style="font-weight:normal;"></td></tr>
-                        @endforelse
-                    </table>
-                @endforeach
+                        @endforeach
+                    @endforeach
+                </table>
             @else
                 <div class="mahalle-title" contenteditable="true">KAYITLI ADRES BLOĞU</div>
                 <table class="list-table">
@@ -170,40 +186,45 @@
             @endif
         </div>
 
-        <table style="width:100%; margin-top: 50px;">
-            <tr>
-                <td style="width:60%; line-height:1.4;" contenteditable="true">
-                    Tesis Kontrol / Yetkilisi : <b>{{ mb_strtoupper($application->tesis_sorumlusu_adi ?? '', 'UTF-8') }}</b><br>
-                    Evrağı Düzenleyen &nbsp;: <b>{{ mb_strtoupper($application->duzenleyen_kisi ?? auth()->user()?->name ?? '', 'UTF-8') }}</b><br>
-                    Yaklaşık Kazı &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <b>{{ collect($application->surfaceLines ?? [])->sum('quantity') }} m² / m. </b>
-                </td>
-                <td style="width:40%; text-align:center;">
-                    <b style="text-transform:uppercase;">{{ mb_strtoupper($application->mudur_adi ?? 'KURUM YÖNETİCİSİ', 'UTF-8') }}</b><br>
-                    <span style="font-size:14px;">{{ $application->mudur_unvani ?? 'Bölge Sorumlusu/İl Müdürü' }}</span><br>
-                    <span style="font-size:12.5px;">{{ mb_strtoupper($application->institution?->name ?? '', 'UTF-8') }}</span>
-                </td>
-            </tr>
-        </table>
-
-        {{-- FOOTER — TEK SATIR + DAR MARGIN: uzun açıklama silindi, A4 taşması engellenir --}}
-        <div style="margin-top:10px; border-top: 1px dashed #cbd5e1; padding-top:3px; text-align: center; font-family: monospace; font-size: 9px; line-height: 1; color:#64748b;">
-            BELGE DOĞRULAMA KODU: <b style="color:#d97706;">{{ $application->verification_code ?? 'GEÇERSİZ/TASLAK' }}</b> | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b>
+        {{-- ALT BLOK (bottom absolute): imza hizası + doğrulama + kırmızı e-imza — A4 dibine sabit, yırtılmaz --}}
+        <div class="a4-footer">
+            <table class="sig-table">
+                <tr>
+                    <td style="width:60%; line-height:1.4;" contenteditable="true">
+                        Tesis Kontrol / Yetkilisi : <b>{{ mb_strtoupper($application->tesis_sorumlusu_adi ?? '', 'UTF-8') }}</b><br>
+                        Evrağı Düzenleyen &nbsp;: <b>{{ mb_strtoupper($application->duzenleyen_kisi ?? auth()->user()?->name ?? '', 'UTF-8') }}</b><br>
+                        Yaklaşık Kazı &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <b>{{ collect($application->surfaceLines ?? [])->sum('quantity') }} m² / m. </b>
+                    </td>
+                    <td style="width:40%; text-align:center;">
+                        <b style="text-transform:uppercase;">{{ mb_strtoupper($application->mudur_adi ?? 'KURUM YÖNETİCİSİ', 'UTF-8') }}</b><br>
+                        <span style="font-size:14px;">{{ $application->mudur_unvani ?? 'Bölge Sorumlusu/İl Müdürü' }}</span><br>
+                        <span style="font-size:12.5px;">{{ mb_strtoupper($application->institution?->name ?? '', 'UTF-8') }}</span>
+                    </td>
+                </tr>
+            </table>
+            <div class="footer-line">
+                @if($imzaliMi)
+                    <span class="footer-red">Bu belge güvenli E-İmza Kanuna istinaden İmzalanmıştır.</span><br>
+                @endif
+                BELGE DOĞRULAMA KODU: <b style="color:#d97706;">{{ $application->verification_code ?? 'GEÇERSİZ/TASLAK' }}</b> | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b>
+            </div>
         </div>
 
     </div>
 
-    @if($application->isMuhtelif())
+    @if($muhtelif)
     <!-- EK-1: KAZI ADRESLERİ LİSTESİ (yalnızca muhtelif/çok sokaklı başvurularda) -->
     <div class="a4-container ek-sayfa">
         <div class="ek-baslik" contenteditable="true">EK-1: KAZI ADRESLERİ LİSTESİ</div>
         <table class="ek-tablo">
-            @foreach($application->streetLinesGroupedByMahalle() as $mahalle => $sokaklar)
+            @foreach($adresGruplari as $mahalle => $sokaklar)
                 @php $mahalleUst = strtoupper($mahalle); $mahalleSon = preg_replace('/[İIıi]/u', 'I', $mahalleUst); @endphp
-                <tr><td colspan="2" style="background: #eef2f5; font-weight: 800; font-size: 14px; text-align: center; border-bottom: 2px solid #333;" contenteditable="true">{{ $mahalleUst }}{{ str_ends_with($mahalleSon, 'MAHALLE') || str_ends_with($mahalleSon, 'MAHALLESI') ? '' : ' MAHALLESİ' }}</td></tr>
-                @foreach($sokaklar as $sokak)
+                <tr><th colspan="2" style="background: #eef2f5; font-size: 14px; text-align: center; border-bottom: 2px solid #333;" contenteditable="true">{{ $mahalleUst }}{{ str_ends_with($mahalleSon, 'MAHALLE') || str_ends_with($mahalleSon, 'MAHALLESI') ? '' : ' MAHALLESİ' }}</th></tr>
+                @foreach(collect($sokaklar)->chunk(2) as $ikiliSokakGrubu)
+                    @php $hucreler = $ikiliSokakGrubu->values(); @endphp
                     <tr>
-                        <td contenteditable="true">{{ $sokak }}</td>
-                        <td></td>
+                        <td contenteditable="true">{{ $hucreler->get(0) ?? '' }}</td>
+                        <td contenteditable="true">{{ $hucreler->get(1) ?? '' }}</td>
                     </tr>
                 @endforeach
             @endforeach
