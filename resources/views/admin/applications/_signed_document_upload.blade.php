@@ -95,7 +95,9 @@
     </div>
     @endif
 
-    @if(config('e-imza.enabled') && !$eImzaDone && ($can['update'] ?? false) && $showEImza)
+    {{-- GÖREV 3: Mavi "E-İmza ile İmzala" butonu SADECE süreç adımında yetkili
+         (belediye: roleCanApproveStep; kurum: update) kullanıcıya görünür. --}}
+    @if(config('e-imza.enabled') && !$eImzaDone && ($can['update'] ?? false) && $showEImza && ($can['e_imza'] ?? false))
     <button type="button" class="e-imza-btn mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm text-[12px] transition duration-200 flex items-center justify-center gap-2"
             style="background-color:#2563eb !important;color:#ffffff !important;"
             data-app-id="{{ $application->id }}"

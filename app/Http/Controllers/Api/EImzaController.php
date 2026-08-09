@@ -41,7 +41,27 @@ class EImzaController extends Controller
 
         $application = Application::findOrFail($request->application_id);
 
-        $transaction = $this->eImzaService->baslat($application, $pdfType);
+        // GÖREV 3 — Sunucu tarafı yetki zorunluluğu: butonu gizlemek tek başına
+        // güvenlik sağlamaz, bu endpoint doğrudan da çağrılabilir. Süreç adımında
+        // rolü olan belediye personeli veya kendi başvurusunda update yetkisi olan
+        // alt kurum kullanıcısı e-imza başlatabilir.
+        $user = auth()->user();
+        $engine = app(\App\Services\ProcessEngine::class);
+        $step = $engine->currentStep($application);
+        $yetkiliMi = $user->isMunicipalityPersonel()
+            ? ($step !== null && $engine->roleCanApproveStep($step, $user))
+            : $user->can('update', $application);
+        if (! $yetkiliMi) {
+            return response()->json(['message' => 'Bu adım için e-imza yetkiniz yok.'], 403);
+        }
+
+        // GÖREV 6: İmzalayan bilgisi giriş yapmış kullanıcıdan otomatik alınır
+        // (ad/soyad + rol → Türkçe unvan); UI'dan hiçbir form sorulmaz.
+        $transaction = $this->eImzaService->baslat(
+            $application,
+            $pdfType,
+            EImzaService::kullanicidanImzalayan($user)
+        );
 
         return response()->json([
             'transaction_id' => $transaction->transaction_id,
@@ -83,6 +103,9 @@ class EImzaController extends Controller
             'imzalayan.soyad' => 'required|string',
             'imzalayan.tckn' => 'required|string',
             'imzalayan.sertifika_turu' => 'required|string',
+            // GÖREV 2 — Akıllı kart sertifika kimlik adı (Subject CN). Electron
+            // uploader.js'ten sertifikanın kendisinden gönderilir.
+            'certificate_cn' => 'nullable|string',
         ]);
 
         try {
@@ -95,11 +118,16 @@ class EImzaController extends Controller
             return response()->json(['message' => 'İşlem zaten tamamlanmış veya süresi dolmuş.'], 400);
         }
 
-        $this->eImzaService->tamamla(
-            $transaction,
-            file_get_contents($request->file('file')->getRealPath()),
-            $request->imzalayan
-        );
+        try {
+            $this->eImzaService->tamamla(
+                $transaction,
+                file_get_contents($request->file('file')->getRealPath()),
+                $request->imzalayan,
+                $request->input('certificate_cn')
+            );
+        } catch (\App\Exceptions\EImzaSahibiUyusmazlikException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 403);
+        }
 
         return response()->json(['status' => 'completed']);
     }
@@ -135,6 +163,9 @@ class EImzaController extends Controller
             'status' => $transaction->status,
             'completed_at' => $transaction->completed_at?->toIso8601String(),
             'imzalayan_info' => $transaction->imzalayan_info,
+            'imzali_url' => $transaction->imzali_pdf && Storage::disk('public')->exists($transaction->imzali_pdf)
+                ? route('e-imza.indir', ['transactionId' => $transaction->transaction_id], false)
+                : null,
         ]);
     }
 }

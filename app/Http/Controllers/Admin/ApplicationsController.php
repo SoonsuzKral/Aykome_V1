@@ -179,8 +179,9 @@ class ApplicationsController extends Controller
         $validated['identity_no'] = preg_replace('/\D+/', '', (string) ($validated['identity_no'] ?? $validated['applicant_national_id'] ?? '')) ?: $validated['applicant_national_id'];
 
         // Address components: JSON string → decode to array (model casts 'address_components' as 'array')
-        if (! empty($validated['address_components_json'])) {
-            $decoded = json_decode($validated['address_components_json'], true);
+        $rawComponents = $validated['address_components_json'] ?? $validated['address_components'] ?? null;
+        if (is_string($rawComponents) && $rawComponents !== '') {
+            $decoded = json_decode($rawComponents, true);
             if (is_array($decoded)) {
                 $validated['address_components'] = $decoded;
             }
@@ -378,6 +379,13 @@ class ApplicationsController extends Controller
                 'approve_current' => $request->user()->can('approvePreExcavation', $application)
                     && $currentStep !== null
                     && $engine->roleCanApproveStep($currentStep, $request->user()),
+                // GÖREV 3 — E-İmzala butonu yetki izolasyonu. Belediye personeli süreç
+                // adımında rolü varsa (veya adım e-imza config'liyse canSignStep), alt
+                // kurum kullanıcısı kendi başvurusunda update yetkisine sahipse görünür.
+                'e_imza' => $currentStep !== null
+                    && ($engine->roleCanApproveStep($currentStep, $request->user())
+                        || $engine->canSignStep($currentStep, $request->user())
+                        || (!$request->user()->isMunicipalityPersonel() && $request->user()->can('update', $application))),
                 'approve_price' => $request->user()->can('approvePrice', $application),
                 'approve_receipt' => $request->user()->can('approveReceipt', $application),
                 'transfer' => $request->user()->can('transferTask', $application),
@@ -493,6 +501,7 @@ class ApplicationsController extends Controller
             'description' => ['nullable', 'string'],
             'address_text' => ['nullable', 'string', 'max:500'],
             'address_components_json' => ['nullable', 'string'],
+            'address_components' => ['nullable', 'string'],
             'polygon_geojson' => ['nullable', 'string'],
             'total_area_m2' => ['nullable', 'numeric', 'min:0'],
             'center_lat' => ['nullable', 'numeric', 'between:-90,90'],
@@ -515,8 +524,9 @@ class ApplicationsController extends Controller
         ]);
 
         // Address components: JSON string → decode to array (model casts 'address_components' as 'array')
-        if (! empty($data['address_components_json'])) {
-            $decoded = json_decode($data['address_components_json'], true);
+        $rawComponents = $data['address_components_json'] ?? $data['address_components'] ?? null;
+        if (is_string($rawComponents) && $rawComponents !== '') {
+            $decoded = json_decode($rawComponents, true);
             if (is_array($decoded)) {
                 $data['address_components'] = $decoded;
             }
@@ -696,9 +706,9 @@ class ApplicationsController extends Controller
         $this->authorize('update', $application);
 
         abort_unless(
-            ! $request->user()->isMunicipalityPersonel() && $application->institution_id,
+            $request->user()->hasAnyRole(['municipality-sef', 'municipality-admin', 'municipality-makam', 'super-admin']),
             403,
-            'Bu işlem yalnızca kurum tarafından gerçekleştirilebilir.'
+            'Bu işlem yalnızca Aykome Birim Şefi yetkisiyle yapılır.'
         );
 
         $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
@@ -717,12 +727,12 @@ class ApplicationsController extends Controller
 
         AuditLogger::log(
             'application.excavation_completed',
-            "Kurum saha kazı çalışmalarını tamamladı: {$application->application_no}",
+            "Saha çalışmaları tamamlandı: {$application->application_no}",
             'Application',
             $application->id
         );
 
-        return back()->with('success', '✅ Saha kazı çalışmaları tamamlandı. Belediye Saha Metraj modülünü açacak.');
+        return back()->with('success', '✅ Saha çalışmaları tamamlandı. Belediye Saha Metraj modülünü açacak.');
     }
 
     /**
@@ -1565,7 +1575,7 @@ class ApplicationsController extends Controller
             return $resp;
         }
 
-        if ($html = DocumentTemplateService::renderFor('makbuz', $application)) {
+        if ($html = DocumentTemplateService::renderFor('makbuz', $application, true, false)) {
             AuditLogger::log(
                 'payment_receipt.downloaded',
                 "Tahsilat makbuzu indirildi: {$application->application_no}",
@@ -1575,12 +1585,17 @@ class ApplicationsController extends Controller
 
             return Pdf::loadHTML($html)
                 ->setPaper('a4', 'portrait')
-                ->stream('tahsilat-makbuzu-' . $application->application_no . '.pdf');
+                ->inline('tahsilat-makbuzu-' . $application->application_no . '.pdf');
         }
 
         $application->load(['institution']);
 
-        $pdf = Pdf::loadView('admin.pdf.tahsilat_makbuzu', compact('application'))
+        // GÖREV 1+2: blade'deki print-bar/toolbar kalıntıları + Latin-1 fontlar temizlenir.
+        $html = DocumentTemplateService::pdfCssEnjekte(
+            \Illuminate\Support\Facades\View::make('admin.pdf.tahsilat_makbuzu', compact('application'))->render()
+        );
+
+        $pdf = Pdf::loadHTML($html)
             ->setPaper('a4', 'portrait');
 
         AuditLogger::log(
@@ -1590,7 +1605,7 @@ class ApplicationsController extends Controller
             $application->id,
         );
 
-        return $pdf->stream('tahsilat-makbuzu-' . $application->application_no . '.pdf');
+        return $pdf->inline('tahsilat-makbuzu-' . $application->application_no . '.pdf');
     }
 
     /**
@@ -1605,10 +1620,10 @@ class ApplicationsController extends Controller
             return $resp;
         }
 
-        if ($html = DocumentTemplateService::renderFor('ruhsat', $application)) {
+        if ($html = DocumentTemplateService::renderFor('ruhsat', $application, true, false)) {
             return Pdf::loadHTML($html)
                 ->setPaper('a4', 'portrait')
-                ->stream('ruhsat-' . $application->application_no . '.pdf');
+                ->inline('ruhsat-' . $application->application_no . '.pdf');
         }
 
         $application->load([
@@ -1620,10 +1635,16 @@ class ApplicationsController extends Controller
             'receiptApprover',
         ]);
 
-        $pdf = Pdf::loadView('admin.pdf.ruhsat', [
-            'application' => $application,
-            'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
-        ])->setPaper('a4', 'portrait');
+        // GÖREV 1+2: blade'deki print-bar/toolbar kalıntıları + Latin-1 fontlar temizlenir.
+        $html = DocumentTemplateService::pdfCssEnjekte(
+            \Illuminate\Support\Facades\View::make('admin.pdf.ruhsat', [
+                'application' => $application,
+                'signatories' => SignatoryEngine::roleMap('ruhsat', $application),
+            ])->render()
+        );
+
+        $pdf = Pdf::loadHTML($html)
+            ->setPaper('a4', 'portrait');
 
         AuditLogger::log(
             'permit.downloaded',
@@ -1632,7 +1653,7 @@ class ApplicationsController extends Controller
             $application->id,
         );
 
-        return $pdf->stream('ruhsat-' . $application->application_no . '.pdf');
+        return $pdf->inline('ruhsat-' . $application->application_no . '.pdf');
     }
 
     public function statusJson(Request $request, Application $application): \Illuminate\Http\JsonResponse

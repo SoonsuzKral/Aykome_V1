@@ -97,7 +97,7 @@ class DocumentTemplateService
     /** Standalone PDF sarmalayıcısı için temel A4 + yazdırma çubuğu CSS'i. */
     protected const LAYOUT_CSS = <<<'CSS'
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #e5e7eb; padding-top: 70px; display: flex; justify-content: center; font-family: 'Times New Roman', Times, serif; }
+body { background: #e5e7eb; padding-top: 70px; display: flex; justify-content: center; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
 .a4-container { background: #fff; width: 210mm; min-height: 297mm; padding: 18mm 20mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 16px auto; box-sizing: border-box; }
 .print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: linear-gradient(180deg,#1e293b,#0f172a); color: #fff; height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
 .print-bar .title { font-size: 15px; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 8px; }
@@ -116,7 +116,7 @@ CSS;
     /** Landscape (metraj) A4 sarmalayıcı CSS'i. */
     protected const LAYOUT_CSS_LANDSCAPE = <<<'CSS'
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #e5e7eb; padding-top: 70px; display: flex; justify-content: center; font-family: 'Times New Roman', Times, serif; }
+body { background: #e5e7eb; padding-top: 70px; display: flex; justify-content: center; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
 .a4-container { background: #fff; width: 297mm; min-height: 210mm; padding: 12mm 14mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 16px auto; box-sizing: border-box; }
 .print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: linear-gradient(180deg,#1e293b,#0f172a); color: #fff; height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
 .print-bar .title { font-size: 15px; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 8px; }
@@ -1138,8 +1138,9 @@ CSS;
 
     /* ─── PDF çizim (override / global varsa) ──────────────────────────── */
 
-    /** Belge için kaynak şablon varsa tam HTML döner, yoksa null (normal blade akışı). */
-    public static function renderFor(string $type, Application $app, bool $withStamp = true): ?string
+    /** Belge için kaynak şablon varsa tam HTML döner, yoksa null (normal blade akışı).
+     *  $withUi=false → PDF render için print-bar/butonlar HTML'e yazılmaz (GÖREV 2). */
+    public static function renderFor(string $type, Application $app, bool $withStamp = true, bool $withUi = true): ?string
     {
         $content = self::resolveContent($type, $app);
         if ($content === null || trim($content) === '') {
@@ -1152,10 +1153,13 @@ CSS;
         if ($isWord || ! $looksLikeJsonGrid) {
             // Word tipleri + contenteditable ile kaydedilmiş (artık HTML olan) excel tipleri
             $css = self::extractStyles(self::renderBlade($type, $app));
-            $html = self::wrapStandalone($type, $css, $content);
+            // GÖREV 1: Şablon CSS'indeki tüm font-family bildirimleri DejaVu'ya yönlendirilir
+            // (dompdf Type1 Times Latin-1'dir; Türkçe karakterler bu sayede tam basılır).
+            $css = (string) preg_replace('/font-family\s*:\s*[^;}]+/i', "font-family: 'DejaVu Sans', sans-serif", $css);
+            $html = self::wrapStandalone($type, $css, $content, $withUi);
         } else {
             // Eski JSON grid kayıtları (uyumluluk) — HTML tabloya çevrilir
-            $html = self::renderExcelPage($type, $content);
+            $html = self::renderExcelPage($type, $content, $withUi);
         }
 
         // BİLGİ KATMANI: şablondaki tüm {alan_adi} / {KURUM_ADI} / {DOGRULAMA_KODU}
@@ -1167,11 +1171,12 @@ CSS;
     }
 
     /**
-     * EBYS E-İmza önizleme (dummy QR) alanını </body> öncesine enjekte eder.
+     * EBYS E-İmza damga/şerit enjeksiyonu — KÖKTEN KALDIRILDI.
      *
-     * KAPATILDI (GÖREV): Sistemde gerçek bir e-Devlet doğrulama modülü yok; bu sahte
-     * QR / doğrulama bloğu tüm evraklardan kaldırıldı. İleride doğrulama modülü
-     * yapılırsa buraya gerçek doğrulama entegrasyonu yazılacak. Belge asla değişmez.
+     * KESİN EMİR (Baş Mimar): İmza atan yöneticinin bilgileri veya PAdES şerhi asla,
+     * ASLA HTML layouta enjekte edilmeyecek. Belge şablondan nasıl üretildiyse
+     * birebir kalır; e-imza yalnızca görünmez (invisible) kriptografik PAdES
+     * mührüdür. Bu metod adı çağrılabilir (BC) ama hiçbir şey eklemez — 0 insertion.
      */
     public static function applyEImzaStamp(string $html, ?Application $app = null): string
     {
@@ -1219,26 +1224,30 @@ CSS;
             . '<g fill="#000">' . $rects . '</g></svg>';
     }
 
-    protected static function wrapStandalone(string $type, string $docCss, string $bodyHtml): string
+    protected static function wrapStandalone(string $type, string $docCss, string $bodyHtml, bool $withUi = true): string
     {
         $title = self::TYPES[$type]['pdf_title'] ?? self::label($type);
         $layoutCss = ! empty(self::TYPES[$type]['landscape'])
             ? self::LAYOUT_CSS_LANDSCAPE
             : self::LAYOUT_CSS;
 
+        $uiBar = $withUi
+            ? '<div class="print-bar no-print">'
+                . '<span class="title"><span class="doc-ico">📄</span>' . e($title) . '</span>'
+                . '<div class="actions">'
+                . '<button type="button" class="btn-close" onclick="window.close()">✕ Kapat</button>'
+                . '<button type="button" class="btn-pdf" onclick="saveAsPdf()">📄 PDF Olarak Kaydet</button>'
+                . '<button type="button" class="btn-print" onclick="window.print()">🖨️ Yazdır</button>'
+                . '</div></div>'
+            : '';
+
         return '<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><title>' . e($title) . '</title>'
             . '<style>' . $layoutCss . '</style>'
             . '<style>' . $docCss . '</style>'
             . '</head><body>'
-            . '<div class="print-bar no-print">'
-            . '<span class="title"><span class="doc-ico">📄</span>' . e($title) . '</span>'
-            . '<div class="actions">'
-            . '<button type="button" class="btn-close" onclick="window.close()">✕ Kapat</button>'
-            . '<button type="button" class="btn-pdf" onclick="saveAsPdf()">📄 PDF Olarak Kaydet</button>'
-            . '<button type="button" class="btn-print" onclick="window.print()">🖨️ Yazdır</button>'
-            . '</div></div>'
+            . $uiBar
             . '<div class="a4-container">' . $bodyHtml . '</div>'
-            . '<script>function saveAsPdf(){ window.print(); }</script>'
+            . ($withUi ? '<script>function saveAsPdf(){ window.print(); }</script>' : '')
             . '</body></html>';
     }
 
@@ -1436,7 +1445,7 @@ CSS;
         return trim($out) !== '' ? $out : $baseHtml;
     }
 
-    protected static function renderExcelPage(string $type, string $json): string
+    protected static function renderExcelPage(string $type, string $json, bool $withUi = true): string
     {
         $grid = json_decode($json, true);
         if (! is_array($grid)) {
@@ -1446,7 +1455,7 @@ CSS;
         $header = '<div style="text-align:center;margin-bottom:10px;font-weight:bold;font-size:15px;text-decoration:underline;">'
             . e(self::TYPES[$type]['pdf_title'] ?? '') . '</div>';
 
-        return self::wrapStandalone($type, '', $header . self::gridToHtml($grid));
+        return self::wrapStandalone($type, '', $header . self::gridToHtml($grid), $withUi);
     }
 
     protected static function gridToHtml(array $grid): string
@@ -1490,5 +1499,42 @@ CSS;
         }
 
         return $html . '</table>';
+    }
+
+    /**
+     * GÖREV 1+2 — Dompdf'e verilen HTML'e evrensel CSS güvencesi enjekte eder.
+     *
+     * dompdf `@media print` kurallarını UYGULAMAZ; bu yüzden blade'lerdeki
+     * print-bar/toolbar (.no-print) ve Latin-1 fontlar PDF'e sızıyordu. Bu CSS:
+     *   - .no-print / .print-bar / .toolbar → display:none (UI butonları PDF'ten silinir)
+     *   - * → font-family DejaVu Sans (Türkçe ğ/ş/ı/ö/ü/ç tam render; dompdf Type1 yok)
+     */
+    public static function pdfCssEnjekte(string $html): string
+    {
+        $css = '<style>'
+            . '.no-print, .no-print-bar, .print-bar, .toolbar { display: none !important; }'
+            . '* { font-family: "DejaVu Sans", sans-serif !important; }'
+            . '</style>';
+
+        return str_ireplace('</head>', $css . '</head>', $html);
+    }
+
+    /**
+     * E-İmza damga bloğu enjeksiyonu — KÖKTEN KALDIRILDI.
+     *
+     * KESİN EMİR (Baş Mimar): Belgenin altına/üstüna SONDAN enjekte edilen
+     * <div class="aykome-damga"> tarzı statik damga metodlarının ve </body>
+     * önüne text/div bağlamalarının TÜMÜ silinir. İmza atan yöneticinin bilgileri
+     * veya PAdES şerhi HTML layouta ASLA enjekte edilmez. Eski görsel damga bu
+     * belgeleri 2. sayfaya taşıyordu; belge tek A4 çerçevesinde birebir kalır.
+     *
+     * Metod adı BC için tutulur (çağrılsa bile) ama içi BOŞTUR — 0 insertion.
+     *
+     * @param string $html      Değiştirilmeden aynen döndürülür
+     * @param string $damgaHtml Yoksayılır (asla eklenmez)
+     */
+    public static function imzaDamgaEnjekte(string $html, string $damgaHtml): string
+    {
+        return $html;
     }
 }

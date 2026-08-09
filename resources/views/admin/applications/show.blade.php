@@ -211,12 +211,12 @@
                             <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-sky-700">📤 Ruhsatı Kuruma Gönder</button>
                         </form>
                     @endif
-                    {{-- KURUM: saha kazı tamamla (Ping) --}}
-                    @if(!$alertViewerIsMuni && in_array($alertKaStage, ['pre_excavation_approved', 'pre_approved']))
+                    {{-- AYKOME BİRİM ŞEFİ: saha kazı tamamla (alt kurumdan yetki alındı) --}}
+                    @if($alertViewerIsMuni && auth()->user()->hasAnyRole(['municipality-sef', 'municipality-admin', 'municipality-makam', 'super-admin']) && in_array($alertKaStage, ['pre_excavation_approved', 'pre_approved']))
                         <form method="POST" action="{{ route('admin.applications.complete-field-work', $application) }}"
-                              onsubmit="return confirm('Saha kazı çalışmalarınızı tamamladığınızı onaylıyor musunuz?');">
+                              onsubmit="return confirm('Saha çalışmalarının tamamlandığını onaylıyor musunuz?');">
                             @csrf
-                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-emerald-700">✅ Saha Kazı Çalışmalarını Tamamladım</button>
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-emerald-700">✅ Saha Çalışmaları Tamamlandı</button>
                         </form>
                     @endif
                 </div>
@@ -1618,9 +1618,10 @@
                                             <textarea rows="2" class="block w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-amber-400 focus:outline-none" placeholder="Taahhütname hakkında not..."></textarea>
                                         </div>
                                         @include('admin.applications._signed_document_upload', ['module' => 'taahhutname_imzali', 'label' => '🗂 İmzalı Taahhütname Nüshası Yükle'])
-                                        {{-- MAVİ E-İMZA BUTONU: Yalnızca taahhütname adımı AKTİF iken görünür.
-                                             Ruhsat aşamasında (adım geçmiş) çift e-imza görünmesin; yeşil Ruhsat butonu kalır. --}}
-                                        @if($isCurrent)
+                                        {{-- MAVİ E-İMZA BUTONU: Yalnızca taahhütname adımı AKTİF iken ve kullanıcı
+                                             bu adımda yetkiliyse (GÖREV 3) görünür. Ruhsat aşamasında (adım geçmiş)
+                                             çift e-imza görünmesin; yeşil Ruhsat butonu kalır. --}}
+                                        @if($isCurrent && ($can['e_imza'] ?? false))
                                         <a href="{{ route('admin.applications.pdf.taahhutname', $application) }}" target="_blank"
                                            class="flex items-center justify-center gap-2 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white hover:bg-indigo-700 transition">
                                             ✍️ E-imza ile İmzala
@@ -1682,10 +1683,13 @@
                                                 <textarea rows="2" class="block w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-emerald-400 focus:outline-none" placeholder="Ruhsat hakkında not..."></textarea>
                                             </div>
                                             @include('admin.applications._signed_document_upload', ['module' => 'ruhsat_teslim', 'label' => '🗂 İmzalı Ruhsat Nüshası Yükle', 'showEImza' => false])
+                                            {{-- GÖREV 3: Ruhsat e-imza linki SADECE bu adımda yetkili kullanıcıya görünür. --}}
+                                            @if($can['e_imza'] ?? false)
                                             <a href="{{ route('admin.applications.pdf.ruhsat', $application) }}" target="_blank"
                                                class="flex items-center justify-center gap-2 w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-700 transition">
                                                 ✍️ E-imza ile İmzala
                                             </a>
+                                            @endif
                                         </div>
                                         @endif
 
@@ -2404,6 +2408,9 @@ function toggleStep(id) {
             btn.disabled = true;
             btn.innerHTML = '<svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> İmza başlatılıyor...';
 
+            // GÖREV 6: İmzalayan formu SORULMAZ; ad/soyad/unvan arka planda
+            // giriş yapmış kullanıcıdan alınır (EImzaController::baslat → Auth::user()).
+
             try {
                 var res = await fetch('/api/e-imza/baslat', {
                     method: 'POST',
@@ -2467,6 +2474,10 @@ function toggleStep(id) {
                         var durumData = await durumRes.json();
                         if (durumData.status === 'completed') {
                             clearInterval(pollInterval);
+                            // GÖREV 3: İmzalı nüsha otomatik yeni sekmede açılır (indirme algısı biter).
+                            if (durumData.imzali_url) {
+                                window.open(durumData.imzali_url, '_blank');
+                            }
                             if (typeof Swal !== 'undefined') {
                                 Swal.fire({ icon: 'success', title: 'İmza tamamlandı!', timer: 2000, showConfirmButton: false });
                             }

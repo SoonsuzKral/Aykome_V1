@@ -129,9 +129,13 @@ class WorkOrderController extends Controller
             ->orderBy('due_date')
             ->get();
 
-        $pdf = Pdf::loadView('admin.work-orders.export-pdf', compact('tasks'));
+        $pdf = Pdf::loadHTML(
+            \App\Services\DocumentTemplateService::pdfCssEnjekte(
+                \Illuminate\Support\Facades\View::make('admin.work-orders.export-pdf', compact('tasks'))->render()
+            )
+        );
         $pdf->setPaper('A4', 'landscape');
 
-        return $pdf->stream('gorev-emirleri-' . now()->format('Y-m-d') . '.pdf');
+        return $pdf->inline('gorev-emirleri-' . now()->format('Y-m-d') . '.pdf');
     }
 }

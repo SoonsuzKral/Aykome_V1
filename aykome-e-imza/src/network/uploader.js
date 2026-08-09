@@ -22,6 +22,10 @@ async function uploadSignedPdf(transaction, signedPdfBuffer, certInfo, store) {
   form.append('imzalayan[soyad]', (certInfo?.commonName || '').split(' ').slice(1).join(' ') || '');
   form.append('imzalayan[tckn]', certInfo?.tckn || '');
   form.append('imzalayan[sertifika_turu]', 'Kamu SM');
+  // GÖREV 2 — Token-CN güvenlik kilidi: akıllı kartın sertifika kimlik adı
+  // (Subject CN) backend'e gönderilir; imzayı başlatan uygulama kullanıcısı ile
+  // uyuşmazsa Laravel tarafında işlem 403 ile engellenir.
+  form.append('certificate_cn', certInfo?.commonName || '');
 
   const response = await axios.post(`${safeServerUrl}/api/e-imza/tamamla`, form, {
     headers: {

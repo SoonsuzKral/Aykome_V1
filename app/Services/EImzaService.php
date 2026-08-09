@@ -11,11 +11,62 @@ use Illuminate\Support\Str;
 
 class EImzaService
 {
-    public function baslat(Application $application, string $pdfType): EImzaTransaction
+    /**
+     * GÖREV 6 — Giriş yapmış kullanıcıdan imzalayan bilgisini otomatik türetir.
+     * UI'dan imzalayan formu sorulmaz; ad/soyad users.name, unvan ise kullanıcının
+     * Spatie rolünden Türkçe karşılığıyla alınır. Ad her imzada belgeye yazılır.
+     */
+    public static function kullanicidanImzalayan(\App\Models\User $user): array
+    {
+        $tamAd = trim((string) $user->name);
+        $boluk = mb_strrpos($tamAd, ' ');
+        if ($boluk !== false) {
+            $ad = mb_substr($tamAd, 0, $boluk);
+            $soyad = mb_substr($tamAd, $boluk + 1);
+        } else {
+            $ad = $tamAd;
+            $soyad = '';
+        }
+
+        $unvanMap = [
+            'municipality-makam'    => 'Belediye Başkan Yardımcısı',
+            'municipality-admin'    => 'Belediye Başkanı',
+            'municipality-mudur'    => 'Fen İşleri Müdürü',
+            'municipality-sef'      => 'Aykome Birim Şefi',
+            'municipality-buro'     => 'Büro Personeli (Paraf)',
+            'municipality-staff'    => 'Belediye Personeli',
+            'institution-admin'     => 'Kurum Yöneticisi',
+            'institution-manager'   => 'Kurum Yöneticisi',
+            'institution-staff'     => 'Kurum Personeli',
+            'field-team'            => 'Saha Personeli',
+            'super-admin'           => 'Super Admin',
+        ];
+
+        $unvan = 'Personel';
+        foreach (array_keys($unvanMap) as $rol) {
+            if ($user->hasRole($rol)) {
+                $unvan = $unvanMap[$rol];
+                break;
+            }
+        }
+
+        return [
+            'ad' => $ad,
+            'soyad' => $soyad,
+            'unvan' => $unvan,
+            'ad_yazilsin' => true,
+        ];
+    }
+
+    public function baslat(Application $application, string $pdfType, ?array $imzalayan = null): EImzaTransaction
     {
         $transactionId = 'txn_' . Str::uuid();
         $token = hash_hmac('sha256', $transactionId, config('app.key'));
 
+        // GÖREV 1 — Görsel EBYS damga bloğu kaldırıldı. E-imza belgeye görsel bir
+        // müdahale yapmaz; belge şablondan nasıl üretildiyse birebir korunur. İmzaya
+        // dair imzalayan bilgisi belge ALTINA basılmaz, güvenlik backend token-CN
+        // eşleşmesiyle sağlanır (bkz. verifyCertificateOwner).
         $pdf = $this->pdfOlustur($application, $pdfType);
         $dizin = "e-imza/{$transactionId}";
         Storage::disk('public')->makeDirectory($dizin);
@@ -30,10 +81,24 @@ class EImzaService
             'token' => $token,
             'orijinal_pdf' => $pdfPath,
             'expires_at' => now()->addMinutes(10),
+            // GÖREV 2 — Token-CN güvenlik kilidi için baslatan kullanıcı transaction'a
+            // bağlanır. tamamla route'u auth'suz (api-key) olduğundan auth()->user()
+            // orada boş döner; bu yüzden imzayı BAŞLATAN kullanıcı burada sabitlenir.
+            'imzalayan_info' => array_merge(
+                $imzalayan ?? [],
+                ['baslatan_user_id' => auth()->id(), 'baslatan_user_name' => auth()->user()?->name ?? '']
+            ),
         ]);
     }
 
-    public function pdfOlustur(Application $application, string $pdfType): \Barryvdh\DomPDF\PDF
+    /**
+     * Belge PDF'ini üretir. GÖREV 1: Görsel imza damgası kaldırıldığı için belge
+     * şablondan nasıl render edildiyse birebir korunur (görsel müdahale YOK).
+     *
+     * @param array|null $imzaDamgasi @deprecated İmza damgası kaldırıldı; parametre
+     *                                geriye dönük uyumluluk (BC) için tutulur, hiç basılmaz.
+     */
+    public function pdfOlustur(Application $application, string $pdfType, ?array $imzaDamgasi = null): \Barryvdh\DomPDF\PDF
     {
         $application->load([
             'institution', 'creator',
@@ -54,9 +119,14 @@ class EImzaService
         ];
         $mapped = $map[$pdfType] ?? null;
         if ($mapped !== null) {
-            $html = DocumentTemplateService::renderFor($mapped, $application, false);
+            // GÖREV 2: PDF render'da print-bar/butonlar üretilmez ($withUi=false).
+            $html = DocumentTemplateService::renderFor($mapped, $application, false, false);
             if ($html !== null) {
                 $paper = ! empty(DocumentTemplateService::TYPES[$mapped]['landscape']) ? 'landscape' : 'portrait';
+
+                // GÖREV 1+2: UI kalıntıları temizlenir + font DejaVu'ya sabitlenir.
+                // GÖREV 1: Görsel EBYS imza damgası kaldırıldı — belge birebir korunur.
+                $html = DocumentTemplateService::pdfCssEnjekte($html);
 
                 return Pdf::loadHTML($html)->setPaper('a4', $paper);
             }
@@ -123,7 +193,13 @@ class EImzaService
             ]);
         }
 
-        return Pdf::loadView($view, $data);
+        $html = view($view, $data)->render();
+
+        // GÖREV 1+2: blade içindeki print-bar/toolbar kalıntıları + Latin-1 fontlar temizlenir.
+        // GÖREV 1: Görsel EBYS imza damgası kaldırıldı — belge birebir korunur.
+        $html = DocumentTemplateService::pdfCssEnjekte($html);
+
+        return Pdf::loadHTML($html);
     }
 
     private function buildMetrajRows(Application $app): array
@@ -204,9 +280,40 @@ class EImzaService
         return Storage::disk('public')->path($path);
     }
 
-    public function tamamla(EImzaTransaction $transaction, string $imzaliPdfContent, array $imzalayanInfo): void
+    /**
+     * GÖREV 2 — Token-CN güvenlik kilidi. Cihazdaki akıllı kartın sertifika CN'i
+     * ($certificateCn) imzayı başlatan kullanıcı ile uyuşmuyorsa imza işlemi,
+     * kayıt yapılmadan HEMEN ÖNCE engellenir (EImzaSahibiUyusmazlikException).
+     * CN boş gelirse (simülasyon/sertifikasız akış) kilit pas geçer.
+     */
+    private function verifyCertificateOwner(EImzaTransaction $transaction, ?string $certificateCn): void
     {
-        // İmzalı PDF içindeki PAdES sertifikasından imzalayan bilgisini doğrula/zenginleştir
+        if ($certificateCn === null || trim($certificateCn) === '') {
+            return;
+        }
+
+        $authName = data_get($transaction->imzalayan_info, 'baslatan_user_name', '');
+        $tokenSlug = Str::slug($certificateCn);
+        $authSlug = Str::slug((string) $authName);
+
+        if (! empty($tokenSlug) && strpos($tokenSlug, $authSlug) === false) {
+            throw new \App\Exceptions\EImzaSahibiUyusmazlikException(
+                'E-İmza Engellendi: Cihazdaki E-İmza Sahibi (Akıllı Kart) ile Sisteme Giriş Yapan Personel Uyuşmuyor!'
+            );
+        }
+    }
+
+    public function tamamla(EImzaTransaction $transaction, string $imzaliPdfContent, array $imzalayanInfo, ?string $certificateCn = null): void
+    {
+        // GÖREV 2 — Güvenlik kilidi imza işlemini yapmadan ÖNCE (imzalayan bilgisini
+        // merge edip kaydetmeden önce) doğrulamalıdır.
+        $this->verifyCertificateOwner($transaction, $certificateCn);
+
+        // İmzalı PDF içindeki PAdES sertifikasından imzalayan bilgisini doğrula/zenginleştir.
+        // baslatan_user_id/baslatan_user_name anahtarları korunur (merge tabanı transaction'dan,
+        // sonraki update satırında tamamı kaydedilir).
+        $imzalayanInfo = array_merge($transaction->imzalayan_info ?? [], $imzalayanInfo);
+
         $sertifikaBilgisi = $this->pdfSertifikaBilgisi($imzaliPdfContent);
         if ($sertifikaBilgisi !== null) {
             $imzalayanInfo = array_merge($imzalayanInfo, $sertifikaBilgisi);

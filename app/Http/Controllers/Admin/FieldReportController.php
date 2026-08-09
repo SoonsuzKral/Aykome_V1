@@ -148,10 +148,13 @@ class FieldReportController extends Controller
     public function exportPdf(): Response
     {
         $personnel = $this->buildPersonnel();
-        $pdf = Pdf::loadView('admin.field-reports-pro.export-pdf', compact('personnel'));
+        $html = \App\Services\DocumentTemplateService::pdfCssEnjekte(
+            \Illuminate\Support\Facades\View::make('admin.field-reports-pro.export-pdf', compact('personnel'))->render()
+        );
+        $pdf = Pdf::loadHTML($html);
         $pdf->setPaper('A4', 'landscape');
 
-        return $pdf->stream('saha-personel-raporu-' . now()->format('Y-m-d') . '.pdf');
+        return $pdf->inline('saha-personel-raporu-' . now()->format('Y-m-d') . '.pdf');
     }
 
     private function buildPersonnel()

@@ -118,10 +118,13 @@ class ReportController extends Controller
         $institutions  = Institution::query()->orderBy('name')->get();
         $filterSummary = $this->buildFilterSummary($request, $institutions);
 
-        $pdf = Pdf::loadView('admin.reports.pdf', compact('applications', 'filterSummary'))
-            ->setPaper('a4', 'landscape');
+        $pdf = Pdf::loadHTML(
+            \App\Services\DocumentTemplateService::pdfCssEnjekte(
+                \Illuminate\Support\Facades\View::make('admin.reports.pdf', compact('applications', 'filterSummary'))->render()
+            )
+        )->setPaper('a4', 'landscape');
 
-        return $pdf->stream('aykome-rapor-' . now()->format('Y-m-d') . '.pdf');
+        return $pdf->inline('aykome-rapor-' . now()->format('Y-m-d') . '.pdf');
     }
 
     public function exportCsv(Request $request): Response
