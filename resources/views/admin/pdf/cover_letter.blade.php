@@ -5,7 +5,7 @@
     <title>Kurum Başvuru Yazısı</title>
     <style>
         body { font-family: "Times New Roman", Times, serif; font-size: 14.5px; line-height: 1.4; margin: 0; color:#000; background:#e2e8f0; display:flex; justify-content:center; }
-        .a4-container { background: white; width: 210mm; min-height: 297mm; max-height:297mm; overflow:hidden; box-sizing: border-box; padding: 18mm 20mm 48mm 20mm; margin: 70px auto 15px; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); position: relative; }
+        .a4-container { background: white; width: 210mm; min-height: 297mm; max-height:297mm; overflow:hidden; box-sizing: border-box; padding: 18mm 20mm 48mm 20mm; margin: 92px auto 15px; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); position: relative; }
 
         table { width: 100%; border-collapse: collapse; table-layout: fixed;}
         td { vertical-align: top; }
@@ -17,7 +17,7 @@
 
         .text-center { text-align: center; } .text-right { text-align: right;} .font-bold { font-weight: bold; }
 
-        .print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 99999; background: linear-gradient(180deg,#1f2937,#111827); padding: 12px 20px; box-shadow: 0 4px 14px rgba(0,0,0,.4); display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; }
+        .print-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
         .print-bar .title { color: #fff; font-weight: 700; font-size: 14px; letter-spacing: .4px; display: flex; align-items: center; gap: 8px; }
         .print-bar .doc-ico { font-size: 17px; }
         .print-bar .actions { display: flex; gap: 8px; align-items: center; }
@@ -89,8 +89,6 @@
         // (5+ sokak asla ana sayfada inline dökülmez → EK-1'e sürülür). Footer asla yırtılmaz.
         $muhtelif = $application->isMuhtelif() || $application->streetCount() > 5;
         $adresGruplari = $application->streetLinesGroupedByMahalle();
-        $imzaliMi = ! empty($application->module_documents['cover_letter']['e_imza']['durum'])
-            || ! empty($application->module_documents['cover_letter']['status']);
     @endphp
     <div class="a4-container">
 
@@ -203,9 +201,8 @@
                 </tr>
             </table>
             <div class="footer-line">
-                @if($imzaliMi)
-                    <span class="footer-red">Bu belge güvenli E-İmza Kanuna istinaden İmzalanmıştır.</span><br>
-                @endif
+                {{-- KESİN EMİR (Baş Mimar): PAdES şeridi / imzalayan bilgisi HTML layouta
+                     asla enjekte edilmez. Doğrulama kodu orijinal şablon tasarımıdır, korunur. --}}
                 BELGE DOĞRULAMA KODU: <b style="color:#d97706;">{{ $application->verification_code ?? 'GEÇERSİZ/TASLAK' }}</b> | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b>
             </div>
         </div>

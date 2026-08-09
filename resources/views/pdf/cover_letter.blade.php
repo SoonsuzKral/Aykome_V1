@@ -211,7 +211,7 @@ table { border-collapse: collapse; }
     <table class="footer-table">
         <tr>
             <td>
-                <span class="footer-red">Bu belge, güvenli elektronik imza ile imzalanmıştır.</span><br>
+                {{-- KESİN EMİR: PAdES şeridi HTML layouta enjekte edilmez. --}}
                 Belge Doğrulama Kodu : {{ strtoupper(substr(md5($application->id . 'DEDAS'), 0, 12)) }} | Belge Doğrulama Adresi : https://ebyssorgu.dedas.com.tr<br>
                 Adres: {{ $applicantFullName ?: ($application->creator?->name ?? '') }} | Tel: {{ $applicantPhone ?: '—' }}
             </td>

@@ -174,7 +174,7 @@ table { border-collapse: collapse; }
             </td>
         </tr>
     </table>
-    <div class="footer-red">Bu çıktı, 5070 sayılı elektronik imza kanununa göre imzalanan belgenin {{ date('d.m.Y') }} tarihli kağıt kopyasıdır.</div>
+    {{-- KESİN EMİR: PAdES şeridi / kağıt kopya ibaresi HTML layouta enjekte edilmez. --}}
     <div class="footer-addr">
         Eyyüpnebi Mah. 3554 Sk. Eski Ptt Binası, Haliliye / Şanlıurfa | Tel: 0(414) 123 45 67 | KEP: eyyubiye@hs01.kep.tr
     </div>
