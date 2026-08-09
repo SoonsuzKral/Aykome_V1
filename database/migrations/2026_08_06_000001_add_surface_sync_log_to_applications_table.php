@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('applications', function (Blueprint $table) {
-            $table->json('surface_sync_log')->nullable()->after('genel_toplam');
-        });
+        if (! Schema::hasColumn('applications', 'surface_sync_log')) {
+            Schema::table('applications', function (Blueprint $table) {
+                $table->json('surface_sync_log')->nullable()->after('genel_toplam');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('applications', function (Blueprint $table) {
-            $table->dropColumn('surface_sync_log');
-        });
+        if (Schema::hasColumn('applications', 'surface_sync_log')) {
+            Schema::table('applications', function (Blueprint $table) {
+                $table->dropColumn('surface_sync_log');
+            });
+        }
     }
 };

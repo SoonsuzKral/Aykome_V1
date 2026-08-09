@@ -132,6 +132,6 @@ class WorkOrderController extends Controller
         $pdf = Pdf::loadView('admin.work-orders.export-pdf', compact('tasks'));
         $pdf->setPaper('A4', 'landscape');
 
-        return $pdf->download('gorev-emirleri-' . now()->format('Y-m-d') . '.pdf');
+        return $pdf->stream('gorev-emirleri-' . now()->format('Y-m-d') . '.pdf');
     }
 }

@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('application_module_sequences')) {
+            return;
+        }
+
         Schema::create('application_module_sequences', function (Blueprint $table) {
             $table->id();
             $table->foreignId('application_module_id')->constrained()->cascadeOnDelete();

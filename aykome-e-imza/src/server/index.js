@@ -12,6 +12,9 @@ function start(port = DEFAULT_PORT) {
       res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+      req.setTimeout(60000);
+      res.setTimeout(60000);
+
       if (req.method === 'OPTIONS') {
         res.writeHead(204);
         res.end();

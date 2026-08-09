@@ -14,7 +14,7 @@
   },
   "build": {
     "appId": "com.hgb.aykome.e-imza",
-    "productName": "Aykome E-İmza",
+    "productName": "Eyyübiye AYKOME - E-İmza",
     "directories": {
       "output": "dist"
     },
@@ -41,17 +41,17 @@
           ]
         }
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Aykome E-İmza",
-      "installerIcon": "assets/icon.png",
-      "uninstallerIcon": "assets/icon.png",
-      "installerSidebar": "assets/icon.png",
+      "shortcutName": "Eyyübiye AYKOME E-İmza",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerSidebar": "assets/icon.ico",
       "runAfterFinish": true,
       "autoLaunch": true
     },
@@ -63,7 +63,7 @@
       "category": "public.app-category.utilities"
     },
     "protocols": {
-      "name": "Aykome E-İmza",
+      "name": "Eyyübiye AYKOME E-İmza",
       "schemes": [
         "aykome"
       ]

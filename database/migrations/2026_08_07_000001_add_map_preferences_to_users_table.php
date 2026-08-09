@@ -13,15 +13,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->json('map_preferences')->nullable()->after('institution_id');
-        });
+        if (! Schema::hasColumn('users', 'map_preferences')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->json('map_preferences')->nullable()->after('institution_id');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('map_preferences');
-        });
+        if (Schema::hasColumn('users', 'map_preferences')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('map_preferences');
+            });
+        }
     }
 };

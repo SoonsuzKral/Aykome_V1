@@ -69,6 +69,7 @@
                 <span id="app-status-badge" class="rounded-full px-3 py-1 text-xs font-semibold {{ $statusMeta['class'] }}">{{ $statusMeta['label'] }}</span>
             </div>
             <p class="mt-1 text-sm text-slate-500">{{ $application->institution?->name }}</p>
+            <div id="eimza-status" class="mt-1 text-xs font-medium text-slate-400">● E-İmza uygulaması kontrol ediliyor...</div>
         </div>
         <div class="flex flex-wrap gap-2">
             {{-- 🏆 RUHSAT BELGESİ AL — Licensed veya sonrası durumlarda aktif --}}
@@ -659,7 +660,7 @@
                             <a href="{{ $doc->url }}" target="_blank" class="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700" title="Görüntüle">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                             </a>
-                            <a href="{{ $doc->url }}" download="{{ $doc->original_name }}" class="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700" title="İndir">
+                            <a href="{{ $doc->url }}" @if($doc->isPdf()) target="_blank" @else download="{{ $doc->original_name }}" @endif class="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700" title="{{ $doc->isPdf() ? 'Görüntüle' : 'İndir' }}">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                             </a>
                         </div>
@@ -2372,13 +2373,17 @@ function toggleStep(id) {
         var ports = [57898, 57899, 57900];
         var tried = 0;
         function tryPort(i) {
-            if (i >= ports.length) return;
+            if (i >= ports.length) {
+                var el = document.getElementById('eimza-status');
+                if (el) { el.innerHTML = '<span class="text-red-500">● E-İmza Uygulaması: Bulunamadı — masaüstü uygulamasını başlatın</span>'; }
+                return;
+            }
             fetch('http://127.0.0.1:' + ports[i] + '/health')
                 .then(function (r) {
                     if (r.ok) {
                         var el = document.getElementById('eimza-status');
                         if (el) { el.innerHTML = '<span class="text-green-600">● E-İmza Uygulaması: Çalışıyor</span>'; }
-                    }
+                    } else { tryPort(i + 1); }
                 }).catch(function () { tryPort(i + 1); });
         }
         tryPort(0);

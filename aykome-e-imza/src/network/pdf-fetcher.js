@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { PDFDocument } = require('pdf-lib');
 
 async function downloadPdf(transaction, store) {
   const { transactionId, token, serverUrl } = transaction;
@@ -13,6 +14,7 @@ async function downloadPdf(transaction, store) {
 
   const response = await axios.get(pdfUrl, {
     responseType: 'arraybuffer',
+    timeout: 90000,
     validateStatus: (status) => status < 500,
   });
 
@@ -24,7 +26,21 @@ async function downloadPdf(transaction, store) {
     throw new Error(`PDF indirme hatası: HTTP ${response.status}`);
   }
 
-  return Buffer.from(response.data);
+  let pdfBuffer = Buffer.from(response.data);
+
+  // node-signpdf yalnızca klasik xref tablosunu destekler; kaynak PDF xref stream
+  // (PDF 1.5+) içeriyorsa parse edemez. Güvenli dönüşüm: pdf-lib ile yeniden yaz.
+  if (pdfBuffer.includes('startxref') && !pdfBuffer.slice(pdfBuffer.lastIndexOf('startxref')).includes('trailer')) {
+    try {
+      const doc = await PDFDocument.load(pdfBuffer, { updateMetadata: false });
+      const bytes = await doc.save({ useObjectStreams: false });
+      pdfBuffer = Buffer.from(bytes);
+    } catch (e) {
+      // Dönüşüm başarısızsa orijinali kullan; buildPades hata verirse zaten görünür.
+    }
+  }
+
+  return pdfBuffer;
 }
 
 module.exports = { downloadPdf };

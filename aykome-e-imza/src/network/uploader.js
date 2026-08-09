@@ -28,6 +28,7 @@ async function uploadSignedPdf(transaction, signedPdfBuffer, certInfo, store) {
       ...form.getHeaders(),
       'X-EImza-Api-Key': apiKey,
     },
+    timeout: 120000,
     validateStatus: (status) => status < 500,
   });
 

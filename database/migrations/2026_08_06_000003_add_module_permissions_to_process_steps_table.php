@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('process_steps', function (Blueprint $table) {
-            $table->longText('module_permissions')->nullable()->after('approvable_modules');
-        });
+        if (! Schema::hasColumn('process_steps', 'module_permissions')) {
+            Schema::table('process_steps', function (Blueprint $table) {
+                $table->longText('module_permissions')->nullable()->after('approvable_modules');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('process_steps', function (Blueprint $table) {
-            $table->dropColumn('module_permissions');
-        });
+        if (Schema::hasColumn('process_steps', 'module_permissions')) {
+            Schema::table('process_steps', function (Blueprint $table) {
+                $table->dropColumn('module_permissions');
+            });
+        }
     }
 };

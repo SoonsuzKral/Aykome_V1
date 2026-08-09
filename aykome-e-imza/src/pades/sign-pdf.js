@@ -136,7 +136,7 @@ function buildCms(contentBytes, certDer, signCallback) {
   );
 }
 
-function buildVisualStream(cnName) {
+function buildVisualStream(cnName, bw, bh) {
   const now = new Date();
   const dateStr = normalizeLatin(now.toLocaleDateString('tr-TR', {
     day: '2-digit',
@@ -148,9 +148,11 @@ function buildVisualStream(cnName) {
   const title = normalizeLatin('Bu belge Aykome E-Imza ile imzalanmistir');
   const signer = normalizeLatin(cnName);
   const lines = [
-    `BT /F1 11 Tf 8 74 Td (${escapePdfString(title)}) Tj ET`,
-    `BT /F1 9 Tf 8 56 Td (${escapePdfString('Imzalayan: ' + signer)}) Tj ET`,
-    `BT /F1 9 Tf 8 40 Td (${escapePdfString('Tarih: ' + dateStr)}) Tj ET`,
+    `q 1 1 1 rg 0 0 ${bw} ${bh} re f Q`,
+    `q 0.55 0.55 0.55 RG 0.5 0.5 ${bw - 1} ${bh - 1} re S Q`,
+    `BT /F1 10 Tf 8 ${bh - 14} Td (${escapePdfString(title)}) Tj ET`,
+    `BT /F1 8 Tf 8 ${bh - 32} Td (${escapePdfString('Imzalayan: ' + signer)}) Tj ET`,
+    `BT /F1 8 Tf 8 ${bh - 46} Td (${escapePdfString('Tarih: ' + dateStr)}) Tj ET`,
   ];
   return lines.join('\n');
 }
@@ -184,10 +186,13 @@ function addPlaceholderWithVisual(pdfBuffer, cnName) {
   };
 
   const { W } = findPageMediaBox(pdf);
-  const bw = Math.min(330, Math.max(200, W - 80));
-  const bh = 95;
+  // İmza görseli: kağıdın en alt şeridine (y=30..98pt) oturur; belge içeriğine
+  // asla dokunmaz, MediaBox/CropBox/scale değişmez. Beyaz zemin + ince çerçeve
+  // sayesinde belgenin alt bölgesiyle örtüşse bile görsel olarak temiz kalır.
+  const bh = 68;
+  const bw = Math.min(320, Math.max(220, W - 100));
   const bx = 40;
-  const by = 40;
+  const by = 30;
 
   const appearance = pdfKitMock.ref({
     Type: 'XObject',
@@ -196,7 +201,7 @@ function addPlaceholderWithVisual(pdfBuffer, cnName) {
     BBox: [0, 0, bw, bh],
     Matrix: [1, 0, 0, 1, 0, 0],
     Resources: { Font: { F1: 'Helvetica' } },
-    stream: buildVisualStream(cnName),
+    stream: buildVisualStream(cnName, bw, bh),
   });
 
   const signature = pdfKitMock.ref({

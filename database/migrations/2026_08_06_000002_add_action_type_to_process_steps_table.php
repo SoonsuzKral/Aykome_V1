@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('process_steps', function (Blueprint $table) {
-            $table->string('action_type', 20)->default('onay')->after('signature_config');
-        });
+        if (! Schema::hasColumn('process_steps', 'action_type')) {
+            Schema::table('process_steps', function (Blueprint $table) {
+                $table->string('action_type', 20)->default('onay')->after('signature_config');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('process_steps', function (Blueprint $table) {
-            $table->dropColumn('action_type');
-        });
+        if (Schema::hasColumn('process_steps', 'action_type')) {
+            Schema::table('process_steps', function (Blueprint $table) {
+                $table->dropColumn('action_type');
+            });
+        }
     }
 };

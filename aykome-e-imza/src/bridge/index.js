@@ -1,9 +1,10 @@
 const { spawnSync } = require('child_process');
 const path = require('path');
 const os = require('os');
+const { app } = require('electron');
 
 const platform = os.platform();
-const isDev = !process.resourcesPath || process.env.ELECTRON_IS_DEV === '1';
+const isDev = !app.isPackaged;
 const resourcesPath = isDev ? path.join(__dirname, '..', '..') : process.resourcesPath;
 const BRIDGE = platform === 'win32'
   ? path.join(resourcesPath, 'x64-worker', 'Pkcs11Bridge.exe')
@@ -86,8 +87,17 @@ class BridgeWorker {
     const result = spawnSync(cmd, cmdArgs, {
       encoding: 'utf8',
       maxBuffer: 50 * 1024 * 1024,
+      timeout: 120000,
     });
-    if (result.error) throw new Error('Bridge error: ' + result.error.message);
+    if (result.error) {
+      if (result.error.code === 'ENOENT') {
+        throw new Error('Bridge dosyası bulunamadı: ' + BRIDGE);
+      }
+      if (result.error.code === 'ETIMEDOUT') {
+        throw new Error('Bridge zaman aşımı (120sn). Token kartınızı kontrol edin.');
+      }
+      throw new Error('Bridge error: ' + result.error.message);
+    }
     if (result.status !== 0) throw new Error('Bridge exit ' + result.status + ': ' + (result.stderr || 'unknown'));
     return result.stdout;
   }
@@ -97,9 +107,13 @@ class BridgeWorker {
     return parseOutput(out);
   }
 
-  getCertificate(pin) {
+  getCertificate(pin, certSerial) {
     const pinHex = toHex(pin);
-    const out = this._run(['cert', pinHex]);
+    const args = ['cert', pinHex];
+    if (certSerial) {
+      args.push(certSerial);
+    }
+    const out = this._run(args);
     const r = parseOutput(out);
     if (r.error) throw new Error(r.error);
     if (!r.certOk) throw new Error('Certificate could not be retrieved');

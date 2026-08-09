@@ -32,6 +32,29 @@ function dnToAttrs(forgeSets) {
   return attrs;
 }
 
+function extractSkiHex(tbsAsn1) {
+  // SubjectKeyIdentifier (2.5.29.14) uzantısından CKA_ID/SKI değerini çıkar.
+  // AKIS token'ları sertifika eşleştirmesini CKA_SERIAL_NUMBER değil CKA_ID üzerinden yapar.
+  try {
+    if (!tbsAsn1.value || tbsAsn1.value.length <= 6) return null;
+    const extsNode = tbsAsn1.value[6];
+    if (!extsNode || !Array.isArray(extsNode.value)) return null;
+    const extSeqs = Array.isArray(extsNode.value[0]) ? extsNode.value : [extsNode];
+    for (const extSeq of extSeqs) {
+      if (!Array.isArray(extSeq.value) || extSeq.value.length < 2) continue;
+      const oid = forge.asn1.derToOid(extSeq.value[0].value);
+      if (oid !== '2.5.29.14') continue;
+      const last = extSeq.value[extSeq.value.length - 1];
+      const raw = last.value;
+      if (typeof raw !== 'string') return null;
+      const innerOff = (raw.charCodeAt(1) & 0x80) ? 2 + (raw.charCodeAt(1) & 0x7f) : 2;
+      const ski = raw.slice(innerOff);
+      return Buffer.from(ski, 'binary').toString('hex');
+    }
+  } catch (e) {}
+  return null;
+}
+
 function parseCertificate(certDer) {
   try {
     const s = certDer.toString('binary');
@@ -66,6 +89,7 @@ function parseCertificate(certDer) {
       issuer: issuerMap,
       serialNumber: serialHex,
       serialHex,
+      skiHex: extractSkiHex(tbsAsn1),
       commonName: cn,
       tckn,
       validFrom: new Date(validFrom),

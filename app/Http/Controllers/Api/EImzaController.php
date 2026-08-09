@@ -20,12 +20,28 @@ class EImzaController extends Controller
     {
         $request->validate([
             'application_id' => 'required|exists:applications,id',
-            'pdf_type' => 'required|in:ruhsat,pre_permit,taahhutname,metraj,tahakkuk,makbuz,cover_letter',
+            'pdf_type' => 'required|string',
         ]);
+
+        // UI'dan gelen modül anahtarlarını (örn. cover_letter_signed, on_kazi_signed,
+        // metraj_signed, taahhutname_imzali, ruhsat_teslim) gerçek PDF tipine normalize et.
+        $pdfTypeMap = [
+            'cover_letter_signed' => 'cover_letter',
+            'on_kazi_signed'      => 'pre_permit',
+            'metraj_signed'       => 'metraj',
+            'taahhutname_imzali'  => 'taahhutname',
+            'ruhsat_teslim'       => 'ruhsat',
+        ];
+        $pdfType = $pdfTypeMap[$request->pdf_type] ?? $request->pdf_type;
+
+        $allowed = ['ruhsat', 'pre_permit', 'taahhutname', 'metraj', 'tahakkuk', 'makbuz', 'cover_letter'];
+        if (! in_array($pdfType, $allowed, true)) {
+            return response()->json(['message' => "Geçersiz PDF türü: {$request->pdf_type}"], 422);
+        }
 
         $application = Application::findOrFail($request->application_id);
 
-        $transaction = $this->eImzaService->baslat($application, $request->pdf_type);
+        $transaction = $this->eImzaService->baslat($application, $pdfType);
 
         return response()->json([
             'transaction_id' => $transaction->transaction_id,

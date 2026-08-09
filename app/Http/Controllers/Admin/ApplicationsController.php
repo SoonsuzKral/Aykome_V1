@@ -1544,9 +1544,12 @@ class ApplicationsController extends Controller
             abort(404);
         }
 
-        return Storage::disk('local')->download(
-            $application->license_document_path,
-            'ruhsat-'.$application->application_no.'.pdf'
+        return response()->file(
+            Storage::disk('local')->path($application->license_document_path),
+            [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="ruhsat-'.$application->application_no.'.pdf"',
+            ]
         );
     }
 
@@ -1572,7 +1575,7 @@ class ApplicationsController extends Controller
 
             return Pdf::loadHTML($html)
                 ->setPaper('a4', 'portrait')
-                ->download('tahsilat-makbuzu-' . $application->application_no . '.pdf');
+                ->stream('tahsilat-makbuzu-' . $application->application_no . '.pdf');
         }
 
         $application->load(['institution']);
@@ -1587,7 +1590,7 @@ class ApplicationsController extends Controller
             $application->id,
         );
 
-        return $pdf->download('tahsilat-makbuzu-' . $application->application_no . '.pdf');
+        return $pdf->stream('tahsilat-makbuzu-' . $application->application_no . '.pdf');
     }
 
     /**
@@ -1605,7 +1608,7 @@ class ApplicationsController extends Controller
         if ($html = DocumentTemplateService::renderFor('ruhsat', $application)) {
             return Pdf::loadHTML($html)
                 ->setPaper('a4', 'portrait')
-                ->download('ruhsat-' . $application->application_no . '.pdf');
+                ->stream('ruhsat-' . $application->application_no . '.pdf');
         }
 
         $application->load([
@@ -1629,7 +1632,7 @@ class ApplicationsController extends Controller
             $application->id,
         );
 
-        return $pdf->download('ruhsat-' . $application->application_no . '.pdf');
+        return $pdf->stream('ruhsat-' . $application->application_no . '.pdf');
     }
 
     public function statusJson(Request $request, Application $application): \Illuminate\Http\JsonResponse
@@ -1742,7 +1745,13 @@ class ApplicationsController extends Controller
     {
         $this->authorize('view', $application);
 
-        $path = $application->moduleSignedPath($module);
+        // Alt kurum işlem tabı anahtarlarını (on_kazi_signed → pre_permit, taahhutname_imzali → taahhutname vb.)
+        // e-imza/upload mantığının yazdığı gerçek anahtara normalize et, orijinal anahtar fallback kalır.
+        $normalized = match ($module) {
+            'on_kazi_signed' => 'pre_permit',
+            default => str_replace(['_signed', '_imzali', '_teslim'], '', $module),
+        };
+        $path = $application->moduleSignedPath($normalized) ?? $application->moduleSignedPath($module);
         if (! $path) {
             abort(404, 'İmzalı belge bulunamadı.');
         }

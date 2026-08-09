@@ -11,7 +11,9 @@
     // Örn: belediye 'metraj' anahtarına yükler, alt kurum 'metraj_signed' anahtarına yükler;
     // hangi tarafta açılırsa açılsın (metraj veya metraj_signed) diğer tarafın imzalı nüshası
     // Görüntüle linkiyle görünür kalmalıdır — tek yönlü değil, her iki anahtar taranır.
-    $baseKey = str_replace('_signed', '', $module);
+    $baseKey = str_replace(['_signed', '_imzali', '_teslim'], '', $module);
+    // E-İmza normalize haritası: on_kazi_signed → pre_permit (ön kazı imzası pre_permit altına yazılır)
+    $baseKey = $baseKey === 'on_kazi' ? 'pre_permit' : $baseKey;
     $signedKey = $module . '_signed';
     // Önce eş anahtarı bul; modül hem '_signed' hem düz isimle aranır.
     $syncKey = ($baseKey !== $module && isset($moduleDocs[$baseKey])) ? $baseKey
@@ -22,7 +24,8 @@
     $kurumPath = $docData['kurum_path'] ?? ($syncData['kurum_path'] ?? null);
     $hasBelediye = !empty($belediyePath);
     $hasKurum = !empty($kurumPath);
-    $eImzaDone = !empty($docData['e_imza']['durum'] ?? null);
+    $eImzaDone = !empty($docData['e_imza']['durum'] ?? null) || !empty($syncData['e_imza']['durum'] ?? null);
+    $eImzaTarih = $docData['e_imza']['tarih'] ?? ($syncData['e_imza']['tarih'] ?? '');
     $status = $docData['status'] ?? null;
     $uniqId = 'sdoc-' . $module . '-' . $application->id;
 
@@ -75,7 +78,7 @@
     <div class="mb-1 flex items-center gap-1.5 text-[10px] text-emerald-600">
         <svg class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span>E-İmza tamamlandı</span>
-        <span class="ml-auto text-[9px] text-slate-400">{{ $docData['e_imza']['tarih'] ?? '' }}</span>
+        <span class="ml-auto text-[9px] text-slate-400">{{ $eImzaTarih }}</span>
     </div>
     @endif
 

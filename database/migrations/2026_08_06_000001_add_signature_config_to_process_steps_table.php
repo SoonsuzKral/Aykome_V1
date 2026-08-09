@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('process_steps', function (Blueprint $table) {
-            $table->longText('signature_config')->nullable()->after('approval_config');
-        });
+        if (! Schema::hasColumn('process_steps', 'signature_config')) {
+            Schema::table('process_steps', function (Blueprint $table) {
+                $table->longText('signature_config')->nullable()->after('approval_config');
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('process_steps', function (Blueprint $table) {
-            $table->dropColumn('signature_config');
-        });
+        if (Schema::hasColumn('process_steps', 'signature_config')) {
+            Schema::table('process_steps', function (Blueprint $table) {
+                $table->dropColumn('signature_config');
+            });
+        }
     }
 };

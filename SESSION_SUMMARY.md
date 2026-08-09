@@ -1,4 +1,65 @@
-# Oturum Özeti — 8 Ağustos 2026
+# Oturum Özeti — 9 Ağustos 2026
+
+## Sprint 12 — E-İMZA GERÇEK TOKEN İLE UÇTAN UCA DOĞRULANDI + BUG-1..4 ÇÖZÜMÜ
+
+### 🎯 Öz
+Proje ayağa kaldırıldı (Oracle+Redis+Laravel 8001+Vite+Electron), E-İmza hataları (BUG-1..4) çözüldü ve **gerçek AKIS token (AKIS_04815172B91F9090, MUSTAFA KEMAL KARATAŞ / TÜBİTAK Kamu SM v6, P-384)** ile gerçek ECDSA imzası + PAdES imzalı PDF üretildi.
+
+### 🟢 Altyapı (çalışır durumda bırakıldı)
+- Oracle `aykome-v6-oracle` (1521, aykome_user) + Redis (6379) → `docker start`
+- `php artisan serve --port=8001` (0.0.0.0) — HTTP 200
+- `npm run dev` (Vite 5173) — `public/build` yoktu, Vite dev server gerekliydi
+- Electron local server 57898 `/health` → `{"status":"ok"}` (yeni kodla yeniden başlatıldı)
+- 11 migration idempotent guard'larla `migrate --force` → **Pending 0**; `storage:link` kuruldu
+
+### ✅ BUG-1 — `baslat` 422 (KRİTİK) — ÇÖZÜLDÜ
+- `EImzaController::baslat`: `in:...` validasyonu `_signed` modülleri reddediyordu
+- Normalize map: `cover_letter_signed→cover_letter`, `on_kazi_signed→pre_permit`, `metraj_signed→metraj`, `taahhutname_imzali→taahhutname`, `ruhsat_teslim→ruhsat`; geçersiz tip → 422 JSON
+
+### ✅ BUG-2 — Pkcs11Bridge ofset riski — TEST EDİLDİ, SORUN YOK
+- AKIS DLL ile `list` → `SLOTS 1 TOKEN AKIS_04815172B91F9090` (ofsetler doğru)
+- **Yeni bulgu:** AKIS `cSign` null pointer'lı length sorgusunu reddediyor (0x21 CKR_ATTRIBUTE_SENSITIVE) → 512B ön-ayrılmış buffer ile çözüldü
+- **Yeni bulgu:** AKIS CKM_ECDSA ham veri değil **48 byte SHA-384 digest** imzalıyor; `CKM_ECDSA_SHA384` (0x1045) ise MECHANISM_INVALID → CKM_ECDSA + SHA-384 prehash doğru yol. PAdES (sign-pdf.js) zaten SHA-384 üretiyor ✓
+
+### ✅ BUG-3 — `eimza-status` div — ÇÖZÜLDÜ
+- `show.blade.php` header'a div eklendi; JS portlar bitince kırmızı "Bulunamadı" gösteriyor, başarıda yeşil
+
+### ✅ BUG-4 — cert_serial kullanılmıyordu — ÇÖZÜLDÜ (AKIS gerçeğiyle)
+- **Debug kanıtı:** AKIS sertifika objesinde `CKA_SERIAL_NUMBER = 0x00` (boş!), eşleştirme anahtarı `CKA_ID` = SubjectKeyIdentifier (8AF5073D63381357403FE4E014DC4DC061A2DCE6)
+- `Pkcs11Bridge.cs` `cert` komutu opsiyonel serial: CKA_SERIAL_NUMBER → CKA_ID sırasıyla eşleştirir (SerialEquals leading-zero tolerant); yanlış serial → ERR No cert ✓
+- `cert-utils.js` → `skiHex` çıkarımı (2.5.29.14), `main.js list-certs` → `serial: skiHex || serialHex` (setup'ta store'a SKI kaydedilir)
+- `src/bridge/index.js` + `signer.js` → `getCertificate(pin, certSerial)` zinciri
+
+### ✅ Yeni tespit — xref stream uyumsuzluğu — ÇÖZÜLDÜ
+- node-signpdf 3.0.0 klasik xref tablo ister; pdf-lib save() xref STREAM üretiyor → "Expected xref at NaN"
+- `pdf-fetcher.js`: indirilen PDF xref stream içeriyorsa `PDFDocument.load + save({useObjectStreams:false})` ile normalize
+
+### ✅ Uçtan Uca Canlı Test (gerçek token)
+```
+cert (SKI'li) → CERT_OK        | cert (yanlış serial) → ERR No cert
+sign (SHA-384) → SIGNATURE (DER ECDSA, 101B)
+executeSign → PAdES imzalı PDF (19 KB) — ByteRange ✓ adbe.pkcs7 ✓ CN: MUSTAFA KEMAL KARATAŞ TCKN: 47788818304
+```
+
+### 📁 Değişen Dosyalar
+- `app/Http/Controllers/Api/EImzaController.php` (pdf_type normalize)
+- `app/Http/Controllers/Admin/ApplicationsController.php` (viewModuleDocument normalize)
+- `resources/views/admin/applications/show.blade.php` (eimza-status div + JS kırmızı durum)
+- `resources/views/admin/applications/_signed_document_upload.blade.php` (sync baseKey `_imzali/_teslim/on_kazi→pre_permit` + eImzaDone sync bakışı)
+- `aykome-e-imza/x64-worker/Pkcs11Bridge.cs` (serial/CKA_ID eşleştirme, 512B sign buffer, temiz final) + exe yeniden derlendi (eski exe: `Pkcs11Bridge.exe.bak`)
+- `aykome-e-imza/src/bridge/index.js`, `src/pkcs11/signer.js`, `src/pkcs11/cert-utils.js` (skiHex), `main.js` (list-certs SKI), `src/network/pdf-fetcher.js` (xref normalize)
+
+### ⚠️ Notlar
+- test-init.js (pkcs11js) eski — AKIS ile C_Initialize CKR_ARGUMENTS_BAD; bridge yolu kullanılıyor, dosya zararsız
+- Setup kurulumunda `cert_serial` store'a SKI olarak kaydedilecek (yeni kurulumlar); eski kayıtlar `cert_serial` uyuşmazsa ilk sertifikaya düşer (fallback)
+
+### Sıradaki
+- Tarayıcı E2E: başvuru detayında "E-İmza ile İmzala" → Electron PIN penceresi → tamamla → "E-İmzalandı" şeridi + Görüntüle
+- Canlı deploy: migration + .env (güçlü E_IMZA_API_KEY, APP_URL=https) + Electron `server_url` canlı + `npm run build:win` → Setup.exe
+- Git commit + push (onay bekliyor)
+
+---
+
 
 ## Sprint 11 — LOCAL SHP CADDE SORGULAMA + 15m KONTROL (Sonnet 4.6 analizi)
 

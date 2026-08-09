@@ -3,53 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aykome E-İmza - İlk Kurulum</title>
+  <title>Eyyübiye AYKOME - E-İmza Kurulum</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #1a1a2e;
-      color: #e0e0e0;
+      background: #0f172a;
+      color: #e2e8f0;
       display: flex;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
     }
     .container {
-      background: #16213e;
+      background: #1e293b;
       border-radius: 12px;
       padding: 32px;
       width: 500px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
-    h2 { text-align: center; margin-bottom: 24px; color: #e94560; font-size: 20px; }
+    h2 { text-align: center; margin-bottom: 24px; color: #f1f5f9; font-size: 20px; }
     .icon-header { text-align: center; font-size: 40px; margin-bottom: 8px; }
     .step { margin-bottom: 20px; }
     .step-header {
       font-size: 14px;
       font-weight: 600;
       margin-bottom: 8px;
-      color: #a0a0b0;
+      color: #94a3b8;
     }
-    .step.active .step-header { color: #e94560; }
+    .step.active .step-header { color: #f1f5f9; }
     .step-content { padding: 0 0 0 16px; }
     select, input {
       width: 100%;
       padding: 10px 14px;
-      background: #1a1a2e;
-      border: 1px solid #0f3460;
+      background: #0f172a;
+      border: 1px solid #334155;
       border-radius: 8px;
-      color: #e0e0e0;
+      color: #e2e8f0;
       font-size: 14px;
       outline: none;
     }
-    select:focus, input:focus { border-color: #e94560; }
+    select:focus, input:focus { border-color: #94a3b8; }
     select { cursor: pointer; }
     .btn {
       width: 100%;
       padding: 12px;
-      background: #e94560;
-      color: white;
+      background: #334155;
+      color: #f1f5f9;
       border: none;
       border-radius: 8px;
       font-size: 15px;
@@ -57,25 +57,28 @@
       cursor: pointer;
       margin-top: 16px;
     }
-    .btn:hover { opacity: 0.9; }
+    .btn:hover { background: #475569; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-secondary {
-      background: #0f3460;
+      background: #1e293b;
+      border: 1px solid #475569;
       margin-top: 8px;
     }
+    .btn-secondary:hover { background: #334155; }
     .btn-success {
-      background: #2d7d46;
+      background: #134e4a;
     }
+    .btn-success:hover { background: #155e5b; }
     .info {
       font-size: 13px;
-      color: #a0a0b0;
+      color: #94a3b8;
       margin: 8px 0;
       line-height: 1.5;
     }
     .result { margin-top: 12px; padding: 12px; border-radius: 8px; font-size: 13px; display: none; }
-    .result.success { display: block; background: #1a3a1a; color: #4caf50; }
-    .result.error { display: block; background: #3a1a1a; color: #ff6b6b; }
-    .result.info { display: block; background: #0a2a3a; color: #61dafb; }
+    .result.success { display: block; background: #134e4a; color: #5eead4; }
+    .result.error { display: block; background: #3f1d1d; color: #fca5a5; }
+    .result.info { display: block; background: #0f172a; color: #cbd5e1; }
     .step-indicator {
       display: flex;
       justify-content: center;
@@ -85,15 +88,45 @@
     .dot {
       width: 10px; height: 10px;
       border-radius: 50%;
-      background: #0f3460;
+      background: #334155;
     }
-    .dot.active { background: #e94560; }
-    .dot.done { background: #4caf50; }
+    .dot.active { background: #f1f5f9; }
+    .dot.done { background: #34d399; }
     .sim-badge {
       display: inline-block;
-      background: #ffd700;
-      color: #1a1a2e;
+      background: #475569;
+      color: #e2e8f0;
       font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+    .token-panel {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      display: none;
+    }
+    .token-panel .badge-aktif {
+      display: inline-block;
+      background: #134e4a;
+      color: #5eead4;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-left: 6px;
+    }
+    .token-panel .badge-yok {
+      display: inline-block;
+      background: #3f1d1d;
+      color: #fca5a5;
+      font-size: 11px;
       font-weight: 700;
       padding: 2px 8px;
       border-radius: 4px;
@@ -104,7 +137,12 @@
 <body>
   <div class="container">
     <div class="icon-header">🖊️</div>
-    <h2>Aykome E-İmza Kurulum</h2>
+    <h2>Eyyübiye AYKOME E-İmza Kurulum</h2>
+
+    <div class="token-panel" id="tokenPanel">
+      <div><strong>GÜNCEL AKILLI KART (TOKEN):</strong></div>
+      <div id="tokenDetail">Taranıyor...</div>
+    </div>
 
     <div class="step-indicator">
       <div class="dot active" id="dot1"></div>
@@ -132,7 +170,7 @@
       <div class="step-content">
         <div class="info">İmza için kullanılacak sertifikayı seçin.<br>Önce <strong>Token PIN</strong>'inizi girin, ardından sertifikaları tarayın.</div>
         <label style="font-size:13px; color:#a0a0b0; margin-bottom:4px; display:block;">Token PIN</label>
-        <input type="password" id="certPin" placeholder="PIN" style="margin-bottom:8px; width:100%; padding:10px 14px; background:#1a1a2e; border:1px solid #0f3460; border-radius:8px; color:#e0e0e0; font-size:14px; outline:none;">
+        <input type="password" id="certPin" placeholder="PIN" style="margin-bottom:8px; width:100%; padding:10px 14px; background:#0f172a; border:1px solid #334155; border-radius:8px; color:#e2e8f0; font-size:14px; outline:none;">
         <select id="certSelect" style="margin-bottom:8px;">
           <option value="">Sertifika seçin</option>
         </select>
@@ -343,7 +381,33 @@
       if (e.key === 'Enter') scanCerts();
     });
 
+    // AUTO-SLOT TCKN FETCH: kurulum ekranı açılır açılmaz takılı token/sertifika sahibi bilgisi
+    function refreshTokenDurum() {
+      window.eImza.tokenDurumu().then(function(t) {
+        var panel = document.getElementById('tokenPanel');
+        var detail = document.getElementById('tokenDetail');
+        var isim = t.sertifikaCN || '—';
+        if (t.durum === 'aktif') {
+          detail.innerHTML = '<strong>İSİM: ' + isim + '</strong>' +
+            ' <span class="badge-aktif">AKTİF</span>' +
+            (t.tokenLabel ? '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">Kart: ' + t.tokenLabel + '</div>' : '') +
+            (t.certSerial ? '<div style="color:#64748b;font-size:11px;margin-top:2px;">Seri: ' + t.certSerial + '</div>' : '');
+        } else if (t.durum === 'kutuphane') {
+          detail.innerHTML = '<strong>İSİM: ' + isim + '</strong>' +
+            ' <span class="badge-yok">KART TAKILI DEĞİL</span>' +
+            '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">Kütüphane bulundu, token algılanamadı.</div>';
+        } else {
+          detail.innerHTML = '<strong>İSİM: ' + isim + '</strong>' +
+            ' <span class="badge-yok">KART TESPİT EDİLEMEDİ</span>' +
+            '<div style="color:#94a3b8;font-size:12px;margin-top:4px;">Lütfen tokenınızın takılı olduğundan emin olun.</div>';
+        }
+        panel.style.display = 'block';
+      });
+    }
+
     scanPkcs11();
+    refreshTokenDurum();
+    document.getElementById('pkcs11Select').addEventListener('change', refreshTokenDurum);
   </script>
 </body>
 </html>

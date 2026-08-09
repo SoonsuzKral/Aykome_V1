@@ -16,6 +16,8 @@ class Pkcs11Bridge
     const uint CKO_CERTIFICATE = 0x00000001;
     const uint CKO_PRIVATE_KEY = 0x00000003;
     const uint CKA_CLASS = 0x00000000;
+    const uint CKA_SERIAL_NUMBER = 0x00000002;
+    const uint CKA_ID = 0x00000102;
     const uint CKA_VALUE = 0x00000011;
     const uint CKM_ECDSA = 0x00001041;
 
@@ -157,6 +159,10 @@ class Pkcs11Bridge
 
                 if (cmd == "cert")
                 {
+                    // Opsiyonel 4. argüman: hedeflenen sertifikanın seri numarası (hex).
+                    // Verilirse tüm sertifika objeleri taranır, CKA_SERIAL_NUMBER eşleşeni seçilir.
+                    byte[] targetSerial = (args.Length >= 4 && !string.IsNullOrEmpty(args[3])) ? HexToBytes(args[3]) : null;
+
                     uint objClass = CKO_CERTIFICATE;
                     var tmpl = new CK_ATTRIBUTE[] { new CK_ATTRIBUTE { type = CKA_CLASS, pValue = Marshal.AllocHGlobal(4), ulValueLen = 4 } };
                     Marshal.WriteInt32(tmpl[0].pValue, (int)objClass);
@@ -164,19 +170,52 @@ class Pkcs11Bridge
                     Marshal.FreeHGlobal(tmpl[0].pValue);
                     if (rv != CKR_OK) { Console.Error.WriteLine("ERR FindInit: 0x" + rv.ToString("X8")); cLogout(session); cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return; }
 
-                    uint obj = 0; uint objCount = 0;
-                    rv = cFindObjs(session, out obj, 1, out objCount);
+                    uint foundObj = 0;
+                    bool matched = false;
+                    while (true)
+                    {
+                        uint obj = 0; uint objCount = 0;
+                        rv = cFindObjs(session, out obj, 1, out objCount);
+                        if (rv != CKR_OK || objCount == 0) break;
+
+                        if (targetSerial == null) { foundObj = obj; matched = true; break; }
+
+                        // AKIS token'ları CKA_SERIAL_NUMBER'ı boş (0x00) döndürür; bu yüzden
+                        // eşleştirme önce serial, sonra CKA_ID (SubjectKeyIdentifier) üzerinden yapılır.
+                        bool objMatched = false;
+                        uint[] matchTypes = new uint[] { CKA_SERIAL_NUMBER, CKA_ID };
+                        for (int mi = 0; mi < matchTypes.Length; mi++)
+                        {
+                            var mt = new CK_ATTRIBUTE[] { new CK_ATTRIBUTE { type = matchTypes[mi], pValue = IntPtr.Zero, ulValueLen = 0 } };
+                            uint srv = cGetAttr(session, obj, mt, 1);
+                            if (srv == CKR_OK && mt[0].ulValueLen > 0 && mt[0].ulValueLen <= 64)
+                            {
+                                byte[] sbuf = new byte[mt[0].ulValueLen];
+                                IntPtr pSer = Marshal.AllocHGlobal(sbuf.Length);
+                                mt[0].pValue = pSer;
+                                srv = cGetAttr(session, obj, mt, 1);
+                                Marshal.Copy(pSer, sbuf, 0, sbuf.Length);
+                                Marshal.FreeHGlobal(pSer);
+                                if (srv == CKR_OK && SerialEquals(sbuf, targetSerial))
+                                {
+                                    objMatched = true;
+                                    break;
+                                }
+                            }
+                        }
+                        if (objMatched) { foundObj = obj; matched = true; break; }
+                    }
                     cFindFinal(session);
-                    if (rv != CKR_OK || objCount == 0) { Console.Error.WriteLine("ERR No cert"); cLogout(session); cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return; }
+                    if (!matched) { Console.Error.WriteLine("ERR No cert"); cLogout(session); cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return; }
 
                     var getTmpl = new CK_ATTRIBUTE[] { new CK_ATTRIBUTE { type = CKA_VALUE, pValue = IntPtr.Zero, ulValueLen = 0 } };
-                    rv = cGetAttr(session, obj, getTmpl, 1);
+                    rv = cGetAttr(session, foundObj, getTmpl, 1);
                     if (rv != CKR_OK) { Console.Error.WriteLine("ERR GetAttrLen: 0x" + rv.ToString("X8")); cLogout(session); cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return; }
 
                     byte[] certBuf = new byte[getTmpl[0].ulValueLen];
                     IntPtr pCert = Marshal.AllocHGlobal(certBuf.Length);
                     getTmpl[0].pValue = pCert;
-                    rv = cGetAttr(session, obj, getTmpl, 1);
+                    rv = cGetAttr(session, foundObj, getTmpl, 1);
                     Marshal.Copy(pCert, certBuf, 0, certBuf.Length);
                     Marshal.FreeHGlobal(pCert);
                     if (rv != CKR_OK) { Console.Error.WriteLine("ERR GetAttr: 0x" + rv.ToString("X8")); cLogout(session); cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return; }
@@ -211,8 +250,9 @@ class Pkcs11Bridge
                     rv = cSignInit(session, ref mech, key);
                     if (rv != CKR_OK) { Console.Error.WriteLine("ERR SignInit: 0x" + rv.ToString("X8")); cLogout(session); cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return; }
 
-                    uint sigLen = 0;
-                    rv = cSign(session, dataBytes, (uint)dataBytes.Length, null, ref sigLen);
+                    uint sigLen = 512;
+                    byte[] sigProbe = new byte[sigLen];
+                    rv = cSign(session, dataBytes, (uint)dataBytes.Length, sigProbe, ref sigLen);
                     if (rv != CKR_OK && rv != CKR_BUFFER_TOO_SMALL) { Console.Error.WriteLine("ERR SignLen: 0x" + rv.ToString("X8")); cLogout(session); cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return; }
 
                     byte[] sigBuf = new byte[sigLen];
@@ -278,6 +318,19 @@ class Pkcs11Bridge
         for (int i = 0; i < bytes.Length; i++)
             bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
         return bytes;
+    }
+
+    // Sertifika seri numarası karşılaştırması: iki yanda da pozitif integer
+    // gösteriminden gelebilecek baştaki 0x00 byte'larını yok say.
+    static bool SerialEquals(byte[] a, byte[] b)
+    {
+        int i = 0, j = 0;
+        while (i < a.Length - 1 && a[i] == 0) i++;
+        while (j < b.Length - 1 && b[j] == 0) j++;
+        if (a.Length - i != b.Length - j) return false;
+        for (int k = 0; k < a.Length - i; k++)
+            if (a[i + k] != b[j + k]) return false;
+        return true;
     }
 
     static string BytesToHex(byte[] bytes)

@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('application_type_definitions')) {
+            return;
+        }
+
         Schema::create('application_type_definitions', function (Blueprint $table) {
             $table->id();
             $table->string('slug', 100)->unique();

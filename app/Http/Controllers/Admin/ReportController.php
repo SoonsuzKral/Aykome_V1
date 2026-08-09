@@ -121,7 +121,7 @@ class ReportController extends Controller
         $pdf = Pdf::loadView('admin.reports.pdf', compact('applications', 'filterSummary'))
             ->setPaper('a4', 'landscape');
 
-        return $pdf->download('aykome-rapor-' . now()->format('Y-m-d') . '.pdf');
+        return $pdf->stream('aykome-rapor-' . now()->format('Y-m-d') . '.pdf');
     }
 
     public function exportCsv(Request $request): Response

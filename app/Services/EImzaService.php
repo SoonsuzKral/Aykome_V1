@@ -206,6 +206,17 @@ class EImzaService
 
     public function tamamla(EImzaTransaction $transaction, string $imzaliPdfContent, array $imzalayanInfo): void
     {
+        // İmzalı PDF içindeki PAdES sertifikasından imzalayan bilgisini doğrula/zenginleştir
+        $sertifikaBilgisi = $this->pdfSertifikaBilgisi($imzaliPdfContent);
+        if ($sertifikaBilgisi !== null) {
+            $imzalayanInfo = array_merge($imzalayanInfo, $sertifikaBilgisi);
+        } else {
+            Log::warning('PAdES sertifikası çıkarılamadı; istemci bilgisi kullanıldı', [
+                'transaction_id' => $transaction->transaction_id,
+                'application_id' => $transaction->application_id,
+            ]);
+        }
+
         $dizin = "e-imza/{$transaction->transaction_id}";
         $path = "{$dizin}/imzali.pdf";
         Storage::disk('public')->put($path, $imzaliPdfContent);
@@ -275,6 +286,71 @@ class EImzaService
         return hash_equals($transaction->token, $token)
             && $transaction->status === 'pending'
             && $transaction->expires_at->isFuture();
+    }
+
+    /**
+     * PAdES imzalı PDF içindeki gömülü sertifikadan imzalayan bilgisini çıkarır.
+     * /ByteRange ile işaretli /Contents (DER PKCS#7) çözülür ve openssl ile parse edilir.
+     */
+    private function pdfSertifikaBilgisi(string $imzaliPdfContent): ?array
+    {
+        if (!preg_match('/\/ByteRange\s*\[(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\]/', $imzaliPdfContent, $m)) {
+            return null;
+        }
+
+        $prefix = substr($imzaliPdfContent, 0, (int) $m[1]);
+        $pos = strrpos($prefix, '/Contents');
+        if ($pos === false) {
+            return null;
+        }
+
+        $segment = substr($prefix, $pos);
+        if (!preg_match('/<([0-9A-Fa-f\s]+)>/', $segment, $hm)) {
+            return null;
+        }
+
+        $der = @hex2bin(preg_replace('/\s+/', '', $hm[1]));
+        if ($der === false || $der === '') {
+            return null;
+        }
+
+        $pem = "-----BEGIN PKCS7-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END PKCS7-----\n";
+
+        $certs = [];
+        if (!@openssl_pkcs7_read($pem, $certs)) {
+            return null;
+        }
+
+        foreach ($certs as $cert) {
+            $parsed = @openssl_x509_parse($cert);
+            if (!$parsed || empty($parsed['subject'])) {
+                continue;
+            }
+
+            $subject = $parsed['subject'];
+            $cn = trim((string) ($subject['CN'] ?? ''));
+            $serialNo = (string) ($subject['serialNumber'] ?? '');
+            $tckn = preg_replace('/\D/', '', $serialNo);
+
+            $nameParts = preg_split('/\s+/', $cn, 2);
+            $ad = $nameParts[0] ?? '';
+            $soyad = $nameParts[1] ?? '';
+
+            return [
+                'ad' => $ad,
+                'soyad' => $soyad,
+                'tckn' => $tckn !== '' ? $tckn : null,
+                'sertifika_turu' => 'Kamu SM',
+                'sertifika_seri_no' => (string) ($parsed['serialNumber'] ?? ''),
+                'sertifika_issuer' => (string) ($parsed['issuer']['CN'] ?? ($parsed['issuer']['O'] ?? '')),
+                'sertifika_gecerli_baslangic' => isset($parsed['validFrom_time_t']) ? date('Y-m-d H:i:s', $parsed['validFrom_time_t']) : null,
+                'sertifika_gecerli_bitis' => isset($parsed['validTo_time_t']) ? date('Y-m-d H:i:s', $parsed['validTo_time_t']) : null,
+                'subject' => $subject,
+                'kaynak' => 'pdf_pades',
+            ];
+        }
+
+        return null;
     }
 
     public function temizle(): int

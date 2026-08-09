@@ -151,7 +151,7 @@ class FieldReportController extends Controller
         $pdf = Pdf::loadView('admin.field-reports-pro.export-pdf', compact('personnel'));
         $pdf->setPaper('A4', 'landscape');
 
-        return $pdf->download('saha-personel-raporu-' . now()->format('Y-m-d') . '.pdf');
+        return $pdf->stream('saha-personel-raporu-' . now()->format('Y-m-d') . '.pdf');
     }
 
     private function buildPersonnel()

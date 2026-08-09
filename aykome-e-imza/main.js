@@ -35,7 +35,8 @@ function createPinWindow(transaction, serverUrl) {
     resizable: false,
     frame: true,
     alwaysOnTop: true,
-    title: 'Aykome E-İmza',
+    title: 'Eyyübiye AYKOME - E-İmza Köprüsü',
+    icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -56,7 +57,8 @@ function createSetupWindow() {
     width: 520,
     height: 620,
     resizable: false,
-    title: 'Aykome E-İmza - İlk Kurulum',
+    title: 'Eyyübiye AYKOME - E-İmza Kurulumu',
+    icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'icon.ico' : 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
@@ -72,7 +74,7 @@ function createTray() {
   tray = new Tray(icon);
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Aykome E-İmza', enabled: false },
+    { label: 'Eyyübiye AYKOME - E-İmza Köprüsü', enabled: false },
     { type: 'separator' },
     { label: 'Kurulum Sihirbazı', click: () => createSetupWindow() },
     { label: 'Durum: Çalışıyor', enabled: false },
@@ -80,7 +82,7 @@ function createTray() {
     { label: 'Çıkış', click: () => app.quit() },
   ]);
 
-  tray.setToolTip('Aykome E-İmza');
+  tray.setToolTip('Eyyübiye AYKOME - E-İmza Köprüsü');
   tray.setContextMenu(contextMenu);
   tray.on('double-click', () => createSetupWindow());
 }
@@ -225,6 +227,7 @@ ipcMain.handle('get-settings', () => {
   return {
     pkcs11_path: store.get('pkcs11_path'),
     cert_serial: store.get('cert_serial'),
+    cert_cn: store.get('cert_cn'),
     server_url: store.get('server_url'),
     api_key: store.get('api_key'),
     setup_complete: store.get('setup_complete'),
@@ -234,10 +237,30 @@ ipcMain.handle('get-settings', () => {
 ipcMain.handle('save-settings', (event, settings) => {
   if (settings.pkcs11_path !== undefined) store.set('pkcs11_path', settings.pkcs11_path);
   if (settings.cert_serial !== undefined) store.set('cert_serial', settings.cert_serial);
+  if (settings.cert_cn !== undefined) store.set('cert_cn', settings.cert_cn);
   if (settings.server_url !== undefined) store.set('server_url', settings.server_url);
   if (settings.api_key !== undefined) store.set('api_key', settings.api_key);
   store.set('setup_complete', true);
   return { saved: true };
+});
+
+ipcMain.handle('token-durumu', async () => {
+  const cn = store.get('cert_cn') || '';
+  const serial = store.get('cert_serial') || '';
+  try {
+    const { scanner } = require('./src/pkcs11/scanner');
+    const det = await scanner.detectWithPkcs11();
+    if (det && det.tokens && det.tokens.length > 0) {
+      return { durum: 'aktif', tokenLabel: det.tokens[0].label.trim(), sertifikaCN: cn, certSerial: serial };
+    }
+    const lib = await scanner.detect();
+    if (lib) {
+      return { durum: 'kutuphane', tokenLabel: lib.path, sertifikaCN: cn, certSerial: serial };
+    }
+    return { durum: 'yok', sertifikaCN: cn, certSerial: serial };
+  } catch (err) {
+    return { durum: 'yok', sertifikaCN: cn, certSerial: serial, hata: err.message };
+  }
 });
 
 ipcMain.handle('close-setup', (event) => {
@@ -271,9 +294,13 @@ ipcMain.handle('list-certs', async (event, { pkcs11Path, pin }) => {
     const { parseCertificate } = require('./src/pkcs11/cert-utils');
     const info = parseCertificate(certDer);
 
+    if (info.commonName) {
+      store.set('cert_cn', info.commonName);
+    }
+
     return {
       certs: [{
-        serial: info.serialHex || 'unknown',
+        serial: info.skiHex || info.serialHex || 'unknown',
         label: (info.commonName || 'Bilinmeyen') + ' (Kamu SM)',
         cn: info.commonName,
         tckn: info.tckn,
