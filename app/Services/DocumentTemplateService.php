@@ -502,6 +502,9 @@ CSS;
     public const SAYI_TOKEN       = '{SAYI}';
     public const TARIH_TOKEN      = '{TARIH}';
 
+    /** EK-1 overflow eşiği: bu sayıdan fazla sokak → tablo ayrı A4'e (belge sonuna) sürülür. */
+    public const MUHTELIF_OVERFLOW_THRESHOLD = 6;
+
     /** Kurum şablonundaki tüm dinamik token listesi (başvuru verisiyle hidrate). */
     public static function coverTokens(): array
     {
@@ -649,7 +652,8 @@ CSS;
                 ['key' => 'proje_adi',       'label' => 'Proje Adı / Açıklama',  'tip' => 'text'],
                 ['key' => 'kazi_nedeni',     'label' => 'Kazı Nedeni',           'tip' => 'text'],
                 ['key' => 'is_cinsi',        'label' => 'İş Cinsi',              'tip' => 'text'],
-                ['key' => 'adres',           'label' => 'Adres',                 'tip' => 'text'],
+                ['key' => 'adres',           'label' => 'Tek Adres',            'tip' => 'text'],
+                ['key' => 'muhtelif_adres_tablosu', 'label' => 'Muhtelif Adres/Metraj Tablosu', 'tip' => 'html'],
             ],
             'Kişi' => [
                 ['key' => 'basvuran_ad',     'label' => 'Başvuran Ad',           'tip' => 'text'],
@@ -704,9 +708,63 @@ CSS;
             'olusturulma_tarihi' => $d($app->created_at?->format('d.m.Y')),
             'toplam_alan_m2' => $d($app->total_area_m2),
             'kazi_miktari' => number_format((float) collect($app->surfaceLines ?? [])->sum('quantity'), 2, ',', '.') . ' m² / m.',
-            'adres' => $d($app->address_text),
+            // GÖREV 1: muhtelif ise {adres} tokeni "MUHTELİF CADDE VE SOKAK" başlığını oluşturur;
+            // tekil başvuruda ise normal adres metnini basar.
+            'adres' => $app->streetCount() > 1 ? 'MUHTELİF CADDE VE SOKAK' : $d($app->address_text),
+            'muhtelif_adres_tablosu' => self::muhtelifAdresTablosu($app),
             default => '',
         };
+    }
+
+    /**
+     * {muhtelif_adres_tablosu} SHORTCODE — muhtelif adres tablosu üretici.
+     * Başvuruda birden fazla mahalle/sokak kaydı varsa 2 kolonlu (chunk(2))
+     * hücresel HTML tablo döner; tek/boş ise "" (iz bırakmadan silinir).
+     */
+    public static function muhtelifAdresTablosu(Application $app): string
+    {
+        if ($app->streetCount() <= 1) {
+            return '';
+        }
+
+        $grouped = $app->streetLinesGroupedByMahalle();
+        $html = '<table style="width: 100%; border-collapse: collapse; margin-top:10px; margin-bottom: 10px;" border="1">';
+        foreach ($grouped as $mahalle => $sokaklar) {
+            $baslik = mb_strtoupper(trim((string) $mahalle), 'UTF-8');
+            $son = preg_replace('/[İIıi]/u', 'I', $baslik);
+            $baslik .= (str_ends_with($son, 'MAHALLE') || str_ends_with($son, 'MAHALLESI') ? '' : ' MAHALLESİ');
+            $html .= '<tr><th colspan="2" style="background:#e5e7eb; text-align:left; padding:4px;">' . e($baslik) . '</th></tr>';
+
+            foreach (collect($sokaklar)->chunk(2) as $ikiliSokakGrubu) {
+                $hucreler = $ikiliSokakGrubu->values();
+                $html .= '<tr>'
+                    . '<td style="width:50%; padding:2px;">' . e((string) ($hucreler->get(0) ?? '')) . '</td>'
+                    . '<td style="width:50%; padding:2px;">' . e((string) ($hucreler->get(1) ?? '')) . '</td>'
+                    . '</tr>';
+            }
+        }
+
+        return $html . '</table>';
+    }
+
+    /**
+     * EK-1 overflow yönlendirmesi (GÖREV 2-B): sokak sayısı eşiği (6) aştığında
+     * uzun çift sütunlu tablo, dokümanın TAAA EN DİBİNE yeni A4 frame'i içinde
+     * page-break-before ile append edilir. İlk sayfa kapanır, imza bloğu
+     * A4 yerleşimini korur — belge asla ikiye bölünmez.
+     */
+    public static function appendEk1Cizelge(string $html, Application $app): string
+    {
+        $frame = '<div class="a4-container no-print-buttons" style="page-break-before: always; width: 100%; padding-top: 2cm;">'
+            . '<h3 style="text-align: center; text-decoration: underline; margin-bottom: 20px;">EK-1: MUHTELİF KAZI ADRESLERİ ÇİZELGESİ</h3>'
+            . self::muhtelifAdresTablosu($app)
+            . '</div>';
+
+        if (stripos($html, '</body>') !== false) {
+            return str_ireplace('</body>', $frame . '</body>', $html);
+        }
+
+        return $html . $frame;
     }
 
     /**
@@ -722,12 +780,28 @@ CSS;
         $html = self::hydrateInstitutionTokens($html, $app);
 
         // Adım 2 — dinamik token'lar ({kucuk_harf_alt_cizgi} / Türkçe karakterler)
-        return (string) preg_replace_callback(
+        $hasMuhtelif = $app->streetCount() > 1;
+        $overflow = $hasMuhtelif && $app->streetCount() > self::MUHTELIF_OVERFLOW_THRESHOLD;
+
+        $html = (string) preg_replace_callback(
             '/\{([a-z_çğıiöşü0-9]+)\}/u',
-            function (array $m) use ($app): string {
+            function (array $m) use ($app, $hasMuhtelif, $overflow): string {
                 $key = $m[1] ?? '';
                 if ($key === '') {
                     return $m[0];
+                }
+                // ÖZEL SHORTCODE {muhtelif_adres_tablosu}: ham HTML tablo döner
+                // (escape edilmez); başvuruda veri yoksa iz bırakmadan "" ile değişir.
+                if ($key === 'muhtelif_adres_tablosu') {
+                    if (! $hasMuhtelif) {
+                        return ''; // tekil/boş → iz bırakmadan sil
+                    }
+                    if ($overflow) {
+                        // GÖREV 2-A: inline uyarı; asıl tablo belge sonuna EK-1 olarak eklenir
+                        return 'ADRESLER SAYIYI AŞTIĞI İÇİN ARKA SAYFADA (EK-1: KAZI ADRESLERİ LİSTESİ) LİSTELENMİŞTİR.';
+                    }
+
+                    return self::muhtelifAdresTablosu($app);
                 }
                 $val = self::fieldValue($app, $key);
                 if ($val === '') {
@@ -738,6 +812,13 @@ CSS;
             },
             $html
         );
+
+        // GÖREV 2-B: overflow durumunda uzun tablo doküman sonuna append edilir
+        if ($overflow) {
+            $html = self::appendEk1Cizelge($html, $app);
+        }
+
+        return $html;
     }
 
     public static function saveOverride(Application $app, string $type, string $content): void
