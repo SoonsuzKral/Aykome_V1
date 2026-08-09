@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <title>Kazı Metraj Cetveli ve Onay</title>
     <style>
-        body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; background: #cbd5e1; display:flex; justify-content:center; padding-top:20px; }
-        .a4-landscape-container { background: white; width: 297mm; min-height: 210mm; box-sizing: border-box; padding: 15mm; margin: 15px auto; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); overflow:hidden;}
+        body { font-family: Arial, sans-serif; font-size: 11px; margin: 0; background: #cbd5e1; display:block; padding-top:0; }
+        .a4-landscape-container { background: white; width: 297mm; min-height: 210mm; box-sizing: border-box; padding: 15mm; margin: 0 auto; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); overflow:hidden;}
 
         .table-wrapper { border: 2px solid #000; padding: 0px; margin-bottom: 25px;}
         .top-header { text-align: center; font-weight: bold; font-size: 13.5px; line-height: 1.4; margin: 18px 0; }
@@ -22,7 +22,7 @@
         table.mini-sign th { font-size: 12px; font-weight:bold; }
         table.mini-sign td { height: 50px; vertical-align: bottom; padding-bottom:5px; font-size:12px; font-weight:bold; color: #0f172a;}
 
-        .print-bar { position: fixed; top: 1rem; left: 1rem; right: auto; z-index: 99999; background:#1e293b; padding:8px 14px; border-radius:10px; box-shadow:0 5px 14px rgba(0,0,0,.35); display:flex; flex-direction:row; gap:8px; align-items:center; text-align:right;}
+        .print-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
         .print-btn { background:#3b82f6; color:#fff; border:none; padding:10px 20px; font-size:14px; border-radius:5px; font-weight:bold; cursor:pointer;}
 
         @page { size: A4 landscape; margin: 8mm !important; }

@@ -5,10 +5,10 @@
     <title>Altyapı Tesisi Açım Ruhsatı</title>
     <style>
         /* DAHA FERAH, DOLGUN VE ESNEMİŞ A4 GÖRÜNÜMÜ */
-        body { font-family: Arial, sans-serif; font-size: 12px !important; line-height: 1.25; margin: 0; color:#000; background:#f0f0f0; display:flex; justify-content:center; }
+        body { font-family: Arial, sans-serif; font-size: 12px !important; line-height: 1.25; margin: 0; color:#000; background:#f0f0f0; display:block; }
         
         /* Ekranda göreceğimiz sınırlandırılmış a4 kağıt boyutu */
-        .a4-container { background: white; width: 210mm; min-height: 297mm; box-sizing: border-box; padding: 12mm 15mm; margin: 20px auto; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); }
+        .a4-container { background: white; width: 210mm; min-height: 297mm; box-sizing: border-box; padding: 12mm 15mm; margin: 0 auto; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); }
         
         table { width: 100%; border-collapse: collapse; margin-bottom: 7px; table-layout: fixed; }
         table, th, td { border: 1px solid #000; }
@@ -21,7 +21,7 @@
         /* Şartlar Kısmını A4 Dibini İtecek Şekilde Açtık */
         .sartlar-metni { font-size: 10.5px; padding: 8px 10px !important; line-height: 1.45; text-align: justify;}
         
-        .print-bar { position: fixed; top: 1rem; left: 1rem; right: auto; z-index: 99999; background:#1e293b; padding:8px 14px; border-radius:10px; box-shadow:0 5px 14px rgba(0,0,0,.35); display:flex; flex-direction:row; gap:8px; align-items:center; text-align:center;}
+        .print-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
         .print-btn { background:#3b82f6; color:#fff; border:none; padding:10px 25px; font-size:14px; border-radius:5px; font-weight:bold; cursor:pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);}
         .print-btn:hover { background: #2563eb; }
         

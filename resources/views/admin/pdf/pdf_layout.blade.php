@@ -9,17 +9,18 @@
 body {
   background-color: #f3f4f6;
   margin: 0;
-  padding-top: 50px;
-  display: flex;
-  justify-content: center;
+  padding-top: 0;
+  display: block;
   font-family: 'Times New Roman', Times, serif;
 }
 
 .no-print-bar {
-  position: fixed; top: 1rem; left: 1rem; right: auto; z-index: 99999;
-  background: #1e293b; color: #fff;
-  display: flex; flex-direction: row; align-items: center; gap: 10px;
-  padding: 8px 14px; border-radius: 10px; box-shadow: 0 5px 14px rgba(0,0,0,.35);
+  position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50;
+  background: rgba(15,23,42,.92); color: #fff;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  display: flex; flex-direction: row; align-items: center; gap: 12px;
+  padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+  border: 1px solid #334155;
 }
 .no-print-bar .title { font-size: 14px; font-weight: 600; white-space: nowrap; }
 .no-print-bar .actions { display: flex; gap: 8px; align-items: center; }

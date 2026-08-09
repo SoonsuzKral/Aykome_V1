@@ -97,9 +97,11 @@ class DocumentTemplateService
     /** Standalone PDF sarmalayıcısı için temel A4 + yazdırma çubuğu CSS'i. */
     protected const LAYOUT_CSS = <<<'CSS'
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #e5e7eb; padding-top: 70px; display: flex; justify-content: center; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
-.a4-container { background: #fff; width: 210mm; min-height: 297mm; padding: 18mm 20mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 16px auto; box-sizing: border-box; }
-.print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: linear-gradient(180deg,#1e293b,#0f172a); color: #fff; height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
+body { background: #e5e7eb; padding-top: 0; display: block; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
+/* A4 kağıtlar DİKEY eksende alt alta (Word/PDF viewer düzeni) — block model, asla yan yana değil */
+.a4-container { background: #fff; width: 210mm; min-height: 297mm; padding: 18mm 20mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 0 auto; box-sizing: border-box; }
+/* ÜST ORTA İZOLE PANEL: kâğıt DOM'unun dışında, havada duran modern action bar — asla antetle çakışmaz */
+.print-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
 .print-bar .title { font-size: 15px; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 8px; }
 .print-bar .title .doc-ico { font-size: 18px; }
 .print-bar .actions { display: flex; align-items: center; gap: 10px; }
@@ -116,9 +118,11 @@ CSS;
     /** Landscape (metraj) A4 sarmalayıcı CSS'i. */
     protected const LAYOUT_CSS_LANDSCAPE = <<<'CSS'
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #e5e7eb; padding-top: 70px; display: flex; justify-content: center; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
-.a4-container { background: #fff; width: 297mm; min-height: 210mm; padding: 12mm 14mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 16px auto; box-sizing: border-box; }
-.print-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: linear-gradient(180deg,#1e293b,#0f172a); color: #fff; height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; box-shadow: 0 3px 12px rgba(0,0,0,.3); }
+body { background: #e5e7eb; padding-top: 0; display: block; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
+/* A4 kağıtlar DİKEY eksende alt alta (Word/PDF viewer düzeni) — block model, asla yan yana değil */
+.a4-container { background: #fff; width: 297mm; min-height: 210mm; padding: 12mm 14mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 0 auto; box-sizing: border-box; }
+/* ÜST ORTA İZOLE PANEL: kâğıt DOM'unun dışında, havada duran modern action bar — asla antetle çakışmaz */
+.print-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
 .print-bar .title { font-size: 15px; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 8px; }
 .print-bar .title .doc-ico { font-size: 18px; }
 .print-bar .actions { display: flex; align-items: center; gap: 10px; }
@@ -733,7 +737,7 @@ CSS;
             $baslik = mb_strtoupper(trim((string) $mahalle), 'UTF-8');
             $son = preg_replace('/[İIıi]/u', 'I', $baslik);
             $baslik .= (str_ends_with($son, 'MAHALLE') || str_ends_with($son, 'MAHALLESI') ? '' : ' MAHALLESİ');
-            $html .= '<tr><th colspan="2" style="background:#e5e7eb; text-align:left; padding:4px;">' . e($baslik) . '</th></tr>';
+            $html .= '<tr><th colspan="2" style="background:#e5e7eb; text-align:center; padding:4px;">' . e($baslik) . '</th></tr>';
 
             foreach (collect($sokaklar)->chunk(2) as $ikiliSokakGrubu) {
                 $hucreler = $ikiliSokakGrubu->values();
@@ -798,7 +802,7 @@ CSS;
                     }
                     if ($overflow) {
                         // GÖREV 2-A: inline uyarı; asıl tablo belge sonuna EK-1 olarak eklenir
-                        return 'ADRESLER SAYIYI AŞTIĞI İÇİN ARKA SAYFADA (EK-1: KAZI ADRESLERİ LİSTESİ) LİSTELENMİŞTİR.';
+                        return '<strong style="font-size:12px;">ADRESLER EK.1 İÇERİSİNDE BULUNMAKTADIR.</strong>';
                     }
 
                     return self::muhtelifAdresTablosu($app);
@@ -1313,7 +1317,7 @@ CSS;
             : self::LAYOUT_CSS;
 
         $uiBar = $withUi
-            ? '<div class="print-bar no-print">'
+            ? '<div class="print-bar no-print fixed top-2 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/90 backdrop-blur py-2 px-4 rounded-xl shadow-lg border border-slate-700">'
                 . '<span class="title"><span class="doc-ico">📄</span>' . e($title) . '</span>'
                 . '<div class="actions">'
                 . '<button type="button" class="btn-close" onclick="window.close()">✕ Kapat</button>'

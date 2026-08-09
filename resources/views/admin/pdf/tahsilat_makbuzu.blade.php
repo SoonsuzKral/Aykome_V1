@@ -139,7 +139,7 @@ body {
     padding-top: 10px;
     margin-top: 28px;
 }
-.print-bar { position: fixed; top: 1rem; left: 1rem; right: auto; z-index: 99999; background: #1e293b; color: #fff; display: flex; align-items: center; justify-content: flex-end; gap: 10px; padding: 8px 14px; border-radius: 10px; box-shadow: 0 5px 14px rgba(0,0,0,.35); }
+.print-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
 .print-bar .btn-print { background: #2563eb; color: #fff; border: none; padding: 9px 22px; border-radius: 5px; font-weight: 700; font-size: 14px; cursor: pointer; }
 .print-bar .btn-print:hover { background: #1d4ed8; }
 .no-print { display: flex; }

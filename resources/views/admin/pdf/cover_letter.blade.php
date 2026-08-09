@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <title>Kurum Başvuru Yazısı</title>
     <style>
-        body { font-family: "Times New Roman", Times, serif; font-size: 14.5px; line-height: 1.4; margin: 0; color:#000; background:#e2e8f0; display:flex; justify-content:center; }
-        .a4-container { background: white; width: 210mm; min-height: 297mm; max-height:297mm; overflow:hidden; box-sizing: border-box; padding: 18mm 20mm 48mm 20mm; margin: 92px auto 15px; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); position: relative; }
+        body { font-family: "Times New Roman", Times, serif; font-size: 14.5px; line-height: 1.4; margin: 0; color:#000; background:#e2e8f0; display:block; }
+        .a4-container { background: white; width: 210mm; min-height: 297mm; max-height:297mm; overflow:hidden; box-sizing: border-box; padding: 18mm 20mm 48mm 20mm; margin: 0 auto; box-shadow: 0px 5px 15px rgba(0,0,0,0.5); position: relative; }
 
         table { width: 100%; border-collapse: collapse; table-layout: fixed;}
         td { vertical-align: top; }
