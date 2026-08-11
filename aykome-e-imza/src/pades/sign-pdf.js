@@ -7,6 +7,7 @@ const OID_SIGNED_DATA = '1.2.840.113549.1.7.2';
 const OID_DATA = '1.2.840.113549.1.7.1';
 const OID_SHA384 = '2.16.840.1.101.3.4.2.2';
 const OID_SHA256 = '2.16.840.1.101.3.4.2.1';
+const OID_ESS_SIGNING_CERT_V2 = '1.2.840.113549.1.9.16.2.47';
 
 function derLen(n) {
   if (n < 128) return Buffer.from([n]);
@@ -96,11 +97,25 @@ function buildCms(contentBytes, certDer, signCallback, keyType) {
   const { issuerDer, serialDer } = certIssuerAndSerial(certDer);
   const contentDigest = digestBytes(contentBytes, algo);
 
-  const attrsContent = Buffer.concat([
+  // ESS SigningCertificateV2 (ETSI EN 319 102-1 AdES-BES zorunlu oznitelik):
+  // ESSCertIDv2 = SEQUENCE { hashAlgorithm(sha256+NULL), certHash OCTET STRING }
+  // certHash = imzalayan sertifikanin tamaminin SHA-256'si. DSS "signing-certificate
+  // absent" bulgusunu kapatir.
+  const essCertId = derSeq(
+    derSeq(derOid(OID_SHA256), derNull()),
+    derOct(digestBytes(certDer, 'sha256')),
+  );
+
+  const attrs = [
     derAttr(forge.pki.oids.contentType, derOid(OID_DATA)),
     derAttr(forge.pki.oids.signingTime, derUtcTime(new Date())),
     derAttr(forge.pki.oids.messageDigest, derOct(contentDigest)),
-  ]);
+    derAttr(OID_ESS_SIGNING_CERT_V2, essCertId),
+  ];
+  // DER canonical: SET OF elemanlari TAM DER encoding'lerine gore byte-lexicographic
+  // sirali olmalidir (RFC 5652). Siralama koddan hesaplanir — elle sabitlenmez.
+  attrs.sort((a, b) => Buffer.compare(a, b));
+  const attrsContent = Buffer.concat(attrs);
   const signedAttrs = der(0xA0, attrsContent);
 
   // ÇÖZÜM_04: RFC 5652 §5.4 — imza, signedAttrs ALANININ TAM DER kodlamasi

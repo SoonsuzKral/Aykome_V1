@@ -280,6 +280,19 @@ function main() {
     } catch (e) { /* yukarida raporlandi */ }
   }
 
+  // 5) ESS SigningCertificateV2 (ETSI EN 319 102-1 AdES-BES) — mevcut mu, certHash dogru mu?
+  {
+    const ess = info.attrs.find(a => a.oid === '1.2.840.113549.1.9.16.2.47');
+    let ok = false, detay = '';
+    if (ess && info.certDer) {
+      const expected = crypto.createHash('sha256').update(info.certDer).digest();
+      ok = expected.equals(ess.value);
+      detay = ok ? ' (certHash == sha256(sertifika) OK)' : ' (certHash UYUMSUZ!)';
+    }
+    console.log('[5] ESS SigningCertificateV2 ozniteligi: ' + (ess ? (ok ? 'MEVCUT ve dogru' + detay : 'MEVCUT ' + detay) : 'YOK! (AdES-BES eksigi)'));
+    if (!ok) problems.push('signingCertificateV2 eksik/yanlis');
+  }
+
   console.log('\nSONUC: ' + (problems.length === 0 ? 'TUM KRIPTOGRAFIK KONTROLLER GECTI' : problems.length + ' SORUN: ' + problems.join(' | ')));
   process.exit(problems.length === 0 ? 0 : 1);
 }
