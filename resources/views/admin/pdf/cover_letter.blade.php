@@ -112,7 +112,9 @@
                     @if($logo_base64)
                         <img src="{{ $logo_base64 }}" alt="Logo" class="print-logo" style="max-height:85px; width:auto;">
                     @else
-                        <div style="font-size: 26px; font-weight: 900; color: #0f172a; text-align:left;" contenteditable="true">{!! mb_strtoupper(mb_substr($application->institution?->name ?? $application->applicant_name ?? '', 0, 5), 'UTF-8') !!}...</div>
+                        {{-- Logo yoksa sol hücre BOŞ bırakılır: kurum adı zaten orta başlıkta
+                             basılıyor. Eski 26px kocaman ilk-5-harf fallback'i kurum adını
+                             İKİ KEZ basıyordu (VODAF... + VODAFONE İLETİŞİM HİZMETLERİ A.Ş.). --}}
                     @endif
                 </td>
                 <td style="width:50%; text-align:center; padding-top:10px;">

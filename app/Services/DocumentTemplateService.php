@@ -596,6 +596,16 @@ CSS;
                 $img->parentNode?->removeChild($img);
             }
 
+            // 2-B) ANTET FALLBACK SİL: logo yokken blade'in bastığı kocaman kurum-adı
+            //      özeti (font-size:26px — örn. "VODAF...") şablona gömülürse kurum adı
+            //      PDF'te İKİ KEZ basılırdı (fallback + orta başlık {KURUM_ADI}).
+            //      Orta başlık zaten kurum adını taşıdığı için bu div kalıntısı atılır.
+            //      Seçici sıkı: 26px + font-weight:900 ikisi birden istenir — ileride
+            //      kullanıcının şablona elle koyduğu başka 26px div'ler asla silinmez.
+            foreach ($xpath->query('//div[contains(@style,"font-size: 26px") and contains(@style,"font-weight: 900")]') as $div) {
+                $div->parentNode?->removeChild($div);
+            }
+
             $html = $doc->saveHTML($doc->getElementsByTagName('body')->item(0));
         }
 
