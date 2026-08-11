@@ -169,8 +169,21 @@ static void cmd_sign(const char* pin_hex, const char* data_hex) {
     rv = fn->C_FindObjects(session, &key, 1, &key_cnt);
     if (rv != CKR_OK || key_cnt == 0) { printf("ERR No key\n"); fn->C_FindObjectsFinal(session); fn->C_Logout(session); fn->C_CloseSession(session); free(slots); bridge_close(); return; }
     fn->C_FindObjectsFinal(session);
-    // ECDSA mechanism
-    CK_MECHANISM mech = { CKM_ECDSA, NULL, 0 };
+    // CÖZÜM_04: Anahtar tipi (RSA vs EC) CKA_KEY_TYPE ile ayrilir — eskiden her
+    // zaman CKM_ECDSA kullaniliyordu; RSA kartlarda imza garantili bozuktu.
+    CK_ULONG key_type = CKK_EC;
+    {
+        CK_ATTRIBUTE kt[] = { { CKA_KEY_TYPE, NULL, 0 } };
+        rv = fn->C_GetAttributeValue(session, key, kt, 1);
+        if (rv == CKR_OK && kt[0].ulValueLen == sizeof(CK_ULONG)) {
+            CK_ULONG* v = malloc(sizeof(CK_ULONG));
+            kt[0].pValue = v;
+            if (fn->C_GetAttributeValue(session, key, kt, 1) == CKR_OK) key_type = *v;
+            free(v);
+        }
+    }
+    // ECDSA mechanism — RSA icin CKM_RSA_PKCS (JS tarafinda DigestInfo ASN.1 verilir)
+    CK_MECHANISM mech = { (key_type == CKK_RSA) ? CKM_RSA_PKCS : CKM_ECDSA, NULL, 0 };
     rv = fn->C_SignInit(session, &mech, key);
     if (rv != CKR_OK) { printf("ERR SignInit: %lu\n", rv); fn->C_Logout(session); fn->C_CloseSession(session); free(slots); bridge_close(); return; }
     size_t data_len = strlen(data_hex) / 2;
@@ -185,7 +198,9 @@ static void cmd_sign(const char* pin_hex, const char* data_hex) {
     free(data);
     CK_ULONG out_len = sig_len;
     unsigned char* out = sig;
-    if (mech.mechanism == CKM_ECDSA && sig_len > 0 && sig_len <= 132) {
+    // CÖZÜM_04: EC imzasi ya ham r||s ya da zaten DER gelir; ilk bayt 0x30 ise
+    // dokunma (çift dönüşüm bozuk imza üretirdi).
+    if (mech.mechanism == CKM_ECDSA && sig_len > 0 && sig_len <= 132 && sig[0] != 0x30) {
         unsigned char* der = ecdsa_raw_to_der(sig, sig_len, &out_len);
         if (der) { free(sig); out = der; }
     }

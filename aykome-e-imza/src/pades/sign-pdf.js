@@ -2,7 +2,7 @@ const forge = require('node-forge');
 const { findByteRange, removeTrailingNewLine, plainAddPlaceholder } = require('node-signpdf');
 
 const OID_ECDSA_SHA384 = '1.2.840.10045.4.3.3';
-const OID_RSA_ENCRYPTION = '1.2.840.113549.1.1.1';
+const OID_SHA256_WITH_RSA = '1.2.840.113549.1.1.11';
 const OID_SIGNED_DATA = '1.2.840.113549.1.7.2';
 const OID_DATA = '1.2.840.113549.1.7.1';
 const OID_SHA384 = '2.16.840.1.101.3.4.2.2';
@@ -23,6 +23,7 @@ const derSeq = (...parts) => der(0x30, Buffer.concat(parts));
 const derSet = (...parts) => der(0x31, Buffer.concat(parts));
 const derInt = (b) => der(0x02, b);
 const derOct = (b) => der(0x04, b);
+const derBitStr = (b) => der(0x03, Buffer.concat([Buffer.from([0x00]), b]));
 const derNull = () => Buffer.from([0x05, 0x00]);
 
 function derOid(oid) {
@@ -86,10 +87,10 @@ function rsaDigestInfo(digest, digestOid) {
 }
 
 function buildCms(contentBytes, certDer, signCallback, keyType) {
-  // E-Tuğra (RSA): SHA-256 + rsaEncryption + DigestInfo | Kamu SM (ECDSA): SHA-384 + ecdsa-with-SHA384
+  // E-Tuğra (RSA): SHA-256 + sha256WithRSAEncryption + DigestInfo | Kamu SM (ECDSA): SHA-384 + ecdsa-with-SHA384
   const isRsa = keyType === 'RSA';
   const digestOid = isRsa ? OID_SHA256 : OID_SHA384;
-  const sigOid = isRsa ? OID_RSA_ENCRYPTION : OID_ECDSA_SHA384;
+  const sigOid = isRsa ? OID_SHA256_WITH_RSA : OID_ECDSA_SHA384;
   const algo = isRsa ? 'sha256' : 'sha384';
 
   const { issuerDer, serialDer } = certIssuerAndSerial(certDer);
@@ -102,7 +103,10 @@ function buildCms(contentBytes, certDer, signCallback, keyType) {
   ]);
   const signedAttrs = der(0xA0, attrsContent);
 
-  const attrsDigest = digestBytes(der(0x31, attrsContent), algo);
+  // ÇÖZÜM_04: RFC 5652 §5.4 — imza, signedAttrs ALANININ TAM DER kodlamasi
+  // (A0 [0] IMPLICIT tag dahil) üzerine atilir. Eskiden SET OF (0x31) üzerine
+  // hash'leniyordu → openssl/Adobe/EU DSS imzayi reddediyordu.
+  const attrsDigest = digestBytes(der(0xA0, attrsContent), algo);
   // AKIS middleware RSA anahtarlarda yalnizca CKM_RSA_PKCS acar: token'a ham digest yerine
   // SHA-256 DigestInfo ASN.1 verilir (token PKCS#1 v1.5 padding'i kendi uygular).
   const toSign = isRsa ? rsaDigestInfo(attrsDigest, digestOid) : attrsDigest;
@@ -114,7 +118,10 @@ function buildCms(contentBytes, certDer, signCallback, keyType) {
     derSeq(derOid(digestOid), derNull()),
     signedAttrs,
     derSeq(derOid(sigOid)),
-    derOct(signatureDer),
+    // ÇÖZÜM_04: CMS signerInfo signature alanı DER'de BIT STRING (0x03) olmalı;
+    // eskiden OCTET STRING (0x04) yazılıyordu → openssl/Adobe/EU DSS şema
+    // çözümleyicileri alanı reddediyordu → "İmza Algoritması: Geçersiz".
+    derBitStr(signatureDer),
   );
 
   const signedData = derSeq(
@@ -167,7 +174,12 @@ function buildPades(pdfBuffer, certDer, cnName, signCallback, keyType) {
   const region2Start = gapStart + gapSize;
   const region2Size = pdf.length - region2Start;
 
-  const byteRange = [0, gapStart, gapSize, region2Size];
+  // ÇÖZÜM_04 KRİTİK: ByteRange = [start1, len1, start2, len2] — 3. eleman
+  // 2. SEGMENTİN BAŞLANGIÇ OFSETİ olmalı (PDF 32000-1 §12.8.1; node-signpdf
+  // referansı dist/signpdf.js:92-95). Burada eskiden `gapSize` yazılıyordu →
+  // doğrulayıcılar segment 2'yi segment 1'in İÇİNDE sayıyordu → özet uyuşmuyor
+  // → Adobe/openssl/EU DSS HER imzayı "geçersiz" buluyordu.
+  const byteRange = [0, gapStart, region2Start, region2Size];
 
   let actualByteRange = `/ByteRange [${byteRange.join(' ')}]`;
   actualByteRange += ' '.repeat(byteRangePlaceholder.length - actualByteRange.length);

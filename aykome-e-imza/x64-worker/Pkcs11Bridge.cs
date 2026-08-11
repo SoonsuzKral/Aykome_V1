@@ -308,8 +308,10 @@ class Pkcs11Bridge
 
                     Array.Resize(ref sigBuf, (int)sigLen);
 
-                    // ECDSA ham (r||s) -> DER dönüşümü; RSA imzası zaten PKCS#1 v1.5, dokunulmaz
-                    if (keyType != CKK_RSA && sigLen > 0 && sigLen <= 132)
+                    // ECDSA: token ya ham r||s ya da zaten DER döndürür. ÇÖZÜM_04:
+                    // ilk bayt 0x30 (DER SEQUENCE) ise DOKUNMA (çift dönüşüm bozuk
+                    // imza üretirdi); ham (r||s, 96 bayt P-384) ise DER'e çevir.
+                    if (keyType != CKK_RSA && sigLen > 0 && sigLen <= 132 && sigBuf[0] != 0x30)
                     {
                         byte[] der = EcdsaRawToDer(sigBuf);
                         if (der != null) sigBuf = der;
