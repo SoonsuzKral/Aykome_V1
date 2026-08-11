@@ -159,14 +159,25 @@ function analyzeCms(cms) {
       const valSet = kids[1];
       if (valSet) {
         const vals = children(signedAttrsBytes, valSet.start + valSet.hdr, valSet.end);
-        // Attribute value SET icindeki ilk deger; SEQUENCE ise OCTET STRING'i bul
+        // Attribute value SET icindeki ilk deger; SEQUENCE ise icindeki ilk
+        // OCTET STRING'i (certHash) bul — SigningCertificateV2'de 2 sarmal
+        // SEQUENCE seviyesi oldugu icin arama oz-yinelemeli (COZUM_05)
         let val = vals[0];
         if (val && val.tag === 0x30) {
-          const inner = children(signedAttrsBytes, val.start + val.hdr, val.end);
-          const oct = inner.find(k => k.tag === 0x04);
+          const findOct = (k) => {
+            if (k.tag === 0x04) return k;
+            if (k.tag === 0x30) {
+              for (const c of children(signedAttrsBytes, k.start + k.hdr, k.end)) {
+                const r = findOct(c);
+                if (r) return r;
+              }
+            }
+            return null;
+          };
+          const oct = findOct(val);
           if (oct) val = oct;
         }
-        attrs.push({ oid, name: oidName(oid), value: Buffer.from(signedAttrsBytes.subarray(val.start + val.hdr, val.end)) });
+        attrs.push({ oid, name: oidName(oid), value: Buffer.from(signedAttrsBytes.subarray(val.start + val.hdr, val.end)), raw: Buffer.from(signedAttrsBytes.subarray(vals[0].start, vals[0].end)) });
       }
     }
   }
@@ -280,14 +291,33 @@ function main() {
     } catch (e) { /* yukarida raporlandi */ }
   }
 
-  // 5) ESS SigningCertificateV2 (ETSI EN 319 102-1 AdES-BES) — mevcut mu, certHash dogru mu?
+  // 5) ESS SigningCertificateV2 (ETSI EN 319 102-1 AdES-BES) — mevcut mu, ASN.1
+  //    yapisi dogru mu (RFC 5035: SEQUENCE { certs SEQUENCE OF ESSCertIDv2 }),
+  //    certHash dogru mu? (COZUM_05)
   {
     const ess = info.attrs.find(a => a.oid === '1.2.840.113549.1.9.16.2.47');
     let ok = false, detay = '';
     if (ess && info.certDer) {
       const expected = crypto.createHash('sha256').update(info.certDer).digest();
-      ok = expected.equals(ess.value);
-      detay = ok ? ' (certHash == sha256(sertifika) OK)' : ' (certHash UYUMSUZ!)';
+      let yapiOk = false;
+      try {
+        const root = parseDer(ess.raw, 0);                                   // SigningCertificateV2
+        const lvl1 = children(ess.raw, root.start + root.hdr, root.end);     // [certs, ...]
+        if (root.tag === 0x30 && lvl1.length >= 1 && lvl1[0].tag === 0x30) {
+          const lvl2 = children(ess.raw, lvl1[0].start + lvl1[0].hdr, lvl1[0].end);  // certs icindeki ESSCertIDv2'ler
+          if (lvl2.length >= 1 && lvl2[0].tag === 0x30) {
+            const lvl3 = children(ess.raw, lvl2[0].start + lvl2[0].hdr, lvl2[0].end); // [hashAlgorithm, certHash]
+            if (lvl3.length >= 2 && lvl3[0].tag === 0x30 && lvl3[1].tag === 0x04) {
+              const alg = children(ess.raw, lvl3[0].start + lvl3[0].hdr, lvl3[0].end);
+              if (alg.length >= 1 && alg[0].tag === 0x06 && oidToStr(ess.raw.subarray(alg[0].start + alg[0].hdr, alg[0].end)) === '2.16.840.1.101.3.4.2.1') {
+                yapiOk = expected.equals(ess.raw.subarray(lvl3[1].start + lvl3[1].hdr, lvl3[1].end));
+              }
+            }
+          }
+        }
+      } catch (e) { /* asagida raporlanir */ }
+      ok = yapiOk;
+      detay = ok ? ' (ASN.1 yapisi RFC 5035 + certHash == sha256(sertifika) OK)' : ' (yapi VEYA certHash UYUMSUZ!)';
     }
     console.log('[5] ESS SigningCertificateV2 ozniteligi: ' + (ess ? (ok ? 'MEVCUT ve dogru' + detay : 'MEVCUT ' + detay) : 'YOK! (AdES-BES eksigi)'));
     if (!ok) problems.push('signingCertificateV2 eksik/yanlis');

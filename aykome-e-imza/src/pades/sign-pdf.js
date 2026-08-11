@@ -97,19 +97,23 @@ function buildCms(contentBytes, certDer, signCallback, keyType) {
   const contentDigest = digestBytes(contentBytes, algo);
 
   // ESS SigningCertificateV2 (ETSI EN 319 102-1 AdES-BES zorunlu oznitelik):
-  // ESSCertIDv2 = SEQUENCE { hashAlgorithm(sha256+NULL), certHash OCTET STRING }
-  // certHash = imzalayan sertifikanin tamaminin SHA-256'si. DSS "signing-certificate
-  // absent" bulgusunu kapatir.
+  // ESS SigningCertificateV2 (RFC 5035):
+  //   ESSCertIDv2 ::= SEQUENCE { hashAlgorithm(sha256+NULL), certHash OCTET STRING }
+  //   SigningCertificateV2 ::= SEQUENCE { certs SEQUENCE OF ESSCertIDv2, policies OPTIONAL }
+  // attrValue = TUM SigningCertificateV2 → 2 ek SEQUENCE sarmal seviyesi gerekli
+  // (certs "SEQUENCE OF" + dis SEQUENCE). Tek ESSCertIDv2'yi direkt attrValue
+  // yapmak DSS'in "signing-certificate absent" demesine neden oluyordu.
   const essCertId = derSeq(
     derSeq(derOid(OID_SHA256), derNull()),
     derOct(digestBytes(certDer, 'sha256')),
   );
+  const signingCertificateV2 = derSeq(derSeq(essCertId));
 
   const attrs = [
     derAttr(forge.pki.oids.contentType, derOid(OID_DATA)),
     derAttr(forge.pki.oids.signingTime, derUtcTime(new Date())),
     derAttr(forge.pki.oids.messageDigest, derOct(contentDigest)),
-    derAttr(OID_ESS_SIGNING_CERT_V2, essCertId),
+    derAttr(OID_ESS_SIGNING_CERT_V2, signingCertificateV2),
   ];
   // DER canonical: SET OF elemanlari TAM DER encoding'lerine gore byte-lexicographic
   // sirali olmalidir (RFC 5652). Siralama koddan hesaplanir — elle sabitlenmez.
