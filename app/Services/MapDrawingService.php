@@ -59,10 +59,42 @@ class MapDrawingService
 
                     $totalArea += $this->areaFromPolygonCoordinates($polygonCoordinates);
                 }
+                continue;
+            }
+
+            // Düz çizgi (LineString): uzunluk × 1m varsayılan kanal genişliği
+            if ($type === 'LineString') {
+                $totalArea += $this->lineLengthMeters($coordinates) * 1.0;
             }
         }
 
         return round(max($totalArea, 0), 4);
+    }
+
+    /**
+     * Haversine — LineString uzunluğu (metre).
+     *
+     * @param  list<array{0: float, 1: float}>  $coordinates
+     */
+    private function lineLengthMeters(array $coordinates): float
+    {
+        $normalized = array_values(array_filter($coordinates, static fn ($point) => is_array($point) && count($point) >= 2));
+
+        $total = 0.0;
+        for ($i = 1; $i < count($normalized); $i++) {
+            $a = $normalized[$i - 1];
+            $b = $normalized[$i];
+
+            $dLat = deg2rad((float) $b[1] - (float) $a[1]);
+            $dLng = deg2rad((float) $b[0] - (float) $a[0]);
+            $lat1 = deg2rad((float) $a[1]);
+            $lat2 = deg2rad((float) $b[1]);
+
+            $h = sin($dLat / 2) ** 2 + cos($lat1) * cos($lat2) * sin($dLng / 2) ** 2;
+            $total += 2 * 6_371_000 * asin(min(1, sqrt($h)));
+        }
+
+        return $total;
     }
 
     /**

@@ -2,9 +2,11 @@ const forge = require('node-forge');
 const { findByteRange, removeTrailingNewLine, plainAddPlaceholder } = require('node-signpdf');
 
 const OID_ECDSA_SHA384 = '1.2.840.10045.4.3.3';
+const OID_RSA_ENCRYPTION = '1.2.840.113549.1.1.1';
 const OID_SIGNED_DATA = '1.2.840.113549.1.7.2';
 const OID_DATA = '1.2.840.113549.1.7.1';
 const OID_SHA384 = '2.16.840.1.101.3.4.2.2';
+const OID_SHA256 = '2.16.840.1.101.3.4.2.1';
 
 function derLen(n) {
   if (n < 128) return Buffer.from([n]);
@@ -72,15 +74,26 @@ function derAttr(oid, ...values) {
   return derSeq(derOid(oid), derSet(...values));
 }
 
-function sha384Bytes(data) {
-  const md = forge.md.sha384.create();
+function digestBytes(data, algo) {
+  const md = algo === 'sha256' ? forge.md.sha256.create() : forge.md.sha384.create();
   md.update(data.toString('binary'));
   return Buffer.from(md.digest().getBytes(), 'binary');
 }
 
-function buildCms(contentBytes, certDer, signCallback) {
+function rsaDigestInfo(digest, digestOid) {
+  // PKCS#1 v1.5: SEQUENCE { SEQUENCE { OID, NULL }, OCTET STRING digest }
+  return derSeq(derSeq(derOid(digestOid), derNull()), derOct(digest));
+}
+
+function buildCms(contentBytes, certDer, signCallback, keyType) {
+  // E-Tuğra (RSA): SHA-256 + rsaEncryption + DigestInfo | Kamu SM (ECDSA): SHA-384 + ecdsa-with-SHA384
+  const isRsa = keyType === 'RSA';
+  const digestOid = isRsa ? OID_SHA256 : OID_SHA384;
+  const sigOid = isRsa ? OID_RSA_ENCRYPTION : OID_ECDSA_SHA384;
+  const algo = isRsa ? 'sha256' : 'sha384';
+
   const { issuerDer, serialDer } = certIssuerAndSerial(certDer);
-  const contentDigest = sha384Bytes(contentBytes);
+  const contentDigest = digestBytes(contentBytes, algo);
 
   const attrsContent = Buffer.concat([
     derAttr(forge.pki.oids.contentType, derOid(OID_DATA)),
@@ -89,21 +102,24 @@ function buildCms(contentBytes, certDer, signCallback) {
   ]);
   const signedAttrs = der(0xA0, attrsContent);
 
-  const attrsDigest = sha384Bytes(der(0x31, attrsContent));
-  const signatureDer = signCallback(attrsDigest);
+  const attrsDigest = digestBytes(der(0x31, attrsContent), algo);
+  // AKIS middleware RSA anahtarlarda yalnizca CKM_RSA_PKCS acar: token'a ham digest yerine
+  // SHA-256 DigestInfo ASN.1 verilir (token PKCS#1 v1.5 padding'i kendi uygular).
+  const toSign = isRsa ? rsaDigestInfo(attrsDigest, digestOid) : attrsDigest;
+  const signatureDer = signCallback(toSign);
 
   const signerInfo = derSeq(
     derInt(Buffer.from([1])),
     derSeq(issuerDer, serialDer),
-    derSeq(derOid(OID_SHA384), derNull()),
+    derSeq(derOid(digestOid), derNull()),
     signedAttrs,
-    derSeq(derOid(OID_ECDSA_SHA384)),
+    derSeq(derOid(sigOid)),
     derOct(signatureDer),
   );
 
   const signedData = derSeq(
     derInt(Buffer.from([1])),
-    derSet(derSeq(derOid(OID_SHA384), derNull())),
+    derSet(derSeq(derOid(digestOid), derNull())),
     derSeq(derOid(OID_DATA)),
     der(0xA0, certDer),
     derSet(signerInfo),
@@ -115,7 +131,7 @@ function buildCms(contentBytes, certDer, signCallback) {
   );
 }
 
-function buildPades(pdfBuffer, certDer, cnName, signCallback) {
+function buildPades(pdfBuffer, certDer, cnName, signCallback, keyType) {
   // GÖREV 1 — Görsel imza kaldırıldı. Electron e-imza işlemi PDF'e TEK PİKSEL görsel
   // müdahale yapmaz: belge, DomPDF'ten nasıl geldiyse birebir aynı kalır. PAdES mührü
   // yalnızca görünmez (invisible) kriptografik imza olarak atılır — widget /AP'siz,
@@ -167,7 +183,7 @@ function buildPades(pdfBuffer, certDer, cnName, signCallback) {
     pdf.slice(region2Start),
   ]);
 
-  const cms = buildCms(signedContent, certDer, signCallback);
+  const cms = buildCms(signedContent, certDer, signCallback, keyType);
   const expectedLen = Math.floor(placeholderLength / 2);
 
   if (cms.length > expectedLen) {

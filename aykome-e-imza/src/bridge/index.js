@@ -37,6 +37,8 @@ function parseOutput(stdout) {
       result.certDer = fromHex(line.substring(9));
     } else if (line.startsWith('CERT_OK')) {
       result.certOk = true;
+    } else if (line.startsWith('KEY_TYPE ')) {
+      result.keyType = line.substring(9).trim();
     } else if (line.startsWith('SIGNATURE ')) {
       result.signature = fromHex(line.substring(10));
     } else if (line.startsWith('ERR ')) {
@@ -98,6 +100,7 @@ class BridgeWorker {
       }
       throw new Error('Bridge error: ' + result.error.message);
     }
+    this._lastStderr = (result.stderr || '').toString('utf8').trim();
     if (result.status !== 0) throw new Error('Bridge exit ' + result.status + ': ' + (result.stderr || 'unknown'));
     return result.stdout;
   }
@@ -116,8 +119,8 @@ class BridgeWorker {
     const out = this._run(args);
     const r = parseOutput(out);
     if (r.error) throw new Error(r.error);
-    if (!r.certOk) throw new Error('Certificate could not be retrieved');
-    return { certDer: r.certDer };
+    if (!r.certOk) throw new Error('Certificate could not be retrieved' + (this._lastStderr ? ' [' + this._lastStderr + ']' : ''));
+    return { certDer: r.certDer, keyType: r.keyType || 'EC' };
   }
 
   signData(pin, data) {
@@ -126,7 +129,7 @@ class BridgeWorker {
     const out = this._run(['sign', pinHex, dataHex]);
     const r = parseOutput(out);
     if (r.error) throw new Error(r.error);
-    if (!r.signature) throw new Error('No signature returned');
+    if (!r.signature) throw new Error('No signature returned' + (this._lastStderr ? ' [' + this._lastStderr + ']' : ''));
     return r.signature;
   }
 }

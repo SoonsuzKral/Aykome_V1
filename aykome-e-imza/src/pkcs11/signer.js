@@ -9,14 +9,14 @@ async function executeSign(pdfBuffer, pkcs11Path, pin, certSerial) {
   }
 
   const bridge = getBridge(pkcs11Path);
-  const { certDer } = bridge.getCertificate(pin, certSerial);
+  const { certDer, keyType } = bridge.getCertificate(pin, certSerial);
 
   const forgeCert = buildForgeCert(certDer);
   const certInfo = extractCertInfo(forgeCert);
 
   const signedPdf = await buildPades(pdfBuffer, certDer, certInfo.commonName, (hash) => {
     return bridge.signData(pin, hash);
-  });
+  }, keyType);
 
   return { signedPdf, certInfo };
 }

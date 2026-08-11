@@ -67,7 +67,12 @@ class EImzaService
         // müdahale yapmaz; belge şablondan nasıl üretildiyse birebir korunur. İmzaya
         // dair imzalayan bilgisi belge ALTINA basılmaz, güvenlik backend token-CN
         // eşleşmesiyle sağlanır (bkz. verifyCertificateOwner).
-        $pdf = $this->pdfOlustur($application, $pdfType);
+        //
+        // GÖREV B — 5070 sayılı yasal metin: imza ANI sabitlenir ($imzaTarihi = now()).
+        // Metin render'ın İÇİNDE (dompdf'e gitmeden önce) tek geçişli enjekte edilir;
+        // imza sonrası hiçbir görsel ekleme yapılmaz.
+        $imzaTarihi = now();
+        $pdf = $this->pdfOlustur($application, $pdfType, null, $imzaTarihi);
         $dizin = "e-imza/{$transactionId}";
         Storage::disk('public')->makeDirectory($dizin);
         $pdfPath = "{$dizin}/orijinal.pdf";
@@ -92,13 +97,131 @@ class EImzaService
     }
 
     /**
+     * GÖREV B — 5070 sayılı yasal metni render INDE, dompdf'e gitmeden önce
+     * tek geçişli enjekte eder.
+     *
+     * Bu metod çağrıldığında imzalanacak PDF HENÜZ üretilmedi: HTML henüz
+     * dompdf'e verilmedi. 5070 metnini e-imza akışı dışındaki önizleme/inceleme
+     * render'larına enjekte ETMEZ (imzalama zamanlaması imza_tarihi == now()).
+     *
+     * Yerleşim (pdfType'a göre):
+     *   GRUP A (ruhsat, pre_permit, cover_letter) — BELGE DOĞRULAMA kodunun
+     *   ÜSTÜNE. font-size VERİLMEZ → container/squeeze boyutunu (10.5px) miras
+     *   alır, doğrulama satırıyla AYNI font boyutunda basılır.
+     *   GRUP B (metraj, makbuz, tahakkuk, taahhutname) — belgenin EN ALTINA:
+     *   1) a4-container / a4-landscape-container içine (en sona),
+     *   2) yoksa .footer-note SONRASINA (makbuz gibi container'sız belgeler),
+     *   3) son çare gövde sonu. Metin asla kaybolmaz.
+     *
+     * @param string                $html       dompdf'e verilecek HTML
+     * @param \DateTimeInterface|null $imzaTarihi İmza anı (now()); null ise enjeksiyon yapılmaz
+     * @param string                $pdfType    Belge tipi (yerleşim grubunu belirler)
+     * @return string
+     */
+    protected function imzaYasalMetinEkle(string $html, ?\DateTimeInterface $imzaTarihi, string $pdfType = 'ruhsat'): string
+    {
+        if ($imzaTarihi === null) {
+            return $html;
+        }
+
+        $metin = sprintf(
+            'Bu çıktı, 5070 sayılı elektronik imza kanununa göre imzalanan belgenin %s tarihli kağıt kopyasıdır. Bu belge güvenli elektronik imza ile imzalanmıştır.',
+            $imzaTarihi->format('d.m.Y H:i')
+        );
+
+        // font-size VERİLMEZ: kırmızı 5070 metni belgenin font boyutunu (squeeze
+        // sonrası 10.5px) miras alır → doğrulama satırıyla birebir aynı boyut.
+        $blok = '<p style="color:#c0392b; text-align:center; font-weight:bold; margin:6px 0 0; line-height:1.15;">'
+            . e($metin)
+            . '</p>';
+
+        // GRUP A: doğrulama kodu taşıyan belgelerde 5070 kodun HEMEN ÜSTÜNE düşer.
+        $grupA = in_array($pdfType, ['ruhsat', 'pre_permit', 'cover_letter'], true);
+
+        // POST işleme KESİNLİKLE değil: metin dompdf'e verilecek HTML'e, render
+        // öncesi aşılanır. DOMDocument + XPath ile tutarlı yerleşim kurulur.
+        $doc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $loaded = $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html);
+
+        if ($loaded) {
+            $xpath = new \DOMXPath($doc);
+            $fragment = $doc->createDocumentFragment();
+            $fragment->appendXML($blok);
+
+            if ($grupA) {
+                // GRUP A — doğrulama kodunun HEMEN üstü.
+                // DİKKAT: XPath translate() yalnızca ASCII harfleri küçültür; Türkçe
+                // "DOĞRULAMA"daki Ğ büyük kalır ve eşleşme ASLA olmaz (5070 yanlış
+                // yere, container sonuna düşerdi). Çözüm: XPath yalnızca hızlı filtre
+                // yapar; kesin eşleşme PHP mb_stripos ile yapılır. Son eşleşme =
+                // doküman sırasında en derin eleman = doğrulama satırının kendisi.
+                $nodeList = $xpath->query('//*[contains(., "DOĞRULAMA") or contains(., "doğrulama") or contains(., "Doğrulama")]');
+                $hedef = null;
+                foreach ($nodeList as $el) {
+                    if (mb_stripos($el->textContent, 'belge doğrulama kodu') !== false) {
+                        $hedef = $el;
+                    }
+                }
+                if ($hedef) {
+                    $hedef->parentNode->insertBefore($fragment, $hedef);
+                    return $doc->saveHTML();
+                }
+                // Doğrulama yoksa Grup B yerleşimine düş — metin asla kaybolmaz.
+            }
+
+            // GRUP B — belgenin EN ALTINA:
+            // 1) a4-container / a4-landscape-container İÇİNE (en sona) — son
+            //    tablonun ÜSTÜNE değil, BELGESİN SONUNA eklenir (metraj imza
+            //    tablosunun ALTINDA kalır). Metin ASLA body'ye doğrudan eklenmez:
+            //    belgenin dışına düşer ve ayrı bir PDF sayfası yaratır.
+            $container = null;
+            foreach ($doc->getElementsByTagName('div') as $div) {
+                $cls = (string) $div->getAttribute('class');
+                if (str_contains($cls, 'a4-container') || str_contains($cls, 'a4-landscape-container')) {
+                    $container = $div;
+                    break;
+                }
+            }
+            if ($container) {
+                $container->appendChild($fragment);
+            } else {
+                // Container'sız belge (örn. tahsilat makbuzu): .footer-note
+                // SONRASINA ekle → yasal metin en altta, nota göre bile altta kalır.
+                $footerNote = $xpath->query('//*[contains(concat(" ", normalize-space(@class), " "), " footer-note ")]');
+                if ($footerNote && $footerNote->length > 0) {
+                    $note = $footerNote->item(0);
+                    $note->parentNode->insertBefore($fragment, $note->nextSibling);
+                } else {
+                    $body = $doc->getElementsByTagName('body')->item(0);
+                    if ($body) {
+                        $body->appendChild($fragment);
+                    }
+                }
+            }
+
+            $html = $doc->saveHTML();
+        } else {
+            // DOM çözümleme başarısız olursa metin asla kaybolmasın — fallback string ekleme.
+            $html = str_ireplace('</body>', $blok . '</body>', $html);
+        }
+
+        return $html;
+    }
+
+    /**
      * Belge PDF'ini üretir. GÖREV 1: Görsel imza damgası kaldırıldığı için belge
      * şablondan nasıl render edildiyse birebir korunur (görsel müdahale YOK).
      *
      * @param array|null $imzaDamgasi @deprecated İmza damgası kaldırıldı; parametre
      *                                geriye dönük uyumluluk (BC) için tutulur, hiç basılmaz.
      */
-    public function pdfOlustur(Application $application, string $pdfType, ?array $imzaDamgasi = null): \Barryvdh\DomPDF\PDF
+    public function pdfOlustur(
+        Application $application,
+        string $pdfType,
+        ?array $imzaDamgasi = null,
+        ?\DateTimeInterface $imzaTarihi = null
+    ): \Barryvdh\DomPDF\PDF
     {
         $application->load([
             'institution', 'creator',
@@ -127,6 +250,10 @@ class EImzaService
                 // GÖREV 1+2: UI kalıntıları temizlenir + font DejaVu'ya sabitlenir.
                 // GÖREV 1: Görsel EBYS imza damgası kaldırıldı — belge birebir korunur.
                 $html = DocumentTemplateService::pdfCssEnjekte($html);
+                $html = self::pdfTipineGoreEkCss($html, $pdfType);
+
+                // GÖREV B — 5070 yasal metni: imzalama akışında render sonu tek geçişli.
+                $html = $this->imzaYasalMetinEkle($html, $imzaTarihi, $pdfType);
 
                 return Pdf::loadHTML($html)->setPaper('a4', $paper);
             }
@@ -154,9 +281,19 @@ class EImzaService
                 ->yerlesimHazirla($application, $pdfType),
         ]);
 
-        if ($pdfType === 'cover_letter') {
+        // Logo: cover_letter + pre_permit — remote URL dompdf'te YÜKLENMEZ
+        // (config/dompdf.php enable_remote=false) → logo base64 data URI olarak
+        // verilir. pre_permit belediye belgesidir → ÖNCE belediye logosu
+        // (PreExcavationPermitSetting.logo_path), yoksa kurum logosu. Kurum
+        // logosu da yoksa null döner, blade fallback metni basar.
+        if (in_array($pdfType, ['cover_letter', 'pre_permit'], true)) {
             $logoBase64 = null;
-            if ($application->institution && $application->institution->logo_path) {
+            if ($pdfType === 'pre_permit') {
+                $logoBase64 = \App\Models\PreExcavationPermitSetting::toBase64DataUri(
+                    \App\Models\PreExcavationPermitSetting::first()?->logo_path
+                );
+            }
+            if (! $logoBase64 && $application->institution && $application->institution->logo_path) {
                 try {
                     $fileContent = \Illuminate\Support\Facades\Storage::disk('public')->get($application->institution->logo_path);
                     if ($fileContent) {
@@ -172,6 +309,14 @@ class EImzaService
 
         if ($pdfType === 'pre_permit') {
             $data['metin'] = DocumentRenderer::prePermitMetin($application);
+        }
+
+        // TAHARRUK / matbu form: TÜM zemin tipleri listelenir (başvuruda olmayanlar
+        // sıfır satırı olarak görünür). buildMetrajSatirlari SurfaceType::all() ile
+        // tam liste üretir; verilmezse blade yalnızca başvurunun kendi satırlarını
+        // gösterir (zemin tiplerinin tamamı çıkmaz).
+        if ($pdfType === 'tahakkuk') {
+            $data['metraj_satirlari'] = \App\Http\Controllers\Admin\ApplicationsController::buildMetrajSatirlari($application);
         }
 
         if ($pdfType === 'metraj') {
@@ -202,8 +347,60 @@ class EImzaService
         // GÖREV 1+2: blade içindeki print-bar/toolbar kalıntıları + Latin-1 fontlar temizlenir.
         // GÖREV 1: Görsel EBYS imza damgası kaldırıldı — belge birebir korunur.
         $html = DocumentTemplateService::pdfCssEnjekte($html);
+        $html = self::pdfTipineGoreEkCss($html, $pdfType);
+
+        // GÖREV B — 5070 yasal metni: imzalama akışında render sonu tek geçişli.
+        $html = $this->imzaYasalMetinEkle($html, $imzaTarihi, $pdfType);
 
         return Pdf::loadHTML($html);
+    }
+
+    /**
+     * Tip bazlı ek CSS (pdfCssEnjekte'den SONRA, onun kurallarını ezmek için).
+     *
+     * cover_letter: alt blok (imza + doğrulama) `.a4-footer` ABSOLUTE'dir
+     * (container dibine sabit). Squeeze container'ı min-height:0 yapınca
+     * container = içerik yüksekliği olur ve footer içeriğin ÜSTÜNE biner.
+     * Container tam sayfa yüksekliğine (@page 6mm kenar → 285mm) döndürülür,
+     * genişlik padding toplamıyla iç alana sığacak şekilde daraltılır.
+     *
+     * taahhutname: 20 maddelik liste uzun — tek sayfa için satır aralığı ve
+     * punto squeeze edilir (içerik hâlâ okunaklı).
+     */
+    protected static function pdfTipineGoreEkCss(string $html, string $pdfType): string
+    {
+        if ($pdfType === 'cover_letter') {
+            // dompdf ABSOLUTE elemanlarda `bottom` konumlandırmayı UYGULAMAZ:
+            // footer'ı flow'daki statik konuma (container sonu) yerleştirir.
+            // Container min-height:285mm yapılınca statik konum sayfa 2'ye düştü.
+            // Doğru çözüm: container'ı zorlamamak (min-height:0) + footer'ı
+            // STATIC yapmak → footer içeriğin hemen altına, SAME SAYFADA düşer.
+            // Punto/satır aralığı ve üst blok boşlukları da tek sayfa için daraltılır.
+            return str_ireplace(
+                '</head>',
+                '<style>.a4-container { width: 168mm !important; }'
+                . '.a4-container .a4-footer { position: static !important; margin-top: 14mm !important; }'
+                . '.a4-container p { font-size: 10px !important; line-height: 1.3 !important; }'
+                . '.a4-container .sayi-konu-tablo { margin-top: 25px !important; margin-bottom: 25px !important; }'
+                . '.a4-container .text-center.font-bold { margin-bottom: 20px !important; }'
+                . '.a4-container .list-table { margin-bottom: 10px !important; }</style></head>',
+                $html
+            );
+        }
+
+        if ($pdfType === 'taahhutname') {
+            return str_ireplace(
+                '</head>',
+                '<style>.a4-container .madde-list { line-height: 1.3 !important; }'
+                . '.a4-container .madde-list p { font-size: 9px !important; line-height: 1.25 !important; margin-bottom: 3px !important; }'
+                . '.a4-container .beyan, .a4-container .not { line-height: 1.3 !important; }'
+                . '.a4-container .imza-alani { margin-top: 12pt !important; }'
+                . '.a4-container .imza-cizgi { margin-top: 16pt !important; }</style></head>',
+                $html
+            );
+        }
+
+        return $html;
     }
 
     private function buildMetrajRows(Application $app): array

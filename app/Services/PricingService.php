@@ -35,6 +35,7 @@ class PricingService
                 'quantity' => $quantity,
                 'multiplier' => 1,
                 'amount' => $amount,
+                'address' => $data['address'] ?? null,
             ]);
         }
     }

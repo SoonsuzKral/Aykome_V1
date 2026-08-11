@@ -924,6 +924,16 @@ class MapsController extends Controller
             }
         }
 
+        // 5) Mahalle eklerini temizle: "BATIKENT MAHALLESİ"/"BATIKENT MAH." → "BATIKENT"
+        // (local JSON MAHALLE_AD ve WFS MAHALLE_ADI ek'sizdir — ILIKE/local eşleşme için şart)
+        if ($mahalle !== '') {
+            $mahalle = trim((string) preg_replace(
+                '/\s*(?:MAHALLESİ|MAHALESİ|MAHALLE|MAH\.|MAH|MH)\s*$/iu',
+                '',
+                $mahalle
+            ));
+        }
+
         return ['mahalle' => $mahalle, 'cadde' => $cadde, 'kapi' => $kapi];
     }
 

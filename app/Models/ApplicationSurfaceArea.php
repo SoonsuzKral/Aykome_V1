@@ -13,6 +13,7 @@ class ApplicationSurfaceArea extends Model
         'width_m',
         'length_m',
         'quantity',
+        'address',
         'multiplier',
         'amount',
     ];

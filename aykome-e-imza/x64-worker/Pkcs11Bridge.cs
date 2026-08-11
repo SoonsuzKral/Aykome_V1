@@ -19,7 +19,11 @@ class Pkcs11Bridge
     const uint CKA_SERIAL_NUMBER = 0x00000002;
     const uint CKA_ID = 0x00000102;
     const uint CKA_VALUE = 0x00000011;
+    const uint CKA_KEY_TYPE = 0x00000100;
+    const uint CKK_RSA = 0x00000000;
+    const uint CKK_EC = 0x00000003;
     const uint CKM_ECDSA = 0x00001041;
+    const uint CKM_RSA_PKCS = 0x00000001;
 
     // Function pointer offsets in CK_FUNCTION_LIST:
     // The DLL uses pack(1): version (2 bytes), then function pointers immediately
@@ -224,6 +228,35 @@ class Pkcs11Bridge
                     Console.WriteLine(BytesToHex(certBuf));
                     Console.WriteLine("CERT_OK");
 
+                    // Anahtar tipi tespiti (RSA vs EC) — imza mekanizması seçimi için.
+                    // E-Tuğra sertifikaları RSA, Kamu SM sertifikaları ECDSA taşır.
+                    uint keyObj = 0; uint keyCount = 0;
+                    var keyTmpl = new CK_ATTRIBUTE[] { new CK_ATTRIBUTE { type = CKA_CLASS, pValue = Marshal.AllocHGlobal(4), ulValueLen = 4 } };
+                    Marshal.WriteInt32(keyTmpl[0].pValue, (int)CKO_PRIVATE_KEY);
+                    rv = cFindInit(session, keyTmpl, 1);
+                    Marshal.FreeHGlobal(keyTmpl[0].pValue);
+                    if (rv == CKR_OK)
+                    {
+                        rv = cFindObjs(session, out keyObj, 1, out keyCount);
+                        cFindFinal(session);
+                        if (rv == CKR_OK && keyCount > 0)
+                        {
+                            var kt = new CK_ATTRIBUTE[] { new CK_ATTRIBUTE { type = CKA_KEY_TYPE, pValue = IntPtr.Zero, ulValueLen = 0 } };
+                            uint krv = cGetAttr(session, keyObj, kt, 1);
+                            if (krv == CKR_OK && kt[0].ulValueLen == 4)
+                            {
+                                IntPtr pKt = Marshal.AllocHGlobal(4);
+                                kt[0].pValue = pKt;
+                                krv = cGetAttr(session, keyObj, kt, 1);
+                                uint keyType = (uint)Marshal.ReadInt32(pKt);
+                                Marshal.FreeHGlobal(pKt);
+                                if (keyType == CKK_RSA) Console.WriteLine("KEY_TYPE RSA");
+                                else if (keyType == CKK_EC) Console.WriteLine("KEY_TYPE EC");
+                                else Console.WriteLine("KEY_TYPE " + keyType);
+                            }
+                        }
+                    }
+
                     cLogout(session);
                     cCloseSession(session);
                 }
@@ -243,10 +276,24 @@ class Pkcs11Bridge
                     cFindFinal(session);
                     if (rv != CKR_OK || keyCount == 0) { Console.Error.WriteLine("ERR No key"); cLogout(session); cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return; }
 
+                    // Anahtar tipi: RSA -> CKM_RSA_PKCS (AKIS middleware hash'li RSA mekanizmalarini
+                    // desteklemez; JS SHA-256 DigestInfo ASN.1 gonderir), EC -> CKM_ECDSA (Kamu SM)
+                    uint keyType = CKK_EC;
+                    var ktAttr = new CK_ATTRIBUTE[] { new CK_ATTRIBUTE { type = CKA_KEY_TYPE, pValue = IntPtr.Zero, ulValueLen = 0 } };
+                    uint ktrv = cGetAttr(session, key, ktAttr, 1);
+                    if (ktrv == CKR_OK && ktAttr[0].ulValueLen == 4)
+                    {
+                        IntPtr pKt = Marshal.AllocHGlobal(4);
+                        ktAttr[0].pValue = pKt;
+                        ktrv = cGetAttr(session, key, ktAttr, 1);
+                        keyType = (uint)Marshal.ReadInt32(pKt);
+                        Marshal.FreeHGlobal(pKt);
+                    }
+
                     var cSignInit = GetFunc<CK_C_SignInit>(OFF_C_SignInit);
                     var cSign = GetFunc<CK_C_Sign>(OFF_C_Sign);
 
-                    var mech = new CK_MECHANISM { mechanism = CKM_ECDSA, pParameter = IntPtr.Zero, ulParameterLen = 0 };
+                    var mech = new CK_MECHANISM { mechanism = (keyType == CKK_RSA) ? CKM_RSA_PKCS : CKM_ECDSA, pParameter = IntPtr.Zero, ulParameterLen = 0 };
                     rv = cSignInit(session, ref mech, key);
                     if (rv != CKR_OK) { Console.Error.WriteLine("ERR SignInit: 0x" + rv.ToString("X8")); cLogout(session); cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return; }
 
@@ -261,13 +308,14 @@ class Pkcs11Bridge
 
                     Array.Resize(ref sigBuf, (int)sigLen);
 
-                    // Convert ECDSA raw (r||s) to DER
-                    if (sigLen > 0 && sigLen <= 132)
+                    // ECDSA ham (r||s) -> DER dönüşümü; RSA imzası zaten PKCS#1 v1.5, dokunulmaz
+                    if (keyType != CKK_RSA && sigLen > 0 && sigLen <= 132)
                     {
                         byte[] der = EcdsaRawToDer(sigBuf);
                         if (der != null) sigBuf = der;
                     }
 
+                    Console.WriteLine("KEY_TYPE " + (keyType == CKK_RSA ? "RSA" : "EC"));
                     Console.Write("SIGNATURE ");
                     Console.WriteLine(BytesToHex(sigBuf));
 

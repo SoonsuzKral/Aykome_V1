@@ -123,7 +123,7 @@
             </tr>
         </table>
 
-        <table style="margin-top: 50px; margin-bottom: 50px;">
+        <table class="sayi-konu-tablo" style="margin-top: 50px; margin-bottom: 50px;">
             <tr>
                 <td style="width:80%; padding:0; line-height: 1.5;">
                     <span contenteditable="true">Sayı &nbsp;&nbsp;&nbsp;: {{ $application->application_no ?? '' }}</span><br>

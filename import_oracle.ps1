@@ -67,8 +67,10 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "   ✅ Kopyalandi" -ForegroundColor $GREEN
 
 # 5. Import
+# TABLE_EXISTS_ACTION=REPLACE: sunucudaki mevcut (seed) tablolar silinir, dump'taki veri birebir gelir.
+# Böylece deploy.ps1 ile kurulan boş/seed veri yerine LOCAL'deki güncel veriler yüklenir.
 Write-Host "⏳ Import baslatiliyor..." -ForegroundColor $YELLOW
-docker exec aykome-v6-oracle bash -c "impdp aykome_user/aykome123@FREEPDB1 directory=TMP_DUMP_DIR dumpfile=aykome_backup.dmp logfile=impdp.log schemas=AYKOME_USER" 2>&1 | Select-Object -Last 15
+docker exec aykome-v6-oracle bash -c "impdp aykome_user/aykome123@FREEPDB1 directory=TMP_DUMP_DIR dumpfile=aykome_backup.dmp logfile=impdp.log schemas=AYKOME_USER TABLE_EXISTS_ACTION=REPLACE" 2>&1 | Select-Object -Last 15
 if ($LASTEXITCODE -ne 0) {
     Write-Host "   ⚠️  Import cikisi icin log kontrol edin" -ForegroundColor $YELLOW
 }

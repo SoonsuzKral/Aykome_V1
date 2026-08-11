@@ -627,11 +627,11 @@ CSS;
         $kurumAdi = $app->institution?->name;
         $map = [
             self::KURUM_ADI_TOKEN   => mb_strtoupper(trim((string) $kurumAdi), 'UTF-8'),
-            self::TESIS_TOKEN       => mb_strtoupper(trim((string) $app->tesis_sorumlusu_adi), 'UTF-8'),
-            self::DUZENLEYEN_TOKEN  => mb_strtoupper(trim((string) ($app->duzenleyen_kisi ?? $app->creator?->name)), 'UTF-8'),
+            self::TESIS_TOKEN       => mb_strtoupper(trim((string) ($app->kazi_sorumlusu_ad_soyad ?? $app->tesis_sorumlusu_adi ?? $app->tesis_sorumlusu)), 'UTF-8'),
+            self::DUZENLEYEN_TOKEN  => mb_strtoupper(trim((string) ($app->yaziyi_duzenleyen_ad_soyad ?? $app->duzenleyen_kisi ?? $app->creator?->name)), 'UTF-8'),
             self::KAZI_MIKTAR_TOKEN => collect($app->surfaceLines ?? [])->sum('quantity') . ' m² / m.',
-            self::MUDUR_ADI_TOKEN   => mb_strtoupper(trim((string) $app->mudur_adi), 'UTF-8'),
-            self::MUDUR_UNVAN_TOKEN => trim((string) $app->mudur_unvani),
+            self::MUDUR_ADI_TOKEN   => mb_strtoupper(trim((string) ($app->kurum_ust_yoneticisi_ad_soyad ?? $app->mudur_adi)), 'UTF-8'),
+            self::MUDUR_UNVAN_TOKEN => trim((string) ($app->kurum_ust_yoneticisi_unvan ?? $app->mudur_unvani)),
             self::DOGRULAMA_TOKEN   => $app->verification_code ?? 'GEÇERSİZ/TASLAK',
             self::SAYI_TOKEN        => 'E-50005665001100-100-' . str_pad((string) $app->id, 7, '0', STR_PAD_LEFT),
             self::TARIH_TOKEN       => $app->created_at?->format('d.m.Y') ?? '',
@@ -686,6 +686,15 @@ CSS;
                 ['key' => 'mudur_unvani',    'label' => 'Müdür Unvanı',          'tip' => 'text'],
                 ['key' => 'duzenleyen',      'label' => 'Evrağı Düzenleyen',     'tip' => 'text'],
             ],
+            'Kurum & İmza Yetkilileri' => [
+                ['key' => 'kazi_sorumlusu_ad_soyad',     'label' => 'Kazı Sorumlusu Adı Soyadı',  'tip' => 'text'],
+                ['key' => 'kazi_sorumlusu_unvan',        'label' => 'Kazı Sorumlusu Ünvanı',     'tip' => 'text'],
+                ['key' => 'kazi_sorumlusu_telefon',      'label' => 'Kazı Sorumlusu Telefonu',   'tip' => 'text'],
+                ['key' => 'kurum_ust_yoneticisi_ad_soyad', 'label' => 'Kurum Üst Yöneticisi Adı Soyadı', 'tip' => 'text'],
+                ['key' => 'kurum_ust_yoneticisi_unvan',  'label' => 'Kurum Üst Yöneticisi Ünvanı', 'tip' => 'text'],
+                ['key' => 'yaziyi_duzenleyen_ad_soyad',  'label' => 'Yazıyı Düzenleyen Adı Soyadı', 'tip' => 'text'],
+                ['key' => 'yaziyi_duzenleyen_iletisim',  'label' => 'Yazıyı Düzenleyen İletişim', 'tip' => 'text'],
+            ],
         ];
     }
 
@@ -712,7 +721,14 @@ CSS;
             'tesis_sorumlusu' => mb_strtoupper(trim($d($app->tesis_sorumlusu ?? $app->tesis_sorumlusu_adi ?? $app->institution?->tesis_sorumlusu_adi)), 'UTF-8'),
             'mudur_adi' => mb_strtoupper(trim($d($app->mudur_adi ?? $app->institution?->mudur_adi)), 'UTF-8'),
             'mudur_unvani' => $d($app->mudur_unvani ?? $app->institution?->mudur_unvani),
-            'duzenleyen' => $d($app->duzenleyen_kisi ?? $app->creator?->name),
+            'duzenleyen' => $d($app->yaziyi_duzenleyen_ad_soyad ?? $app->duzenleyen_kisi ?? $app->creator?->name),
+            'kazi_sorumlusu_ad_soyad' => mb_strtoupper(trim($d($app->kazi_sorumlusu_ad_soyad ?? $app->tesis_sorumlusu_adi ?? $app->tesis_sorumlusu)), 'UTF-8'),
+            'kazi_sorumlusu_unvan' => $d($app->kazi_sorumlusu_unvan),
+            'kazi_sorumlusu_telefon' => $d($app->kazi_sorumlusu_telefon),
+            'kurum_ust_yoneticisi_ad_soyad' => mb_strtoupper(trim($d($app->kurum_ust_yoneticisi_ad_soyad ?? $app->mudur_adi)), 'UTF-8'),
+            'kurum_ust_yoneticisi_unvan' => $d($app->kurum_ust_yoneticisi_unvan ?? $app->mudur_unvani),
+            'yaziyi_duzenleyen_ad_soyad' => mb_strtoupper(trim($d($app->yaziyi_duzenleyen_ad_soyad ?? $app->duzenleyen_kisi)), 'UTF-8'),
+            'yaziyi_duzenleyen_iletisim' => $d($app->yaziyi_duzenleyen_iletisim),
             'baslangic_tarihi' => $d($app->start_date?->format('d.m.Y')),
             'bitis_tarihi' => $d($app->end_date?->format('d.m.Y')),
             'olusturulma_tarihi' => $d($app->created_at?->format('d.m.Y')),
@@ -1600,11 +1616,118 @@ CSS;
      *   - .no-print / .print-bar / .toolbar → display:none (UI butonları PDF'ten silinir)
      *   - * → font-family DejaVu Sans (Türkçe ğ/ş/ı/ö/ü/ç tam render; dompdf Type1 yok)
      */
+    /**
+     * GÖREV 6 (kök) — dompdf'e giden HTML'de .a4-container genişliğini sayfa iç alanına
+     * sığdırır. Blade/layout şablonları container'a SABİT mm/pt genişlik verir
+     * (örn. @yield('page_width','598.68pt')), dompdf ise @media print UYGULAMAZ —
+     * bu yüzden container sayfadan sağa taşar (ruhsat/tahakkuk 2-3 sayfaya bölünür).
+     * CSS !important yerine INLINE style kullanılır: dompdf'te inline en üst öncelik,
+     * sabit genişlik kuralı ne olursa olsun ezilir.
+     */
+    protected static function a4ContainerInlineWidth(string $html): string
+    {
+        // DİKKAT: 'a4-landscape-container' dizgesi 'a4-container' ALT DİZGESİNİ
+        // İÇERMEZ (arada 'landscape' vardır) — guard iki sınıfı da aramalı;
+        // aksi hâlde landscape container'a inline genişlik hiç uygulanmaz.
+        if (! str_contains($html, 'a4-container') && ! str_contains($html, 'a4-landscape-container')) {
+            return $html;
+        }
+
+        $doc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        if (! $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html)) {
+            libxml_clear_errors();
+            return $html;
+        }
+        libxml_clear_errors();
+
+        // NOT: dompdf inline CSS'te `!important` token'ını doğru işlemez — inline
+        // `width: 100% !important` görüldüğünde width'i komple düşürüp stylesheet'ten
+        // gelen sabit genişliğe (örn. 598.68pt) geri döner. Bu yüzden inline'da
+        // !important KULLANILMAZ; inline style zaten stylesheet'ten üstündür.
+        // Yüzde yerine SABİT mm: dompdf'te hücre border'ları (1px≈0.75pt) tablo
+        // genişliğine eklenir; `width:100%` tablo bu yüzden her zaman sağdan
+        // ~2-7pt taşar. Container'ı sayfa genişliğinden dar tutmak (portrait 190mm,
+        // landscape 277mm) border eklentisini iç alana alır, taşmayı sıfırlar.
+        // min-height SIFIR kullanılır: `auto` CSS spec'te geçerli bir min-height
+        // değeri DEĞİLDİR — dompdf bildirimi düşürebilir, blade'deki sabit
+        // min-height (örn. metraj 210mm) geri gelir ve belge 2. sayfaya taşar.
+        // Genişlik: dompdf box-sizing'ı güvenilir uygulamadığı için genişlik+padding
+        // toplamı iç alana sığacak şekilde verilir (8mm @page margin → iç alan
+        // portrait 194mm / landscape 281mm): 170+20=190mm, 257+20=277mm.
+        $fixed = 'width: 170mm; max-width: none; box-sizing: border-box; margin: 0 auto; min-height: 0; overflow: visible;';
+        $fixedLandscape = 'width: 245mm; max-width: none; box-sizing: border-box; margin: 0 auto; min-height: 0; overflow: visible;';
+
+        foreach ($doc->getElementsByTagName('div') as $div) {
+            $class = (string) $div->getAttribute('class');
+            $isLandscape = str_contains($class, 'a4-landscape-container');
+            if (! str_contains($class, 'a4-container') && ! $isLandscape) {
+                continue;
+            }
+            $style = (string) $div->getAttribute('style');
+            // Mevcut sabit width/max-width/min-width/margin/height/overflow bildirimlerini kaldır.
+            $style = (string) preg_replace('/\b(width|max-width|min-width|min-height|max-height|height|margin|overflow)\s*:\s*[^;]+;/i', '', $style);
+            $fixedStyle = $isLandscape ? $fixedLandscape : $fixed;
+            $div->setAttribute('style', trim($style) !== '' ? $fixedStyle . ' ' . $style : $fixedStyle);
+        }
+
+        return $doc->saveHTML();
+    }
+
     public static function pdfCssEnjekte(string $html): string
     {
+        // DOWNSTREAM: dompdf'e verilecek HTML'de container genişliğini sayfaya sığdır.
+        $html = self::a4ContainerInlineWidth($html);
+
+        // Deterministik sayfa kenarı: blade'lerin @page kuralları @media print
+        // İÇİNDE olduğu için dompdf bunları UYGULAMAZ. Burada doğrudan verilir
+        // (dompdf @page margin'i CSS'ten okur) → sayfa iç alanı 210-16=194mm.
+        // Container'ın toplam genişliği (genişlik + padding, box-sizing dompdf'te
+        // güvenilmez) bu iç alana SİĞAR: portrait 170+20=190mm, landscape 257+20=277mm.
+        // NOT: width:100% !important KULLANILMAZ — dompdf'te box-sizing yok sayılınca
+        // 100%+padding = taşma üretir; inline sabit mm (a4ContainerInlineWidth) tek
+        // kaynak olur.
         $css = '<style>'
+            . '@page { margin: 6mm !important; }'
             . '.no-print, .no-print-bar, .print-bar, .toolbar { display: none !important; }'
             . '* { font-family: "DejaVu Sans", sans-serif !important; }'
+            // GÖREV 6 — dompdf @media print kurallarını UYGULAMAZ. Blade'lerdeki
+            // .a4-container genişliği 210mm sabit; @page margin (6mm) içerik alanını
+            // 198mm'ye düşürünce genişlik sağdan taşıyor (ruhsat 2-3 sayfaya bölünüyor,
+            // sağ sütunlar kesiliyor). Evrensel güvence:
+            //   - box-sizing: border-box (padding/border hesaba katılır, taşmaz)
+            //   - max-width sıfırlanır (blade'de 210mm tanımlı olabilir)
+            // Genişlik SABİT mm inline (a4ContainerInlineWidth) ile verilir:
+            // width:100% !important burada BULUNMAZ (dompdf box-sizing'ı uygulamazsa
+            // 100%+padding taşar; inline mm her durumda sığar).
+            . '.a4-container, .a4-landscape-container { max-width: none !important; '
+            . 'box-sizing: border-box !important; margin: 0 auto !important; }'
+            . '.a4-container *, .a4-landscape-container * { box-sizing: border-box; }'
+            // GÖREV 6 (devam) — YÜKSEKLİK Taşması: DejaVu Sans Arial'dan ~%20 daha
+            // sıkışık A4'te; yoğun belgeler (ruhsat/tahakkuk) tek sayfaya sığmıyor.
+            // Bu squeeze birimi PDF'e giden e-imza/indirme render'larına uygulanır;
+            // tarayıcı editörü etkilenmez.
+            // Dikkat: blade'lerdeki td/body font-size `!important` taşır — override
+            // için aynı seçici özgünlüğünde ve !important ile, AYNI KAYNAKTA verilir.
+            . '.a4-container, .a4-landscape-container { position: relative; }'
+            . '.a4-container, .a4-landscape-container { font-size: 10.5px !important; line-height: 1.15 !important; min-height: 0 !important; padding: 8mm 12mm !important; }'
+            . '.a4-container table, .a4-landscape-container table { font-size: 10.5px !important; line-height: 1.15 !important; width: 98.5% !important; }'
+            . '.a4-container td, .a4-container th, .a4-landscape-container td, .a4-landscape-container th { padding: 1px 3px !important; font-size: 10.5px !important; line-height: 1.15 !important; }'
+            . '.a4-container p, .a4-container div, .a4-container span, .a4-landscape-container p, .a4-landscape-container div, .a4-landscape-container span { font-size: 10.5px !important; }'
+            . '.a4-container .sartlar-metni, .a4-container .aciklama, .a4-container .ozel-sartlar { padding: 4px 6px !important; line-height: 1.15 !important; }'
+            . '.a4-container .print-overlay { display: none !important; }'
+            // Container'sız belgeler (makbuz/tahsilat fişi): gövde tabloları da taşmasın.
+            . 'body > .info-table, body > .sig-table { max-width: 100% !important; }'
+            . 'body table { width: 100% !important; box-sizing: border-box; }'
+            // GÖREV 6 (taşma detayı) — Kök neden: dompdf'te hücre border'ları
+            // (1px) tablo genişliğine eklenir. `border-collapse: collapse` yoksa
+            // `width:100%` tablo + 2×1px border = sağdan ~4pt taşma. Bladelerin
+            // çoğunda border-collapse tanımlı değil; global collapse uygulamak
+            // border'ları çakıştırır, genişliğe eklenmez → taşma durur.
+            // (table-layout:fixed KULLANILMAZ — metraj gibi landscape/rowspan'lı
+            // tabloları kırıyor.)
+            . 'table { border-collapse: collapse !important; }'
+            . 'p, div, td, th { box-sizing: border-box !important; max-width: 100% !important; }'
             . '</style>';
 
         return str_ireplace('</head>', $css . '</head>', $html);

@@ -358,27 +358,6 @@
                 </dl>
             </div>
 
-            {{-- Normal Çizim Haritası (çizilen alan net görünür) --}}
-            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 class="mb-4 text-sm font-semibold text-slate-800">🗺️ Çizim Alanı (Normal Harita)</h2>
-                <div id="app-normal-map" class="w-full rounded-xl border border-slate-200 bg-slate-50" style="height:350px"></div>
-            </div>
-
-            {{-- CBS Referans Haritası --}}
-            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 class="mb-4 text-sm font-semibold text-slate-800">📍 CBS Harita Konumu</h2>
-                @include('maps.partials._harita', [
-                    'mode' => 'embedded',
-                    'drawingEnabled' => false,
-                    'hatKimligiEnabled' => true,
-                    'show15mRoads' => false,
-                    'height' => '350px',
-                    'readOnly' => true,
-                    'application' => $application,
-                    'areas' => $application->excavationAreas->pluck('polygon_geojson')->filter()->values(),
-                ])
-            </div>
-
             {{-- ZEMİN SATIRLARI & HESAPLAMALAR (Read-Only) --}}
             @php
                 // TEK MUHASEBE KAYNAĞI: Tüm tutarlar Model accessor'larından gelir (calcFigures).
@@ -469,6 +448,27 @@
                 </div>
             </div>
             @endif
+
+            {{-- Normal Çizim Haritası (çizilen alan net görünür) --}}
+            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 class="mb-4 text-sm font-semibold text-slate-800">🗺️ Çizim Alanı (Normal Harita)</h2>
+                <div id="app-normal-map" class="w-full rounded-xl border border-slate-200 bg-slate-50" style="height:350px"></div>
+            </div>
+
+            {{-- CBS Referans Haritası --}}
+            <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <h2 class="mb-4 text-sm font-semibold text-slate-800">📍 CBS Harita Konumu</h2>
+                @include('maps.partials._harita', [
+                    'mode' => 'embedded',
+                    'drawingEnabled' => false,
+                    'hatKimligiEnabled' => true,
+                    'show15mRoads' => false,
+                    'height' => '350px',
+                    'readOnly' => true,
+                    'application' => $application,
+                    'areas' => $application->excavationAreas->pluck('polygon_geojson')->filter()->values(),
+                ])
+            </div>
 
             {{-- BELGE ARŞİVİ / DÖKÜMLER (Tüm aşamaların PDF'leri) — belediye personeli + başvurunun sahibi alt kurum --}}
             @php
@@ -1805,6 +1805,7 @@
                         <tr class="border-b border-slate-300 text-left text-slate-600">
                             <th class="py-2 pr-2 font-medium">#</th>
                             <th class="p-2 font-medium min-w-[160px]">Zemin Tipi</th>
+                            <th class="p-2 font-medium min-w-[140px]">Adres</th>
                             <th class="p-2 font-medium min-w-[80px]">Genişlik (m)</th>
                             <th class="p-2 font-medium min-w-[80px]">Uzunluk (m)</th>
                             <th class="p-2 font-medium min-w-[100px]">Miktar (m²)</th>
@@ -1823,6 +1824,7 @@
                                     @endforeach
                                 </select>
                             </td>
+                            <td class="p-2 align-top"><input type="text" name="surface_lines[{{ $idx }}][address]" value="{{ $line->address ?? '' }}" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak..."></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[{{ $idx }}][width_m]" value="{{ $line->width_m ? number_format((float)$line->width_m, 2, '.', '') : '' }}" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[{{ $idx }}][length_m]" value="{{ $line->length_m ? number_format((float)$line->length_m, 2, '.', '') : '' }}" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[{{ $idx }}][quantity]" value="{{ $line->quantity ? number_format((float)$line->quantity, 2, '.', '') : '' }}" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>
@@ -1841,6 +1843,7 @@
                                     @endforeach
                                 </select>
                             </td>
+                            <td class="p-2 align-top"><input type="text" name="surface_lines[0][address]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak..."></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[0][width_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[0][length_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[0][quantity]" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>
@@ -2345,6 +2348,7 @@ function toggleStep(id) {
                     buildOptionHtml(0) +
                 '</select>' +
             '</td>' +
+            '<td class="p-2 align-top"><input type="text" name="surface_lines[' + idx + '][address]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak..."></td>' +
             '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][width_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>' +
             '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][length_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>' +
             '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][quantity]" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>' +
@@ -2379,26 +2383,59 @@ function toggleStep(id) {
 
 // ── E-İmza Server kontrolu (sayfa acilirken) ────────────────────
 (function () {
+    // ── E-İmza local server port taraması ─────────────────────────────
+    // Electron src/server 58910'dan başlar, port doluysa küçük aralıkta
+    // +1 atlar (Windows 58055-58354'ü Docker/Hyper-V için rezerve ettiği
+    // için eski 58210 portu ASLA kullanılamıyordu). Üst sınır 58930
+    // (server.js MAX_PORT ile aynı) — tarama yalnızca 21 portu kapsar,
+    // milisaniyeler içinde biter, konsol hata yağmuru olmaz.
+    // Bulunan port window.eimzaPort'a saklanır ve imza butonu aynı portu
+    // kullanır. NOT: window'a global atanır — imza butonu farklı bir IIFE
+    // bloğunda olduğu için yerel fonksiyona erişemez (ReferenceError olurdu).
+    window.buildEimzaPorts = function () {
+        var ports = [];
+        for (var p = 58910; p <= 58930; p++) ports.push(p);
+        return ports;
+    };
+
+    var checking = false;
     function checkEimzaServer() {
-        var ports = [57898, 57899, 57900];
-        var tried = 0;
+        if (checking) return;          // çakışan taramayı önle (15sn interval + manuel tetikleme)
+        checking = true;
+        var ports = window.buildEimzaPorts();
+        function finish() { checking = false; }
         function tryPort(i) {
             if (i >= ports.length) {
+                window.eimzaPort = null;
                 var el = document.getElementById('eimza-status');
                 if (el) { el.innerHTML = '<span class="text-red-500">● E-İmza Uygulaması: Bulunamadı — masaüstü uygulamasını başlatın</span>'; }
+                finish();
                 return;
             }
-            fetch('http://127.0.0.1:' + ports[i] + '/health')
+            // Port yanıt vermezse 1.2sn sonra iptal et → "kontrol ediliyor" asla takılı kalmaz
+            var ctrl = new AbortController();
+            var timer = setTimeout(function () { ctrl.abort(); }, 1200);
+            fetch('http://127.0.0.1:' + ports[i] + '/health', { signal: ctrl.signal })
                 .then(function (r) {
+                    clearTimeout(timer);
                     if (r.ok) {
+                        window.eimzaPort = ports[i];
                         var el = document.getElementById('eimza-status');
                         if (el) { el.innerHTML = '<span class="text-green-600">● E-İmza Uygulaması: Çalışıyor</span>'; }
-                    } else { tryPort(i + 1); }
-                }).catch(function () { tryPort(i + 1); });
+                        finish();
+                    } else {
+                        tryPort(i + 1);
+                    }
+                }).catch(function () {
+                    clearTimeout(timer);
+                    tryPort(i + 1);
+                });
         }
         tryPort(0);
     }
     document.addEventListener('DOMContentLoaded', checkEimzaServer);
+    // Masaüstü uygulaması sayfa açıldıktan SONRA başlatılırsa durum 15sn içinde kendiliğinden yeşile döner
+    setInterval(checkEimzaServer, 15000);
 })();
 
 // ── E-İmza Buton ────────────────────────────────────────────────
@@ -2445,7 +2482,15 @@ function toggleStep(id) {
                 }
 
                 // Electron local HTTP server'a istek gonder
-                var electronPorts = [57898, 57899, 57900];
+                // Önce checkEimzaServer'ın bulduğu port (varsa), yoksa tüm aralık taranır
+                // Önce checkEimzaServer'ın bulduğu portu dene; başarısızsa TÜM aralığı tara;
+                // hepsi başarısızsa aykome:// protocol fallback (port GEREKTİRMEZ, her zaman çalışır)
+                var electronPorts = window.buildEimzaPorts();
+                if (window.eimzaPort) {
+                    electronPorts = [window.eimzaPort].concat(
+                        electronPorts.filter(function (p) { return p !== window.eimzaPort; })
+                    );
+                }
                 function tryElectronServer(portIndex) {
                     if (portIndex >= electronPorts.length) {
                         // Hepsi basarisizsa protocol URL dene (fallback)
@@ -2453,8 +2498,11 @@ function toggleStep(id) {
                         window.location.href = protocolUrl;
                         return;
                     }
+                    var ctrl = new AbortController();
+                    var timer = setTimeout(function () { ctrl.abort(); }, 1500);
                     fetch('http://127.0.0.1:' + electronPorts[portIndex] + '/sign', {
                         method: 'POST',
+                        signal: ctrl.signal,
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             transaction_id: data.transaction_id,
@@ -2462,10 +2510,15 @@ function toggleStep(id) {
                             server_url: serverUrl
                         })
                     }).then(function (r) {
+                        clearTimeout(timer);
                         if (r.ok) {
                             console.log('E-Imza istegi gonderildi (port ' + electronPorts[portIndex] + ')');
+                        } else {
+                            // Non-OK yanıt (ör. başka bir servis) → taramaya devam et, takılma
+                            tryElectronServer(portIndex + 1);
                         }
                     }).catch(function () {
+                        clearTimeout(timer);
                         tryElectronServer(portIndex + 1);
                     });
                 }

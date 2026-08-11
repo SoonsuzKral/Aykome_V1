@@ -33,6 +33,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ApplicationsController extends Controller
@@ -205,6 +206,13 @@ class ApplicationsController extends Controller
             }
         }
         unset($validated['address_components_json']);
+
+        // ALT KURUM KURALI: adres girildiyse haritada kazı alanı çizimi zorunludur
+        if (! $user->isMunicipalityPersonel() && $this->hasAddressData($validated) && ! $this->hasValidDrawing($validated['polygon_geojson'] ?? null)) {
+            throw ValidationException::withMessages([
+                'polygon_geojson' => 'Adres girildiği için haritada kazı alanı çizilmesi zorunludur (düz çizgi de kabul edilir).',
+            ]);
+        }
 
         $application = $service->createDraft($request->user(), $validated);
 
@@ -529,6 +537,7 @@ class ApplicationsController extends Controller
             'surface_lines.*.width_m' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'surface_lines.*.length_m' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
             'surface_lines.*.quantity' => ['nullable', 'numeric', 'min:0', 'max:1000000'],
+            'surface_lines.*.address' => ['nullable', 'string', 'max:500'],
             'deposit_amount' => ['nullable', 'numeric', 'min:0'],
             'excavation_amount' => ['nullable', 'numeric', 'min:0'],
             'vice_mayor_name' => ['nullable', 'string', 'max:255'],
@@ -537,6 +546,13 @@ class ApplicationsController extends Controller
             'duzenleyen_kisi' => ['nullable', 'string', 'max:255'],
             'mudur_adi' => ['nullable', 'string', 'max:255'],
             'mudur_unvani' => ['nullable', 'string', 'max:255'],
+            'kazi_sorumlusu_ad_soyad' => ['nullable', 'string', 'max:255'],
+            'kazi_sorumlusu_unvan' => ['nullable', 'string', 'max:255'],
+            'kazi_sorumlusu_telefon' => ['nullable', 'string', 'max:255'],
+            'kurum_ust_yoneticisi_ad_soyad' => ['nullable', 'string', 'max:255'],
+            'kurum_ust_yoneticisi_unvan' => ['nullable', 'string', 'max:255'],
+            'yaziyi_duzenleyen_ad_soyad' => ['nullable', 'string', 'max:255'],
+            'yaziyi_duzenleyen_iletisim' => ['nullable', 'string', 'max:255'],
             'documents' => ['nullable', 'array'],
             'documents.*' => ['nullable', 'file', 'mimetypes:application/pdf,image/jpeg,image/png,image/jpg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/webp,image/gif,image/bmp,image/tiff', 'max:51200'],
         ]);
@@ -550,6 +566,14 @@ class ApplicationsController extends Controller
             }
         }
         unset($data['address_components_json']);
+
+        // ALT KURUM KURALI: adres girildiyse haritada kazı alanı çizimi zorunludur
+        $requestUser = $request->user();
+        if (! $requestUser->isMunicipalityPersonel() && $this->hasAddressData($data) && ! $this->hasValidDrawing($data['polygon_geojson'] ?? null)) {
+            throw ValidationException::withMessages([
+                'polygon_geojson' => 'Adres girildiği için haritada kazı alanı çizilmesi zorunludur (düz çizgi de kabul edilir).',
+            ]);
+        }
 
         // Normalize national IDs
         if (! empty($data['applicant_national_id'])) {
@@ -611,6 +635,13 @@ class ApplicationsController extends Controller
             'duzenleyen_kisi' => $data['duzenleyen_kisi'] ?? $application->duzenleyen_kisi,
             'mudur_adi' => $data['mudur_adi'] ?? $application->mudur_adi,
             'mudur_unvani' => $data['mudur_unvani'] ?? $application->mudur_unvani,
+            'kazi_sorumlusu_ad_soyad' => $data['kazi_sorumlusu_ad_soyad'] ?? $application->kazi_sorumlusu_ad_soyad,
+            'kazi_sorumlusu_unvan' => $data['kazi_sorumlusu_unvan'] ?? $application->kazi_sorumlusu_unvan,
+            'kazi_sorumlusu_telefon' => $data['kazi_sorumlusu_telefon'] ?? $application->kazi_sorumlusu_telefon,
+            'kurum_ust_yoneticisi_ad_soyad' => $data['kurum_ust_yoneticisi_ad_soyad'] ?? $application->kurum_ust_yoneticisi_ad_soyad,
+            'kurum_ust_yoneticisi_unvan' => $data['kurum_ust_yoneticisi_unvan'] ?? $application->kurum_ust_yoneticisi_unvan,
+            'yaziyi_duzenleyen_ad_soyad' => $data['yaziyi_duzenleyen_ad_soyad'] ?? $application->yaziyi_duzenleyen_ad_soyad,
+            'yaziyi_duzenleyen_iletisim' => $data['yaziyi_duzenleyen_iletisim'] ?? $application->yaziyi_duzenleyen_iletisim,
         ]);
 
         $this->handleDocumentUploads($request, $application);
@@ -1100,6 +1131,9 @@ class ApplicationsController extends Controller
             'eposta' => $application->institution?->email ?? $settings->email ?? '-',
             'web' => $settings->website ?? '-',
             'kep_adresi' => $application->institution?->email ?? 'eyyubiye@hs03.kep.tr',
+            // Belediye logosu (PreExcavationPermitSetting) → yoksa kurum logosu.
+            'logo_base64' => \App\Models\PreExcavationPermitSetting::toBase64DataUri($settings->logo_path)
+                ?: $this->institutionLogoBase64($application),
         ];
 
         $html = \Illuminate\Support\Facades\View::make('admin.pdf.pre_permit', $data)->render();
@@ -1708,6 +1742,7 @@ class ApplicationsController extends Controller
             'surface_lines.*.width_m' => 'nullable|numeric|min:0',
             'surface_lines.*.length_m' => 'nullable|numeric|min:0',
             'surface_lines.*.quantity' => 'required|numeric|min:0',
+            'surface_lines.*.address' => 'nullable|string|max:500',
         ]);
 
         $pricingService->upsertSurfaceLines($application, $validated['surface_lines'] ?? []);
@@ -2607,5 +2642,51 @@ HTML;
         } catch (\Exception $e) {
             return null;
         }
+    }
+
+    /**
+     * Adres verisi var mı? (address_components içinde cadde/sokak veya address_text dolu)
+     */
+    private function hasAddressData(array $data): bool
+    {
+        $components = $data['address_components'] ?? null;
+        if (is_array($components)) {
+            foreach ($components as $component) {
+                if (is_array($component) && ! empty($component['streets']) && is_array($component['streets'])) {
+                    return true;
+                }
+            }
+        }
+
+        return ! empty(trim((string) ($data['address_text'] ?? '')));
+    }
+
+    /**
+     * polygon_geojson içinde geçerli bir çizim var mı? (Polygon, MultiPolygon veya LineString)
+     */
+    private function hasValidDrawing(?string $geojson): bool
+    {
+        if ($geojson === null || trim($geojson) === '') {
+            return false;
+        }
+
+        $data = json_decode($geojson, true);
+        if (! is_array($data)) {
+            return false;
+        }
+
+        $features = $data['features'] ?? (($data['type'] ?? '') === 'Feature' ? [$data] : []);
+        if (! is_array($features)) {
+            return false;
+        }
+
+        foreach ($features as $feature) {
+            $geometry = $feature['geometry'] ?? null;
+            if (is_array($geometry) && in_array($geometry['type'] ?? '', ['Polygon', 'MultiPolygon', 'LineString'], true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

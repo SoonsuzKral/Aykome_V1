@@ -1,5 +1,127 @@
 # Oturum Özeti — 9 Ağustos 2026
 
+## Sprint 15 — E-İMZA 5070 PDF KÖK NEDEN ÇÖZÜMÜ (11 Ağustos, akşam)
+
+### 🎯 Öz
+Sprint 13'ten devreden "İmzalandıktan sonra çıkan hatalı PDF" sorunu KÖKTEN çözüldü: 7 belge tipinin
+tümü tek sayfa, taşma 0, 5070 metni doğru yerde + kırmızı, gerçek token ile imzalı e2e geçti.
+
+### ✅ Kök Nedenler (hepsi kanıtlandı + çözüldü)
+1. **dompdf box-sizing uygulamıyor** → `width + padding` taşıyordu; squeeze'daki `width:100% !important`
+   de kaldırıldı (inline mm tek kaynak). Portrait `170mm`, landscape `245mm`.
+2. **`a4ContainerInlineWidth` guard bug'ı:** `str_contains($html,'a4-container')` — landscape sınıfı
+   (`a4-landscape-container`) bu alt dizgeyi İÇERMİYOR → metraj inline genişlik HİÇ almıyordu
+   (2 sayfa + taşmanın gerçek nedeni). İki sınıf da aranıyor.
+3. **XPath `translate()` Türkçe Ğ bug'ı:** sadece ASCII küçültür → "DOĞRULAMA" eşleşmiyordu, 5070 hep
+   fallback'e düşüyordu. Çözüm: XPath filtre + PHP `mb_stripos`, son (en derin) eşleşme.
+4. **dompdf absolute elemanlarda `bottom`'ı yok sayar** → cover_letter footer'ı statik akış konumunda,
+   container `min-height`'i onu 2. sayfaya itiyordu. Çözüm: `.a4-footer` static + `margin-top:14mm`.
+5. **`@media print` UYGULANMAZ** → blade'lerdeki geçersiz @page kuralları; `@page { margin:6mm !important }`
+   enjekte ediliyor (iç alan: portrait 198×285mm, landscape 285×198mm).
+6. **pre_permit remote logo** (`isRemoteEnabled=false` → boş) → base64 `logo_base64`'e çevrildi.
+
+### ✅ Değişiklikler
+- `DocumentTemplateService.php`: `a4ContainerInlineWidth` (guard + 170/245mm + `min-height:0`),
+  `pdfCssEnjekte` (@page 6mm + squeeze kuralları + `width:100%` kaldırıldı).
+- `EImzaService.php`: `imzaYasalMetinEkle($html,$imzaTarihi,$pdfType)` — **Grup A** (ruhsat/pre_permit/
+  cover_letter): doğrulama kodu ÜSTÜNE, font inherit (squeeze 10.5px); **Grup B** (metraj/makbuz/tahakkuk/
+  taahhutname): belge EN ALTINA. `pdfTipineGoreEkCss` (coverLetterSabitle yerine): cover_letter statik
+  footer + taahhutname satır aralıkları. Logo base64 cover_letter + pre_permit.
+- **Akşam ekleri (kullanıcı testi sonrası):**
+  - `EImzaService::pdfOlustur`: pre_permit logosu ÖNCE `PreExcavationPermitSetting.logo_path`
+    (belediye logosu; kurum logosu NULL olduğu için logo gelmiyordu), yoksa kurum logosu.
+  - `EImzaService::pdfOlustur`: tahakkuk için `metraj_satirlari` = `buildMetrajSatirlari()` →
+    matbu formda TÜM zemin tipleri (başvuruda olmayanlar 0 satırı).
+  - `ApplicationsController::downloadPrePermit`: `logo_base64` eklendi (aynı öncelik).
+- `pre_permit.blade.php:48` base64 logo; `cover_letter.blade.php` `sayi-konu-tablo` sınıfı.
+- Test: `test_pdf_generate.php` 7 tip; `test_verify_all.py` fold tüm whitespace'i siler + taahhutname;
+  `e2e_sign.cjs` (proje `type:module` olduğu için **.cjs** zorunlu).
+
+### ✅ Doğrulama
+- `test_verify_all.py` → **7/7 PASS** (1 sayfa, taşma yok, 5070 var, font tamam).
+- 5070 yerleşimi programatik: Grup A üstte (ruhsat 760<793, pre_permit 517<549, cover_letter 488<514),
+  Grup B en altta (metraj 232/253, makbuz 619/641, tahakkuk 369/390, taahhutname 735/755).
+- Görsel kalite: 7/7 kırmızı 5070, kenarlar temiz, **0 karakter çakışması** (rawdict).
+- **Gerçek token e2e:** 7 PDF Pkcs11Bridge.exe ile imzalandı (bu sertifika RSA, PIN 062954),
+  imzalı PDF'ler: sayfa+MediaBox+metin+font birebir korundu, 5070 kırmızı, `/FT /Sig`+ByteRange var.
+  Dosyalar: `storage/app/test_*_5070.pdf` + `e2e_signed_*.pdf`.
+- Akşam ekleri: pre_permit PDF'inde logo GÖRSELİ gömülü (169x160 px); tahakkuk'ta TÜM zemin tipleri
+  (SICAK ASFALT...GÖRME ENGELLİ KARO + ZTB + Genel Toplam); ikisi de 1 sayfa, taşma yok.
+- `test_renderfor.php` taahhutname eklendi → BLADE yolu (şablon yok).
+
+### 📁 Dokümantasyon
+- `e_imza_sorun/ÇÖZÜM_01.md` (YENİ) — bugünkü çözümün tam hikayesi: 7 kök neden + çözümler +
+  doğrulamalar + kalan işler.
+- `e_imza_sorun/DURUM_RAPORU_20260811.md` — tüm bölümler güncellendi, §6 kalan işler kapatıldı.
+
+### ⚠️ Notlar
+- Görsel kontrol model PNG okuyamadığı için programatik yapıldı (karakter bbox çakışması + kenar kontrolü).
+- `baslat/tamamla` HTTP katmanı DEĞİŞMEDİ (auth/API-key); istenirse tarayıcı E2E: başvuru 1254 →
+  E-İmza ile İmzala → Electron PIN penceresi → 062954.
+- **Kullanıcı geri bildirimi (yarına devreden):** ruhsat/metraj/taahhütname "on numara"; ÖN KAZI İZNİ
+  logosu + TAHAKKUK tüm zeminler akşam DÜZELTİLDİ ve doğrulandı. KALAN: (1) A4 içinde boşluklar
+  (içerik kağıdı tam doldurmuyor — @page 6mm + padding 8/12mm + blade margin kombinasyonu,
+  cover_letter statik footer), (2) ruhsat A4'e "ufak tam oturmamış". Kullanıcı yarın görselleri
+  Claude.AI ile gönderecek → analiz edip ince ayar yapılacak.
+- `e2e_sign.cjs` uzantısı KRİTİK: proje kökü `package.json` `type:module` → `.js` CommonJS çalışmaz.
+
+### 📁 Değişen Dosyalar
+- `app/Services/DocumentTemplateService.php`, `app/Services/EImzaService.php`
+- `resources/views/admin/pdf/pre_permit.blade.php`, `cover_letter.blade.php`
+- `test_pdf_generate.php`, `test_verify_all.py`, `test_renderfor.php`
+- `e_imza_sorun/DURUM_RAPORU_20260811.md` (tüm bölümler güncellendi, kalan işler kapatıldı)
+
+---
+
+## Sprint 14 — ADRES → OTOMATİK ZEMİN SATIRI + 📍 SATIR İKONU + ÇİZİM→METRAJ→ALAN (11 Ağustos)
+
+### 🎯 Öz
+Başvuru formlarında (create+edit) her "Mahalle & Sokak Ekle" girdisi artık Zemin Satırları tablosuna **otomatik zemin satırı** üretiyor; her satırda adres etiketi + **📍 harita ikonu** (2 haritada pulse marker); çizim→metraj akışı düzeltildi (düz çizgi de Alan m²'ye katılır, rowId'siz çizimler submit'te kaybolmuyor); alt kurumda adresli çizimsiz başvuru **JS + backend** engeli. `surface_lines.address` DB'ye kaydediliyor.
+
+### ✅ 1. Adres → Otomatik Zemin Satırı (create + edit.blade.php)
+- **`ensureSurfaceLineForAddress(mahalle, cadde)`**: mahalle&sokak listesine her cadde/sokak eklenince otomatik zemin satırı (dedupe'lu — aynı adres tekrar üretilmez). Örn: Batıkent Mah. + 8013/8014/8016/8020.SK → 4 otomatik satır.
+- `addSurfaceLine()` → `address` alanı; `renderTable()` → zemin tipi altında 📍 adres etiketi; edit'te DB'den `address` ile yüklenir; submit'te `surface_lines[..][address]` hidden input ile gider.
+
+### ✅ 2. 📍 Harita İkonu (satırlarda — YENİ istek)
+- Her adresli satırda 🎯 Çiz butonunun yanına yeşil 📍 butonu: `maps.adres-ara` WMS → `haritadaGoster()` → **2 haritada da** pulse marker + tooltip + flyTo (cadde listesindeki 📍 ile birebir aynı davranış).
+
+### ✅ 3. Çizim → Metraj → Alan (m²)
+- **Otomatik satır bağlama**: Çiz butonuna basmadan doğrudan çizilse bile adresi dolu çizimsiz ilk satıra otomatik bağlanır (4 sokak art arda çizilse her çizim kendi satırına yazar).
+- `syncArea` → genişlik önceliği: aktif satırın Genişlik (m) → poly_width → 1m; düz çizgide Uzunluk=çizgi, Miktar (m²)=len×width.
+- `serializeAndSync` → rowId'siz düz çizgiler de Alan (m²)'e katılır (uzunluk × 1m); backend `MapDrawingService::calculateAreaM2FromGeoJson` **LineString → Haversine × 1m**.
+- **Merge düzeltmesi (kritik)**: `prepareSurfaceLinesForSubmit` artık `polygon_geojson`'u rowDrawings ile EZMİYOR — mevcut rowId'siz feature'lar korunur (duplike rowId olmaz) → satıra atanmamış çizimler kaybolma sorunu çözüldü.
+- `draw:created` sonunda toplamı ezen `_alanEl.value = row.quantity` yazımı kaldırıldı.
+
+### ✅ 4. Backend
+- `PricingService::upsertSurfaceLines` → `'address' => $data['address'] ?? null` (DB'ye kayıt; sütun mevcuttu).
+- `ApplicationSurfaceArea` fillable'a `address` eklendi.
+- **Alt kurum çizim zorunluluğu**: JS (submit engeli + uyarı) + backend `store`/`update`'te `hasAddressData() && !hasValidDrawing()` → `ValidationException` (kurum dışı alt kurumlarda — `isInstitutionApplication()` + kurum tipi kontrolü).
+- Validasyon: `surface_lines.*.address` (nullable|string|max:500) — StoreApplicationRequest + ApplicationsController::update + UpdateSurfaceLinesRequest.
+
+### ✅ 5. show.blade.php (veri kaybı koruması)
+- "Zemin Satırlarını Düzenle" modalına **Adres kolonu** eklendi (thead + blade satırı + JS row template + colspan 7) — upsert delete+create yaptığı için adresler düzenleme sonrası korunur; `updateSurfaceLines` controller validasyonuna address eklendi.
+
+### ✅ Doğrulama
+- `php -l` 6 dosya temiz (PricingService, MapDrawingService, ApplicationsController, StoreApplicationRequest, UpdateSurfaceLinesRequest, ApplicationSurfaceArea)
+- `php artisan view:cache` OK; DB'de `application_surface_areas.address` sütunu mevcut (doğrulandı)
+- Kritik öğeler her iki blade'de doğrulandı: ensureSurfaceLineForAddress, row-show-btn, addHidden('address'), ilkAdresliCizimsiz, aykomeDrawingGoster, ZORUNLUDUR ✓
+- `extractGeometries` FeatureCollection/Feature/LineString destekli ✓
+
+### 📁 Değişen Dosyalar
+- `resources/views/admin/applications/create.blade.php`, `edit.blade.php`, `show.blade.php`
+- `app/Services/PricingService.php`, `app/Services/MapDrawingService.php`
+- `app/Http/Controllers/Admin/ApplicationsController.php`, `app/Http/Requests/StoreApplicationRequest.php`, `app/Http/Requests/UpdateSurfaceLinesRequest.php`
+- `app/Models/ApplicationSurfaceArea.php`, `SESSION_SUMMARY.md`
+
+### 🧪 Test Senaryosu (tarayıcı)
+Alt kurum → Batıkent Mah. + 8013/8014/8016/8020.SK ekle → 4 otomatik satır → satırdaki 📍 ile adresi haritada gör → zemin tipi seç → 🎯 Çiz → düz çizgi çiz → satırda Uzunluk/Miktar + Alan (m²) otomatik dolsun → kaydet → DB'de `address` kayıtları + çizimler dursun. Alt kurumda adres girip çizmeden kaydedilirse engel mesajı.
+
+### ⚠️ Sıradaki / Kontrol
+- Tarayıcı E2E: yukarıdaki senaryo; özellikle 4 adresli çizim akışı + show'dan satır düzenlemede adres korunumu
+- Önceki sprint'ten devam: "İmzalandıktan sonra çıkan hatalı PDF" (Sprint 13, CLAUDE'A DEVREDİLEN madde) — imzalı PDF yerleşim/görsel kontrolü bekliyor
+
+---
+
 ## Sprint 13 — PDF TÜRKÇE FONT + MAVİ BUTON TEMİZLİĞİ + İMZALAYAN OTOMASYONU (G1-G6)
 
 ### 🎯 Öz

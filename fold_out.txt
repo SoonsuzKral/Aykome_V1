@@ -1,0 +1,7 @@
+﻿warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+RAW 5070 sayılı: True
+RAW güvenli    : False
+FOLD 5070 sayili: True
+FOLD guvenli    : False
+
+SON: ini rica ederim. Belediye Başkan Ya B Bilgi için Telefon: Fax: E-Posta: Web: BELGE DOĞRULAMA KODU: EYYB-OKBFCZDDGB | KONTROL ADRESİ: aykome.eyyubiye.bel.tr/dogrulama Bu çıktı, 5070 sayılı elektronik imza kanununa göre imzalanan belgenin 10.08.2026 23:56 tarihli kağıt kopyasıdır. Bu belge g elektronik imza ile imzalanmıştır. T.C. EYYÜBİYE BELEDİYE BAŞKANLIĞI Fen İşleri Müdürlüğü Eyyübiye Belediyesi

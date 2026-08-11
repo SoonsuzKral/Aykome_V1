@@ -1,0 +1,22 @@
+﻿warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+
+===== pre_permit (1 sayfa) =====
+  S1: 1255 karakter | 5070 var: True | guvenli var: False | elektronik var: True
+  METIN BASI: Sayı : Konu : 'a İlgi : tarih ve sayılı yazınız. İlgi sayılı yazı ile; Merkez Belediye Şanlıurfa Tesis Yöneticiliği 6325121 Proje Numarasıyla İlçesi EYYÜBIYE, 3112. SK. 32 A, 63200 ŞA MERKEZ/ŞANLIURFA ENH tesis yapım işi
+  SON SAYFA SONU: 08.2026 23:45 tarihli kağıt kopyasıdır. Bu belge g elektronik imza ile imzalanmıştır. T.C. EYYÜBİYE BELEDİYE BAŞKANLIĞI Fen İşleri Müdürlüğü Eyyübiye Belediyesi
+
+===== cover_letter (1 sayfa) =====
+  S1: 1437 karakter | 5070 var: True | guvenli var: False | elektronik var: True
+  METIN BASI: ... Şanlıurfa Tesis Yöneticiliği Sayı :2026-1254 Konu : PROJESİ KAZI ÖN İZNİ TALEP REVİZE EYYÜBİYE BELEDİYE BAŞKANLIĞI AYKOME ŞUBE MÜDÜRLÜĞÜ İlgi : Belediyeniz yatırım programlarına istinaden iletilen09.08.2026 tarihli t
+  SON SAYFA SONU: / Yetkilisi : Evrağı Düzenleyen : OSMAN ZAMAN Yaklaşık Kazı : 0 m² / m. BELGE DOĞRULAMA KODU: GEÇERSİZ/TASLAK | KONTROL ADRESİ: aykome.eyyubiye.bel.tr/dogrulama
+
+===== metraj (2 sayfa) =====
+  S1: 362 karakter | 5070 var: False | guvenli var: False | elektronik var: False
+  METIN BASI: EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ SIRA İLÇE MAHALLE CADDE VE SOKAK KAZI BAŞLANGIÇ TARİHİ GENİŞLİK UZUNLUK M² / M ZEMİN CİNSİ PROJE / İŞİN AD 1 EYYÜBİYE EYYÜBIYE, 3112. SK. 32 A, 63200 ŞANLIU
+  S2: 166 karakter | 5070 var: True | guvenli var: True | elektronik var: True
+  SON SAYFA SONU: ktı, 5070 sayılı elektronik imza kanununa göre imzalanan belgenin 10.08.2026 23:45 tarihli kağıt kopyasıdır. Bu belge güvenli elektronik imza ile imzalanmıştır.
+
+===== tahakkuk (1 sayfa) =====
+  S1: 600 karakter | 5070 var: True | guvenli var: False | elektronik var: True
+  METIN BASI: EYYÜBİYE BELEDİYESİ FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ ALTYAPI TESİSİ AÇIM RUHSAT BEDELİ HESABI Talep sahibi ilçe EYYÜBİYE Adres / Proje Adı Firma İş Cinsi V. No / Telefon no: 37352175834 - 0414 3151500 ZEMİN CİNSİ BİRİM
+  SON SAYFA SONU:  Bu çıktı, 5070 sayılı elektronik imza kanununa göre imzalanan belgenin 10.08.2026 23:45 tarihli kağıt kopyasıdır. Bu belge g elektronik imza ile imzalanmıştır.

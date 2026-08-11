@@ -45,7 +45,11 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #00
 @endphp
 <div class="header">
     <div class="header-logo">
-        <img src="https://www.eyyubiye.bel.tr/images/logo.png" alt="Eyyübiye Belediyesi" class="print-logo">
+        @if(isset($logo_base64) && $logo_base64)
+            <img src="{{ $logo_base64 }}" alt="Eyyübiye Belediyesi" class="print-logo">
+        @else
+            <span style="font-weight:bold; font-size:12pt; color:#000;">Eyyübiye Belediyesi</span>
+        @endif
     </div>
     <div class="tc" contenteditable="{{ $isMuni ? 'true' : 'false' }}">T.C.</div>
     <div class="belediye" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $belediye ?? 'EYYÜBİYE BELEDİYE BAŞKANLIĞI' }}</div>

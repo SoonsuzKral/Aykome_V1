@@ -337,6 +337,85 @@
             </aside>
         </div>
 
+        <!-- ────────────────────────────────────────────────────────────
+             ZEMİN SATIRLARI & HESAPLAMALAR
+             ──────────────────────────────────────────────────────────── -->
+        <div id="surface-lines-section" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="mb-3 flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-slate-800">Zemin Satırları &amp; Hesaplamalar</h3>
+                <button type="button" id="add-row-btn" class="rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-100">
+                    + Yeni Boş Satır Ekle
+                </button>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table id="surface-lines-table" class="w-full text-xs">
+                    <thead>
+                        <tr class="border-b border-slate-300 text-left text-slate-600">
+                            <th class="py-2 pr-2 font-medium">#</th>
+                            <th class="p-2 font-medium min-w-[180px]">Zemin Tipi</th>
+                            <th class="p-2 font-medium min-w-[100px]">Genişlik (m)</th>
+                            <th class="p-2 font-medium min-w-[100px]">Uzunluk (m)</th>
+                            <th class="p-2 font-medium min-w-[120px]">Miktar (m²)</th>
+                            <th class="p-2 font-medium min-w-[110px]">Birim Fiyat</th>
+                            <th class="p-2 font-medium min-w-[120px]">Harita</th>
+                            <th class="p-2 font-medium min-w-[140px]">Satır Tutarı (₺)</th>
+                            <th class="p-2 font-medium min-w-[80px]">İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="surface-lines-tbody">
+                        <!-- JS tarafından doldurulacak -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-4 text-xs text-slate-500">
+                <span id="active-draw-indicator" class="hidden inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
+                    <span class="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span id="active-draw-label">Harita çizim modu aktif</span>
+                </span>
+            </div>
+
+            {{-- HESAP KARTLARI --}}
+            <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Toplam Miktar</p>
+                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-toplam-miktar">0.00</span> m²</p>
+                </div>
+                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Zemin Tahrip Bedeli</p>
+                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-ztb">0.00</span> ₺</p>
+                </div>
+                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">KDV (%20)</p>
+                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-kdv">0.00</span> ₺</p>
+                </div>
+                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Ruhsat Harcı</p>
+                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-ruhsat-harci">0.00</span> ₺</p>
+                </div>
+                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Keşif Bedeli</p>
+                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-kesif-bedeli">0.00</span> ₺</p>
+                </div>
+                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">ZTB Toplam</p>
+                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-ztb-toplam">0.00</span> ₺</p>
+                </div>
+                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Teminat</p>
+                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-teminat">0.00</span> ₺</p>
+                </div>
+                <div class="rounded-lg border border-emerald-300 bg-emerald-50 p-3 shadow-sm">
+                    <p class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Genel Toplam</p>
+                    <p class="mt-1 text-xl font-bold text-emerald-700"><span id="calc-genel-toplam">0.00</span> ₺</p>
+                </div>
+            </div>
+
+            {{-- Hidden inputs for submit --}}
+            <div id="surface-lines-hidden-inputs"></div>
+        </div>
+
         <div class="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <h3 class="text-sm font-semibold text-slate-800">Harita / alan</h3>
@@ -417,85 +496,6 @@
             ])
         </div>
 
-        <!-- ────────────────────────────────────────────────────────────
-             ZEMİN SATIRLARI & HESAPLAMALAR
-             ──────────────────────────────────────────────────────────── -->
-        <div id="surface-lines-section" class="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div class="mb-3 flex items-center justify-between">
-                <h3 class="text-sm font-semibold text-slate-800">Zemin Satırları &amp; Hesaplamalar</h3>
-                <button type="button" id="add-row-btn" class="rounded-lg border border-cyan-300 bg-cyan-50 px-3 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-100">
-                    + Yeni Boş Satır Ekle
-                </button>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table id="surface-lines-table" class="w-full text-xs">
-                    <thead>
-                        <tr class="border-b border-slate-300 text-left text-slate-600">
-                            <th class="py-2 pr-2 font-medium">#</th>
-                            <th class="p-2 font-medium min-w-[180px]">Zemin Tipi</th>
-                            <th class="p-2 font-medium min-w-[100px]">Genişlik (m)</th>
-                            <th class="p-2 font-medium min-w-[100px]">Uzunluk (m)</th>
-                            <th class="p-2 font-medium min-w-[120px]">Miktar (m²)</th>
-                            <th class="p-2 font-medium min-w-[110px]">Birim Fiyat</th>
-                            <th class="p-2 font-medium min-w-[120px]">Harita</th>
-                            <th class="p-2 font-medium min-w-[140px]">Satır Tutarı (₺)</th>
-                            <th class="p-2 font-medium min-w-[80px]">İşlem</th>
-                        </tr>
-                    </thead>
-                    <tbody id="surface-lines-tbody">
-                        <!-- JS tarafından doldurulacak -->
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="mt-4 text-xs text-slate-500">
-                <span id="active-draw-indicator" class="hidden inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
-                    <span class="inline-block h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
-                    <span id="active-draw-label">Harita çizim modu aktif</span>
-                </span>
-            </div>
-
-            {{-- HESAP KARTLARI --}}
-            <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Toplam Miktar</p>
-                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-toplam-miktar">0.00</span> m²</p>
-                </div>
-                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Zemin Tahrip Bedeli</p>
-                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-ztb">0.00</span> ₺</p>
-                </div>
-                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">KDV (%20)</p>
-                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-kdv">0.00</span> ₺</p>
-                </div>
-                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Ruhsat Harcı</p>
-                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-ruhsat-harci">0.00</span> ₺</p>
-                </div>
-                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Keşif Bedeli</p>
-                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-kesif-bedeli">0.00</span> ₺</p>
-                </div>
-                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">ZTB Toplam</p>
-                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-ztb-toplam">0.00</span> ₺</p>
-                </div>
-                <div class="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Teminat</p>
-                    <p class="mt-1 text-lg font-bold text-slate-800"><span id="calc-teminat">0.00</span> ₺</p>
-                </div>
-                <div class="rounded-lg border border-emerald-300 bg-emerald-50 p-3 shadow-sm">
-                    <p class="text-[10px] font-semibold uppercase tracking-wider text-emerald-600">Genel Toplam</p>
-                    <p class="mt-1 text-xl font-bold text-emerald-700"><span id="calc-genel-toplam">0.00</span> ₺</p>
-                </div>
-            </div>
-
-            {{-- Hidden inputs for submit --}}
-            <div id="surface-lines-hidden-inputs"></div>
-        </div>
-
         @include('admin.applications.partials._metraj_tahmin', [
             'tahminEditMode' => false,
         ])
@@ -503,40 +503,75 @@
         {{-- Kurum & İmza Yetkili Bilgileri — yalnızca kurum başvurusu (Vatandaş değil) ise görünür --}}
         <fieldset id="imza-yetkili-karti" class="grid gap-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4 sm:grid-cols-2">
             <legend class="col-span-full text-sm font-semibold text-slate-800">Kurum & İmza Yetkili Bilgileri</legend>
-            <div>
-                <label class="block text-sm font-medium text-slate-700" for="duzenleyen_kisi">Düzenleyen Kişi</label>
-                <input id="duzenleyen_kisi" type="text" name="duzenleyen_kisi" value="{{ old('duzenleyen_kisi') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('duzenleyen_kisi') border-red-300 ring-red-100 @enderror" placeholder="Evrakı düzenleyen kişinin adı soyadı">
-                @error('duzenleyen_kisi')
-                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                @enderror
+
+            {{-- SOL KOLON: KAZI SORUMLUSU --}}
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+                <h4 class="mb-3 border-b border-slate-200 pb-2 text-sm font-bold uppercase tracking-wide text-slate-800">Kazı Sorumlusu</h4>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="kazi_sorumlusu_ad_soyad">Ad Soyad</label>
+                        <input id="kazi_sorumlusu_ad_soyad" type="text" name="kazi_sorumlusu_ad_soyad" value="{{ old('kazi_sorumlusu_ad_soyad') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('kazi_sorumlusu_ad_soyad') border-red-300 ring-red-100 @enderror" placeholder="Kazı sorumlusunun adı soyadı">
+                        @error('kazi_sorumlusu_ad_soyad')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="kazi_sorumlusu_unvan">Ünvan</label>
+                        <input id="kazi_sorumlusu_unvan" type="text" name="kazi_sorumlusu_unvan" value="{{ old('kazi_sorumlusu_unvan') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('kazi_sorumlusu_unvan') border-red-300 ring-red-100 @enderror" placeholder="Örn: Tesis Sorumlusu / Şef">
+                        @error('kazi_sorumlusu_unvan')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="kazi_sorumlusu_telefon">Telefon</label>
+                        <input id="kazi_sorumlusu_telefon" type="text" name="kazi_sorumlusu_telefon" value="{{ old('kazi_sorumlusu_telefon') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('kazi_sorumlusu_telefon') border-red-300 ring-red-100 @enderror" placeholder="Telefon numarası">
+                        @error('kazi_sorumlusu_telefon')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-700" for="tesis_sorumlusu">Yazıyı Düzenleyen</label>
-                <input id="tesis_sorumlusu" type="text" name="tesis_sorumlusu" value="{{ old('tesis_sorumlusu') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('tesis_sorumlusu') border-red-300 ring-red-100 @enderror" placeholder="Yazıyı düzenleyen kişinin adı soyadı">
-                @error('tesis_sorumlusu')
-                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                @enderror
+
+            {{-- SAĞ KOLON: KURUM ÜST YÖNETİCİSİ --}}
+            <div class="rounded-lg border border-slate-200 bg-white p-4">
+                <h4 class="mb-3 border-b border-slate-200 pb-2 text-sm font-bold uppercase tracking-wide text-slate-800">Kurum Üst Yöneticisi</h4>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="kurum_ust_yoneticisi_ad_soyad">Adı Soyad</label>
+                        <input id="kurum_ust_yoneticisi_ad_soyad" type="text" name="kurum_ust_yoneticisi_ad_soyad" value="{{ old('kurum_ust_yoneticisi_ad_soyad') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('kurum_ust_yoneticisi_ad_soyad') border-red-300 ring-red-100 @enderror" placeholder="Üst yöneticinin adı soyadı">
+                        @error('kurum_ust_yoneticisi_ad_soyad')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="kurum_ust_yoneticisi_unvan">Ünvan</label>
+                        <input id="kurum_ust_yoneticisi_unvan" type="text" name="kurum_ust_yoneticisi_unvan" value="{{ old('kurum_ust_yoneticisi_unvan') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('kurum_ust_yoneticisi_unvan') border-red-300 ring-red-100 @enderror" placeholder="Örn: İl Müdürü / Genel Müdür">
+                        @error('kurum_ust_yoneticisi_unvan')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-700" for="tesis_sorumlusu_adi">Tesis Sorumlusu</label>
-                <input id="tesis_sorumlusu_adi" type="text" name="tesis_sorumlusu_adi" value="{{ old('tesis_sorumlusu_adi') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('tesis_sorumlusu_adi') border-red-300 ring-red-100 @enderror" placeholder="Tesis sorumlusunun adı soyadı">
-                @error('tesis_sorumlusu_adi')
-                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-700" for="mudur_unvani">Müdür Unvanı</label>
-                <input id="mudur_unvani" type="text" name="mudur_unvani" value="{{ old('mudur_unvani') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('mudur_unvani') border-red-300 ring-red-100 @enderror" placeholder="Örn: İl Müdürü / Yöneticisi">
-                @error('mudur_unvani')
-                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                @enderror
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-700" for="mudur_adi">Müdür Adı Soyadı</label>
-                <input id="mudur_adi" type="text" name="mudur_adi" value="{{ old('mudur_adi') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('mudur_adi') border-red-300 ring-red-100 @enderror" placeholder="Müdürün adı soyadı">
-                @error('mudur_adi')
-                    <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
-                @enderror
+
+            {{-- EN ALT TAM SATIR: YAZIYI DÜZENLEYEN --}}
+            <div class="rounded-lg border border-slate-200 bg-white p-4 sm:col-span-2">
+                <h4 class="mb-3 border-b border-slate-200 pb-2 text-sm font-bold uppercase tracking-wide text-slate-800">Yazıyı Düzenleyen</h4>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="yaziyi_duzenleyen_ad_soyad">Ad Soyad</label>
+                        <input id="yaziyi_duzenleyen_ad_soyad" type="text" name="yaziyi_duzenleyen_ad_soyad" value="{{ old('yaziyi_duzenleyen_ad_soyad') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('yaziyi_duzenleyen_ad_soyad') border-red-300 ring-red-100 @enderror" placeholder="Yazıyı düzenleyen kişinin adı soyadı">
+                        @error('yaziyi_duzenleyen_ad_soyad')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700" for="yaziyi_duzenleyen_iletisim">İletişim</label>
+                        <input id="yaziyi_duzenleyen_iletisim" type="text" name="yaziyi_duzenleyen_iletisim" value="{{ old('yaziyi_duzenleyen_iletisim') }}" maxlength="255" class="mt-1 block w-full rounded-lg border-slate-300 shadow-sm @error('yaziyi_duzenleyen_iletisim') border-red-300 ring-red-100 @enderror" placeholder="Telefon / e-posta">
+                        @error('yaziyi_duzenleyen_iletisim')
+                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                        @enderror
+                    </div>
+                </div>
             </div>
         </fieldset>
 
@@ -695,12 +730,12 @@
                         SURFACE_TYPES.map(function (st) {
                             return '<option value="' + st.id + '" data-price="' + st.price_per_m2 + '"' + (parseInt(st.id) === parseInt(row.surface_type_id) ? ' selected' : '') + '>' + st.name + ' - ' + Number(st.price_per_m2).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' \u20BA</option>';
                         }).join('') +
-                    '</select></td>' +
+                    '</select>' + (row.address ? '<div class="mt-1 text-[10px] font-medium leading-tight text-slate-600">📍 ' + esc(row.address) + '</div>' : '') + '</td>' +
                     '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-width w-full rounded border-slate-300 text-xs shadow-sm" value="' + widthVal + '"' + widthLockedAttr + ' placeholder="0"></td>' +
                     '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-length w-full rounded border-slate-300 text-xs shadow-sm" value="' + (row.length_m || '') + '" placeholder="0"></td>' +
                     '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-quantity w-full rounded border-slate-300 text-xs shadow-sm font-semibold" value="' + (qty || '') + '" placeholder="0"></td>' +
                     '<td class="p-2 align-top pt-3 text-xs text-slate-600 font-mono"><span class="row-unit-price" data-row-id="' + row.rowId + '">' + Number(unitPrice).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span> ₺/m²</td>' +
-                    '<td class="p-2 align-top"><button type="button" data-row-id="' + row.rowId + '" class="row-draw-btn rounded border border-slate-300 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50 transition ' + (activeDrawRowId === row.rowId ? 'ring-2 ring-amber-400 bg-amber-50' : '') + '">' + (hasDrawing ? '🔄 Çiz' : '🎯 Çiz') + '</button></td>' +
+                    '<td class="p-2 align-top whitespace-nowrap"><button type="button" data-row-id="' + row.rowId + '" class="row-draw-btn rounded border border-slate-300 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50 transition ' + (activeDrawRowId === row.rowId ? 'ring-2 ring-amber-400 bg-amber-50' : '') + '">' + (hasDrawing ? '🔄 Çiz' : '🎯 Çiz') + '</button>' + (row.address ? '<button type="button" data-row-id="' + row.rowId + '" class="row-show-btn ml-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100 transition" title="Adresi haritada göster">📍</button>' : '') + '</td>' +
                     '<td class="p-2 align-top pt-3 text-right font-mono text-xs font-semibold text-slate-800"><span class="row-total" data-row-id="' + row.rowId + '">' + rowTotal.toFixed(2) + '</span> ₺</td>' +
                     '<td class="p-2 align-top pt-2 whitespace-nowrap"><button type="button" data-row-id="' + row.rowId + '" class="row-copy-btn rounded border border-cyan-200 bg-cyan-50 px-1.5 py-1 text-[10px] font-medium text-cyan-700 hover:bg-cyan-100 transition" title="Kopyala">📋</button> <button type="button" data-row-id="' + row.rowId + '" class="row-remove-btn rounded border border-red-200 bg-red-50 px-1.5 py-1 text-[10px] font-medium text-red-600 hover:bg-red-100 transition" title="Sil">🗑</button></td>';
 
@@ -808,6 +843,14 @@
                 });
             });
 
+            document.querySelectorAll('.row-show-btn').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    var rowId = parseInt(this.dataset.rowId);
+                    var row = surfaceLines.find(function (r) { return r.rowId === rowId; });
+                    if (row && row.address) showAddressOnMap(row.address);
+                });
+            });
+
             document.querySelectorAll('.row-copy-btn').forEach(function (el) {
                 el.addEventListener('click', function () {
                     var rowId = parseInt(this.dataset.rowId);
@@ -833,10 +876,56 @@
                 width_m: data.width_m || 0,
                 length_m: data.length_m || 0,
                 quantity: data.quantity || 0,
+                address: data.address || '',
             };
             surfaceLines.push(row);
             renderTable();
             return row;
+        }
+
+        // ─── ADRES ↔ SATIR BAĞLANTISI ─────────────────────────────────────
+        // Mahalle & Sokak listesindeki her cadde için otomatik zemin satırı üretir (aynı adres tekrar üretilmez)
+        function ensureSurfaceLineForAddress(mahalle, cadde) {
+            var mh = String(mahalle || '').trim();
+            var cd = String(cadde || '').trim();
+            if (!mh && !cd) return;
+            var adres = (mh ? mh + ', ' : '') + cd;
+            adres = adres.replace(/,\s*$/, '').trim();
+            if (!adres) return;
+            var varMi = surfaceLines.some(function (r) {
+                return String(r.address || '').trim().toUpperCase() === adres.toUpperCase();
+            });
+            if (!varMi) addSurfaceLine({ address: adres });
+        }
+
+        // Satırdaki 📍 ikonu — cadde listesindeki 📍 ile aynı mantık:
+        // önce cadde/sokak kısmını tek başına dene (cadde listesi gibi), olmazsa tam adresle dene
+        function showAddressOnMap(adres) {
+            if (!adres) return;
+            var parts = String(adres).split(',').map(function (p) { return p.trim(); }).filter(Boolean);
+            var sokak = parts.length > 1 ? parts[parts.length - 1] : String(adres).replace(/\s+/g, ' ').trim();
+            var tam = String(adres).replace(/\s+/g, ' ').trim();
+
+            function ara(q) {
+                return fetch(@json(route('maps.adres-ara')) + '?q=' + encodeURIComponent(q))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (d && d.success && d.lat) {
+                            if (typeof haritadaGoster === 'function') haritadaGoster(parseFloat(d.lat), parseFloat(d.lon), d.cadde || q);
+                            if (typeof window.aykomeDrawingGoster === 'function') window.aykomeDrawingGoster(parseFloat(d.lat), parseFloat(d.lon), d.cadde || q);
+                            return true;
+                        }
+                        return false;
+                    })
+                    .catch(function () { return false; });
+            }
+
+            ara(tam).then(function (ok) {
+                if (ok) return;
+                ara(sokak).then(function (ok2) {
+                    if (!ok2) alert('Adres haritada bulunamadı: ' + adres);
+                });
+            });
         }
 
         function removeSurfaceLine(rowId) {
@@ -912,6 +1001,7 @@
                 addHidden('width_m', (isInstitutionUser && rowHasLineDrawing(row.rowId)) ? 1 : (row.width_m || ''));
                 addHidden('length_m', row.length_m || '');
                 addHidden('quantity', row.quantity || '');
+                addHidden('address', row.address || '');
             });
 
             // Merge row drawings into polygon_geojson
@@ -1088,7 +1178,11 @@
             var syncArea = function (areaM2, lineLenM) {
                 var areaInput = document.getElementById('total_area_m2');
                 if (!areaInput) return;
-                var w = parseFloat((document.getElementById('poly_width') || {}).value);
+                // Genişlik önceliği: aktif satırın Genişlik (m) değeri → poly_width → 1m
+                var w = NaN;
+                var aktifRow = surfaceLines.find(function (r) { return r.rowId === activeDrawRowId; });
+                if (aktifRow) w = parseFloat(aktifRow.width_m);
+                if (!Number.isFinite(w) || w <= 0) w = parseFloat((document.getElementById('poly_width') || {}).value);
                 if (!Number.isFinite(w) || w <= 0) w = 1;
                 if (lineLenM > 0) {
                     lastLineLen = lineLenM;
@@ -1385,6 +1479,9 @@
                         if (plRowId != null) {
                             var plRow = surfaceLines.find(function (r) { return r.rowId === plRowId; });
                             if (plRow) totalArea += parseFloat(plRow.quantity) || 0;
+                        } else {
+                            // Satıra bağlanmamış düz çizgi: uzunluk × 1m (varsayılan kanal genişliği)
+                            totalArea += polyLen(pts2) * 1;
                         }
                         pts2.forEach(function (p) { bounds.extend(p); });
                         if (!centerCandidate) centerCandidate = pts2[Math.floor(pts2.length / 2)];
@@ -1428,6 +1525,21 @@
                 syncArea(area, lineLen);
 
                 var capturedRowId = activeDrawRowId;
+
+                // Aktif satır yoksa: adresi dolu ve çizimi olmayan ilk satıra otomatik bağla
+                // (kullanıcı adresleri tek tek çizse bile her çizim doğru satıra yazılır)
+                if (!capturedRowId) {
+                    var ilkAdresliCizimsiz = surfaceLines.find(function (r) {
+                        return r.address && !rowDrawings[r.rowId] && !r.surface_type_id;
+                    }) || surfaceLines.find(function (r) {
+                        return r.address && !rowDrawings[r.rowId];
+                    });
+                    if (ilkAdresliCizimsiz) {
+                        capturedRowId = ilkAdresliCizimsiz.rowId;
+                        activeDrawRowId = capturedRowId;
+                        updateActiveDrawIndicator();
+                    }
+                }
 
                 if (capturedRowId && (area > 0 || lineLen > 0)) {
                     var row = surfaceLines.find(function (r) { return r.rowId === capturedRowId; });
@@ -1499,8 +1611,6 @@
                         if (_lEl) _lEl.value = row.length_m ? row.length_m.toFixed(2) : '';
                         var _qEl = document.querySelector('.row-quantity[data-row-id="' + capturedRowId + '"]');
                         if (_qEl) _qEl.value = row.quantity ? row.quantity.toFixed(2) : '';
-                        var _alanEl = document.getElementById('total_area_m2');
-                        if (_alanEl) _alanEl.value = row.quantity ? row.quantity.toFixed(2) : '0';
                         if (_lEl && _lEl.dispatchEvent) _lEl.dispatchEvent(new Event('input'));
                         return;
                     }
@@ -2001,6 +2111,15 @@
 
                         container.appendChild(wrapper);
                     });
+
+                    // Her cadde/sokak için otomatik zemin satırı üret (dedupe'lu)
+                    components.forEach(function (comp) {
+                        var mh = String(comp.mahalle || '').trim();
+                        if (!mh) return;
+                        (Array.isArray(comp.streets) ? comp.streets : []).forEach(function (s) {
+                            if (s) ensureSurfaceLineForAddress(mh, s);
+                        });
+                    });
                     attachEvents();
                 }
 
@@ -2086,6 +2205,10 @@
                                                 input.dataset.lon = c.lon;
                                                 if (components[idx]) components[idx].streets[si] = c.name;
                                                 syncHidden();
+                                                // Zemin satırına da otomatik ekle — "render()" içindeki
+                                                // ensureSurfaceLineForAddress döngüsüyle aynı mantık
+                                                var mhInput = this.closest('[data-mahalle-idx]').querySelector('.comp-mahalle');
+                                                if (mhInput) ensureSurfaceLineForAddress(mhInput.value, c.name);
                                             }
                                             oneri.classList.add('hidden');
                                         });
@@ -2386,8 +2509,23 @@
             });
 
             // Submit hook
-            document.getElementById('application-form')?.addEventListener('submit', function () {
+            document.getElementById('application-form')?.addEventListener('submit', function (e) {
                 prepareSurfaceLinesForSubmit();
+
+                // ALT KURUM KURALI: adres girildiyse haritada çizim zorunludur
+                if (isInstitutionUser) {
+                    var acRaw = (document.getElementById('address_components') || {}).value || '';
+                    var acParsed = [];
+                    try { acParsed = JSON.parse(acRaw || '[]'); } catch (_e) {}
+                    var adresVarMi = (Array.isArray(acParsed) && acParsed.some(function (c) { return c && c.streets && c.streets.length; }))
+                        || ((document.getElementById('address_text') || {}).value || '').trim().length > 0;
+                    var geoVal = ((document.getElementById('polygon_geojson') || {}).value || '').trim();
+                    var cizimVarMi = Object.keys(rowDrawings).length > 0 || geoVal.length > 0;
+                    if (adresVarMi && !cizimVarMi) {
+                        e.preventDefault();
+                        alert('Adres girdiğiniz için haritada kazı alanı çizmeniz ZORUNLUDUR.\nZemin satırındaki 🎯 Çiz butonuna basıp çizim yapın (düz çizgi de kabul edilir).');
+                    }
+                }
             });
         });
     </script>
