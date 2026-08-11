@@ -330,7 +330,9 @@ class ProcessEngine
             'role_key' => $current->role_key,
             'module' => $current->approvable_modules[0] ?? 'pre_excavation',
             'approved_by' => $user->id,
-            'approved_by_name' => $user->name,
+            // Başkan Yrd. adımında formdan girilen ad önceliklidir (örn. "MEHMET ELĞÜN");
+            // formdan ad gelmediyse (staff/director adımları) onaylayan kullanıcının adı yazılır.
+            'approved_by_name' => ($name !== null && trim($name) !== '') ? trim($name) : $user->name,
             'approved_at' => $now->toDateTimeString(),
         ];
         $updates['approval_log'] = $log;

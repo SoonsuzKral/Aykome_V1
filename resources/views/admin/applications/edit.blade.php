@@ -628,6 +628,17 @@
     <script src="{{ asset('assets/vendor/leaflet/leaflet.draw.js') }}"></script>
     <script src="{{ asset('assets/vendor/leaflet/leaflet.geometryutil.js') }}"></script>
     <script>
+        // Virgüllü ondalık desteği ("0,6" m genişlik girişi): parseFloat virgülü
+        // noktaya çevirerek çalışır; böylece 0,6 / 0,5 gibi değerler reddedilmez.
+        (function () {
+            if (window.__aykomeParseFloatShim) return;
+            window.__aykomeParseFloatShim = true;
+            var orj = window.parseFloat;
+            window.parseFloat = function (v) {
+                var s = (v == null) ? '' : String(v);
+                return orj(s.replace(/,/g, '.'));
+            };
+        })();
         delete L.Icon.Default.prototype._getIconUrl;
         L.Icon.Default.imagePath = '{{ asset('assets/vendor/leaflet/images') }}';
         L.Icon.Default.mergeOptions({

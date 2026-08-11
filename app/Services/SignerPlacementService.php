@@ -81,6 +81,14 @@ class SignerPlacementService
             if (isset($tamamlanan[$roleKey])) {
                 // O adım kriptografik/onay ile tamamlandı -> onaylayanın adı.
                 $sigMap[$placeholder]['ad_soyad'] = $tamamlanan[$roleKey];
+
+                // BAŞKAN YARDIMCISI: formda kullanıcının girdiği ad (vice_mayor_name)
+                // en doğru kaynaktır. ProcessEngine onay anında approved_by_name'e
+                // onaylayan kullanıcının adını yazabiliyordu (Süper Admin testi);
+                // belgeye BASILACAK ad her zaman vice_mayor_name olmalıdır.
+                if ($roleKey === 'vice_mayor' && ! empty($application->vice_mayor_name)) {
+                    $sigMap[$placeholder]['ad_soyad'] = $application->vice_mayor_name;
+                }
             } else {
                 // Henüz tamamlanmadı -> ad BOŞ kalır ("Başkan Yardımcısı" dinamik beklentisi).
                 $sigMap[$placeholder]['ad_soyad'] = '';

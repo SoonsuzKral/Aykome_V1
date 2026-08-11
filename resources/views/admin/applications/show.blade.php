@@ -65,6 +65,18 @@
             'cancelled'              => ['label' => 'İptal Edildi',          'class' => 'bg-rose-100 text-rose-700'],
             default                  => ['label' => \App\Enums\ApplicationStatus::tryFrom($st)?->label() ?? ucfirst(str_replace('_', ' ', $st)), 'class' => 'bg-slate-100 text-slate-700'],
         };
+
+        // ÇİZİM VERİ KAYNAKLARI: "Çizim Alanı" ve "CBS Konum" haritaları hem
+        // excavationAreas (başvuru formundaki çizimler) hem de gis_cizimler
+        // (harita ekranından kaydedilen çizimler) verisini birlikte çizer.
+        $haritaAreas = collect($application->excavationAreas->pluck('polygon_geojson')->filter()->values())
+            ->merge(
+                $application->gisCizimleri
+                    ->map(fn ($c) => ['type' => 'FeatureCollection', 'features' => [$c->geometri]])
+                    ->filter(fn ($v) => is_array($v) && is_array($v['features'] ?? null) && ! empty($v['features'][0]))
+                    ->values()
+            )
+            ->values();
     @endphp
 
     {{-- Header --}}
@@ -382,6 +394,7 @@
                         <thead>
                             <tr class="border-b border-slate-300 text-left text-slate-600">
                                 <th class="py-2 pr-2 font-medium">#</th>
+                                <th class="p-2 font-medium min-w-[180px]">Adres</th>
                                 <th class="p-2 font-medium min-w-[180px]">Zemin Tipi</th>
                                 <th class="p-2 font-medium min-w-[100px]">Genişlik (m)</th>
                                 <th class="p-2 font-medium min-w-[100px]">Uzunluk (m)</th>
@@ -399,6 +412,7 @@
                             @endphp
                             <tr class="border-b border-slate-200 hover:bg-slate-100/50 transition">
                                 <td class="py-2 pr-2 text-slate-400 font-mono text-[10px] align-top pt-3">{{ $idx + 1 }}</td>
+                                <td class="p-2 align-top pt-2 text-slate-700 max-w-[200px] break-words">{{ $line->address ?: '—' }}</td>
                                 <td class="p-2 align-top pt-2 font-medium text-slate-800">{{ $line->surfaceType?->name ?? '—' }}</td>
                                 <td class="p-2 align-top pt-2 text-slate-700">{{ $line->width_m ? number_format((float)$line->width_m, 2, ',', '.') : '—' }}</td>
                                 <td class="p-2 align-top pt-2 text-slate-700">{{ $line->length_m ? number_format((float)$line->length_m, 2, ',', '.') : '—' }}</td>
@@ -466,7 +480,7 @@
                     'height' => '350px',
                     'readOnly' => true,
                     'application' => $application,
-                    'areas' => $application->excavationAreas->pluck('polygon_geojson')->filter()->values(),
+                    'areas' => $haritaAreas,
                 ])
             </div>
 
@@ -2057,7 +2071,7 @@
     var nDrawn = new L.FeatureGroup();
     nMap.addLayer(nDrawn);
 
-    var areas = @json($application->excavationAreas->pluck('polygon_geojson')->filter()->values());
+    var areas = @json($haritaAreas);
     if (areas && areas.length) {
         areas.forEach(function (raw) {
             try {
@@ -2379,6 +2393,51 @@ function toggleStep(id) {
 
     if (addBtn) { addBtn.addEventListener('click', addRow); }
     attachRemoveEvents();
+})();
+
+// ── Zemin Satırları Düzenle Modalı: otomatik m² hesabı + virgüllü ondalık ──
+// Kullanıcı Genişlik/Uzunluk yazınca Miktar (m²) otomatik hesaplanır
+// (başvuru oluştur formundaki mantıkla aynı). Tek "metre" girilirse genişlik 1 kabul edilir.
+// "0,6" gibi virgüllü girişler de kabul edilir (0,6 m çizgi genişliği).
+(function () {
+    var tbody = document.getElementById('surface-edit-tbody');
+    if (!tbody) return;
+
+    function aykomeParseDec(str) {
+        var s = String(str == null ? '' : str).replace(/,/g, '.').replace(/\.{2,}/g, '.');
+        var n = parseFloat(s);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    function reCalc(row) {
+        if (!row) return;
+        var w = row.querySelector('input[name$="[width_m]"]');
+        var l = row.querySelector('input[name$="[length_m]"]');
+        var q = row.querySelector('input[name$="[quantity]"]');
+        if (!w || !l || !q) return;
+        var wv = aykomeParseDec(w.value);
+        var lv = aykomeParseDec(l.value);
+        if ((wv == null || wv <= 0) && lv != null && lv > 0) wv = 1;
+        if (wv != null && lv != null && wv > 0 && lv > 0) {
+            q.value = (wv * lv).toFixed(2);
+        }
+    }
+
+    tbody.addEventListener('input', function (ev) {
+        var nm = ev.target && ev.target.name ? ev.target.name : '';
+        if (nm.indexOf('[width_m]') > -1 || nm.indexOf('[length_m]') > -1) {
+            reCalc(ev.target.closest('tr'));
+        }
+    });
+
+    var addBtn = document.getElementById('add-surface-row-btn');
+    if (addBtn) {
+        addBtn.addEventListener('click', function () {
+            setTimeout(function () {
+                tbody.querySelectorAll('tr').forEach(reCalc);
+            }, 0);
+        });
+    }
 })();
 
 // ── E-İmza Server kontrolu (sayfa acilirken) ────────────────────

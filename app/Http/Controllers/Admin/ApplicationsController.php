@@ -344,6 +344,7 @@ class ApplicationsController extends Controller
             'creator',
             'excavationAreas',
             'surfaceLines.surfaceType',
+            'gisCizimleri.yolIliskileri',
             'preExcavationApprover',
             'assignee',
             'timelineLogs.user',

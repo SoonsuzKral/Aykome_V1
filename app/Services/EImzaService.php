@@ -247,6 +247,35 @@ class EImzaService
     }
 
     /**
+     * Belediye kurum logosunu base64 data URI olarak döndürür. Ön Kazı İzin
+     * belgesi belediye adına düzenlendiği için başvurunun kurumunun logosu
+     * değil, belediyenin kendi logosu basılır (is_municipality=true kurum).
+     */
+    private static function belediyeLogoBase64(): ?string
+    {
+        $belediye = \App\Models\Institution::query()
+            ->where('is_municipality', true)
+            ->whereNotNull('logo_path')
+            ->orderBy('id')
+            ->first();
+
+        if (! $belediye || ! $belediye->logo_path) {
+            return null;
+        }
+        try {
+            $fileContent = \Illuminate\Support\Facades\Storage::disk('public')->get($belediye->logo_path);
+            if (! $fileContent) {
+                return null;
+            }
+            $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($belediye->logo_path);
+
+            return 'data:' . $mime . ';base64,' . base64_encode($fileContent);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
      * Belge PDF'ini üretir. GÖREV 1: Görsel imza damgası kaldırıldığı için belge
      * şablondan nasıl render edildiyse birebir korunur (görsel müdahale YOK).
      *
@@ -285,8 +314,20 @@ class EImzaService
                 // SORUN B: Şablon yolunda cover_letter logosu hiç basılmıyordu —
                 // önizleme (downloadCoverLetter) ile birebir olması için aynı
                 // desenle enjekte edilir (logo data URI → dompdf'te yüklenir).
-                if ($pdfType === 'cover_letter' && str_contains($html, '<div class="a4-container">')) {
-                    $logoBase64 = self::institutionLogoBase64($application);
+                // pre_permit BELEDİYE belgesidir → belediye logo önceliği uygulanır.
+                if (in_array($pdfType, ['cover_letter', 'pre_permit'], true) && str_contains($html, '<div class="a4-container">')) {
+                    $logoBase64 = null;
+                    if ($pdfType === 'pre_permit') {
+                        $logoBase64 = \App\Models\PreExcavationPermitSetting::toBase64DataUri(
+                            \App\Models\PreExcavationPermitSetting::first()?->logo_path
+                        );
+                    }
+                    if (! $logoBase64) {
+                        $logoBase64 = self::belediyeLogoBase64();
+                    }
+                    if (! $logoBase64) {
+                        $logoBase64 = self::institutionLogoBase64($application);
+                    }
                     if ($logoBase64) {
                         $logoBlock = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">'
                             . '<img src="' . $logoBase64 . '" alt="Kurum Logosu" style="max-height:85px;width:auto;">'
@@ -333,15 +374,20 @@ class EImzaService
 
         // Logo: cover_letter + pre_permit — remote URL dompdf'te YÜKLENMEZ
         // (config/dompdf.php enable_remote=false) → logo base64 data URI olarak
-        // verilir. pre_permit belediye belgesidir → ÖNCE belediye logosu
-        // (PreExcavationPermitSetting.logo_path), yoksa kurum logosu. Kurum
-        // logosu da yoksa null döner, blade fallback metni basar.
+        // verilir. Ön Kazı İzin belgesi BELEDİYE adına düzenlenir → logo önceliği:
+        // 1) PreExcavationPermitSetting.logo_path (belediyenin ön kazı özel logosu)
+        // 2) Belediye kurum logosu (is_municipality=true olan kurum — başvurunun
+        //    kurumu DEĞİL; ör. Dicle başvurusunda Merkez Belediye logosu basılır)
+        // 3) Başvuru kurumunun logosu (fallback).
         if (in_array($pdfType, ['cover_letter', 'pre_permit'], true)) {
             $logoBase64 = null;
             if ($pdfType === 'pre_permit') {
                 $logoBase64 = \App\Models\PreExcavationPermitSetting::toBase64DataUri(
                     \App\Models\PreExcavationPermitSetting::first()?->logo_path
                 );
+            }
+            if (! $logoBase64) {
+                $logoBase64 = self::belediyeLogoBase64();
             }
             if (! $logoBase64) {
                 $logoBase64 = self::institutionLogoBase64($application);
