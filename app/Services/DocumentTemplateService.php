@@ -1667,10 +1667,12 @@ CSS;
         // portrait 198mm / landscape 285mm). ÇÖZÜM_02 ince ayar: portrait 174+24=198mm
         // ile iç alanı BİREBİR doldurur → merkezleme payı sıfırlanır, sol/sağ metin
         // marjı simetrik 18mm olur (eski 170+24=194mm'de 2mm merkezleme payı + %98.5
-        // tablolar sağda 23.8mm'ye kadar asimetri üretiyordu). Landscape 245mm
-        // KASITLI SABİT bırakıldı (metraj onaylı görünüm; 257/261mm'ye çekilmez).
+        // tablolar sağda 23.8mm'ye kadar asimetri üretiyordu).
+        // ÇÖZÜM_06: landscape 245mm (eski "KASITLI SABİT") aynı formülle güncellendi:
+        // (297-2×6)-24 = 261mm → metraj da portrait gibi simetrik ~18mm marjla
+        // sayfayı doldurur. Taşma olursa kademeli 257mm'ye düşülür.
         $fixed = 'width: 174mm; max-width: none; box-sizing: border-box; margin: 0 auto; min-height: 0; overflow: visible;';
-        $fixedLandscape = 'width: 245mm; max-width: none; box-sizing: border-box; margin: 0 auto; min-height: 0; overflow: visible;';
+        $fixedLandscape = 'width: 261mm; max-width: none; box-sizing: border-box; margin: 0 auto; min-height: 0; overflow: visible;';
 
         foreach ($doc->getElementsByTagName('div') as $div) {
             $class = (string) $div->getAttribute('class');

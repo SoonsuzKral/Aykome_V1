@@ -148,6 +148,8 @@
             </tr>
         </table>
 
+    <p style="text-align:center;font-size:8px;color:#888;margin:6px 0 0;">BELGE DOĞRULAMA KODU: <b style="color:#d97706;">{{ $application->verification_code ?? 'GEÇERSİZ/TASLAK' }}</b> | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b></p>
+
     </div>
 
     <!-- Vanilla JS Mini Format Toolbar -->

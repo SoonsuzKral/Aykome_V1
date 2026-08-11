@@ -184,7 +184,22 @@ class EImzaService
                 }
             }
             if ($container) {
-                $container->appendChild($fragment);
+                // ÇÖZÜM_06: istenen sıra (tüm tiplerde) — kırmızı 5070 metni ÜSTTE,
+                // BELGE DOĞRULAMA KODU satırı hemen ALTINDA. Container içinde
+                // doğrulama satırı varsa (tahakkuk/metraj) 5070 onun ÜSTÜNE
+                // yerleştirilir; yoksa (makbuz/taahhutname) container sonuna
+                // eklenir (eski davranış korunur).
+                $dogrulamaElemani = null;
+                foreach ($container->getElementsByTagName('*') as $el) {
+                    if (mb_stripos($el->textContent, 'belge doğrulama kodu') !== false) {
+                        $dogrulamaElemani = $el;
+                    }
+                }
+                if ($dogrulamaElemani) {
+                    $dogrulamaElemani->parentNode->insertBefore($fragment, $dogrulamaElemani);
+                } else {
+                    $container->appendChild($fragment);
+                }
             } else {
                 // Container'sız belge (örn. tahsilat makbuzu): .footer-note
                 // SONRASINA ekle → yasal metin en altta, nota göre bile altta kalır.
@@ -410,7 +425,7 @@ class EImzaService
             // Punto/satır aralığı ve üst blok boşlukları da tek sayfa için daraltılır.
             return str_ireplace(
                 '</head>',
-                '<style>.a4-container { width: 168mm !important; }'
+                '<style>.a4-container { width: 174mm !important; }'
                 . '.a4-container .a4-footer { position: static !important; margin-top: 14mm !important; }'
                 . '.a4-container p { font-size: 10px !important; line-height: 1.3 !important; }'
                 . '.a4-container .sayi-konu-tablo { margin-top: 25px !important; margin-bottom: 25px !important; }'
