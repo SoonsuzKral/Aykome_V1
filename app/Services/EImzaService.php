@@ -250,8 +250,9 @@ class EImzaService
      * Belediye kurum logosunu base64 data URI olarak döndürür. Ön Kazı İzin
      * belgesi belediye adına düzenlendiği için başvurunun kurumunun logosu
      * değil, belediyenin kendi logosu basılır (is_municipality=true kurum).
+     * public: ApplicationsController::downloadPrePermit de aynı zinciri kullanır.
      */
-    private static function belediyeLogoBase64(): ?string
+    public static function belediyeLogoBase64(): ?string
     {
         $belediye = \App\Models\Institution::query()
             ->where('is_municipality', true)
@@ -325,7 +326,10 @@ class EImzaService
                     if (! $logoBase64) {
                         $logoBase64 = self::belediyeLogoBase64();
                     }
-                    if (! $logoBase64) {
+                    // ÖN KAZI HER ZAMAN MERKEZ BELEDİYE adına çıkar → başvuran
+                    // kurumun logosuna (institution) ASLA düşülmez; belediye logosu
+                    // da yoksa blade "Eyyübiye Belediyesi" yazı fallback'i kullanır.
+                    if (! $logoBase64 && $pdfType !== 'pre_permit') {
                         $logoBase64 = self::institutionLogoBase64($application);
                     }
                     if ($logoBase64) {
@@ -389,7 +393,10 @@ class EImzaService
             if (! $logoBase64) {
                 $logoBase64 = self::belediyeLogoBase64();
             }
-            if (! $logoBase64) {
+            // ÖN KAZI HER ZAMAN MERKEZ BELEDİYE adına çıkar → başvuran kurumun
+            // logosuna (institution) ASLA düşülmez; belediye logosu da yoksa
+            // blade "Eyyübiye Belediyesi" yazı fallback'i kullanır.
+            if (! $logoBase64 && $pdfType !== 'pre_permit') {
                 $logoBase64 = self::institutionLogoBase64($application);
             }
             $data['logo_base64'] = $logoBase64;

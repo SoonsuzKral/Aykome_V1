@@ -316,7 +316,8 @@
                                     @if(!empty($ac['streets']) && is_array($ac['streets']))
                                     <div class="mt-1 flex flex-wrap gap-1">
                                         @foreach($ac['streets'] as $street)
-                                        <span class="inline-flex items-center rounded-md bg-white px-2 py-0.5 text-[11px] text-slate-600 ring-1 ring-slate-200">{{ $street }}</span>
+                                        <button type="button" class="address-chip inline-flex items-center rounded-md bg-white px-2 py-0.5 text-[11px] text-slate-600 ring-1 ring-slate-200 transition hover:bg-cyan-50 hover:text-cyan-700 hover:ring-cyan-300"
+                                                data-adres="{{ trim(($ac['mahalle'] ?? '') . ', ' . $street) }}" title="Adresi haritada göster">📍 {{ $street }}</button>
                                         @endforeach
                                     </div>
                                     @endif
@@ -1157,6 +1158,13 @@
                                             ✏️ Taslağı Aç ve Başvuruya Özel Düzenle (World)
                                         </a>
                                         @endif
+                                        @if($passedOnKazi && $kullaniciBelediyeMi && $canEditTemplate)
+                                        <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" target="_blank"
+                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            ✏️ Ön Kazı İzni — Taslağı Aç ve Başvuruya Özel Düzenle (Word)
+                                        </a>
+                                        @endif
                                     @endif
 
                                     {{-- draft/submitted: gönder ile onay rotası (yalnızca bu statülerde) --}}
@@ -1813,6 +1821,19 @@
 
         <form method="POST" action="{{ route('admin.applications.update-surface-lines', $application) }}">
             @csrf
+            @if(!empty($application->address_components) && is_array($application->address_components))
+            <div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-2">
+                <p class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Adres Kısayolları — tıklayınca ilk satıra yazılır</p>
+                <div class="flex flex-wrap gap-1">
+                    @foreach($application->address_components as $ac)
+                        @foreach($ac['streets'] ?? [] as $street)
+                        <button type="button" class="chip-adres rounded-md bg-white px-2 py-0.5 text-[11px] text-slate-600 ring-1 ring-slate-200 transition hover:bg-cyan-50 hover:text-cyan-700 hover:ring-cyan-300"
+                                data-adres="{{ trim(($ac['mahalle'] ?? '') . ', ' . $street) }}">{{ $street }}</button>
+                        @endforeach
+                    @endforeach
+                </div>
+            </div>
+            @endif
             <div class="overflow-x-auto">
                 <table class="w-full text-xs" id="surface-edit-table">
                     <thead>
@@ -1838,7 +1859,12 @@
                                     @endforeach
                                 </select>
                             </td>
-                            <td class="p-2 align-top"><input type="text" name="surface_lines[{{ $idx }}][address]" value="{{ $line->address ?? '' }}" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak..."></td>
+                            <td class="p-2 align-top">
+                                <div class="flex items-center gap-1">
+                                    <input type="text" name="surface_lines[{{ $idx }}][address]" value="{{ $line->address ?? '' }}" class="min-w-0 flex-1 rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak...">
+                                    <button type="button" class="row-address-show shrink-0 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] text-emerald-700 hover:bg-emerald-100" title="Bu adresi haritada göster">📍</button>
+                                </div>
+                            </td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[{{ $idx }}][width_m]" value="{{ $line->width_m ? number_format((float)$line->width_m, 2, '.', '') : '' }}" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[{{ $idx }}][length_m]" value="{{ $line->length_m ? number_format((float)$line->length_m, 2, '.', '') : '' }}" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[{{ $idx }}][quantity]" value="{{ $line->quantity ? number_format((float)$line->quantity, 2, '.', '') : '' }}" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>
@@ -1857,7 +1883,12 @@
                                     @endforeach
                                 </select>
                             </td>
-                            <td class="p-2 align-top"><input type="text" name="surface_lines[0][address]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak..."></td>
+                            <td class="p-2 align-top">
+                                <div class="flex items-center gap-1">
+                                    <input type="text" name="surface_lines[0][address]" class="min-w-0 flex-1 rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak...">
+                                    <button type="button" class="row-address-show shrink-0 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] text-emerald-700 hover:bg-emerald-100" title="Bu adresi haritada göster">📍</button>
+                                </div>
+                            </td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[0][width_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[0][length_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[0][quantity]" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>
@@ -2090,6 +2121,10 @@
         setTimeout(function () { nMap.fitBounds(nDrawn.getBounds().pad(0.15), { maxZoom: 18 }); }, 400);
     }
     setTimeout(function () { nMap.invalidateSize(); }, 400);
+
+    // Detaydaki adres chips'leri + zemin satırı 📍 bu haritayı ve çizimleri kullanır
+    window._aykomeAnaHarita = nMap;
+    window._aykomeCizimler = nDrawn;
 })();
 </script>
 <script>
@@ -2362,7 +2397,7 @@ function toggleStep(id) {
                     buildOptionHtml(0) +
                 '</select>' +
             '</td>' +
-            '<td class="p-2 align-top"><input type="text" name="surface_lines[' + idx + '][address]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak..."></td>' +
+            '<td class="p-2 align-top"><div class="flex items-center gap-1"><input type="text" name="surface_lines[' + idx + '][address]" class="min-w-0 flex-1 rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak..."><button type="button" class="row-address-show shrink-0 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] text-emerald-700 hover:bg-emerald-100" title="Bu adresi haritada göster">📍</button></div></td>' +
             '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][width_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>' +
             '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][length_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>' +
             '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][quantity]" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>' +
@@ -2395,9 +2430,10 @@ function toggleStep(id) {
     attachRemoveEvents();
 })();
 
-// ── Zemin Satırları Düzenle Modalı: otomatik m² hesabı + virgüllü ondalık ──
-// Kullanıcı Genişlik/Uzunluk yazınca Miktar (m²) otomatik hesaplanır
-// (başvuru oluştur formundaki mantıkla aynı). Tek "metre" girilirse genişlik 1 kabul edilir.
+// ── Zemin Satırları Düzenle Modalı: ÇİFT YÖNLÜ otomatik hesap + virgüllü ondalık ──
+// BAŞVURU OLUŞTUR ile birebir aynı mantık:
+//   - Miktar (m²) yazılınca  : Genişlik = Uzunluk = √m² (create 1562-1564 karesel mantık)
+//   - Genişlik/Uzunluk yazınca: Miktar = Genişlik × Uzunluk
 // "0,6" gibi virgüllü girişler de kabul edilir (0,6 m çizgi genişliği).
 (function () {
     var tbody = document.getElementById('surface-edit-tbody');
@@ -2409,7 +2445,8 @@ function toggleStep(id) {
         return Number.isFinite(n) ? n : null;
     }
 
-    function reCalc(row) {
+    // Genişlik × Uzunluk → Miktar
+    function netWl(row) {
         if (!row) return;
         var w = row.querySelector('input[name$="[width_m]"]');
         var l = row.querySelector('input[name$="[length_m]"]');
@@ -2423,10 +2460,27 @@ function toggleStep(id) {
         }
     }
 
+    // Miktar (m²) → Genişlik = Uzunluk = √m² (başvuru oluştur ile aynı)
+    function netQ(row) {
+        if (!row) return;
+        var w = row.querySelector('input[name$="[width_m]"]');
+        var l = row.querySelector('input[name$="[length_m]"]');
+        var q = row.querySelector('input[name$="[quantity]"]');
+        if (!w || !l || !q) return;
+        var qv = aykomeParseDec(q.value);
+        if (qv != null && qv > 0) {
+            var kk = Math.sqrt(qv).toFixed(2);
+            w.value = kk;
+            l.value = kk;
+        }
+    }
+
     tbody.addEventListener('input', function (ev) {
         var nm = ev.target && ev.target.name ? ev.target.name : '';
-        if (nm.indexOf('[width_m]') > -1 || nm.indexOf('[length_m]') > -1) {
-            reCalc(ev.target.closest('tr'));
+        if (nm.indexOf('[quantity]') > -1) {
+            netQ(ev.target.closest('tr'));
+        } else if (nm.indexOf('[width_m]') > -1 || nm.indexOf('[length_m]') > -1) {
+            netWl(ev.target.closest('tr'));
         }
     });
 
@@ -2434,10 +2488,66 @@ function toggleStep(id) {
     if (addBtn) {
         addBtn.addEventListener('click', function () {
             setTimeout(function () {
-                tbody.querySelectorAll('tr').forEach(reCalc);
+                tbody.querySelectorAll('tr').forEach(netWl);
             }, 0);
         });
     }
+})();
+
+// ── Adres → Haritada Göster (modal 📍 + detay adres chips'leri ortak yardımcı) ──
+// Başvuru oluştur sayfasındaki /maps/adres-ara aynı uç noktasını kullanır;
+// bulunamazsa başvurunun çizimine (fitBounds) düşer.
+(function () {
+    var arZ = @json(route('maps.adres-ara'));
+
+    window.aykomeAdresiHaritadaGoster = function (adres) {
+        if (!adres || !String(adres).trim()) return;
+        var q = String(adres).replace(/\s+/g, ' ').trim();
+
+        fetch(arZ + '?q=' + encodeURIComponent(q))
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                var m = window._aykomeAnaHarita;
+                if (d && d.success && d.lat && m) {
+                    if (window._aykomeAdresMarker) window._aykomeAdresMarker.remove();
+                    window._aykomeAdresMarker = L.marker([parseFloat(d.lat), parseFloat(d.lon)]).addTo(m);
+                    m.flyTo([parseFloat(d.lat), parseFloat(d.lon)], 18, { animate: true, duration: 1 });
+                    return;
+                }
+                if (m && window._aykomeCizimler && window._aykomeCizimler.getLayers().length) {
+                    m.fitBounds(window._aykomeCizimler.getBounds().pad(0.15), { maxZoom: 18 });
+                    return;
+                }
+                alert('Adres haritada bulunamadı: ' + adres);
+            })
+            .catch(function () { alert('Adres arama hatası: ' + adres); });
+    };
+
+    document.querySelectorAll('.chip-adres').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var adres = btn.getAttribute('data-adres') || '';
+            var tbody = document.getElementById('surface-edit-tbody');
+            var input = tbody && tbody.querySelector('input[name$="[address]"]');
+            if (!input) return;
+            input.value = adres;
+            input.focus();
+        });
+    });
+
+    // Detay sayfası "Mahalle & Sokaklar" — adres çipine tıklayınca haritada göster
+    document.querySelectorAll('.address-chip').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            window.aykomeAdresiHaritadaGoster(btn.getAttribute('data-adres') || '');
+        });
+    });
+
+    document.body.addEventListener('click', function (ev) {
+        var b = ev.target.closest('.row-address-show');
+        if (!b) return;
+        var row = b.closest('tr');
+        var input = row && row.querySelector('input[name$="[address]"]');
+        if (input) window.aykomeAdresiHaritadaGoster(input.value);
+    });
 })();
 
 // ── E-İmza Server kontrolu (sayfa acilirken) ────────────────────

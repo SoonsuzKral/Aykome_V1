@@ -1132,9 +1132,11 @@ class ApplicationsController extends Controller
             'eposta' => $application->institution?->email ?? $settings->email ?? '-',
             'web' => $settings->website ?? '-',
             'kep_adresi' => $application->institution?->email ?? 'eyyubiye@hs03.kep.tr',
-            // Belediye logosu (PreExcavationPermitSetting) → yoksa kurum logosu.
+            // ÖN KAZI HER ZAMAN MERKEZ BELEDİYE adına çıkar (kurum logosu YASAK):
+            // 1) PreExcavationPermitSetting özel logosu → 2) Merkez Belediye kurum logosu.
+            // Çift-basım kurum logosu (başvuru yapan kurumun) asla basılmaz.
             'logo_base64' => \App\Models\PreExcavationPermitSetting::toBase64DataUri($settings->logo_path)
-                ?: $this->institutionLogoBase64($application),
+                ?: \App\Services\EImzaService::belediyeLogoBase64(),
         ];
 
         $html = \Illuminate\Support\Facades\View::make('admin.pdf.pre_permit', $data)->render();
