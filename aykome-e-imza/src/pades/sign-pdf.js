@@ -24,7 +24,6 @@ const derSeq = (...parts) => der(0x30, Buffer.concat(parts));
 const derSet = (...parts) => der(0x31, Buffer.concat(parts));
 const derInt = (b) => der(0x02, b);
 const derOct = (b) => der(0x04, b);
-const derBitStr = (b) => der(0x03, Buffer.concat([Buffer.from([0x00]), b]));
 const derNull = () => Buffer.from([0x05, 0x00]);
 
 function derOid(oid) {
@@ -118,10 +117,12 @@ function buildCms(contentBytes, certDer, signCallback, keyType) {
   const attrsContent = Buffer.concat(attrs);
   const signedAttrs = der(0xA0, attrsContent);
 
-  // ÇÖZÜM_04: RFC 5652 §5.4 — imza, signedAttrs ALANININ TAM DER kodlamasi
-  // (A0 [0] IMPLICIT tag dahil) üzerine atilir. Eskiden SET OF (0x31) üzerine
-  // hash'leniyordu → openssl/Adobe/EU DSS imzayi reddediyordu.
-  const attrsDigest = digestBytes(der(0xA0, attrsContent), algo);
+  // ÇÖZÜM_04: RFC 5652 §5.4 — imza hash'i, signedAttrs'in SET OF (0x31) DER
+  // kodlamasi üzerinden alinir; [0] IMPLICIT A0 etiketi hash girdisine DAHIL
+  // EDILMEZ. RFC bunu açikça söyler; openssl cms_asn1.c CMS_Attributes_Sign/
+  // CMS_Attributes_Verify sablonlari da 0x31 kullanir. Yapida (satir 119) alan
+  // A0 olarak serilestirilir ama imza 0x31 kodlamasi üzerine atilir.
+  const attrsDigest = digestBytes(der(0x31, attrsContent), algo);
   // AKIS middleware RSA anahtarlarda yalnizca CKM_RSA_PKCS acar: token'a ham digest yerine
   // SHA-256 DigestInfo ASN.1 verilir (token PKCS#1 v1.5 padding'i kendi uygular).
   const toSign = isRsa ? rsaDigestInfo(attrsDigest, digestOid) : attrsDigest;
@@ -133,10 +134,10 @@ function buildCms(contentBytes, certDer, signCallback, keyType) {
     derSeq(derOid(digestOid), derNull()),
     signedAttrs,
     derSeq(derOid(sigOid)),
-    // ÇÖZÜM_04: CMS signerInfo signature alanı DER'de BIT STRING (0x03) olmalı;
-    // eskiden OCTET STRING (0x04) yazılıyordu → openssl/Adobe/EU DSS şema
-    // çözümleyicileri alanı reddediyordu → "İmza Algoritması: Geçersiz".
-    derBitStr(signatureDer),
+    // ÇÖZÜM_04: RFC 5652 §5.3 — SignatureValue ::= OCTET STRING (0x04).
+    // OpenSSL sablonu (cms_asn1.c: signature ASN1_OCTET_STRING) ve
+    // BouncyCastle de OCTET STRING bekler; BIT STRING parse hatasi veriyordu.
+    derOct(signatureDer),
   );
 
   const signedData = derSeq(

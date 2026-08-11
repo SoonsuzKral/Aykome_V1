@@ -136,10 +136,10 @@ function analyzeCms(cms) {
   let signedAttrsBytes = null, sigAlg = null, signature = null, signedAttrsA0 = null;
   for (const k of siKids.slice(3)) {
     if (k.tag === 0xA0 && !signedAttrsBytes) {
-      // [0] IMPLICIT SET OF — RFC 5652 §5.4: imza bu ALANIN TAM DER kodlamasi
-      // (A0 tag dahil) uzerine atilir
+      // [0] IMPLICIT SET OF — RFC 5652 §5.4: imza, SET OF (0x31) DER kodlamasi
+      // üzerine atilir (A0 etiketi hash girdisine DAHIL EDILMEZ)
       const lenBytes = k.len < 128 ? Buffer.from([k.len]) : (k.len < 256 ? Buffer.from([0x81, k.len]) : Buffer.from([0x82, (k.len >> 8) & 0xff, k.len & 0xff]));
-      signedAttrsBytes = Buffer.concat([Buffer.from([0xA0]), lenBytes, Buffer.from(cms.subarray(k.start + k.hdr, k.end))]);
+      signedAttrsBytes = Buffer.concat([Buffer.from([0x31]), lenBytes, Buffer.from(cms.subarray(k.start + k.hdr, k.end))]);
       signedAttrsA0 = Buffer.from(cms.subarray(k.start, k.end));
     } else if (k.tag === 0x30 && !sigAlg) {
       sigAlg = algIdInfo(cms, k);
