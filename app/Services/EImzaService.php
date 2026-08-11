@@ -210,6 +210,28 @@ class EImzaService
     }
 
     /**
+     * Kurum logosunu base64 data URI olarak döndürür (dompdf enable_remote=false
+     * olduğu için uzak URL yüklenmez; data URI her zaman basılır). Logo yoksa null.
+     */
+    private static function institutionLogoBase64(Application $application): ?string
+    {
+        if (! $application->institution || ! $application->institution->logo_path) {
+            return null;
+        }
+        try {
+            $fileContent = \Illuminate\Support\Facades\Storage::disk('public')->get($application->institution->logo_path);
+            if (! $fileContent) {
+                return null;
+            }
+            $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($application->institution->logo_path);
+
+            return 'data:' . $mime . ';base64,' . base64_encode($fileContent);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    /**
      * Belge PDF'ini üretir. GÖREV 1: Görsel imza damgası kaldırıldığı için belge
      * şablondan nasıl render edildiyse birebir korunur (görsel müdahale YOK).
      *
@@ -245,6 +267,19 @@ class EImzaService
             // GÖREV 2: PDF render'da print-bar/butonlar üretilmez ($withUi=false).
             $html = DocumentTemplateService::renderFor($mapped, $application, false, false);
             if ($html !== null) {
+                // SORUN B: Şablon yolunda cover_letter logosu hiç basılmıyordu —
+                // önizleme (downloadCoverLetter) ile birebir olması için aynı
+                // desenle enjekte edilir (logo data URI → dompdf'te yüklenir).
+                if ($pdfType === 'cover_letter' && str_contains($html, '<div class="a4-container">')) {
+                    $logoBase64 = self::institutionLogoBase64($application);
+                    if ($logoBase64) {
+                        $logoBlock = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">'
+                            . '<img src="' . $logoBase64 . '" alt="Kurum Logosu" style="max-height:85px;width:auto;">'
+                            . '</div>';
+                        $html = str_replace('<div class="a4-container">', '<div class="a4-container">' . $logoBlock, $html);
+                    }
+                }
+
                 $paper = ! empty(DocumentTemplateService::TYPES[$mapped]['landscape']) ? 'landscape' : 'portrait';
 
                 // GÖREV 1+2: UI kalıntıları temizlenir + font DejaVu'ya sabitlenir.
@@ -293,16 +328,8 @@ class EImzaService
                     \App\Models\PreExcavationPermitSetting::first()?->logo_path
                 );
             }
-            if (! $logoBase64 && $application->institution && $application->institution->logo_path) {
-                try {
-                    $fileContent = \Illuminate\Support\Facades\Storage::disk('public')->get($application->institution->logo_path);
-                    if ($fileContent) {
-                        $mime = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($application->institution->logo_path);
-                        $logoBase64 = 'data:' . $mime . ';base64,' . base64_encode($fileContent);
-                    }
-                } catch (\Exception $e) {
-                    $logoBase64 = null;
-                }
+            if (! $logoBase64) {
+                $logoBase64 = self::institutionLogoBase64($application);
             }
             $data['logo_base64'] = $logoBase64;
         }
@@ -366,6 +393,11 @@ class EImzaService
      *
      * taahhutname: 20 maddelik liste uzun — tek sayfa için satır aralığı ve
      * punto squeeze edilir (içerik hâlâ okunaklı).
+     *
+     * tahakkuk: ÇÖZÜM_02 — sayfa sonu ~72mm boş kalıyordu (zemin tipleri
+     * tablosu kısa). Yalnızca bu tipe özel dolgu: punto 10.5→11px ve
+     * hücre padding 1×3→2×4px → tablo ~18mm yükselir, alt boşluk azalır.
+     * ruhsat gibi dikey payı dar olan tipler ETKİLENMEZ (dal tip bazlı).
      */
     protected static function pdfTipineGoreEkCss(string $html, string $pdfType): string
     {
@@ -396,6 +428,19 @@ class EImzaService
                 . '.a4-container .beyan, .a4-container .not { line-height: 1.3 !important; }'
                 . '.a4-container .imza-alani { margin-top: 12pt !important; }'
                 . '.a4-container .imza-cizgi { margin-top: 16pt !important; }</style></head>',
+                $html
+            );
+        }
+
+        if ($pdfType === 'tahakkuk') {
+            // ÇÖZÜM_02: Sadece tahakkuk'ta sayfa altı dolgusu — punto ve hücre
+            // padding'i artırılır (pdfCssEnjekte'den SONRA geldiği için !important
+            // kurallarını ezer; yalnızca bu tipin HTML'ine girer).
+            return str_ireplace(
+                '</head>',
+                '<style>.a4-container { font-size: 11px !important; }'
+                . '.a4-container td, .a4-container th { padding: 2px 4px !important; font-size: 11px !important; line-height: 1.3 !important; }'
+                . '.a4-container .bilgi-grid table, .a4-container .toplamlar table { width: 100% !important; }</style></head>',
                 $html
             );
         }

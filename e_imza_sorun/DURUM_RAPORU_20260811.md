@@ -7,6 +7,22 @@
 
 ---
 
+## 0. ÇÖZÜM_02 İNCE AYAR — cover_letter logosu + A4 simetrik marjlar (11 Ağustos gece)
+
+Kullanıcının görsel onayında işaretlediği 2 sorun çözüldü (bkz. `COZUM_02_INCE_AYAR.md`):
+
+| Sorun | Kök neden | Çözüm | Sonuç (mm ölçüm) |
+|---|---|---|---|
+| **B.** İmzalı/indirilen cover_letter'da kurum logosu YOK | `pdfOlustur` şablon yolu (`renderFor`) logoyu hiç enjekte etmiyordu (önizleme enjekte ediyordu) | `pdfOlustur` şablon yoluna `downloadCoverLetter` deseniyle enjeksiyon + `institutionLogoBase64()` helper | cover_letter: 0 resim → **1 çizilmiş logo** (169×160px, antet konumu) |
+| **A.** A4 içi asimetri (ruhsat sol 20 / sağ 23.8mm) | container 170+24=194mm < iç alan 198mm → merkezleme payı + tablo %98.5 | container **174mm** (`(210−12)−24`) + portrait tablolar **%100** | ruhsat 18.0/19.3, tahakkuk 19.1/19.0, pre_permit 18.0/17.4 |
+| **A.** Tahakkuk alt boşluğu 71.6mm | zemin tablosu kısa; ortak squeeze ruhsat'ı taşırırdı | `pdfTipineGoreEkCss` tahakkuk dalı: punto 11px + hücre padding 2×4px (yalnızca tahakkuk) | tahakkuk alt **26.7mm**, ruhsat etkilenmedi (14.1) |
+
+**Metraj (landscape) KASITLI DEĞİŞMEDİ** (27.6/30.1) — kullanıcı "on numara" onayı verdi; landscape tablolar %98.5 korunuyor.
+
+**Doğrulama:** `test_verify_all.py` → **7/7 PASS** (kalıcı logo assert'i eklendi: cover_letter/pre_permit ≥1 çizilmiş resim). Gerçek token `e2e_sign.cjs` → 7/7 imzalandı, `verify_signed.py` → **TÜM İMZALI PDFLER TEMIZ** (imzalı cover_letter 1 sayfa + logo korundu). `kontrol_*.png` yeniden üretildi.
+
+---
+
 ## 1. ORİJİNAL SORUNLAR (plan dosyalarından)
 
 Plan (`TAM_COZUM_PLANI.md`, `GOREV_6_DEVAM_PROMPTU.md`, `GOREV_9_ACIL_ELECTRON_VE_5070.md`)

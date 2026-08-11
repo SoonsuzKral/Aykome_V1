@@ -1647,15 +1647,19 @@ CSS;
         // !important KULLANILMAZ; inline style zaten stylesheet'ten üstündür.
         // Yüzde yerine SABİT mm: dompdf'te hücre border'ları (1px≈0.75pt) tablo
         // genişliğine eklenir; `width:100%` tablo bu yüzden her zaman sağdan
-        // ~2-7pt taşar. Container'ı sayfa genişliğinden dar tutmak (portrait 190mm,
-        // landscape 277mm) border eklentisini iç alana alır, taşmayı sıfırlar.
+        // ~2-7pt taşar. Container'ı sayfa genişliğinden dar tutmak (portrait 174mm,
+        // landscape 245mm) border eklentisini iç alana alır, taşmayı sıfırlar.
         // min-height SIFIR kullanılır: `auto` CSS spec'te geçerli bir min-height
         // değeri DEĞİLDİR — dompdf bildirimi düşürebilir, blade'deki sabit
         // min-height (örn. metraj 210mm) geri gelir ve belge 2. sayfaya taşar.
         // Genişlik: dompdf box-sizing'ı güvenilir uygulamadığı için genişlik+padding
-        // toplamı iç alana sığacak şekilde verilir (8mm @page margin → iç alan
-        // portrait 194mm / landscape 281mm): 170+20=190mm, 257+20=277mm.
-        $fixed = 'width: 170mm; max-width: none; box-sizing: border-box; margin: 0 auto; min-height: 0; overflow: visible;';
+        // toplamı iç alana sığacak şekilde verilir (6mm @page margin → iç alan
+        // portrait 198mm / landscape 285mm). ÇÖZÜM_02 ince ayar: portrait 174+24=198mm
+        // ile iç alanı BİREBİR doldurur → merkezleme payı sıfırlanır, sol/sağ metin
+        // marjı simetrik 18mm olur (eski 170+24=194mm'de 2mm merkezleme payı + %98.5
+        // tablolar sağda 23.8mm'ye kadar asimetri üretiyordu). Landscape 245mm
+        // KASITLI SABİT bırakıldı (metraj onaylı görünüm; 257/261mm'ye çekilmez).
+        $fixed = 'width: 174mm; max-width: none; box-sizing: border-box; margin: 0 auto; min-height: 0; overflow: visible;';
         $fixedLandscape = 'width: 245mm; max-width: none; box-sizing: border-box; margin: 0 auto; min-height: 0; overflow: visible;';
 
         foreach ($doc->getElementsByTagName('div') as $div) {
@@ -1711,7 +1715,11 @@ CSS;
             // için aynı seçici özgünlüğünde ve !important ile, AYNI KAYNAKTA verilir.
             . '.a4-container, .a4-landscape-container { position: relative; }'
             . '.a4-container, .a4-landscape-container { font-size: 10.5px !important; line-height: 1.15 !important; min-height: 0 !important; padding: 8mm 12mm !important; }'
-            . '.a4-container table, .a4-landscape-container table { font-size: 10.5px !important; line-height: 1.15 !important; width: 98.5% !important; }'
+            . '.a4-container, .a4-landscape-container { font-size: 10.5px !important; line-height: 1.15 !important; min-height: 0 !important; padding: 8mm 12mm !important; }'
+            // ÇÖZÜM_02: portrait tablolar %100 → tablo sağ kenarı metin marjıyla (18mm)
+            // birebir simetrik. Landscape %98.5 KASITLI (metraj onaylı görünüm).
+            . '.a4-container table { font-size: 10.5px !important; line-height: 1.15 !important; width: 100% !important; }'
+            . '.a4-landscape-container table { font-size: 10.5px !important; line-height: 1.15 !important; width: 98.5% !important; }'
             . '.a4-container td, .a4-container th, .a4-landscape-container td, .a4-landscape-container th { padding: 1px 3px !important; font-size: 10.5px !important; line-height: 1.15 !important; }'
             . '.a4-container p, .a4-container div, .a4-container span, .a4-landscape-container p, .a4-landscape-container div, .a4-landscape-container span { font-size: 10.5px !important; }'
             . '.a4-container .sartlar-metni, .a4-container .aciklama, .a4-container .ozel-sartlar { padding: 4px 6px !important; line-height: 1.15 !important; }'

@@ -1,5 +1,41 @@
 # Oturum Özeti — 9 Ağustos 2026
 
+## Sprint 15.5 — ÇÖZÜM_02 İNCE AYAR: cover_letter logosu + A4 simetrik marjlar (11 Ağustos, gece)
+
+### 🎯 Öz
+Kullanıcının görsellerde işaretlediği 2 sorun çözüldü: (A) imzalı/indirilen **cover_letter üst yazısında kurum logosu hiç yoktu**; (B) A4 içinde kenar boşlukları asimetrik (sağda 23.8mm vs solda 20mm) ve tahakkuk'ta sayfa sonu ~72mm boş kalıyordu. Ölçüm bazlı ince ayar yapıldı; metraj (kullanıcı onaylı) hiç değişmedi.
+
+### ✅ Kök Nedenler
+1. **SORUN B — cover_letter logosu:** `EImzaService::pdfOlustur` şablon yolu (`renderFor`) logoyu HİÇ enjekte etmiyordu; önizleme (`downloadCoverLetter`) enjekte ediyordu → imzalı PDF logosuz. Şablonda (DB) 0 `<img>`.
+2. **SORUN A — asimetri:** container 170mm+24mm padding = 194mm < iç alan 198mm → 2mm merkezleme payı + tablo `%98.5` → sağ marj 23.8mm vs sol 20mm. Formül: `174mm = (210−12)−24` → iç alanı birebir doldurur, simetrik 18mm.
+3. **SORUN A — tahakkuk alt boşluğu 71.6mm:** ortak squeeze değiştirilemezdi (ruhsat alt payı 14.1mm — taşar); tip bazlı dolgu gerekiyordu.
+
+### ✅ Değişiklikler
+- `EImzaService.php`: `pdfOlustur` şablon yoluna cover_letter logo enjeksiyonu (downloadCoverLetter deseni, `<div class="a4-container">` sonrası) + yeni `institutionLogoBase64()` helper (blade yolu da ona bağlandı).
+- `DocumentTemplateService.php`: `a4ContainerInlineWidth` portrait **170→174mm** (landscape 245mm kasıtlı sabit); `pdfCssEnjekte` portrait tablolar `%98.5→%100`, landscape `%98.5` korunuyor.
+- `EImzaService::pdfTipineGoreEkCss`: **tahakkuk dalı** — punto 11px + hücre padding 2×4px (sadece tahakkuk HTML'ine girer; ruhsat etkilenmez).
+- `test_verify_all.py`: kalıcı logo assert'i — cover_letter/pre_permit ≥1 çizilmiş resim (`get_image_info`).
+
+### ✅ Doğrulama (ölçümler, mm)
+| Belge | sol | sağ | alt | Önce |
+|---|---|---|---|---|
+| ruhsat | 18.0 | 19.3 | 14.1 | 20.0/23.8 |
+| tahakkuk | 19.1 | 19.0 | **26.7** | 21.1/23.6, alt 71.6 |
+| pre_permit | 18.0 | 17.4 | 96.0 | 20.0/19.4 |
+| taahhutname | 18.0 | 16.7 | 34.3 | 20.0/18.7 |
+| cover_letter | 21.0 | 19.9 | 86.2 | logo YOK → **logo VAR** |
+| metraj | 27.6 | 30.1 | 120.9 | değişmedi (kasıtlı) |
+
+- `test_verify_all.py` → **7/7 PASS** (1 sayfa, taşma yok, 5070 var, font tamam, logo var).
+- **Gerçek token e2e:** `e2e_sign.cjs` 7/7 imzaladı → `verify_signed.py` **TÜM İMZALI PDFLER TEMIZ** (metin korundu, 5070 kırmızı, imza xref var). İmzalı cover_letter: 1 sayfa + logo çizili.
+- `kontrol_*.png` yeniden üretildi (Claude.AI görsel onayına hazır).
+
+### ⚠️ Notlar
+- GitHub'da çakışan iki geçmiş vardı: diğer makinenin 200+ commit'lik geçmişi `other-machine` dalına yedeklenip github/main'a kendi işimiz force-push edildi (hiçbir şey kaybolmadı). GitLab (origin) ayrıca push edildi.
+- Git: Sprint 15.5 dahil tüm iş `de376af`'te, hem `origin` hem `github` main'de.
+
+---
+
 ## Sprint 15 — E-İMZA 5070 PDF KÖK NEDEN ÇÖZÜMÜ (11 Ağustos, akşam)
 
 ### 🎯 Öz

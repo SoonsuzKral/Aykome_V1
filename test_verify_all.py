@@ -49,6 +49,13 @@ def dogrula(pdf_yolu, belge_tipi):
     if any('Helvetica' in f or 'Times' in f or 'Courier' in f for f in fontlar):
         hata.append(f"WinAnsi standart font: {fontlar}")
 
+    # Logo (ÇÖZÜM_02 kalıcı kontrolü): cover_letter/pre_permit antet logosu
+    # şablon yolunda en az 1 kez ÇİZİLMELİ (get_image_info = gerçekten basılanlar).
+    if belge_tipi in ("cover_letter", "pre_permit"):
+        cizilen = sum(len(p.get_image_info()) for p in doc)
+        if cizilen < 1:
+            hata.append(f"Logo YOK (çizilen resim: {cizilen})")
+
     for bozuk in ["Ÿ", "ž", "Ã", "Â", "�"]:
         if bozuk in tam:
             hata.append(f"Mojibake: {bozuk}")

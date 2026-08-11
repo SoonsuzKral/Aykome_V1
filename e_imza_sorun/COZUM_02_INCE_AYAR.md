@@ -207,6 +207,32 @@ assert len(img_list) > 0, "cover_letter'da hâlâ resim/logo yok!"
 4. `e2e_sign.cjs` ile gerçek token imzası, `verify_signed.py` ile son kontrol
 5. `kontrol_*.png` üret, gözle bak, sonra "tamam" de
 
+---
+
+## ✅ UYGULANDI (11 Ağustos gece — OpenCode)
+
+Sıradaki TÜM adımlar tamamlandı ve doğrulandı:
+
+1. **Ölçüm (Adım 1):** 7 belge ölçüldü → ruhsat 20.0/23.8 (sol/sağ), tahakkuk alt 71.6mm,
+   cover_letter **0 resim**, metraj 27.6/30.1 (landscape, kullanıcı onaylı → değişmedi).
+2. **SORUN B (logo):** `EImzaService::pdfOlustur` şablon yoluna enjeksiyon eklendi
+   (`downloadCoverLetter` deseni + yeni `institutionLogoBase64()` helper; blade yolu da
+   aynı helper'a bağlandı — "iki yol ayrışması" hatası bir daha olamaz).
+3. **SORUN A (yatay):** `a4ContainerInlineWidth` portrait **170→174mm** + portrait tablolar
+   `%98.5→%100` (landscape `%98.5` + 245mm korundu). Sonuç: ruhsat 18.0/19.3,
+   tahakkuk 19.1/19.0, pre_permit 18.0/17.4, taahhutname 18.0/16.7.
+4. **SORUN A (dikey/tahakkuk):** `pdfTipineGoreEkCss` tahakkuk dalı (11px + td/th padding
+   2×4px) → alt boşluk 71.6→**26.7mm**, ruhsat (14.1mm) etkilenmedi.
+5. **Kalıcı doğrulama:** `test_verify_all.py`'a logo assert'i eklendi
+   (cover_letter/pre_permit ≥1 çizilmiş resim — `get_image_info`).
+6. **E2E:** `php test_pdf_generate.php` → **7/7 PASS**; `node e2e_sign.cjs` → 7/7 gerçek
+   token imzası; `python verify_signed.py` → **TÜM İMZALI PDFLER TEMIZ**; imzalı
+   cover_letter 1 sayfa + logo korundu. `kontrol_*.png` yeniden üretildi.
+7. **Git:** Tüm iş `main`'de, hem `origin` (GitLab) hem `github` push edildi; diğer
+   makinenin geçmişi `other-machine` dalına yedeklendi.
+
+**Kalan:** tarayıcı/Elektron E2E + kullanıcının görsel onayı (`kontrol_*.png`).
+
 ## Not — sonraki tur için (şimdi değil)
 
 Admin panel header'ına e-imza masaüstü uygulaması indirme linki eklenmesi —
