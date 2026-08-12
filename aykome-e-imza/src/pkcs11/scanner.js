@@ -105,17 +105,31 @@ const scanner = {
     try {
       const pkcs11 = require('pkcs11js');
       const detected = await this.detect();
-      if (!detected) return null;
+      if (!detected) {
+        console.log('[Scanner] Kütüphane bulunamadı');
+        return null;
+      }
 
+      console.log('[Scanner] Kütüphane bulundu:', detected.path);
       const mod = pkcs11.require(detected.path);
       mod.initialize();
+      console.log('[Scanner] PKCS#11 initialize tamam');
 
-      const slots = mod.getSlots(true);
+      // Önce TÜM slotları kontrol et (hem boş hem dolu)
+      const allSlots = mod.getSlots(false);
+      console.log('[Scanner] Toplam slot sayısı:', allSlots.length);
+
+      // Token OLAN slotları kontrol et
+      const slotsWithToken = mod.getSlots(true);
+      console.log('[Scanner] Token olan slot sayısı:', slotsWithToken.length);
+
       const tokens = [];
 
-      for (const slot of slots) {
+      for (const slot of slotsWithToken) {
         try {
+          console.log('[Scanner] Slot okunuyor, ID:', slot.slotId || slot);
           const tokenInfo = slot.getTokenInfo();
+          console.log('[Scanner] Token bulundu:', tokenInfo.label.trim());
           tokens.push({
             label: tokenInfo.label.trim(),
             manufacturer: tokenInfo.manufacturerID.trim(),
@@ -124,14 +138,17 @@ const scanner = {
             flags: tokenInfo.flags,
             slotId: slot.slotId,
           });
-        } catch {
+        } catch (err) {
+          console.log('[Scanner] Slot okuma hatası:', err.message);
           continue;
         }
       }
 
       mod.finalize();
+      console.log('[Scanner] Toplam token:', tokens.length);
       return { libraryPath: detected.path, tokens };
-    } catch {
+    } catch (err) {
+      console.log('[Scanner] detectWithPkcs11 HATA:', err.message);
       return null;
     }
   }
