@@ -899,6 +899,18 @@ class MapsController extends Controller
             $cadde = $m3[1];
         }
 
+        // 2b) Sokak etiketi OLMAYAN salt sayısal cadde parçası — kooperatif/blok
+        //     sokak numaraları sayısal olabilir ("BATIKENT, 8014" → CADDE_SOKA "8014").
+        //     3-5 haneli kuralı: "5" gibi kapı numaraları caddeye karışmaz.
+        if ($cadde === '') {
+            foreach ($parcalar as $p) {
+                if (preg_match('/^\d{3,5}$/u', $p)) {
+                    $cadde = $p;
+                    break;
+                }
+            }
+        }
+
         // 3) Kapı no: cadde numarasından SONRAKİ sayı (122) — sokak no karşıolmaz
         if ($cadde !== '') {
             $pos = strpos($asil, $cadde);

@@ -3,6 +3,7 @@
 @section('page-heading', $application->application_no)
 
 @push('styles')
+<link rel="stylesheet" href="{{ asset('assets/vendor/leaflet/leaflet.css') }}" />
 <style>
     .leaflet-pane { z-index: 10 !important; }
     .leaflet-top, .leaflet-bottom { z-index: 10 !important; }
@@ -1858,6 +1859,9 @@
                                     <option value="{{ $st->id }}" {{ $line->surface_type_id == $st->id ? 'selected' : '' }}>{{ $st->name }}</option>
                                     @endforeach
                                 </select>
+                                @if($line->address)
+                                <div class="mt-1 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">📍 {{ $line->address }}</div>
+                                @endif
                             </td>
                             <td class="p-2 align-top">
                                 <div class="flex items-center gap-1">
@@ -2069,6 +2073,7 @@
     }
 })();
 </script>
+<script src="{{ asset('assets/vendor/leaflet/leaflet.js') }}"></script>
 <script>
 // ── Normal (OSM) Çizim Haritası ────────────────────────────────────────
 (function () {
@@ -2363,6 +2368,16 @@ function toggleStep(id) {
 
     var surfaceTypes = @json($surfaceTypes->map(fn($st) => ['id' => $st->id, 'name' => $st->name])->values());
 
+    // Surface lines data for JS-based address hydration
+    var surfaceLinesData = <?= json_encode($application->surfaceLines->map(fn($line) => [
+        'id' => $line->id,
+        'surface_type_id' => $line->surface_type_id,
+        'address' => $line->address ?? '',
+        'width_m' => $line->width_m,
+        'length_m' => $line->length_m,
+        'quantity' => $line->quantity,
+    ])->values()) ?>;
+
     function buildOptionHtml(selectedId) {
         var html = '<option value="">—</option>';
         surfaceTypes.forEach(function (st) {
@@ -2385,25 +2400,47 @@ function toggleStep(id) {
         });
     }
 
-    function addRow() {
+    function addRow(data) {
+        data = data || {};
         var idx = tbody.querySelectorAll('tr').length;
         var tr = document.createElement('tr');
         tr.className = 'border-b border-slate-200 hover:bg-slate-50';
         tr.setAttribute('data-index', idx);
+        var addressBadgeHtml = data.address ? '<div class="mt-1 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">📍 ' + escapeHtml(data.address) + '</div>' : '';
         tr.innerHTML =
             '<td class="py-2 pr-2 text-slate-400 font-mono text-[10px] align-top pt-3">' + (idx + 1) + '</td>' +
             '<td class="p-2 align-top">' +
                 '<select name="surface_lines[' + idx + '][surface_type_id]" required class="block w-full rounded border-slate-300 text-xs shadow-sm">' +
-                    buildOptionHtml(0) +
+                    buildOptionHtml(data.surface_type_id || 0) +
                 '</select>' +
+                addressBadgeHtml +
             '</td>' +
-            '<td class="p-2 align-top"><div class="flex items-center gap-1"><input type="text" name="surface_lines[' + idx + '][address]" class="min-w-0 flex-1 rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak..."><button type="button" class="row-address-show shrink-0 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] text-emerald-700 hover:bg-emerald-100" title="Bu adresi haritada göster">📍</button></div></td>' +
-            '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][width_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>' +
-            '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][length_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>' +
-            '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][quantity]" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>' +
+            '<td class="p-2 align-top"><div class="flex items-center gap-1"><input type="text" name="surface_lines[' + idx + '][address]" value="' + (data.address || '') + '" class="min-w-0 flex-1 rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak..."><button type="button" class="row-address-show shrink-0 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] text-emerald-700 hover:bg-emerald-100" title="Bu adresi haritada göster">📍</button></div></td>' +
+            '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][width_m]" value="' + (data.width_m || '') + '" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>' +
+            '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][length_m]" value="' + (data.length_m || '') + '" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>' +
+            '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][quantity]" value="' + (data.quantity || '') + '" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>' +
             '<td class="p-2 align-top"><button type="button" class="remove-surface-row rounded border border-red-200 bg-red-50 px-1.5 py-1 text-[10px] font-medium text-red-600 hover:bg-red-100">🗑</button></td>';
         tbody.appendChild(tr);
         attachRemoveEvents();
+    }
+
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    // Hydrate address values from JS data when modal opens (ensures address is never empty after hydration)
+    function hydrateAddressValues() {
+        var rows = tbody.querySelectorAll('tr');
+        rows.forEach(function(row, i) {
+            var data = surfaceLinesData[i];
+            if (!data) return;
+            var addressInput = row.querySelector('input[name$="[address]"]');
+            if (addressInput && data.address) {
+                addressInput.value = data.address;
+            }
+        });
     }
 
     function attachRemoveEvents() {
@@ -2428,6 +2465,21 @@ function toggleStep(id) {
 
     if (addBtn) { addBtn.addEventListener('click', addRow); }
     attachRemoveEvents();
+
+    // Hydrate address values when modal opens (JS-based address binding fix)
+    var modal = document.getElementById('surface-edit-modal');
+    if (modal) {
+        var modalObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    if (!modal.classList.contains('hidden')) {
+                        hydrateAddressValues();
+                    }
+                }
+            });
+        });
+        modalObserver.observe(modal, { attributes: true });
+    }
 })();
 
 // ── Zemin Satırları Düzenle Modalı: ÇİFT YÖNLÜ otomatik hesap + virgüllü ondalık ──
@@ -2510,7 +2562,10 @@ function toggleStep(id) {
                 var m = window._aykomeAnaHarita;
                 if (d && d.success && d.lat && m) {
                     if (window._aykomeAdresMarker) window._aykomeAdresMarker.remove();
-                    window._aykomeAdresMarker = L.marker([parseFloat(d.lat), parseFloat(d.lon)]).addTo(m);
+                    window._aykomeAdresMarker = L.marker([parseFloat(d.lat), parseFloat(d.lon)])
+                        .bindPopup('<b>📍 ' + (d.detail || adres) + '</b>')
+                        .addTo(m)
+                        .openPopup();
                     m.flyTo([parseFloat(d.lat), parseFloat(d.lon)], 18, { animate: true, duration: 1 });
                     return;
                 }
