@@ -1,4 +1,96 @@
-# Oturum Özeti — 12 Ağustos 2026
+# Oturum Özeti — 13 Ağustos 2026
+
+## Sprint 18 — E-İMZA UYGULAMASI MODERNİZASYON (13 Ağustos)
+
+### 🎯 Öz
+Electron e-imza uygulamasının arayüzü modernleştirildi. Gereksiz butonlar kaldırıldı, otomatik AKIS (akisp11.dll) kontrolü eklendi, kart sahibi bilgisi şık gösterime kavuşturuldu.
+
+### ✅ Kaldırılanlar
+- ❌ Mac Simülasyon Modu butonu (gereksiz)
+- ❌ "Devam" butonu (otomatik akış)
+- ❌ "Kütüphane Seç" dropdown (otomatik AKIS)
+- ❌ Step indicator (1/2/3 adım göstergeleri)
+- ❌ Karmaşık 3 adımlı akış
+
+### ✅ Eklenenler
+**1. Otomatik AKIS Kontrolü:**
+- `autoDetectAKIS()` fonksiyonu açılışta çalışır
+- `akisp11.dll` aranır ve bulunursa otomatik seçilir
+- Kullanıcı hiçbir şey yapmadan devam edebilir
+
+**2. Modern Kart Sahibi Gösterimi:**
+- 👤 İkon + büyük isim gösterimi
+- ✅ **AKTİF** (yeşil) - Kart takılı, sertifika sahibi adı görünür
+- 🚫 **TAKILI DEĞİL** (kırmızı) - Kütüphane var, kart yok
+- ⚠️ **TESPİT EDİLEMEDİ** (sarı) - E-Tüğra yazılımı yük gerekli
+- Sertifika seri numarası gösterimi
+- 3 saniyede bir otomatik yenileme + canlı slot algılama
+
+**3. Tek Ekran Tasarım:**
+- Token bilgisi + Sunucu ayarları tek ekranda
+- 🚀 **Başlat ve Hazır Ol** butonu (cyan, büyük)
+- Gereksiz adım adım akış kaldırıldı
+
+### ✅ Kullanıcı Deneyimi
+**Öncesi:** Kütüphane seç → Sertifika seç → PIN gir → Sunucu ayarla → Kaydet (5 adım)
+**Sonrası:** Token tak → AKIS otomatik bulunur → Sunucu gir → Başlat! (2 adım)
+
+### 📁 Değişen Dosyalar
+- `aykome-e-imza/renderer/setup.html` (+80, -192 satır)
+
+---
+
+## Sprint 17 — ÇOKLU İMZA + PARAF SİSTEMİ (13 Ağustos)
+
+### 🎯 Öz
+ProcessStep tabanlı çoklu imza ve paraf sistemi kuruldu. Süreç rotasında her adım için `action_type` seçilebiliyor (Onay/Paraf/E-İmza), başvuru detayında kullanıcı doğru butonu görüyor.
+
+### ✅ ADIM 1 - ProcessStep UI Genişletildi
+**ProcessController:**
+- `municipalityUsers` listesi eklendi (e-imza için imzalayıcı seçimi)
+- `pdfTypeOptions` eklendi (ruhsat, metraj, tahakkuk vb.)
+
+**processes/index.blade.php:**
+- **Aksiyon Tipi** radio buttonları: Onay ✅ / Paraf 📝 / E-İmza 🔏
+- **E-İmza Ayarları paneli** (e_imza seçilince gösterir):
+  * `signature_config[enabled]` checkbox
+  * `signer_ids` multi-select (belediye kullanıcıları)
+  * `signer_roles` checkboxlar
+  * `pdf_type` dropdown (hangi PDF imzalanacak)
+- Adım listesinde `action_type` badge gösterimi (ONAY/PARAF/E-İMZA)
+- Hem "Adım Ekle" hem "Adımı Düzenle" formlarında destekleniyor
+
+### ✅ ADIM 2 - Başvuru Detayında Dinamik Butonlar
+**show.blade.php:**
+- `action_type` kontrolü ile dinamik buton gösterimi:
+  * `action_type = 'paraf'` → 📝 **Paraf At** butonu (amber)
+  * `action_type = 'e_imza'` → 🔏 **E-İmza At** butonu (blue)
+  * `action_type = 'onay'` → ✅ **Onayla** butonu (varsayılan, cyan)
+
+**ApplicationsController:**
+- `can['paraf']` yetkisi eklendi (`stepRequiresParaf` + `canParafStep`)
+- `can['e_imza']` yetkisi güncellendi (`stepRequiresSignature` kontrolü)
+- **parafStep()** metodu: `approval_log`'a paraf kaydeder + süreci ilerletir
+- **signStep()** metodu: placeholder (ADIM 3'te e-imza modal entegrasyonu)
+
+**routes/admin.php:**
+- `POST /paraf-step` route eklendi
+- `POST /sign-step` route eklendi
+
+### ✅ Mantık
+- Süreç rotasında bir adımda `action_type = 'onay'` → Kullanıcı "Onayla" butonu görür
+- `action_type = 'paraf'` → "Paraf At" butonu görür (paraf da e-imza ile yapılır)
+- `action_type = 'e_imza'` → "E-İmza At" butonu görür
+- ProcessEngine fonksiyonları kullanıldı (`stepRequiresParaf`, `canParafStep`, `stepRequiresSignature`, `canSignStep`)
+
+### 📁 Değişen Dosyalar
+- `app/Http/Controllers/Admin/ProcessController.php`
+- `resources/views/admin/processes/index.blade.php`
+- `app/Http/Controllers/Admin/ApplicationsController.php`
+- `resources/views/admin/applications/show.blade.php`
+- `routes/admin.php`
+
+---
 
 ## Sprint 16 — ZEMİN SATIRLARI MODAL: Adres Gösterimi (12 Ağustos)
 
