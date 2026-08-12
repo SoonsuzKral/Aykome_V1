@@ -1,3 +1,41 @@
+# Oturum Özeti — 12 Ağustos 2026
+
+## Sprint 16 — ZEMİN SATIRLARI MODAL: Adres Gösterimi (12 Ağustos)
+
+### 🎯 Öz
+Zemin Satırları Düzenle modalında kullanıcı "hangi zemin tipi hangi adrese bağlı" göremiyordu. Zemin tipi select kutusunun altına cyan badge ile adres gösterimi eklendi.
+
+### ✅ Kök Neden
+- Modal açıldığında `$line->address` backend'den geliyordu AMA ekranda sadece input field'da görünüyordu.
+- Kullanıcı her zemin tipinin yanında o zemine ait adresi görmek istiyordu.
+- create.blade.php'de zaten benzer gösterim vardı (744. satır: `row.address` bilgisi table'da gösteriliyordu).
+
+### ✅ Değişiklikler
+**show.blade.php:**
+- Zemin tipi `<select>` altına `@if($line->address)` koşullu adres badge'i (1862. satır):
+  ```blade
+  <div class="mt-1 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">📍 {{ $line->address }}</div>
+  ```
+- JS `addRow(data)` fonksiyonunda adres gösterimi (2409. satır):
+  ```js
+  var addressBadgeHtml = data.address ? '<div class="mt-1 rounded bg-cyan-50 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">📍 ' + escapeHtml(data.address) + '</div>' : '';
+  ```
+- `escapeHtml(text)` helper fonksiyonu XSS güvenliği için eklendi.
+
+**app/Http/Controllers/MapsController.php:**
+- Sokak parse mantığında 3-5 haneli sayısal sokak numarası desteği (kooperatif/blok için).
+
+### ✅ Doğrulama
+- `git push github main` + `git push origin main` → **HEAD == github/main == origin/main** (ca4e5e2)
+- Modal açıldığında her zemin tipinin altında o zemine ait adres cyan badge ile görünüyor.
+- Yeni satır eklendiğinde (addRow) adres bilgisi varsa badge render ediliyor.
+
+### 📁 Değişen Dosyalar
+- `resources/views/admin/applications/show.blade.php` (+74, -7 satır)
+- `app/Http/Controllers/MapsController.php` (sokak parse iyileştirmesi)
+
+---
+
 # Oturum Özeti — 9 Ağustos 2026
 
 ## Sprint 15.5 — ÇÖZÜM_02 İNCE AYAR: cover_letter logosu + A4 simetrik marjlar (11 Ağustos, gece)
