@@ -85,6 +85,13 @@
                                         <span class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">{{ $step->step_order }}</span>
                                         <span class="text-sm font-semibold text-slate-800">{{ $step->name }}</span>
                                         <span class="rounded-md bg-cyan-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cyan-700">{{ $step->role_key }}</span>
+                                        @if(($step->action_type ?? 'onay') === 'paraf')
+                                            <span class="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">📝 PARAF</span>
+                                        @elseif(($step->action_type ?? 'onay') === 'e_imza')
+                                            <span class="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">🔏 E-İMZA</span>
+                                        @else
+                                            <span class="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">✅ ONAY</span>
+                                        @endif
                                         @if(! $step->is_active)
                                             <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">PASİF</span>
                                         @endif
@@ -161,6 +168,67 @@
                                             @endforeach
                                         </div>
                                     </div>
+
+                                    {{-- Aksiyon Tipi --}}
+                                    <div class="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+                                        <label class="mb-2 block text-[11px] font-bold text-slate-700">Aksiyon Tipi</label>
+                                        <div class="flex flex-wrap gap-3">
+                                            <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
+                                                <input type="radio" name="action_type" value="onay" @checked(($step->action_type ?? 'onay') === 'onay') class="border-slate-300 text-cyan-600 focus:ring-cyan-500" onchange="document.getElementById('edit-signature-config-{{ $step->id }}').style.display = 'none'">
+                                                <span>✅ Onay</span>
+                                            </label>
+                                            <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
+                                                <input type="radio" name="action_type" value="paraf" @checked(($step->action_type ?? 'onay') === 'paraf') class="border-slate-300 text-cyan-600 focus:ring-cyan-500" onchange="document.getElementById('edit-signature-config-{{ $step->id }}').style.display = 'none'">
+                                                <span>📝 Paraf</span>
+                                            </label>
+                                            <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
+                                                <input type="radio" name="action_type" value="e_imza" @checked(($step->action_type ?? 'onay') === 'e_imza') class="border-slate-300 text-cyan-600 focus:ring-cyan-500" onchange="document.getElementById('edit-signature-config-{{ $step->id }}').style.display = this.checked ? 'block' : 'none'">
+                                                <span>🔏 E-İmza</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {{-- E-İmza Ayarları (e_imza seçilince göster) --}}
+                                    @php $sigConfig = $step->signature_config ?? []; @endphp
+                                    <div id="edit-signature-config-{{ $step->id }}" class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3" style="display: {{ ($step->action_type ?? 'onay') === 'e_imza' ? 'block' : 'none' }};">
+                                        <h4 class="mb-2 text-xs font-bold text-blue-800">🔏 E-İmza Ayarları</h4>
+                                        <div class="space-y-3">
+                                            <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700">
+                                                <input type="checkbox" name="signature_config[enabled]" value="1" @checked(!empty($sigConfig['enabled'])) class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                                E-İmza Gerekli
+                                            </label>
+                                            <div>
+                                                <label class="mb-1 block text-[10px] font-bold text-slate-600">İmzalayacak Kullanıcılar</label>
+                                                <select name="signature_config[signer_ids][]" multiple class="block w-full rounded-lg border-slate-300 text-xs focus:border-blue-400" size="4">
+                                                    @foreach($municipalityUsers as $user)
+                                                    <option value="{{ $user['id'] }}" @selected(in_array($user['id'], $sigConfig['signer_ids'] ?? [], true))>{{ $user['label'] }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <p class="mt-0.5 text-[9px] text-slate-500">Ctrl/Cmd tuşuyla çoklu seçim yapabilirsiniz</p>
+                                            </div>
+                                            <div>
+                                                <label class="mb-1 block text-[10px] font-bold text-slate-600">İmzalayacak Roller</label>
+                                                <div class="flex flex-wrap gap-1.5">
+                                                    @foreach($roleOptions as $key => $label)
+                                                    <label class="flex cursor-pointer items-center gap-1 rounded border border-blue-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600">
+                                                        <input type="checkbox" name="signature_config[signer_roles][]" value="{{ $key }}" @checked(in_array($key, $sigConfig['signer_roles'] ?? [], true)) class="rounded border-slate-300 text-blue-600 focus:ring-blue-400">
+                                                        {{ $label }}
+                                                    </label>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="mb-1 block text-[10px] font-bold text-slate-600">Hangi PDF İmzalanacak?</label>
+                                                <select name="signature_config[pdf_type]" class="block w-full rounded-lg border-slate-300 text-xs focus:border-blue-400">
+                                                    <option value="">— Seçiniz —</option>
+                                                    @foreach($pdfTypeOptions as $key => $label)
+                                                    <option value="{{ $key }}" @selected(($sigConfig['pdf_type'] ?? '') === $key)>{{ $label }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div class="mt-3 flex items-center gap-3">
                                         <label class="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-slate-600">
                                             <input type="checkbox" name="is_active" value="1" @checked($step->is_active) class="rounded border-slate-300 text-cyan-600 focus:ring-cyan-500"> Aktif adım
@@ -215,6 +283,66 @@
                                 @endforeach
                             </div>
                         </div>
+
+                        {{-- Aksiyon Tipi --}}
+                        <div class="mt-4 rounded-lg border border-slate-200 bg-white p-3">
+                            <label class="mb-2 block text-[11px] font-bold text-slate-700">Aksiyon Tipi</label>
+                            <div class="flex flex-wrap gap-3">
+                                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
+                                    <input type="radio" name="action_type" value="onay" checked class="border-slate-300 text-cyan-600 focus:ring-cyan-500">
+                                    <span>✅ Onay</span>
+                                </label>
+                                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
+                                    <input type="radio" name="action_type" value="paraf" class="border-slate-300 text-cyan-600 focus:ring-cyan-500">
+                                    <span>📝 Paraf</span>
+                                </label>
+                                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
+                                    <input type="radio" name="action_type" value="e_imza" class="border-slate-300 text-cyan-600 focus:ring-cyan-500" onchange="document.getElementById('add-signature-config').style.display = this.checked ? 'block' : 'none'">
+                                    <span>🔏 E-İmza</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {{-- E-İmza Ayarları (e_imza seçilince göster) --}}
+                        <div id="add-signature-config" class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3" style="display: none;">
+                            <h4 class="mb-2 text-xs font-bold text-blue-800">🔏 E-İmza Ayarları</h4>
+                            <div class="space-y-3">
+                                <label class="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-700">
+                                    <input type="checkbox" name="signature_config[enabled]" value="1" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                    E-İmza Gerekli
+                                </label>
+                                <div>
+                                    <label class="mb-1 block text-[10px] font-bold text-slate-600">İmzalayacak Kullanıcılar</label>
+                                    <select name="signature_config[signer_ids][]" multiple class="block w-full rounded-lg border-slate-300 text-xs focus:border-blue-400" size="4">
+                                        @foreach($municipalityUsers as $user)
+                                        <option value="{{ $user['id'] }}">{{ $user['label'] }}</option>
+                                        @endforeach
+                                    </select>
+                                    <p class="mt-0.5 text-[9px] text-slate-500">Ctrl/Cmd tuşuyla çoklu seçim yapabilirsiniz</p>
+                                </div>
+                                <div>
+                                    <label class="mb-1 block text-[10px] font-bold text-slate-600">İmzalayacak Roller</label>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        @foreach($roleOptions as $key => $label)
+                                        <label class="flex cursor-pointer items-center gap-1 rounded border border-blue-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600">
+                                            <input type="checkbox" name="signature_config[signer_roles][]" value="{{ $key }}" class="rounded border-slate-300 text-blue-600 focus:ring-blue-400">
+                                            {{ $label }}
+                                        </label>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="mb-1 block text-[10px] font-bold text-slate-600">Hangi PDF İmzalanacak?</label>
+                                    <select name="signature_config[pdf_type]" class="block w-full rounded-lg border-slate-300 text-xs focus:border-blue-400">
+                                        <option value="">— Seçiniz —</option>
+                                        @foreach($pdfTypeOptions as $key => $label)
+                                        <option value="{{ $key }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
                         <button type="submit" class="mt-4 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800">Adımı Ekle</button>
                     </form>
                 </details>

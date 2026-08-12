@@ -37,11 +37,29 @@ class ProcessController extends Controller
 
     public function index(): View
     {
+        // Belediye personeli kullanıcıları (e-imza için)
+        $municipalityUsers = User::query()
+            ->whereHas('institution', fn($q) => $q->where('is_municipality', true))
+            ->orWhereNull('institution_id')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email'])
+            ->map(fn($u) => ['id' => $u->id, 'label' => $u->name . ' (' . $u->email . ')']);
+
         return view('admin.processes.index', [
             'processes' => ProcessDefinition::query()->with('steps')->orderBy('id')->get(),
             'roleOptions' => $this->engine->roleOptions(),
             'moduleOptions' => $this->engine->moduleOptions(),
             'topRoles' => ProcessEngine::TOP_ROLES,
+            'municipalityUsers' => $municipalityUsers,
+            'pdfTypeOptions' => [
+                'ruhsat' => 'Kazı Ruhsatı',
+                'metraj' => 'Metraj Formu',
+                'tahakkuk' => 'Tahakkuk Formu',
+                'taahhutname' => 'Taahhütname',
+                'makbuz' => 'Makbuz',
+                'pre_permit' => 'Ön Kazı İzni',
+                'cover_letter' => 'Üst Yazı',
+            ],
         ]);
     }
 
