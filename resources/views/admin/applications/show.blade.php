@@ -1180,8 +1180,34 @@
                                         @if($isAltKurum)
                                             @php $onayStage = $application->approval_stage ?? ($processCurrentStep?->role_key ?? 'staff'); @endphp
 
-                                            {{-- Süreç & Onay Rotası: rolü rotada olan kullanıcı tuşu görür --}}
-                                            @if($isCurrent && ($can['approve_current'] ?? false))
+                                            {{-- Süreç & Onay Rotası: action_type'a göre dinamik buton --}}
+                                            @php $actionType = $processCurrentStep?->action_type ?? 'onay'; @endphp
+
+                                            {{-- PARAF BUTONU --}}
+                                            @if($isCurrent && ($can['paraf'] ?? false) && $actionType === 'paraf')
+                                                <form method="POST" action="{{ route('admin.applications.paraf-step', $application) }}" class="mb-2">
+                                                    @csrf
+                                                    <button type="submit"
+                                                            class="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 py-2.5 text-sm font-medium text-white hover:bg-amber-700">
+                                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                                        </svg>
+                                                        📝 {{ $processCurrentStep?->name ?: 'Paraf At' }} — Paraf At &amp; Gönder
+                                                    </button>
+                                                </form>
+
+                                            {{-- E-İMZA BUTONU --}}
+                                            @elseif($isCurrent && ($can['e_imza'] ?? false) && $actionType === 'e_imza')
+                                                <button type="button" onclick="document.getElementById('e-imza-modal-{{ $application->id }}').classList.remove('hidden')"
+                                                        class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
+                                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
+                                                    </svg>
+                                                    🔏 {{ $processCurrentStep?->name ?: 'E-İmza At' }} — E-İmza At &amp; Gönder
+                                                </button>
+
+                                            {{-- ONAY BUTONU (varsayılan) --}}
+                                            @elseif($isCurrent && ($can['approve_current'] ?? false))
                                                 @if($processCurrentStepIsFinal)
                                                 <button type="button" onclick="document.getElementById('pre-excavation-modal').classList.remove('hidden')"
                                                         class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 py-2.5 text-sm font-medium text-white hover:bg-amber-700">

@@ -45,6 +45,8 @@ Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix
         Route::post('applications/{application}/create-additional-permit', [ApplicationsController::class, 'createAdditionalPermit'])->name('applications.create-additional-permit');
         Route::match(['GET', 'POST'], 'applications/{application}/submit', [ApplicationsController::class, 'submit'])->name('applications.submit');
         Route::post('applications/{application}/approve-pre-excavation', [ApplicationsController::class, 'approvePreExcavation'])->name('applications.approve-pre-excavation');
+        Route::post('applications/{application}/paraf-step', [ApplicationsController::class, 'parafStep'])->name('applications.paraf-step');
+        Route::post('applications/{application}/sign-step', [ApplicationsController::class, 'signStep'])->name('applications.sign-step');
 
         Route::match(['GET', 'POST'], 'applications/{application}/approve-price', [ApplicationsController::class, 'approvePrice'])->name('applications.approve-price');
         Route::post('applications/{application}/complete-field-work', [ApplicationsController::class, 'completeFieldWork'])->name('applications.complete-field-work');

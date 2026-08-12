@@ -406,10 +406,15 @@ class ApplicationsController extends Controller
                 'approve_current' => $request->user()->can('approvePreExcavation', $application)
                     && $currentStep !== null
                     && $engine->roleCanApproveStep($currentStep, $request->user()),
+                // Paraf atma yetkisi
+                'paraf' => $currentStep !== null
+                    && $engine->stepRequiresParaf($currentStep)
+                    && $engine->canParafStep($currentStep, $request->user()),
                 // GÖREV 3 — E-İmzala butonu yetki izolasyonu. Belediye personeli süreç
                 // adımında rolü varsa (veya adım e-imza config'liyse canSignStep), alt
                 // kurum kullanıcısı kendi başvurusunda update yetkisine sahipse görünür.
                 'e_imza' => $currentStep !== null
+                    && $engine->stepRequiresSignature($currentStep)
                     && ($engine->roleCanApproveStep($currentStep, $request->user())
                         || $engine->canSignStep($currentStep, $request->user())
                         || (!$request->user()->isMunicipalityPersonel() && $request->user()->can('update', $application))),
@@ -745,6 +750,67 @@ class ApplicationsController extends Controller
 
         AuditLogger::log('pre_excavation.approve', "Ön kazı onay akışı ilerledi: {$application->application_no} ({$stage})", 'Application', $application->id);
         return back()->with('success', $message);
+    }
+
+    /**
+     * PARAF AT - Süreç adımında paraf gerekiyorsa kullanıcı paraf atar
+     */
+    public function parafStep(Request $request, Application $application, ApplicationService $service): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        $engine = app(ProcessEngine::class);
+        $currentStep = $engine->currentStep($application);
+
+        if (!$currentStep || !$engine->stepRequiresParaf($currentStep)) {
+            return back()->withErrors(['error' => 'Bu adımda paraf gerekmiyor.']);
+        }
+
+        if (!$engine->canParafStep($currentStep, $request->user())) {
+            return back()->withErrors(['error' => 'Bu adımda paraf atma yetkiniz yok.']);
+        }
+
+        // Paraf bilgisini approval_log'a kaydet
+        $approvalLog = $application->approval_log ?? [];
+        $approvalLog[] = [
+            'step_id' => $currentStep->id,
+            'step_name' => $currentStep->name,
+            'action_type' => 'paraf',
+            'user_id' => $request->user()->id,
+            'user_name' => $request->user()->name,
+            'paraf_at' => now()->toIso8601String(),
+        ];
+        $application->update(['approval_log' => $approvalLog]);
+
+        // Süreci ilerlet
+        $service->advanceApproval($request->user(), $application);
+
+        AuditLogger::log('process.paraf', "Paraf atıldı: {$application->application_no} - {$currentStep->name}", 'Application', $application->id);
+        return back()->with('success', 'Paraf atıldı ve başvuru bir sonraki adıma gönderildi.');
+    }
+
+    /**
+     * E-İMZA AT - Süreç adımında e-imza gerekiyorsa kullanıcı imza atar
+     * TODO: E-imza modalı ve EImzaService entegrasyonu gelecek
+     */
+    public function signStep(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        $engine = app(ProcessEngine::class);
+        $currentStep = $engine->currentStep($application);
+
+        if (!$currentStep || !$engine->stepRequiresSignature($currentStep)) {
+            return back()->withErrors(['error' => 'Bu adımda e-imza gerekmiyor.']);
+        }
+
+        if (!$engine->canSignStep($currentStep, $request->user())) {
+            return back()->withErrors(['error' => 'Bu adımda imza atma yetkiniz yok.']);
+        }
+
+        // TODO: E-imza modalından gelen sertifika bilgisiyle EImzaService::imzala() çağrılacak
+        // Şimdilik placeholder
+        return back()->with('info', 'E-imza modalı aktif hale getirilecek (ADIM 3)');
     }
 
     /**
