@@ -1,0 +1,7 @@
+{
+	"pkcs11_path": "C:\\Windows\\System32\\akisp11.dll",
+	"cert_serial": "",
+	"server_url": "http://127.0.0.1:8001",
+	"api_key": "eimza_aykome_dev_2026",
+	"setup_complete": false
+}

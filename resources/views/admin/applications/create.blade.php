@@ -88,7 +88,11 @@
             </div>
         @endif
 
-        @if($processes->isNotEmpty())
+        {{-- Alt kurum kullanıcısı KENDİ başvurusunu yaparken süreç seçici GÖRÜNMEZ —
+             backend otomatik olarak varsayılan Alt Kurum sürecini (process_id NULL →
+             activeProcess) kullanır. Sadece BELEDİYE PERSONELİ (kurum adına başvuru
+             yaparken) hangi süreci kullanacağını seçebilir. --}}
+        @if(!$isInstitutionUser && $processes->isNotEmpty())
             <div class="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
                 <label class="block text-sm font-medium text-slate-700" for="process_id">
                     Süreç / Onay Rotası

@@ -1,5 +1,51 @@
 # Oturum Özeti — 13 Ağustos 2026
 
+## Sprint 19 — KATI FİYAT ÖZELLİĞİ (2 Yıl AYKOME Kuralı) (13 Ağustos)
+
+### 🎯 Öz
+AYKOME 2 yıl kuralı (aynı adrese tekrar kazı → 5 kat fiyat) Zemin Satırları formüne tam entegre edildi.
+Sadece ALT KURUM başvurularında geçerli; belediyede multiplier=1 sabittir.
+KAT sütunu ondalik virgül destekli (0,60 gibi), kaydetme sonrası otomatik açılır.
+
+### ✅ Backend
+- `ApplicationSurfaceArea`: `multiplier`, `aciklama` fillable (zaten vardı)
+- `applications` tablosuna `kati_aciklama` migration ile eklendi
+- `Application` model: `kati_aciklama` fillable
+- `PricingService::upsertSurfaceLines`: `amount = quantity × multiplier × birim_fiyat`
+- `PricingService::recalculateTotals`: efektif miktar kullanılıyor
+- `buildMetrajSatirlari`: MİKTAR = `quantity × multiplier` (tahakkuk PDF düzeltildi)
+- `buildMetrajRows`: `kat`, `efektif_m2`, `aciklama` alanları eklendi
+- `downloadMetraj`: `application` değişkeni blade'e geçildi
+- Controller validation: `multiplier` (1-100), `aciklama`, `kati_aciklama` eklendi
+
+### ✅ Frontend (edit.blade.php)
+- KAT sütunu tablo header'a eklendi (amber renkli)
+- KAT input: virgüllü ondalik destekli (0,60 → 0.60)
+- Herhangi satırda KAT > 1 ise tüm KAT sütunları otomatik açılır
+- `updateAllDisplays`: KAT görünlürlüğü + efektif m² güncellemesi
+- Efektif m² gösterimi: miktar input'unun altında turuncu yazı
+- Hydration sonrası `updateAllDisplays()` çağrılıyor (sayfa açılınca otomatik)
+- Katı Açıklaması textarea (amber kutu, form ile submit)
+- `prepareSurfaceLinesForSubmit`: `multiplier`, `aciklama` hidden input olarak form'a eklendi
+
+### ✅ PDF (metraj.blade.php)
+- KAT + EFEKTİF M² sütunları eklendi (sadece KAT > 1 varsa görünür)
+- AÇIKLAMA (KURUL KARARI) sütunu eklendi (satır bazında)
+- İmza tablosundan sonra AÇIKLAMA bloğu eklendi (`kati_aciklama` + satır açıklamaları)
+- TOPLAM M²: efektif m² (quantity × kat) kullanılıyor
+
+### 📁 Değişen Dosyalar
+- `database/migrations/2026_08_13_230027_add_kati_aciklama_to_applications_table.php` (YENİ)
+- `app/Models/Application.php`
+- `app/Models/ApplicationSurfaceArea.php`
+- `app/Services/PricingService.php`
+- `app/Services/DocumentTemplateService.php`
+- `app/Http/Controllers/Admin/ApplicationsController.php`
+- `resources/views/admin/pdf/metraj.blade.php`
+- `resources/views/admin/applications/edit.blade.php`
+
+---
+
 ## Sprint 18 — E-İMZA UYGULAMASI MODERNİZASYON (13 Ağustos)
 
 ### 🎯 Öz

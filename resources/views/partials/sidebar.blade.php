@@ -150,8 +150,9 @@
             </a>
         @endforeach
 
-        {{-- CBS Entegrasyon — Aykome Maps (Başkan görmez) --}}
+        {{-- CBS Entegrasyon — Aykome Maps (Başkan görmez + Permission kontrolü) --}}
         @unless($isMakamUser)
+        @can('maps.view')
         @php $cbsActive = request()->routeIs('maps.*'); @endphp
         <div class="my-3 border-t border-slate-700/50"></div>
         <p class="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-500">CBS & Harita</p>
@@ -164,6 +165,7 @@
             <span class="flex-1 truncate">Aykome Maps</span>
             @if($cbsActive)<span class="ms-auto h-1.5 w-1.5 rounded-full bg-emerald-400"></span>@endif
         </a>
+        @endcan
         @endunless
 
         {{-- Saha Personeli — Görevlerim linki (@can tabanlı) --}}

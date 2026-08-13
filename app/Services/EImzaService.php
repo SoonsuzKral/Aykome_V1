@@ -488,6 +488,40 @@ class EImzaService
             );
         }
 
+        if ($pdfType === 'pre_permit') {
+            // pdfCssEnjekte 10.5px global font + 6mm @page uygular — pre_permit
+            // kendi 12pt/15mm değerlerini geri alır (ezme). İmza+altbilgi+footer
+            // .sayfa-alti-wrapper position:absolute;bottom:0 ile sayfanın
+            // dibine sabitlenir — dompdf bu konumlandırmayı destekler.
+            return str_ireplace(
+                '</head>',
+                '<style>'
+                . '@page { margin: 15mm !important; }'
+                . 'body { font-size: 11pt !important; font-family: "DejaVu Sans", sans-serif !important; }'
+                . '.header .tc { font-size: 13pt !important; }'
+                . '.header .belediye { font-size: 14pt !important; }'
+                . '.header .mudurluk { font-size: 12pt !important; }'
+                . '.info-row { font-size: 11pt !important; margin-top: 22px !important; }'
+                . '.alici { font-size: 11pt !important; margin-top: 22px !important; }'
+                . '.ilgi { font-size: 11pt !important; margin-top: 14px !important; }'
+                . '.paragraf { font-size: 11pt !important; line-height: 1.6 !important; margin-top: 18px !important; }'
+                . '.paragraf p { font-size: 11pt !important; margin-bottom: 6px !important; }'
+                // .a4-container: position:relative yap ki absolute child içinde konumlansın.
+                // min-height 267mm = 297mm − 2×15mm (page margin). İçerik kısa olsa
+                // bile .sayfa-alti-wrapper containerın dibinde görünür.
+                . '.a4-container { position: relative !important; min-height: 267mm !important; padding-bottom: 80mm !important; }'
+                // Sayfa altı wrapper: dompdf'te absolute;bottom:0 sayfa dibine sabitler.
+                // Web önizlemede a4-container relative olduğu için container dibi = 267mm.
+                . '.sayfa-alti-wrapper { position: absolute !important; bottom: 0 !important; left: 12mm !important; right: 12mm !important; }'
+                . '.imza { margin-top: 0 !important; font-size: 11pt !important; }'
+                . '.altbilgi { margin-top: 12px !important; font-size: 8pt !important; }'
+                . '.footer-dogrulama { margin-top: 6px !important; font-size: 8px !important; }'
+                . '.footer-sayfa { margin-top: 4px !important; font-size: 9pt !important; }'
+                . '</style></head>',
+                $html
+            );
+        }
+
         if ($pdfType === 'taahhutname') {
             return str_ireplace(
                 '</head>',
@@ -549,7 +583,12 @@ class EImzaService
                 $sira++;
                 $genislik = $sl->width_m ? number_format((float)$sl->width_m, 2, ',', '.') : '0,00';
                 $uzunluk = $sl->length_m ? number_format((float)$sl->length_m, 2, ',', '.') : '0,00';
-                $m2 = $sl->quantity ? number_format((float)$sl->quantity, 2, ',', '.') : '0,00';
+                // AYKOME 2 YIL KATI KURALI: multiplier > 1 ise M² sütunu
+                // fiyatlandırma tabanını (orijinal × katı) gösterir — tahakkuk/ruhsat
+                // ile birebir aynı rakam (calcFigures ile tek kaynak tutarlılığı).
+                $katiCarpani = (float) ($sl->multiplier ?: 1);
+                $efektifM2 = (float) ($sl->quantity ?? 0) * $katiCarpani;
+                $m2 = number_format($efektifM2, 2, ',', '.');
                 $zemin = mb_strtoupper($sl->surfaceType->name, 'UTF-8');
 
                 $rows[] = [
@@ -563,6 +602,9 @@ class EImzaService
                     'm2' => $m2,
                     'zemin' => $zemin,
                     'proje_kodu' => $projeKodu,
+                    'kat' => $katiCarpani > 1 ? number_format($katiCarpani, 0, ',', '.') : '',
+                    'aciklama' => $sl->aciklama ?? '',
+                    'surface_line_id' => $sl->id,
                 ];
             }
         }

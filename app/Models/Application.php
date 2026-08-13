@@ -86,6 +86,7 @@ class Application extends Model implements HasMedia
         'deposit_status',
         'deposit_refund_notes',
         'address_components',
+        'kati_aciklama',
         'vice_mayor_name',
         'tesis_sorumlusu',
         'tesis_sorumlusu_adi',
@@ -462,10 +463,13 @@ class Application extends Model implements HasMedia
 
         $this->loadMissing(['surfaceLines.surfaceType', 'institution']);
 
+        // AYKOME 2 YİL KATI FİYAT KURALI: aynı adrese 2 yıl içinde tekrar kazı
+        // yapılırsa 'multiplier' (katı) ile ölçülen miktar çarpılır (ör. 7m² × 5
+        // katı = 35m² fiyatlandırma tabanı). Varsayılan multiplier=1 (etkisiz).
         $rows = [];
         foreach ($this->surfaceLines ?? [] as $line) {
             $rows[] = [
-                'quantity' => $line->quantity ?? 0,
+                'quantity' => ($line->quantity ?? 0) * ($line->multiplier ?: 1),
                 'price_per_m2' => $line->surfaceType?->price_per_m2 ?? 0,
             ];
         }

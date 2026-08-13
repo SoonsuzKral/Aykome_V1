@@ -1,0 +1,11 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.17.wtf",
+    "ANTHROPIC_API_KEY": "sk-lm0-6a0c5b9109f74532bdc1897de5b4eb66",
+    "ANTHROPIC_MODEL": "posiden/deepseek-v4-flash",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "posiden/deepseek-v4-flash",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "posiden/deepseek-v4-flash",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "posiden/deepseek-v4-flash",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1"
+  }
+}

@@ -15,6 +15,7 @@ class ApplicationSurfaceArea extends Model
         'quantity',
         'address',
         'multiplier',
+        'aciklama',
         'amount',
     ];
 
