@@ -2610,10 +2610,12 @@ function toggleStep(id) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                     if (!modal.classList.contains('hidden')) {
                         hydrateAddressValues();
-                        // DB'de herhangi bir satırda KAT > 1 varsa otomatik aç
-                        // (inputlar korunur, kullanıcı önceki değeri görür).
-                        // Hiç KAT yoksa kapalı başla.
-                        katiModalAcilisKontrol();
+                        // DB'de herhangi bir satırda KAT > 1 varsa otomatik aç.
+                        // window._aykomeKatiModalAcilisKontrol: ikinci IIFE'de tanımlı,
+                        // window üzerinden erişiliyor (scope sorunu çözümü).
+                        if (typeof window._aykomeKatiModalAcilisKontrol === 'function') {
+                            window._aykomeKatiModalAcilisKontrol();
+                        }
                     }
                 }
             });
@@ -2726,7 +2728,7 @@ function toggleStep(id) {
         if (katiAciklamaWrapper) katiAciklamaWrapper.classList.add('hidden');
     }
 
-    // Modal açılınca: herhangi satırda multiplier > 1 varsa KAT sacık gelsin
+    // Modal açılınca: herhangi satırda multiplier > 1 varsa KAT otomatik açık gelsin
     // inputları KORUYARAK (DB değerlerini göster)
     function katiModalAcilisKontrol() {
         var anyKat = false;
@@ -2735,11 +2737,13 @@ function toggleStep(id) {
             if (v > 1) anyKat = true;
         });
         if (anyKat) {
-            katiAcOto(); // Inputları koruyarak aç
+            katiAcOto();
         } else {
-            katiKapat(); // Hiç KAT yoksa kapalı başla
+            katiKapat();
         }
     }
+    // Global scope'a aç (MutationObserver farklı IIFE scope'undan erişiyor)
+    window._aykomeKatiModalAcilisKontrol = katiModalAcilisKontrol;
 
     if (katiBtn) {
         katiBtn.addEventListener('click', function () {

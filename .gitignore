@@ -54,3 +54,13 @@ start-aykome.bat
 docker/nginx/acme-nginx.conf
 
 docker/nginx/ssl/
+
+claude_configs/
+nul
+Microsoft/
+*.dmp
+setup_hierarchy.php
+check_mudur_step.php
+COZUM_07_YOL_HARITASI.md
+.opencode/
+aykome_export.log
