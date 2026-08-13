@@ -272,21 +272,55 @@ class ProcessEngine
      */
     public function pendingForUser(User $user): Collection
     {
-        $steps = $this->steps();
-        if ($steps->isEmpty()) {
+        // Her başvuru farklı bir sürece (process_id) bağlı olabilir.
+        // Tüm aktif süreçlerdeki kullanıcının onaylayabileceği role_key'leri
+        // process_id bazında topla, sonra (process_id, approval_stage) çiftiyle filtrele.
+        $allProcesses = ProcessDefinition::where('is_active', true)->get();
+
+        if ($allProcesses->isEmpty()) {
             return collect();
         }
 
-        $roleKeys = $steps
-            ->filter(fn (ProcessStep $s) => $this->roleCanApproveStep($s, $user))
-            ->pluck('role_key')
-            ->all();
+        // [process_id => [role_key, ...]] haritası
+        $processRoleKeyMap = [];
+        foreach ($allProcesses as $proc) {
+            $steps = $this->steps($proc);
+            $roleKeys = $steps
+                ->filter(fn (ProcessStep $s) => $this->roleCanApproveStep($s, $user))
+                ->pluck('role_key')
+                ->filter()
+                ->values()
+                ->all();
+            if (! empty($roleKeys)) {
+                $processRoleKeyMap[$proc->id] = $roleKeys;
+            }
+        }
+
+        if (empty($processRoleKeyMap)) {
+            return collect();
+        }
+
+        // Tüm role_key'lerin birleşimi (process_id NULL olan legacy başvurular için)
+        $allRoleKeys = array_unique(array_merge(...array_values($processRoleKeyMap)));
 
         return Application::query()
             ->with(['institution:id,name', 'creator:id,name'])
             ->whereIn('status', ['submitted', 'pending'])
             ->whereNotNull('approval_stage')
-            ->whereIn('approval_stage', $roleKeys)
+            ->where(function ($q) use ($processRoleKeyMap, $allRoleKeys) {
+                // Süreç bazlı eşleşme: her (process_id, role_key) kombinasyonu
+                foreach ($processRoleKeyMap as $procId => $roleKeys) {
+                    $q->orWhere(function ($q2) use ($procId, $roleKeys) {
+                        $q2->where('process_id', $procId)
+                            ->whereIn('approval_stage', $roleKeys);
+                    });
+                }
+                // Legacy başvurular: process_id boş ise tüm role_key'lere bak
+                $q->orWhere(function ($q2) use ($allRoleKeys) {
+                    $q2->whereNull('process_id')
+                        ->whereIn('approval_stage', $allRoleKeys);
+                });
+            })
             ->latest()
             ->get();
     }
@@ -424,21 +458,29 @@ class ProcessEngine
 
     /**
      * Bu adımda e-imza gerekli mi?
+     *
+     * KRİTİK FiX: eskiden signature_config['enabled'] anahtarına bakıyordu,
+     * ama gerçek veri 'require_signature' anahtarını kullanıyordu (veya hiç yoktu)
+     * — bu yüzden E-İmza butonu HiÇBiR adımda görünmüyordu. Şimdi action_type
+     * ('e_imza') tek kaynak — stepRequiresParaf() ile tutarlı.
      */
     public function stepRequiresSignature(ProcessStep $step): bool
     {
-        $config = $step->signature_config ?? [];
-
-        return ! empty($config['enabled']);
+        return ($step->action_type ?? 'onay') === 'e_imza';
     }
 
     /**
      * Kullanıcı bu adımda imza atabilir mi?
+     *
+     * KRİTİK FiX: artık action_type='e_imza' yeterli şart; signature_config
+     * ('signer_ids'/'signer_roles') SADECE ek kısıtlama olarak kullanılır —
+     * boşsa role_key/roles üzerinden normal yetki kontrolüne (roleCanApproveStep)
+     * düşülür, e-imza adımları artık signature_config doldurulmadığı için
+     * kilitli kalmıyor.
      */
     public function canSignStep(ProcessStep $step, User $user): bool
     {
-        $config = $step->signature_config ?? [];
-        if (empty($config['enabled'])) {
+        if (($step->action_type ?? 'onay') !== 'e_imza') {
             return false;
         }
 
@@ -447,14 +489,20 @@ class ProcessEngine
             return true;
         }
 
-        // signer_ids kontrolü
+        $config = $step->signature_config ?? [];
         $signerIds = $config['signer_ids'] ?? [];
+        $signerRoles = $config['signer_roles'] ?? [];
+
+        // signer_ids/signer_roles hiç tanımlanmamışsa (çoğu adımda olduğu gibi),
+        // normal adım rolü (roles/role_key) yeterli yetki kaynağıdır.
+        if (empty($signerIds) && empty($signerRoles)) {
+            return $this->roleCanApproveStep($step, $user);
+        }
+
         if (! empty($signerIds) && in_array($user->id, $signerIds, true)) {
             return true;
         }
 
-        // signer_roles kontrolü
-        $signerRoles = $config['signer_roles'] ?? [];
         if (! empty($signerRoles) && $user->hasAnyRole($signerRoles)) {
             return true;
         }

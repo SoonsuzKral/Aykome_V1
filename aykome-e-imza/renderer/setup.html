@@ -258,16 +258,19 @@
         
         if (t.durum === 'aktif') {
           certSerial = t.certSerial || 'AUTO';
+          const noteHtml = (t.tokenLabel && t.tokenLabel.includes('AKIS Token') && isim === '— KART TAKILI DEĞİL') 
+            ? '<div style="font-size:11px; color:#fbbf24; padding:8px 12px; background:#1e1507; border-radius:6px; margin-top:8px; border-left:3px solid #fbbf24;">⚠️ AKIS token driver hazır. Detaylı bilgiler okunamıyor (kütüphane kısıtlaması), ancak imzalama işlemi çalışacaktır.</div>'
+            : (t.certSerial ? '<div style="font-size:11px; color:#64748b; padding:8px 12px; background:#0f172a; border-radius:6px;">Sertifika Seri: <code style="color:#94a3b8;">' + t.certSerial + '</code></div>' : '');
+          
           detail.innerHTML = 
             '<div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">' +
               '<div style="font-size:32px;">👤</div>' +
               '<div style="flex:1;">' +
-                '<div style="font-size:16px; font-weight:700; color:#5eead4; margin-bottom:4px;">' + isim + '</div>' +
+                '<div style="font-size:16px; font-weight:700; color:#5eead4; margin-bottom:4px;">' + (isim !== '— KART TAKILI DEĞİL' ? isim : 'Token Algılandı') + '</div>' +
                 '<div style="font-size:12px; color:#94a3b8;">' + (t.tokenLabel || 'E-Tüğra Token') + '</div>' +
               '</div>' +
               '<div><span class="badge-aktif" style="padding:6px 12px; font-size:12px;">✅ AKTİF</span></div>' +
-            '</div>' +
-            (t.certSerial ? '<div style="font-size:11px; color:#64748b; padding:8px 12px; background:#0f172a; border-radius:6px;">Sertifika Seri: <code style="color:#94a3b8;">' + t.certSerial + '</code></div>' : '');
+            '</div>' + noteHtml;
         } else if (t.durum === 'kutuphane') {
           detail.innerHTML = 
             '<div style="display:flex; align-items:center; gap:12px;">' +

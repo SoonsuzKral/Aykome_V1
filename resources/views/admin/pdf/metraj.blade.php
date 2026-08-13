@@ -74,18 +74,36 @@
                 {{ $alici ?? 'EYYÜBİYE BELEDİYESİ FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ' }}
             </div>
 
+            @php
+                // KAT sütunu gerekli mi? (Herhangi bir satırda multiplier > 1 varsa)
+                $hasKat = collect($rows)->some(fn($r) => !empty($r['kat']) && $r['kat'] !== '' && $r['kat'] !== '1');
+                // AÇIKLAMA: toplam satırının hemen üstünde tek satır olarak gösterilir
+                $katiAciklamaText = $application->kati_aciklama ?? '';
+                if (!$katiAciklamaText) {
+                    $katiAciklamaText = collect($rows)->filter(fn($r) => !empty($r['aciklama']))->pluck('aciklama')->unique()->implode(' | ');
+                }
+                // Toplam kolon sayısı: 10 (KAT yoksa) veya 11 (KAT varsa)
+                $totalCols = 10 + ($hasKat ? 1 : 0);
+                // TOPLAM satırında M² değerinden önce kaç kolon boş
+                $toplamColspan = 7 + ($hasKat ? 1 : 0); // SIRA..UZUNLUK + (KAT varsa KAT kolonu)
+            @endphp
             <table class="metraj-table">
                 <tr>
                     <th contenteditable="{{ $c }}" style="width:3%;">SIRA</th>
-                    <th contenteditable="{{ $c }}" style="width:8%;">İLÇE</th>
-                    <th contenteditable="{{ $c }}" style="width:18%;">MAHALLE</th>
-                    <th contenteditable="{{ $c }}" style="width:15%;">CADDE VE SOKAK</th>
-                    <th contenteditable="{{ $c }}" style="width:12%;">KAZI BAŞLANGIÇ TARİHİ</th>
+                    <th contenteditable="{{ $c }}" style="width:7%;">İLÇE</th>
+                    <th contenteditable="{{ $c }}" style="width:15%;">MAHALLE</th>
+                    <th contenteditable="{{ $c }}" style="width:13%;">CADDE VE SOKAK</th>
+                    <th contenteditable="{{ $c }}" style="width:10%;">KAZI BAŞLANGIÇ TARİHİ</th>
                     <th contenteditable="{{ $c }}" style="width:7%;">GENİŞLİK</th>
                     <th contenteditable="{{ $c }}" style="width:7%;">UZUNLUK</th>
-                    <th contenteditable="{{ $c }}" style="width:7%;">M² / M</th>
-                    <th contenteditable="{{ $c }}" style="width:10%;">ZEMİN CİNSİ</th>
-                    <th contenteditable="{{ $c }}" style="width:13%;">PROJE / İŞİN ADI</th>
+                    @if($hasKat)
+                    <th contenteditable="{{ $c }}" style="width:5%;background:#fffbeb;">KAT</th>
+                    <th contenteditable="{{ $c }}" style="width:8%;background:#fffbeb;">M² (EFEKTİF)</th>
+                    @else
+                    <th contenteditable="{{ $c }}" style="width:8%;">M² / M</th>
+                    @endif
+                    <th contenteditable="{{ $c }}" style="width:11%;">ZEMİN CİNSİ</th>
+                    <th contenteditable="{{ $c }}" style="width:14%;">PROJE / İŞİN ADI</th>
                 </tr>
 
                 @forelse($rows as $row)
@@ -97,7 +115,12 @@
                         <td data-aykome-col="tarih" contenteditable="{{ $c }}">{{ $row['tarih'] ?? '' }}</td>
                         <td data-aykome-col="genislik" contenteditable="{{ $c }}">{{ $row['genislik'] ?? '0,00' }}</td>
                         <td data-aykome-col="uzunluk" contenteditable="{{ $c }}">{{ $row['uzunluk'] ?? '0,00' }}</td>
+                        @if($hasKat)
+                        <td data-aykome-col="kat" contenteditable="{{ $c }}" style="background:#fffbeb;font-weight:bold;">{{ $row['kat'] ?? '' }}</td>
+                        <td data-aykome-col="m2" class="sync-dom-value sync-miktar-td" data-id="{{ $row['surface_line_id'] ?? '' }}" data-type="miktar" contenteditable="{{ $c }}" style="background:#fffbeb;">{{ $row['efektif_m2'] ?? $row['m2'] ?? '0,00' }}</td>
+                        @else
                         <td data-aykome-col="m2" class="sync-dom-value sync-miktar-td" data-id="{{ $row['surface_line_id'] ?? '' }}" data-type="miktar" contenteditable="{{ $c }}">{{ $row['m2'] ?? '0,00' }}</td>
+                        @endif
                         <td data-aykome-col="zemin" contenteditable="{{ $c }}">{{ $row['zemin'] ?? '' }}</td>
                         <td data-aykome-col="proje" contenteditable="{{ $c }}">{{ $row['proje_kodu'] ?: ($proje_kodu ?? '') }}</td>
                     </tr>
@@ -113,8 +136,17 @@
                     @endfor
                 @endforelse
 
+                {{-- AÇIKLAMA SATIRI: TOPLAM'dan hemen önce, tüm genişlikte tek satır --}}
+                @if($katiAciklamaText)
                 <tr>
-                    <td colspan="7" contenteditable="{{ $c }}" style="text-align: right; padding-right:15px;">TOPLAM M² : </td>
+                    <td colspan="{{ $totalCols }}" contenteditable="{{ $c }}" style="text-align:left; padding:5px 8px; font-size:9.5px; border-top:1.5px solid #000;">
+                        <strong>AÇIKLAMA (KURUL KARARI):</strong> {{ $katiAciklamaText }}
+                    </td>
+                </tr>
+                @endif
+
+                <tr>
+                    <td colspan="{{ $toplamColspan }}" contenteditable="{{ $c }}" style="text-align: right; padding-right:15px;">TOPLAM M² : </td>
                     <td data-aykome-fee="toplam_m2" contenteditable="{{ $c }}">{{ $toplam_m2 ?? '0,00' }}</td>
                     <td colspan="2"></td>
                 </tr>

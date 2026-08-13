@@ -403,9 +403,9 @@ class ApplicationsController extends Controller
                 'approve_staff' => $request->user()->can('approveStaff', $application),
                 'approve_director' => $request->user()->can('approveDirector', $application),
                 'approve_vice_mayor' => $request->user()->can('approveViceMayor', $application),
-                'approve_current' => $request->user()->can('approvePreExcavation', $application)
-                    && $currentStep !== null
-                    && $engine->roleCanApproveStep($currentStep, $request->user()),
+                // DÜZELTME: Mevcut adımı onaylayabilir mi (ProcessEngine ile)
+                'approve_current' => $currentStep !== null
+                    && $engine->canPerformStepAction($currentStep, $request->user()),
                 // Paraf atma yetkisi
                 'paraf' => $currentStep !== null
                     && $engine->stepRequiresParaf($currentStep)
@@ -534,6 +534,7 @@ class ApplicationsController extends Controller
             'address_text' => ['nullable', 'string', 'max:500'],
             'address_components_json' => ['nullable', 'string'],
             'address_components' => ['nullable', 'string'],
+            'kati_aciklama' => ['nullable', 'string', 'max:2000'],
             'polygon_geojson' => ['nullable', 'string'],
             'total_area_m2' => ['nullable', 'numeric', 'min:0'],
             'center_lat' => ['nullable', 'numeric', 'between:-90,90'],
@@ -634,6 +635,7 @@ class ApplicationsController extends Controller
             'description' => $data['description'] ?? $application->description,
             'address_text' => $data['address_text'] ?? $application->address_text,
             'address_components' => $data['address_components'] ?? $application->address_components,
+            'kati_aciklama' => $data['kati_aciklama'] ?? $application->kati_aciklama,
             'total_area_m2' => $totalAreaM2 ?? ($data['total_area_m2'] ?? $application->total_area_m2),
             'vice_mayor_name' => $data['vice_mayor_name'] ?? $application->vice_mayor_name,
             'tesis_sorumlusu' => $data['tesis_sorumlusu'] ?? $application->tesis_sorumlusu,
@@ -723,13 +725,27 @@ class ApplicationsController extends Controller
 
     public function approvePreExcavation(Request $request, Application $application, ApplicationService $service): RedirectResponse
     {
+        // ProcessEngine ile çalışan yeni sistem için:
+        // Mevcut adımı kontrol et, kullanıcı bu adımda yetkili mi?
+        $engine = app(ProcessEngine::class);
+        $currentStep = $engine->currentStep($application);
+        
+        if ($currentStep) {
+            // ProcessEngine bazlı yetki kontrolü
+            if (!$engine->canPerformStepAction($currentStep, $request->user())) {
+                abort(403, 'Bu adımda işlem yapma yetkiniz yok.');
+            }
+        } else {
+            // Eski sistem için fallback
+            $stage = $application->approval_stage ?? 'staff';
+            $this->authorize(match ($stage) {
+                'director'   => 'approveDirector',
+                'vice_mayor' => 'approveViceMayor',
+                default      => 'approveStaff',
+            }, $application);
+        }
+        
         $stage = $application->approval_stage ?? 'staff';
-
-        $this->authorize(match ($stage) {
-            'director'   => 'approveDirector',
-            'vice_mayor' => 'approveViceMayor',
-            default      => 'approveStaff',
-        }, $application);
 
         $viceMayorName = $stage === 'vice_mayor' ? trim((string) $request->input('vice_mayor_name')) : null;
 
@@ -1314,7 +1330,7 @@ class ApplicationsController extends Controller
         $rows = self::buildMetrajRows($application);
         $toplamM2 = 0;
         foreach ($rows as $r) {
-            $toplamM2 += (float) str_replace(['.', ','], ['', '.'], $r['m2']);
+            $toplamM2 += (float) str_replace(['.', ','], ['', '.'], $r['efektif_m2'] ?? $r['m2']);
         }
 
         $projeKodu = $application->project_code ?? '';
@@ -1344,6 +1360,7 @@ class ApplicationsController extends Controller
                 trim($application->tesis_sorumlusu ?? $application->institution?->tesis_sorumlusu_adi ?? 'Yetkili Görevli'),
                 'UTF-8'
             ),
+            'application' => $application,
         ];
 
         $html = \Illuminate\Support\Facades\View::make('admin.pdf.metraj', $data)->render();
@@ -1812,7 +1829,17 @@ class ApplicationsController extends Controller
             'surface_lines.*.length_m' => 'nullable|numeric|min:0',
             'surface_lines.*.quantity' => 'required|numeric|min:0',
             'surface_lines.*.address' => 'nullable|string|max:500',
+            // AYKOME 2 YİL KATI FİYAT KURALI — sadece alt kurum başvurularında
+            // PricingService tarafından uygulanır (isInstitutionApplication kontrolü).
+            'surface_lines.*.multiplier' => 'nullable|string|max:20', // string: virgüllü ondalik (0,60) de kabul
+            'surface_lines.*.aciklama' => 'nullable|string|max:2000',
+            'kati_aciklama' => 'nullable|string|max:2000',
         ]);
+
+        // kati_aciklama (global açıklama) kaydet
+        if (array_key_exists('kati_aciklama', $validated)) {
+            $application->update(['kati_aciklama' => $validated['kati_aciklama'] ?: null]);
+        }
 
         $pricingService->upsertSurfaceLines($application, $validated['surface_lines'] ?? []);
         $pricingService->recalculateTotals($application);
@@ -2467,7 +2494,7 @@ HTML;
                 $rows[] = [
                     'ad' => mb_strtoupper($stName, 'UTF-8'),
                     'birim' => $birim,
-                    'miktar' => number_format((float) ($matched->quantity ?? 0), 2, ',', '.'),
+                    'miktar' => number_format((float)($matched->quantity ?? 0) * max(1.0, (float)($matched->multiplier ?? 1)), 2, ',', '.'),
                     'birim_fiyat' => number_format((float) ($matched->surfaceType->price_per_m2 ?? 0), 2, ',', '.'),
                     'tutar' => number_format((float) ($matched->amount ?? 0), 2, ',', '.'),
                 ];
@@ -2535,7 +2562,11 @@ HTML;
                 $sira++;
                 $genislik = $sl->width_m ? number_format((float)$sl->width_m, 2, ',', '.') : '0,00';
                 $uzunluk = $sl->length_m ? number_format((float)$sl->length_m, 2, ',', '.') : '0,00';
-                $m2 = $sl->quantity ? number_format((float)$sl->quantity, 2, ',', '.') : '0,00';
+                $orijinalM2 = $sl->quantity ? (float)$sl->quantity : 0;
+                $multiplier = ($sl->multiplier && $sl->multiplier > 1) ? (float)$sl->multiplier : 1;
+                $efektifM2 = $orijinalM2 * $multiplier;
+                $m2 = number_format($orijinalM2, 2, ',', '.');
+                $efektifM2Str = number_format($efektifM2, 2, ',', '.');
                 $zemin = mb_strtoupper($sl->surfaceType->name, 'UTF-8');
 
                 $rows[] = [
@@ -2547,6 +2578,9 @@ HTML;
                     'genislik' => $genislik,
                     'uzunluk' => $uzunluk,
                     'm2' => $m2,
+                    'kat' => $multiplier > 1 ? number_format($multiplier, 0, ',', '.') : '',
+                    'efektif_m2' => $efektifM2Str,
+                    'aciklama' => $sl->aciklama ?? '',
                     'zemin' => $zemin,
                     'proje_kodu' => $projeKodu,
                     // MODÜLLER ARASI SENKRON: metraj satırı hangi application_surface_areas
