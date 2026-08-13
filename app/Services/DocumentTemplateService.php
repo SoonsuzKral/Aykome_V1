@@ -271,7 +271,7 @@ CSS;
             $rows = $app->id > 0 ? ApplicationsController::buildMetrajRows($app) : self::metrajRowsFromSample();
             $toplamM2 = 0;
             foreach ($rows as $r) {
-                $toplamM2 += (float) str_replace(['.', ','], ['', '.'], $r['m2'] ?? '0');
+                $toplamM2 += (float) str_replace(['.', ','], ['', '.'], $r['efektif_m2'] ?? $r['m2'] ?? '0');
             }
 
             return [
@@ -289,6 +289,7 @@ CSS;
                 'firma' => mb_strtoupper($app->institution?->name ?? '', 'UTF-8'),
                 'is_cinsi' => $app->description ?? $app->excavation_reason ?? '',
                 'talep_sahibi' => $app->id > 0 ? mb_strtoupper(trim($app->tesis_sorumlusu ?? ''), 'UTF-8') : '',
+                'application' => $app,
             ];
         }
 
@@ -1152,7 +1153,7 @@ CSS;
         }
         $rows = $app->id > 0 ? ApplicationsController::buildMetrajRows($app) : self::metrajRowsFromSample();
 
-        $header = ['SIRA', 'İLÇE', 'MAHALLE', 'CADDE VE SOKAK', 'KAZI BAŞLANGIÇ TARİHİ', 'GENİŞLİK', 'UZUNLUK', 'M² / M', 'ZEMİN CİNSİ', 'PROJE / İŞİN ADI'];
+        $header = ['SIRA', 'İLÇE', 'MAHALLE', 'CADDE VE SOKAK', 'KAZI BAŞLANGIÇ TARİHİ', 'GENİŞLİK', 'UZUNLUK', 'M² / M', 'KAT', 'EFEKTİF M²', 'ZEMİN CİNSİ', 'PROJE / İŞİN ADI', 'AÇIKLAMA'];
 
         $gridRows = [];
         foreach ($rows as $r) {
@@ -1165,13 +1166,16 @@ CSS;
                 $r['genislik'] ?? '',
                 $r['uzunluk'] ?? '',
                 $r['m2'] ?? '',
+                $r['kat'] ?? '',
+                $r['efektif_m2'] ?? ($r['m2'] ?? ''),
                 $r['zemin'] ?? '',
                 $r['proje_kodu'] ?? '',
+                $r['aciklama'] ?? '',
             ];
         }
 
         $info = [
-            ['ALICI', 'EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ', '', '', '', '', '', '', '', ''],
+            ['ALICI', 'EYYÜBİYE BELEDİYE BAŞKANLIĞI FEN İŞLERİ MÜDÜRLÜĞÜ AYKOME BİRİMİ', '', '', '', '', '', '', '', '', '', '', ''],
         ];
 
         return array_merge($info, [$header], $gridRows);
@@ -1181,10 +1185,10 @@ CSS;
     protected static function metrajRowsFromSample(): array
     {
         return [
-            ['sira' => 1, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'zemin' => '', 'proje_kodu' => ''],
-            ['sira' => 2, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'zemin' => '', 'proje_kodu' => ''],
-            ['sira' => 3, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'zemin' => '', 'proje_kodu' => ''],
-            ['sira' => 4, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'zemin' => '', 'proje_kodu' => ''],
+            ['sira' => 1, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'kat' => '', 'efektif_m2' => '0,00', 'zemin' => '', 'proje_kodu' => '', 'aciklama' => ''],
+            ['sira' => 2, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'kat' => '', 'efektif_m2' => '0,00', 'zemin' => '', 'proje_kodu' => '', 'aciklama' => ''],
+            ['sira' => 3, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'kat' => '', 'efektif_m2' => '0,00', 'zemin' => '', 'proje_kodu' => '', 'aciklama' => ''],
+            ['sira' => 4, 'ilce' => '', 'mahalle' => '', 'cadde' => '', 'tarih' => '', 'genislik' => '0,00', 'uzunluk' => '0,00', 'm2' => '0,00', 'kat' => '', 'efektif_m2' => '0,00', 'zemin' => '', 'proje_kodu' => '', 'aciklama' => ''],
         ];
     }
 

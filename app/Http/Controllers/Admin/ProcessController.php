@@ -355,7 +355,9 @@ class ProcessController extends Controller
             'role_key' => ['required', 'string', 'max:50', 'alpha_dash'],
             'roles' => ['required', 'array', 'min:1'],
             'roles.*' => ['required', 'string'],
-            'approvable_modules' => ['required', 'array', 'min:1'],
+            // KRiTiK FiX: eskiden 'required'+'min:1' idi — approvable_modules NULL/boş olan
+            // adımlar (ör. E-İmza adımları) Visual Editor'de kaydedilemiyordu (422 sessiz hata).
+            'approvable_modules' => ['nullable', 'array'],
             'approvable_modules.*' => ['required', 'string'],
             'module_permissions' => ['nullable', 'array'],
             'personnel_ids' => ['nullable', 'array'],

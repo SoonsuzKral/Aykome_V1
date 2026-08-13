@@ -21,20 +21,23 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #00
 
 .alici { margin-top: 25px; font-size: 11pt; }
 .ilgi { margin-top: 15px; font-size: 11pt; }
-.paragraf { margin-top: 20px; font-size: 11pt; text-align: justify; line-height: 1.5; }
+.paragraf { margin-top: 20px; font-size: 11pt; text-align: justify; line-height: 1.6; }
 .paragraf p { margin-bottom: 8px; }
 
+/* İmza + altbilgi: PDF'de sayfa dibine sabitlenir (pdfTipineGoreEkCss ile).
+   Web önizlemede normal flow'da kalır (margin-top ile aşağı itilir). */
 .imza { margin-top: 40px; text-align: right; font-size: 11pt; }
 .imza .ad { font-weight: bold; margin-top: 5px; }
 .imza .unvan { margin-top: 2px; }
 .imza .vekalet { margin-top: 2px; font-style: italic; }
 
-.altbilgi { margin-top: 40px; font-size: 8pt; border-top: 1px solid #ccc; padding-top: 8px; }
+.altbilgi { margin-top: 20px; font-size: 8pt; border-top: 1px solid #ccc; padding-top: 8px; }
 .altbilgi .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
 .altbilgi .sol { text-align: left; }
 .altbilgi .sag { text-align: right; }
 
-.footer-sayfa { font-size: 9pt; text-align: right; margin-top: 20px; }
+.footer-sayfa { font-size: 9pt; text-align: right; margin-top: 8px; }
+.footer-dogrulama { margin-top: 8px; border-top: 1px dashed #cbd5e1; padding-top: 3px; text-align: center; font-family: monospace; font-size: 9px; line-height: 1; color: #64748b; }
 </style>
 @endsection
 
@@ -43,6 +46,8 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #00
     // CELL-BASED AUTH: Ön Kazı belgesi doğrudan belediyeden çıkar; altkurum düzenleyemez.
     $isMuni = auth()->check() && auth()->user()->isMunicipalityPersonel();
 @endphp
+
+{{-- ÜST İÇERİK: header + bilgi satırları + paragraflar --}}
 <div class="header">
     <div class="header-logo">
         @if(isset($logo_base64) && $logo_base64)
@@ -90,33 +95,36 @@ body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; color: #00
     Gereğini rica ederim.
 </div>
 
-<div class="imza">
-    <div class="ad" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $imza_ad ?? '' }}</div>
-    <div class="unvan" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $imza_unvan ?? 'Belediye Başkan Yardımcısı' }}</div>
-    <div class="vekalet">V.</div>
-    <div style="margin-top:2px;">Başkan a.</div>
-</div>
+{{-- SAYFA ALTI: PDF'de position:absolute;bottom:0 ile sayfanın dibine sabitlenir.
+     Web önizlemede normal akışta kalır (pdfTipineGoreEkCss sadece PDF pipeline'da çalışır). --}}
+<div class="sayfa-alti-wrapper">
+    <div class="imza">
+        <div class="ad" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $imza_ad ?? '' }}</div>
+        <div class="unvan" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $imza_unvan ?? 'Belediye Başkan Yardımcısı' }}</div>
+        <div class="vekalet">V.</div>
+        <div style="margin-top:2px;">Başkan a.</div>
+    </div>
 
-<div class="altbilgi">
-    <div class="row">
-        <span class="sol" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $adres ?? '' }}</span>
-        <span class="sag">Bilgi için <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $bilgi_kisi ?? '' }}</span></span>
+    <div class="altbilgi">
+        <div class="row">
+            <span class="sol" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $adres ?? '' }}</span>
+            <span class="sag">Bilgi için <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $bilgi_kisi ?? '' }}</span></span>
+        </div>
+        <div class="row">
+            <span class="sol">Telefon: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $telefon ?? '' }}</span> Fax: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $fax ?? '' }}</span></span>
+        </div>
+        <div class="row">
+            <span class="sol">E-Posta: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $eposta ?? '' }}</span> Web: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $web ?? '' }}</span></span>
+        </div>
+        <div class="row">
+            <span class="sol" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $kep_adresi ?? '' }}</span>
+        </div>
     </div>
-    <div class="row">
-        <span class="sol">Telefon: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $telefon ?? '' }}</span> Fax: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $fax ?? '' }}</span></span>
-    </div>
-    <div class="row">
-        <span class="sol">E-Posta: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $eposta ?? '' }}</span> Web: <span contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $web ?? '' }}</span></span>
-    </div>
-    <div class="row">
-        <span class="sol" contenteditable="{{ $isMuni ? 'true' : 'false' }}">{{ $kep_adresi ?? '' }}</span>
-    </div>
-</div>
 
-{{-- FOOTER — TEK SATIR + DAR MARGIN: uzun açıklama silindi, A4 taşması engellenir --}}
-<div style="margin-top:10px; border-top: 1px dashed #cbd5e1; padding-top:3px; text-align: center; font-family: monospace; font-size: 9px; line-height: 1; color:#64748b;">
-    BELGE DOĞRULAMA KODU: <b style="color:#d97706;">{{ $application->verification_code ?? 'GEÇERSİZ/TASLAK' }}</b> | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b>
-</div>
+    <div class="footer-dogrulama">
+        BELGE DOĞRULAMA KODU: <b style="color:#d97706;">{{ $application->verification_code ?? 'GEÇERSİZ/TASLAK' }}</b> | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b>
+    </div>
 
-<div class="footer-sayfa">1/1</div>
+    <div class="footer-sayfa">1/1</div>
+</div>
 @endsection

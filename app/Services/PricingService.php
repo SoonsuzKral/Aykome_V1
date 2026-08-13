@@ -17,15 +17,23 @@ class PricingService
 
         $application->surfaceLines()->delete();
 
+        // KATI (multiplier) KURALI: sadece ALT KURUM başvurularında geçerlidir
+        // (AYKOME 2 yıl içinde aynı adrese tekrar kazı kuralı). Merkez Belediye
+        // (vatandaş) başvurularında multiplier her zaman 1'e sabitlenir.
+        $katiIzinli = $application->isInstitutionApplication();
+
         foreach ($lines as $data) {
             $surfaceType = SurfaceType::query()->findOrFail($data['surface_type_id']);
             $width = isset($data['width_m']) ? (float) str_replace(',', '.', $data['width_m']) : 0.0;
             $length = isset($data['length_m']) ? (float) str_replace(',', '.', $data['length_m']) : 0.0;
             $quantity = (float) str_replace(',', '.', $data['quantity'] ?? 0);
+            $multiplier = $katiIzinli && isset($data['multiplier']) && $data['multiplier'] !== ''
+                ? max(1.0, (float) str_replace(',', '.', $data['multiplier']))
+                : 1.0;
             $unit = (float) $surfaceType->price_per_m2;
 
-            $patchM2 = $quantity;
-            $amount = round($patchM2 * $unit, 3);
+            // amount = orijinal ölçülen miktar × katı × birim fiyat (fiyatlandırma tabanı)
+            $amount = round($quantity * $multiplier * $unit, 3);
             $amount = min($amount, 999999999999.99);
 
             $application->surfaceLines()->create([
@@ -33,7 +41,8 @@ class PricingService
                 'width_m' => $width ?: null,
                 'length_m' => $length ?: null,
                 'quantity' => $quantity,
-                'multiplier' => 1,
+                'multiplier' => $multiplier,
+                'aciklama' => $data['aciklama'] ?? null,
                 'amount' => $amount,
                 'address' => $data['address'] ?? null,
             ]);
@@ -49,9 +58,11 @@ class PricingService
         foreach ($application->surfaceLines as $line) {
             $unit = (float) ($line->surfaceType->price_per_m2 ?? 0);
             $qty = (float) ($line->quantity ?? 0);
-            $lineAmount = min(round($qty * $unit, 3), 999999999999.99);
+            $multiplier = (float) ($line->multiplier ?: 1);
+            $effectiveQty = $qty * $multiplier;
+            $lineAmount = min(round($effectiveQty * $unit, 3), 999999999999.99);
             $line->update(['amount' => $lineAmount]);
-            $rows[] = ['quantity' => $qty, 'price_per_m2' => $unit];
+            $rows[] = ['quantity' => $effectiveQty, 'price_per_m2' => $unit];
         }
 
         $fig = AykomeMath::compute($rows, [

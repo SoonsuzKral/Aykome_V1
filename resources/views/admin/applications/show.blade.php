@@ -914,6 +914,14 @@
                 }
                 $currentStep = \App\Enums\ApplicationStatus::workflowStep($st, $isMunicipality);
                 $currentStepNum = $currentStep['step'] ?? 0;
+
+                // BELEDiYE KULLANICISI + ALT KURUM BAŞVURUSU + SUBMITTED:
+                // Onay rotası Step 2 (Ön Kazı)'dedir.
+                // workflowStep() 'submitted' → step:1 döndürür ama belediye için
+                // Step 1 'past' (alt kurum gönderdi), Step 2 'current' olmalı.
+                if ($kullaniciBelediyeMi && $isAltKurum && $st === 'submitted') {
+                    $currentStepNum = 2;
+                }
             @endphp
 
             @foreach($workflowSteps as $num => $step)
@@ -1148,24 +1156,15 @@
                                             📄 Üst Yazı (Dilekçe) Görüntüle / İndir (PDF)
                                         </a>
 
-                                        {{-- GÖREV 3: Word/Editör butonu YALNIZCA $duzenlemeAcik (belediye VEYA draft/rejected/revision)
-                                             submitted ve sonrası (belediye devraldığı an) HTML'den TAMAMEN render edilmez;
-                                             alt kurum salt "Üst Yazı (Dilekçe) PDF Görüntüle/İndir" flat butonunu görür. --}}
-                                        <!-- LOG DEBUG - BldMi: {{ $kullaniciBelediyeMi ? 'Evet' : 'Hayir' }} | ST: {{ $guncelStatus }} | DznAcik: {{ $duzenlemeAcik ? 'Evet' : 'Hayir' }} -->
-                                        @if($duzenlemeAcik)
+                                        {{-- Üst Yazı Taslak Düzenleme: SADECE alt kurum kullanıcısı, SADECE draft/rejected/revision --}}
+                                        @if(!$kullaniciBelediyeMi && in_array($guncelStatus, ['draft', 'rejected', 'revision']))
                                         <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
                                             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                            ✏️ Taslağı Aç ve Başvuruya Özel Düzenle (World)
+                                            ✏️ Üst Yazı Taslağını Düzenle
                                         </a>
                                         @endif
-                                        @if($passedOnKazi && $kullaniciBelediyeMi && $canEditTemplate)
-                                        <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" target="_blank"
-                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
-                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                            ✏️ Ön Kazı İzni — Taslağı Aç ve Başvuruya Özel Düzenle (Word)
-                                        </a>
-                                        @endif
+                                        {{-- Belediye kullanıcısı: Ön Kazı editörleri Step 2 (Ön Kazı) adımındadır --}}
                                     @endif
 
                                     {{-- draft/submitted: gönder ile onay rotası (yalnızca bu statülerde) --}}
@@ -1177,7 +1176,16 @@
                                             </form>
                                         @endif
 
-                                        @if($isAltKurum)
+                                        {{-- BELEDİYE KULLANICISI: Onay rotası Step 1'de (Üst Yazı) değil,
+                                             Step 2'de (Ön Kazı) görünür. Burada sadece bilgi mesajı. --}}
+                                        @if($isAltKurum && $kullaniciBelediyeMi && $st === 'submitted')
+                                            <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-2">
+                                                <p class="text-xs font-semibold text-amber-800">📋 Üst Yazı Alındı</p>
+                                                <p class="text-[11px] text-amber-700 mt-1">Alt kurum üst yazısı iletildi. Onay rotası için <strong>Ön Kazı İzni</strong> adımına geçiniz.</p>
+                                            </div>
+                                        @endif
+
+                                        @if($isAltKurum && !$kullaniciBelediyeMi)
                                             @php $onayStage = $application->approval_stage ?? ($processCurrentStep?->role_key ?? 'staff'); @endphp
 
                                             {{-- Süreç & Onay Rotası: action_type'a göre dinamik buton --}}
@@ -1230,24 +1238,12 @@
                                                 @endif
                                             @endif
                                         @endif
+                                    @endif {{-- /in_array draft|submitted --}}
 
-                                        @if(auth()->user()->hasRole('super-admin') && $isAltKurum && in_array($st, ['submitted']))
-                                            <a href="{{ route('admin.settings.pre-excavation-permit') }}" target="_blank"
-                                               class="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white py-2 text-xs font-medium text-slate-600 hover:bg-slate-50">
-                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                </svg>
-                                                Ön Kazı Belge Ayarları
-                                            </a>
-                                        @endif
-                                    @endif
-
-                                    {{-- BÜYÜK YASA: Üst Yazı adımı aktif/bekliyor ise alt kuruma işlem tabı --}}
-                                    {{-- GÖREV 1: adım aşıldıysa (past) imzalı nüsha kutusu KALICI görünür --}}
-                                    @if($isAltKurum && ($isCurrent || $isPast))
+                                    {{-- İşlem Tabı (Üst Yazı): SADECE alt kurum kullanıcısı görür --}}
+                                    @if($isAltKurum && $isUserInstitution && ($isCurrent || $isPast))
                                     <div class="mt-3 rounded-xl border border-blue-200 bg-blue-50/60 p-3 space-y-2">
-                                        <p class="text-xs font-semibold text-blue-800 mb-1">📋 İşlem Tabı</p>
+                                        <p class="text-xs font-semibold text-blue-800 mb-1">📋 İşlem Tabı — Üst Yazı</p>
                                         <div>
                                             <label class="block text-[10px] font-medium text-slate-600 mb-1">Açıklama</label>
                                             <textarea name="step_aciklama_1" rows="2" class="block w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-xs focus:border-blue-400 focus:outline-none" placeholder="Açıklama veya not giriniz..."></textarea>
@@ -1257,13 +1253,79 @@
                                     @endif
                                 @endif
 
-{{-- ===== STEP 2: ÖN KAZI — Kurum için YALNIZCA görüntüleme/indirme / Belediye için KAZI METRAJ BİLGİ ===== --}}
+{{-- ===== STEP 2: ÖN KAZI — BELEDiYE: ONAY ROTASI + Ön Kazı İzni / KURUM: Görüntüleme ===== --}}
                             @elseif($num === 2)
                                 @if($isCurrent || $isPast)
                                     @if(!$isMunicipality)
-                                        {{-- INSTITUTION STEP 2: ÖN KAZI — SADECE EVRAK/PDF GÖRÜNTÜLEME/İNDİRME + İŞLEM TABI --}}
-                                        {{-- KURAL: Alt kuruma Düzenle butonu KESİNLİKLE BASILMAZ --}}
-                                        {{-- Tahakkuk/makbuz/taahhüt formları KESİNLİKLE bu karta sarkmaz --}}
+
+                                        {{-- ===== BELEDiYE KULLANICISI: ONAY ROTASI BURAYA ===== --}}
+                                        @if(!$isUserInstitution && $isAltKurum && in_array($st, ['submitted']))
+                                            @php $onayStage = $application->approval_stage ?? ($processCurrentStep?->role_key ?? 'staff'); @endphp
+                                            @php $actionType = $processCurrentStep?->action_type ?? 'onay'; @endphp
+
+                                            <div class="mb-3 rounded-xl border border-cyan-300 bg-cyan-50 p-3">
+                                                <p class="text-xs font-semibold text-cyan-800 mb-2">📋 Ön Kazı Onay Rotası</p>
+
+                                                {{-- PARAF BUTONU --}}
+                                                @if($isCurrent && ($can['paraf'] ?? false) && $actionType === 'paraf')
+                                                    <form method="POST" action="{{ route('admin.applications.paraf-step', $application) }}" class="mb-2">
+                                                        @csrf
+                                                        <button type="submit"
+                                                                class="flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 py-2.5 text-sm font-medium text-white hover:bg-amber-700">
+                                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                                            </svg>
+                                                            📝 {{ $processCurrentStep?->name ?: 'Paraf At' }} — Paraf At &amp; Gönder
+                                                        </button>
+                                                    </form>
+
+                                                {{-- E-İMZA BUTONU --}}
+                                                @elseif($isCurrent && ($can['e_imza'] ?? false) && $actionType === 'e_imza')
+                                                    <button type="button" onclick="document.getElementById('e-imza-modal-{{ $application->id }}').classList.remove('hidden')"
+                                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
+                                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
+                                                        </svg>
+                                                        🔏 {{ $processCurrentStep?->name ?: 'E-İmza At' }} — E-İmza At &amp; Gönder
+                                                    </button>
+
+                                                {{-- ONAY BUTONU (varsayılan) --}}
+                                                @elseif($isCurrent && ($can['approve_current'] ?? false))
+                                                    @if($processCurrentStepIsFinal)
+                                                    <button type="button" onclick="document.getElementById('pre-excavation-modal').classList.remove('hidden')"
+                                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-amber-600 py-2.5 text-sm font-medium text-white hover:bg-amber-700">
+                                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                        </svg>
+                                                        ✅ {{ $processCurrentStep?->name ?: 'Başkan Yrd. Onayla' }} / Ön Kazı İzni Ver
+                                                    </button>
+                                                    @else
+                                                    <form method="POST" action="{{ route('admin.applications.approve-pre-excavation', $application) }}" class="mb-2">
+                                                        @csrf
+                                                        <button type="submit"
+                                                                class="flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium text-white {{ $onayStage === 'director' ? 'bg-indigo-700 hover:bg-indigo-800' : 'bg-cyan-700 hover:bg-cyan-800' }}">
+                                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                            </svg>
+                                                            ✅ {{ $processCurrentStep?->name ?: 'Onayla' }} — Onayla &amp; Gönder
+                                                        </button>
+                                                    </form>
+                                                    @endif
+                                                @else
+                                                    {{-- Sıradaki adım bilgisi --}}
+                                                    @php
+                                                        $stageLabels2 = [
+                                                            'municipality-buro'  => 'Büro Personeli Onayı Bekleniyor',
+                                                            'municipality-sef'   => 'Birim Şefi Parafı Bekleniyor',
+                                                            'municipality-mudur' => 'Müdür E-İmzası Bekleniyor',
+                                                            'municipality-makam' => 'Başkan Yrd. E-İmzası Bekleniyor',
+                                                        ];
+                                                        $stageLabel2 = $stageLabels2[$application->approval_stage ?? ''] ?? ucfirst($application->approval_stage ?? 'Bekliyor');
+                                                    @endphp
+                                                    <p class="text-[11px] text-cyan-700">⏳ {{ $stageLabel2 }}</p>
+                                                @endif
+                                            </div>
+                                        @endif
 
                                         {{-- Ön Kazı İzin Belgesi (PDF) Görüntüle / İndir -- GÖREV 2 kalıcı --}}
                                         @if($passedOnKazi)
@@ -1274,8 +1336,24 @@
                                         </a>
                                         @endif
 
-                                        {{-- BÜYÜK YASA: Ön Kazı adımı aktif ise alt kuruma işlem tabı --}}
-                                        @if($isUserInstitution && ($isCurrent || $isPast))
+                                        {{-- BELEDiYE KULLANICISI: Taslak düzenleme ve imzalı nüsha — ÖN KAZIDA --}}
+                                        {{-- NOT: Üst Yazı taslak düzenleme Step 1'а (alt kurum için, draft/revision durumunda) --}}
+                                        @if(!$isUserInstitution)
+                                            {{-- Ön Kazı İzni (on_kazi) taslak düzenleme --}}
+                                            @if($kullaniciBelediyeMi && $canEditTemplate)
+                                            <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" target="_blank"
+                                               class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                                ✏️ Ön Kazı İzni Taslak Düzenleme (Word)
+                                            </a>
+                                            @endif
+                                            {{-- İmzalı Ön Kazı Nüshası yükleme (belediye) --}}
+                                            <div class="mt-2 rounded-xl border border-cyan-200 bg-cyan-50/60 p-3 space-y-2">
+                                                <p class="text-xs font-semibold text-cyan-800 mb-1">📋 İşlem Tabı — Ön Kazı</p>
+                                                @include('admin.applications._signed_document_upload', ['module' => 'on_kazi_signed', 'label' => '🗂 İmzalı Ön Kazı Nüshası'])
+                                            </div>
+                                        @else
+                                        {{-- ALT KURUM: Ön Kazı işlem tabı --}}
                                         <div class="mt-3 rounded-xl border border-cyan-200 bg-cyan-50/60 p-3 space-y-2">
                                             <p class="text-xs font-semibold text-cyan-800 mb-1">📋 İşlem Tabı — Ön Kazı</p>
                                             <div>
@@ -1841,17 +1919,29 @@
     <div class="relative w-full max-w-3xl bg-white rounded-xl shadow-2xl flex flex-col p-5 my-auto" onclick="event.stopPropagation()">
         <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-3">
             <h3 class="text-lg font-semibold text-slate-900">Zemin Satırlarını Düzenle</h3>
-            <button type="button" onclick="document.getElementById('surface-edit-modal').classList.add('hidden')" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
+            <div class="flex items-center gap-2">
+                @if($application->isInstitutionApplication())
+                {{-- AYKOME 2 Yıl Kuralı: aynı adrese tekrar kazı → katı (çarpan) fiyat.
+                     SADECE alt kurum başvurularında görünür (merkez belediye/vatandaş hariç). --}}
+                <button type="button" id="toggle-kati-btn" class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">
+                    × Katı Ekle
+                </button>
+                @endif
+                <button type="button" onclick="document.getElementById('surface-edit-modal').classList.add('hidden')" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
         </div>
 
         <form method="POST" action="{{ route('admin.applications.update-surface-lines', $application) }}">
             @csrf
             @if(!empty($application->address_components) && is_array($application->address_components))
             <div class="mb-3 rounded-lg border border-slate-100 bg-slate-50 p-2">
-                <p class="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Adres Kısayolları — tıklayınca ilk satıra yazılır</p>
-                <div class="flex flex-wrap gap-1">
+                <div class="mb-1 flex items-center justify-between gap-2">
+                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Adres Kısayolları — tıklayınca ilk satıra yazılır</p>
+                    <input type="text" id="adres-chip-search" placeholder="🔍 Adres ara..." class="w-40 rounded-md border-slate-200 text-[11px] px-2 py-1 shadow-sm focus:border-cyan-400 focus:ring-1 focus:ring-cyan-200">
+                </div>
+                <div class="flex max-h-24 flex-wrap gap-1 overflow-y-auto" id="adres-chip-list">
                     @foreach($application->address_components as $ac)
                         @foreach($ac['streets'] ?? [] as $street)
                         <button type="button" class="chip-adres rounded-md bg-white px-2 py-0.5 text-[11px] text-slate-600 ring-1 ring-slate-200 transition hover:bg-cyan-50 hover:text-cyan-700 hover:ring-cyan-300"
@@ -1861,15 +1951,17 @@
                 </div>
             </div>
             @endif
-            <div class="overflow-x-auto">
+            {{-- ZEMiN SATIRLARI TABLOSU: 10+ satırdan sonra scroll bar (50 adrese kadar rahat kullanım) --}}
+            <div class="overflow-x-auto max-h-[420px] overflow-y-auto border border-slate-100 rounded-lg">
                 <table class="w-full text-xs" id="surface-edit-table">
-                    <thead>
+                    <thead class="sticky top-0 bg-white z-10">
                         <tr class="border-b border-slate-300 text-left text-slate-600">
                             <th class="py-2 pr-2 font-medium">#</th>
                             <th class="p-2 font-medium min-w-[160px]">Zemin Tipi</th>
                             <th class="p-2 font-medium min-w-[140px]">Adres</th>
                             <th class="p-2 font-medium min-w-[80px]">Genişlik (m)</th>
                             <th class="p-2 font-medium min-w-[80px]">Uzunluk (m)</th>
+                            <th class="p-2 font-medium min-w-[70px] kati-col hidden bg-amber-50">Katı (x)</th>
                             <th class="p-2 font-medium min-w-[100px]">Miktar (m²)</th>
                             <th class="p-2 font-medium min-w-[60px]">İşlem</th>
                         </tr>
@@ -1897,6 +1989,9 @@
                             </td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[{{ $idx }}][width_m]" value="{{ $line->width_m ? number_format((float)$line->width_m, 2, '.', '') : '' }}" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[{{ $idx }}][length_m]" value="{{ $line->length_m ? number_format((float)$line->length_m, 2, '.', '') : '' }}" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
+                            <td class="p-2 align-top kati-col hidden bg-amber-50/40">
+                                <input type="text" inputmode="decimal" name="surface_lines[{{ $idx }}][multiplier]" value="{{ $line->multiplier && (float)$line->multiplier != 1 ? number_format((float)$line->multiplier, 2, '.', '') : '' }}" class="w-full rounded border-amber-300 text-xs shadow-sm font-semibold text-amber-800" placeholder="1">
+                            </td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[{{ $idx }}][quantity]" value="{{ $line->quantity ? number_format((float)$line->quantity, 2, '.', '') : '' }}" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>
                             <td class="p-2 align-top">
                                 <button type="button" class="remove-surface-row rounded border border-red-200 bg-red-50 px-1.5 py-1 text-[10px] font-medium text-red-600 hover:bg-red-100">🗑</button>
@@ -1921,6 +2016,9 @@
                             </td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[0][width_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[0][length_m]" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>
+                            <td class="p-2 align-top kati-col hidden bg-amber-50/40">
+                                <input type="text" inputmode="decimal" name="surface_lines[0][multiplier]" class="w-full rounded border-amber-300 text-xs shadow-sm font-semibold text-amber-800" placeholder="1">
+                            </td>
                             <td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[0][quantity]" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>
                             <td class="p-2 align-top">
                                 <button type="button" class="remove-surface-row rounded border border-red-200 bg-red-50 px-1.5 py-1 text-[10px] font-medium text-red-600 hover:bg-red-100">🗑</button>
@@ -1933,6 +2031,17 @@
             <button type="button" id="add-surface-row-btn" class="mt-3 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:border-slate-400 transition">
                 + Yeni Satır Ekle
             </button>
+
+            {{-- KATI AÇIKLAMASI: Katı Ekle ile açılır. Metin uygulamaya (kati_aciklama) kaydedilir.
+                 PDF metraj cetvelinde TOPLAM'dan bir üst satır olarak görünür. --}}
+            <div id="kati-aciklama-wrapper" class="mt-3 hidden rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+                <label class="mb-1 block text-[11px] font-semibold text-amber-800">📝 Açıklama (Kurul Kararı / Katı Sebebi) — PDF metraj cetvelinde görünür</label>
+                <textarea id="kati-aciklama-global" name="kati_aciklama"
+                    data-db-val="{{ $application->kati_aciklama ?? '' }}"
+                    rows="2" class="w-full rounded-lg border-amber-300 text-xs shadow-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-200"
+                    placeholder="Örn: 2 yıl içinde aynı adrese tekrar kazı — AYKOME kurul kararı ile 5 katı fiyat uygulanır.">{{ $application->kati_aciklama ?? '' }}</textarea>
+            </div>
+
             <div class="flex items-center justify-end gap-3 border-t border-slate-100 pt-4 mt-4">
                 <button type="button" onclick="document.getElementById('surface-edit-modal').classList.add('hidden')" class="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">İptal</button>
                 <button type="submit" class="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-medium text-white hover:bg-cyan-800">Zemin Satırlarını Kaydet</button>
@@ -2444,6 +2553,7 @@ function toggleStep(id) {
             '<td class="p-2 align-top"><div class="flex items-center gap-1"><input type="text" name="surface_lines[' + idx + '][address]" value="' + (data.address || '') + '" class="min-w-0 flex-1 rounded border-slate-300 text-xs shadow-sm" placeholder="Mahalle, cadde/sokak..."><button type="button" class="row-address-show shrink-0 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] text-emerald-700 hover:bg-emerald-100" title="Bu adresi haritada göster">📍</button></div></td>' +
             '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][width_m]" value="' + (data.width_m || '') + '" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>' +
             '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][length_m]" value="' + (data.length_m || '') + '" class="w-full rounded border-slate-300 text-xs shadow-sm" placeholder="0"></td>' +
+            '<td class="p-2 align-top kati-col ' + (document.getElementById('toggle-kati-btn') && !document.getElementById('toggle-kati-btn').classList.contains('kati-active') ? 'hidden ' : '') + 'bg-amber-50/40"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][multiplier]" value="' + (data.multiplier || '') + '" class="w-full rounded border-amber-300 text-xs shadow-sm font-semibold text-amber-800" placeholder="1"></td>' +
             '<td class="p-2 align-top"><input type="text" inputmode="decimal" name="surface_lines[' + idx + '][quantity]" value="' + (data.quantity || '') + '" required class="w-full rounded border-slate-300 text-xs shadow-sm font-semibold" placeholder="0"></td>' +
             '<td class="p-2 align-top"><button type="button" class="remove-surface-row rounded border border-red-200 bg-red-50 px-1.5 py-1 text-[10px] font-medium text-red-600 hover:bg-red-100">🗑</button></td>';
         tbody.appendChild(tr);
@@ -2500,6 +2610,10 @@ function toggleStep(id) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                     if (!modal.classList.contains('hidden')) {
                         hydrateAddressValues();
+                        // DB'de herhangi bir satırda KAT > 1 varsa otomatik aç
+                        // (inputlar korunur, kullanıcı önceki değeri görür).
+                        // Hiç KAT yoksa kapalı başla.
+                        katiModalAcilisKontrol();
                     }
                 }
             });
@@ -2570,6 +2684,88 @@ function toggleStep(id) {
             }, 0);
         });
     }
+
+    // KATI (AYKOME 2 yil kurali) toggle: Kati Ekle basilinca .kati-col sutunlari
+    // acilir/kapanir, aciklama kutusu gorunur olur.
+    var katiBtn = document.getElementById('toggle-kati-btn');
+    var katiAciklamaWrapper = document.getElementById('kati-aciklama-wrapper');
+
+    // KAT görünlürlüğünü aktifleştir (buton UI)
+    function katiGoster() {
+        if (!katiBtn) return;
+        katiBtn.classList.add('kati-active', 'bg-amber-500', 'text-white');
+        katiBtn.classList.remove('bg-amber-50', 'text-amber-700');
+        katiBtn.textContent = '\u2713 Kat\u0131 A\u00e7\u0131k';
+        document.querySelectorAll('.kati-col').forEach(function (el) {
+            el.classList.remove('hidden');
+        });
+        if (katiAciklamaWrapper) katiAciklamaWrapper.classList.remove('hidden');
+    }
+
+    // Katı Ekle butonuna MANUĒL basilinca: inputları temizle, sonra aç
+    function katiAc() {
+        document.querySelectorAll('input[name$="[multiplier]"]').forEach(function(inp) {
+            inp.value = '';
+        });
+        katiGoster();
+    }
+
+    // Otomatik açma (modal açılınca DB kontrolü): inputları TEMIZLEME, sadece göster
+    function katiAcOto() {
+        katiGoster(); // inputları koruyarak sadece sütunu aç
+    }
+
+    function katiKapat() {
+        if (!katiBtn) return;
+        katiBtn.classList.remove('kati-active', 'bg-amber-500', 'text-white');
+        katiBtn.classList.add('bg-amber-50', 'text-amber-700');
+        katiBtn.textContent = '\u00d7 Kat\u0131 Ekle';
+        document.querySelectorAll('.kati-col').forEach(function (el) {
+            el.classList.add('hidden');
+        });
+        if (katiAciklamaWrapper) katiAciklamaWrapper.classList.add('hidden');
+    }
+
+    // Modal açılınca: herhangi satırda multiplier > 1 varsa KAT sacık gelsin
+    // inputları KORUYARAK (DB değerlerini göster)
+    function katiModalAcilisKontrol() {
+        var anyKat = false;
+        document.querySelectorAll('input[name$="[multiplier]"]').forEach(function(inp) {
+            var v = parseFloat(String(inp.value || '0').replace(',', '.'));
+            if (v > 1) anyKat = true;
+        });
+        if (anyKat) {
+            katiAcOto(); // Inputları koruyarak aç
+        } else {
+            katiKapat(); // Hiç KAT yoksa kapalı başla
+        }
+    }
+
+    if (katiBtn) {
+        katiBtn.addEventListener('click', function () {
+            if (katiBtn.classList.contains('kati-active')) {
+                katiKapat();
+            } else {
+                katiAc(); // Manuel: temizle + aç
+            }
+        });
+    }
+
+    // Adres chip arama kutusu: yazinca listeyi filtreler
+    var adresSearch = document.getElementById('adres-chip-search');
+    if (adresSearch) {
+        adresSearch.addEventListener('input', function () {
+            var term = adresSearch.value.trim().toLowerCase();
+            document.querySelectorAll('.chip-adres').forEach(function (chip) {
+                var adres = (chip.getAttribute('data-adres') || '').toLowerCase();
+                chip.classList.toggle('hidden', term.length > 0 && adres.indexOf(term) === -1);
+            });
+        });
+    }
+
+    // Eski "global aciklamayi tum satirlara kopyala" kodu KALDIRILDI.
+    // kati_aciklama artik name="kati_aciklama" textarea ile direkt uygulamaya kaydedilir.
+    // (updateSurfaceLines controller bunu ayri handle ediyor)
 })();
 
 // ── Adres → Haritada Göster (modal 📍 + detay adres chips'leri ortak yardımcı) ──

@@ -327,6 +327,15 @@
                 </button>
             </div>
 
+            {{-- KATI AÇIKLAMASI (ALT KURUM) --}}
+            @if($application->isInstitutionApplication())
+            <div class="mb-3 p-3 rounded-lg border border-amber-200 bg-amber-50/30">
+                <label class="block text-xs font-semibold text-amber-900 mb-1">Katı Fiyat Açıklaması (2 yıl kurallgı):</label>
+                <textarea id="kati-aciklama" name="kati_aciklama" rows="2" class="w-full rounded border-amber-300 bg-white text-xs shadow-sm" placeholder="Örn: Bu adresler 2024'te kazılmıştı, 5 kat fiyat uygulandı.">{{ old('kati_aciklama', $application->kati_aciklama ?? '') }}</textarea>
+                <p class="mt-1 text-[10px] text-amber-700">Bu açıklama PDF metraj cetvelinde görünecektir.</p>
+            </div>
+            @endif
+
             <div class="overflow-x-auto">
                 <table id="surface-lines-table" class="w-full text-xs">
                     <thead>
@@ -336,6 +345,7 @@
                             <th class="p-2 font-medium min-w-[100px]">Genişlik (m)</th>
                             <th class="p-2 font-medium min-w-[100px]">Uzunluk (m)</th>
                             <th class="p-2 font-medium min-w-[120px]">Miktar (m²)</th>
+                            <th class="p-2 font-medium min-w-[90px] kat-column hidden">Kat</th>
                             <th class="p-2 font-medium min-w-[110px]">Birim Fiyat</th>
                             <th class="p-2 font-medium min-w-[120px]">Harita</th>
                             <th class="p-2 font-medium min-w-[140px]">Satır Tutarı (₺)</th>
@@ -686,9 +696,11 @@
 
             surfaceLines.forEach(function (row) {
                 var q = Math.max(parseFloat(row.quantity) || 0, 0);
+                var mult = Math.max(parseFloat(row.multiplier) || 1, 1);
                 var up = Math.max(parseFloat(row.price_per_m2) || 0, 0);
-                toplamMiktar += q;
-                ztb += q * up;
+                var effectiveQty = q * mult;
+                toplamMiktar += effectiveQty;
+                ztb += effectiveQty * up;
             });
 
             if (!hasValidRows() || toplamMiktar <= 0) {
@@ -737,11 +749,18 @@
 
                 var unitPrice = parseFloat(row.price_per_m2) || 0;
                 var qty = parseFloat(row.quantity) || 0;
-                var rowTotal = calculateRowTotal(qty, unitPrice);
+                // Virgüllü ondalik destekle (0,60)
+                var multRaw = String(row.multiplier || '1').replace(',', '.');
+                var multiplier = parseFloat(multRaw) || 1;
+                var effectiveQty = qty * multiplier;
+                var rowTotal = calculateRowTotal(effectiveQty, unitPrice);
                 var hasDrawing = rowDrawings[row.rowId] != null;
                 var widthLocked = isInstitutionUser && rowHasLineDrawing(row.rowId);
                 var widthVal = widthLocked ? '1.00' : (row.width_m || '');
                 var widthLockedAttr = widthLocked ? ' readonly' : '';
+                // KAT sütunu: Alt kurum + herhangi bir satırda kat > 1 varsa açık
+                var anyKat = isInstitutionUser && surfaceLines.some(function(r) { var m = parseFloat(String(r.multiplier || '1').replace(',', '.')); return m > 1; });
+                var katVisible = (isInstitutionUser && (multiplier > 1 || anyKat)) ? '' : (isInstitutionUser ? '' : 'hidden');
 
                 tr.innerHTML =
                     '<td class="py-2 pr-2 text-slate-400 font-mono text-[10px] align-top pt-3">' + (idx + 1) + '</td>' +
@@ -752,7 +771,8 @@
                     '</select>' + (row.address ? '<div class="mt-1 text-[10px] font-medium leading-tight text-slate-600">📍 ' + esc(row.address) + '</div>' : '') + '</td>' +
                     '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-width w-full rounded border-slate-300 text-xs shadow-sm" value="' + widthVal + '"' + widthLockedAttr + ' placeholder="0"></td>' +
                     '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-length w-full rounded border-slate-300 text-xs shadow-sm" value="' + (row.length_m || '') + '" placeholder="0"></td>' +
-                    '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-quantity w-full rounded border-slate-300 text-xs shadow-sm font-semibold" value="' + (qty || '') + '" placeholder="0"></td>' +
+                    '<td class="p-2 align-top"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-quantity w-full rounded border-slate-300 text-xs shadow-sm font-semibold" value="' + (qty || '') + '" placeholder="0"><div class="row-eff-display mt-0.5 text-[9px] text-amber-700 font-semibold">' + (multiplier > 1 ? 'Efektif: ' + effectiveQty.toFixed(2) + ' m²' : '') + '</div></td>' +
+                    '<td class="p-2 align-top kat-column ' + katVisible + '"><input type="text" inputmode="decimal" data-row-id="' + row.rowId + '" class="row-multiplier w-full rounded border-amber-300 bg-amber-50 text-xs shadow-sm font-bold text-amber-900" value="' + (multiplier > 1 ? multiplier : '') + '" placeholder="1"></td>' +
                     '<td class="p-2 align-top pt-3 text-xs text-slate-600 font-mono"><span class="row-unit-price" data-row-id="' + row.rowId + '">' + Number(unitPrice).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2}) + '</span> ₺/m²</td>' +
                     '<td class="p-2 align-top whitespace-nowrap"><button type="button" data-row-id="' + row.rowId + '" class="row-draw-btn rounded border border-slate-300 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50 transition ' + (activeDrawRowId === row.rowId ? 'ring-2 ring-amber-400 bg-amber-50' : '') + '">' + (hasDrawing ? '🔄 Çiz' : '🎯 Çiz') + '</button>' + (row.address ? '<button type="button" data-row-id="' + row.rowId + '" class="row-show-btn ml-1 rounded border border-emerald-200 bg-emerald-50 px-1.5 py-1 text-[10px] font-medium text-emerald-700 hover:bg-emerald-100 transition" title="Adresi haritada göster">📍</button>' : '') + '</td>' +
                     '<td class="p-2 align-top pt-3 text-right font-mono text-xs font-semibold text-slate-800"><span class="row-total" data-row-id="' + row.rowId + '">' + rowTotal.toFixed(2) + '</span> ₺</td>' +
@@ -767,14 +787,35 @@
 
         // ─── LIGHTWEIGHT UPDATE ───────────────────────────────────────────
         function updateAllDisplays() {
+            // Herhangi bir satırda kat > 1 var mı?
+            var anyKatActive = isInstitutionUser && surfaceLines.some(function(r) {
+                var m = parseFloat(String(r.multiplier || '1').replace(',', '.')) || 1;
+                return m > 1;
+            });
+            // KAT sütunlarını göster/gizle
+            document.querySelectorAll('.kat-column').forEach(function(el) {
+                if (anyKatActive) el.classList.remove('hidden');
+                // Gizlemiyoruz — bir kez açıldıysa açık kalır
+            });
+
             surfaceLines.forEach(function (row) {
                 var unitPrice = parseFloat(row.price_per_m2) || 0;
                 var qty = parseFloat(row.quantity) || 0;
-                var total = calculateRowTotal(qty, unitPrice);
+                var multiplier = parseFloat(String(row.multiplier || '1').replace(',', '.')) || 1;
+                var effectiveQty = qty * multiplier;
+                var total = calculateRowTotal(effectiveQty, unitPrice);
                 var totalEl = document.querySelector('.row-total[data-row-id="' + row.rowId + '"]');
                 if (totalEl) totalEl.textContent = total.toFixed(2);
                 var unitPriceEl = document.querySelector('.row-unit-price[data-row-id="' + row.rowId + '"]');
                 if (unitPriceEl) unitPriceEl.textContent = Number(unitPrice).toLocaleString('tr-TR', {minimumFractionDigits:2, maximumFractionDigits:2});
+                // Efektif m² gösterimi güncelle
+                var effEl = document.querySelector('.row-multiplier[data-row-id="' + row.rowId + '"]');
+                if (effEl) {
+                    var qtyInput = document.querySelector('.row-quantity[data-row-id="' + row.rowId + '"]');
+                    var parentTd = qtyInput ? qtyInput.parentElement : null;
+                    var dispEl = parentTd ? parentTd.querySelector('.row-eff-display') : null;
+                    if (dispEl) dispEl.textContent = multiplier > 1 ? 'Efektif: ' + effectiveQty.toFixed(2) + ' m²' : '';
+                }
             });
             recalculateAll();
         }
@@ -855,6 +896,25 @@
                 });
             });
 
+            document.querySelectorAll('.row-multiplier').forEach(function (el) {
+                el.addEventListener('input', function () {
+                    var rowId = parseInt(this.dataset.rowId);
+                    var row = surfaceLines.find(function (r) { return r.rowId === rowId; });
+                    if (!row) return;
+                    // Virgül destekli ondalik (0,60 = 0.60)
+                    var rawVal = (this.value || '').replace(',', '.');
+                    var mult = parseFloat(rawVal);
+                    if (isNaN(mult) || mult <= 0) mult = 1;
+                    row.multiplier = mult;
+                    // Efektif m² gösterimünü güncelle
+                    var qtyInput = document.querySelector('.row-quantity[data-row-id="' + rowId + '"]');
+                    var qty = parseFloat((qtyInput ? qtyInput.value : '') || '0') || 0;
+                    var effEl = qtyInput ? qtyInput.parentElement.querySelector('.row-eff-display') : null;
+                    if (effEl) effEl.textContent = mult > 1 ? 'Efektif: ' + (qty * mult).toFixed(2) + ' m²' : '';
+                    updateAllDisplays();
+                });
+            });
+
             document.querySelectorAll('.row-draw-btn').forEach(function (el) {
                 el.addEventListener('click', function () {
                     var rowId = parseInt(this.dataset.rowId);
@@ -895,6 +955,8 @@
                 width_m: data.width_m || 0,
                 length_m: data.length_m || 0,
                 quantity: data.quantity || 0,
+                multiplier: data.multiplier || 1,
+                aciklama: data.aciklama || '',
                 address: data.address || '',
             };
             surfaceLines.push(row);
@@ -1020,6 +1082,11 @@
                 addHidden('width_m', (isInstitutionUser && rowHasLineDrawing(row.rowId)) ? 1 : (row.width_m || ''));
                 addHidden('length_m', row.length_m || '');
                 addHidden('quantity', row.quantity || '');
+                // Virgüllü ondalik destekle (0,60 → 0.60)
+                var multVal = String(row.multiplier || '').replace(',', '.');
+                var multNum = parseFloat(multVal) || 1;
+                addHidden('multiplier', multNum > 1 ? multNum : '');
+                addHidden('aciklama', row.aciklama || '');
                 addHidden('address', row.address || '');
             });
 
@@ -2043,6 +2110,8 @@
                                 width_m: parseFloat(sl?.width_m) || 0,
                                 length_m: parseFloat(sl?.length_m) || 0,
                                 quantity: parseFloat(sl?.quantity) || 0,
+                                multiplier: parseFloat(sl?.multiplier) || 1,
+                                aciklama: sl?.aciklama || '',
                                 address: sl?.address || '',
                             };
                             surfaceLines.push(row);
@@ -2071,7 +2140,7 @@
                     }
 
                     renderTable();
-                    recalculateAll();
+                    updateAllDisplays(); // KAT sütunu görünlürlüğü + efektif m² güncelle
                 } else {
                     addSurfaceLine({});
                 }
