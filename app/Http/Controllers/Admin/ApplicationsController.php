@@ -388,6 +388,20 @@ class ApplicationsController extends Controller
         $engine = app(ProcessEngine::class);
         $currentStep = $engine->currentStep($application);
 
+        // 16.08 ÇOKLU İMZA GÖSTERGESİ: tüm süreç adımları + her birinin durumu
+        // (tamamlandı / aktif / bekliyor) — "kaç kişi imzalayacak, hangi sırada"
+        // sorusuna görsel cevap. show.blade.php "📋 Onay Rotası" panelinde kullanılır.
+        $allSteps = $engine->steps(null, $application);
+        $currentStepIndex = $currentStep ? $allSteps->search(fn ($s) => $s->id === $currentStep->id) : false;
+        $processSteps = $allSteps->values()->map(function ($step, $idx) use ($currentStepIndex) {
+            return [
+                'step' => $step,
+                'durum' => $currentStepIndex === false
+                    ? 'bekliyor'
+                    : ($idx < $currentStepIndex ? 'tamamlandi' : ($idx === $currentStepIndex ? 'aktif' : 'bekliyor')),
+            ];
+        });
+
         return view('admin.applications.show', [
             'application' => $application,
             'fieldUsers' => $fieldUsers,
@@ -396,6 +410,7 @@ class ApplicationsController extends Controller
             'googleMapsApiKey' => config('services.google_maps.api_key') ?: config('aykome.google_maps_api_key'),
             'processCurrentStep' => $currentStep,
             'processCurrentStepIsFinal' => $currentStep ? $engine->isLastStep($application) : false,
+            'processSteps' => $processSteps,
             'approvalLog' => $application->approval_log ?? [],
             'can' => [
                 'update' => $request->user()->can('update', $application),
@@ -766,6 +781,24 @@ class ApplicationsController extends Controller
 
         AuditLogger::log('pre_excavation.approve', "Ön kazı onay akışı ilerledi: {$application->application_no} ({$stage})", 'Application', $application->id);
         return back()->with('success', $message);
+    }
+
+    /**
+     * 16.08 — E-imza öncesi (özellikle Ön Kazı İzni / pre_permit belgesinde
+     * basılan) Başkan Yrd. adını güncelleyen küçük endpoint. show.blade.php'deki
+     * e-imza butonu, isim boşsa imzaya başlamadan ÖNCE bunu çağırır.
+     */
+    public function updateViceMayorName(Request $request, Application $application): \Illuminate\Http\JsonResponse
+    {
+        $this->authorize('update', $application);
+
+        $data = $request->validate([
+            'vice_mayor_name' => 'required|string|max:255',
+        ]);
+
+        $application->update(['vice_mayor_name' => trim($data['vice_mayor_name'])]);
+
+        return response()->json(['success' => true, 'vice_mayor_name' => $application->vice_mayor_name]);
     }
 
     /**
@@ -1237,7 +1270,10 @@ class ApplicationsController extends Controller
         $logoBase64 = $this->institutionLogoBase64($application);
 
         if ($html = DocumentTemplateService::renderFor('cover_letter', $application)) {
-            if ($logoBase64 && str_contains($html, '<div class="a4-container">')) {
+            // 16.08 13. tur: içerikte ZATEN bir <img> varsa (Word'den logo ile
+            // birlikte içe aktarılmış taslak) çift logo olmasın diye otomatik
+            // enjeksiyon atlanır.
+            if ($logoBase64 && str_contains($html, '<div class="a4-container">') && stripos($html, '<img') === false) {
                 $logoBlock = '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">'
                     . '<img src="' . $logoBase64 . '" alt="Kurum Logosu" style="max-height:85px;width:auto;">'
                     . '</div>';

@@ -52,6 +52,9 @@
                 <span class="rounded-full bg-cyan-50 px-2.5 py-1 text-[11px] font-bold text-cyan-700">{{ $currentStepLabel }}</span>
             </div>
             <p class="mt-1 text-sm text-slate-500">{{ $application->institution?->name }} · {{ $application->creator?->name }}</p>
+            @if($actionType === 'e_imza')
+                <div id="eimza-status" class="mt-1 text-xs font-medium text-slate-400">● E-İmza uygulaması kontrol ediliyor...</div>
+            @endif
         </div>
         <a href="{{ route('admin.makam.index') }}"
            class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50">← Makam Masası</a>
@@ -173,31 +176,54 @@
             @endif
 
             {{-- KARAR EVRAKI — SADECE: Üst Yazı · Ön Kazı İzni · Ruhsat --}}
+            @php
+                // "Ön Kazı Düzenle (Word)" kısayolu — kullanıcı talebi: bu buton evrak
+                // GERÇEKTEN e-imza ile imzalanıncaya kadar görünmeli. `module_documents`
+                // içindeki 'pre_permit' anahtarı SADECE EImzaService::tamamla() gerçek
+                // imza tamamlandığında 'completed' olur (bkz. app/Services/EImzaService.php).
+                $onKaziImzalandiMi = data_get($application->module_documents, 'pre_permit.status') === 'completed';
+                $onKaziDuzenlenebilir = ! $onKaziImzalandiMi
+                    && (auth()->user()->isMunicipalityPersonel() || (int) auth()->user()->institution_id === (int) $application->institution_id);
+            @endphp
             <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 class="mb-1 text-sm font-semibold text-slate-800">📜 Karar Evrakı</h2>
                 <p class="mb-4 text-xs text-slate-500">Başkanlık değerlendirmesi için yalnızca bu üç belge gösterilir.</p>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     {{-- Üst Yazı --}}
                     @if($isAltKurum)
-                    <a href="{{ route('admin.applications.pdf.cover-letter', $application) }}" target="_blank"
-                       class="group flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-5 text-center transition hover:border-cyan-300 hover:bg-cyan-50/70 hover:shadow-sm">
-                        <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700 group-hover:bg-cyan-200 transition">
-                            <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
-                        </span>
-                        <span class="text-sm font-semibold text-slate-700 group-hover:text-cyan-800">Üst Yazı</span>
-                        <span class="text-[11px] text-slate-400">Alt Kurum Dilekçesi</span>
-                    </a>
+                    <div class="relative">
+                        @if($onKaziDuzenlenebilir)
+                        <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
+                           title="Evrak imzalanana kadar Word gibi düzenlenebilir"
+                           class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Düzenle (Word)</a>
+                        @endif
+                        <a href="{{ route('admin.applications.pdf.cover-letter', $application) }}" target="_blank"
+                           class="group flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-5 text-center transition hover:border-cyan-300 hover:bg-cyan-50/70 hover:shadow-sm">
+                            <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700 group-hover:bg-cyan-200 transition">
+                                <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v4a1 1 0 001 1h4"/></svg>
+                            </span>
+                            <span class="text-sm font-semibold text-slate-700 group-hover:text-cyan-800">Üst Yazı</span>
+                            <span class="text-[11px] text-slate-400">Alt Kurum Dilekçesi</span>
+                        </a>
+                    </div>
                     @endif
 
                     {{-- Ön Kazı İzin Belgesi --}}
-                    <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}" target="_blank"
-                       class="group flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-5 text-center transition hover:border-cyan-300 hover:bg-cyan-50/70 hover:shadow-sm">
-                        <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700 group-hover:bg-cyan-200 transition">
-                            <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                        </span>
-                        <span class="text-sm font-semibold text-slate-700 group-hover:text-cyan-800">Ön Kazı İzni</span>
-                        <span class="text-[11px] text-slate-400">İzin Belgesi</span>
-                    </a>
+                    <div class="relative">
+                        @if($onKaziDuzenlenebilir)
+                        <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" target="_blank"
+                           title="Evrak imzalanana kadar Word gibi düzenlenebilir"
+                           class="absolute top-1.5 right-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2 py-1 text-[9px] font-bold text-white shadow hover:bg-indigo-700">✏️ Düzenle (Word)</a>
+                        @endif
+                        <a href="{{ route('admin.applications.pdf.pre-permit', $application) }}" target="_blank"
+                           class="group flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/70 p-5 text-center transition hover:border-cyan-300 hover:bg-cyan-50/70 hover:shadow-sm">
+                            <span class="flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700 group-hover:bg-cyan-200 transition">
+                                <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                            </span>
+                            <span class="text-sm font-semibold text-slate-700 group-hover:text-cyan-800">Ön Kazı İzni</span>
+                            <span class="text-[11px] text-slate-400">İzin Belgesi{{ $onKaziImzalandiMi ? ' — ✅ imzalandı' : '' }}</span>
+                        </a>
+                    </div>
 
                     {{-- Ruhsat --}}
                     <a href="{{ route('admin.applications.pdf.ruhsat', $application) }}" target="_blank"
@@ -221,7 +247,27 @@
                     Şu anki adım: <b class="text-amber-700">{{ $currentStepLabel }}</b>
                 </p>
 
-                @if($canApprove)
+                @if($canApprove && $actionType === 'e_imza' && $canSignStep)
+                    <button type="button" class="e-imza-btn flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700 active:scale-95"
+                            data-app-id="{{ $application->id }}"
+                            data-pdf-type="{{ $stepPdfType ?: 'pre_permit' }}"
+                            data-vice-mayor-name="{{ $application->vice_mayor_name }}"
+                            data-update-vice-mayor-url="{{ route('admin.applications.update-vice-mayor-name', $application) }}">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
+                        </svg>
+                        {{ $processCurrentStep?->name ?: 'E-İmza At' }} — E-İmza At &amp; Gönder
+                    </button>
+                    <p class="mt-2 text-[11px] text-slate-400">Masaüstü e-imza uygulaması açılacak. Token/PIN ile gerçek imza atmadan başvuru onaylanmaz.</p>
+                @elseif($canApprove && $actionType === 'paraf' && $canParafStep)
+                    <form method="POST" action="{{ route('admin.applications.paraf-step', $application) }}" class="mt-4">
+                        @csrf
+                        <button type="submit"
+                                class="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-amber-700 active:scale-95">
+                            {{ $processCurrentStep?->name ?: 'Paraf At' }} — Paraf At &amp; Gönder
+                        </button>
+                    </form>
+                @elseif($canApprove)
                     <form method="POST" action="{{ route('admin.makam.onayla', $application) }}" class="mt-4"
                           onsubmit="return confirm('#{{ $application->application_no }} başvurusunu ONAYLIYOR, e-imzalayıp gönderiyorsunuz. Emin misiniz?')">
                         @csrf
@@ -265,15 +311,15 @@
                 <ol class="relative border-s-2 border-slate-200 ps-4">
                     @php
                         $audits = collect($application->history->map(fn ($a) => (object)[
-                            'action' => $a->action, 'user' => $a->user?->name ?? 'Sistem', 'date' => $a->created_at,
+                            'action' => $a->action, 'user' => $a->user?->name ?? 'Sistem', 'date' => $a->created_at, 'is_log' => false,
                         ]))->merge($application->timelineLogs->map(fn ($l) => (object)[
-                            'action' => $l->action, 'user' => $l->user?->name ?? 'Sistem', 'date' => $l->created_at,
+                            'action' => $l->action, 'user' => $l->user?->name ?? 'Sistem', 'date' => $l->created_at, 'is_log' => true,
                         ]))->sortByDesc('date');
                     @endphp
                     @forelse($audits as $entry)
                         <li class="relative mb-3 last:mb-0">
                             <span class="absolute -start-[1.1rem] mt-1.5 h-3 w-3 rounded-full border-2 border-white bg-cyan-400"></span>
-                            <p class="text-xs font-medium text-slate-800">{{ $entry->action }}</p>
+                            <p class="text-xs font-medium text-slate-800">{{ $entry->is_log ? \App\Models\ApplicationTimelineLog::actionLabel($entry->action) : $entry->action }}</p>
                             <p class="text-[11px] text-slate-400">{{ $entry->user }} · {{ $entry->date?->format('d.m.Y H:i') }}</p>
                         </li>
                     @empty
@@ -284,3 +330,7 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+@include('partials._eimza_signing_js')
+@endpush

@@ -220,14 +220,23 @@ class ApplicationService
             $message
         );
 
+        // 16.08 FIX: adim ilerleyince SADECE yeni aktif adimin rolune bildirim gider
+        // (onceki adimlarin rolleri — orn. Başkan Yrd. — bir onceki adim bitmeden
+        // bildirim almaz).
+        if (! $result['finished'] && $result['next']) {
+            $this->notifyStepUsers($application, $result['next'], $user->id);
+        }
+
         return $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
     }
 
-    private function getTargetedUsers(Application $application, ?int $excludeUserId = null): \Illuminate\Support\Collection
+    private function getTargetedUsers(Application $application, ?int $excludeUserId = null, ?array $onlyRoles = null): \Illuminate\Support\Collection
     {
+        $roles = $onlyRoles ?? ['super-admin', 'municipality-admin', 'municipality-staff', 'municipality-buro', 'municipality-sef', 'municipality-mudur', 'municipality-makam'];
+
         $query = User::query()
-            ->where(function ($q) use ($application) {
-                $q->role(['super-admin', 'municipality-admin', 'municipality-staff', 'municipality-buro', 'municipality-sef', 'municipality-mudur', 'municipality-makam']);
+            ->where(function ($q) use ($application, $roles) {
+                $q->role($roles);
                 if ($application->institution_id) {
                     $q->orWhere('institution_id', $application->institution_id);
                 }
@@ -238,6 +247,43 @@ class ApplicationService
         }
 
         return $query->get();
+    }
+
+    /**
+     * 16.08 FIX: Bildirim, süreçteki HER role birden değil, SADECE verilen adımın
+     * kendi rollüne (+ genel yönetici rolleri: super-admin/municipality-admin) gider.
+     * Kok neden: eskiden getTargetedUsers() TUM belediye rollerine (buro/sef/mudur/
+     * makam) aynı anda bildirim gönderiyordu — henüz büro personeli bile onay
+     * vermeden Başkan Yrd. (municipality-makam) bildirim/ekranında bu başvuruyu
+     * görüyordu. 'municipality-makam' BiLEREK genel listeye eklenmez — sadece o
+     * adım GERÇEKTEN kendi rolü olduğunda (step->roles içinde) dahil olur.
+     */
+    private function stepNotificationRoles(?\App\Models\ProcessStep $step): array
+    {
+        $genelYoneticiRolleri = ['super-admin', 'municipality-admin'];
+
+        if (! $step) {
+            return array_values(array_unique(array_merge($genelYoneticiRolleri, ['municipality-staff', 'municipality-buro'])));
+        }
+
+        $stepRoles = ! empty($step->roles) ? $step->roles : [$step->role_key];
+
+        return array_values(array_unique(array_merge($genelYoneticiRolleri, $stepRoles)));
+    }
+
+    /**
+     * 16.08 FIX: Süreç bir sonraki adıma ilerlediğinde, SADECE o yeni adımın
+     * rolündeki kullanıcılara "onayınız bekleniyor" bildirimi gönderir. Hem
+     * advanceApproval() hem EImzaService'teki otomatik süreç ilerletme sonrası
+     * aynı mantıkla çağrılır — tutarsızlık olmasın.
+     */
+    public function notifyStepUsers(Application $application, \App\Models\ProcessStep $step, ?int $excludeUserId = null): void
+    {
+        $roles = $this->stepNotificationRoles($step);
+        $fresh = $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
+
+        $this->getTargetedUsers($application, $excludeUserId, $roles)
+            ->each(fn (User $u) => $u->notify(new NewApplicationCreatedNotification($fresh)));
     }
 
     public function submit(User $user, Application $application): Application
@@ -255,8 +301,10 @@ class ApplicationService
 
         $fresh = $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
 
-        // Targeted notification: admins see all, institution employees see only their own
-        $this->getTargetedUsers($application, $user->id)
+        // 16.08 FIX: Bildirim SADECE ilk adımın rolüne gider (önceden TUM roller
+        // aynı anda alıyordu — bkz. stepNotificationRoles() yorumu).
+        $ilkAdimRolleri = $this->stepNotificationRoles($firstStep);
+        $this->getTargetedUsers($application, $user->id, $ilkAdimRolleri)
             ->each(fn (User $admin) => $admin->notify(new NewApplicationCreatedNotification($fresh)));
 
         // Real-time broadcast

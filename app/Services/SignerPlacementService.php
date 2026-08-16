@@ -78,17 +78,19 @@ class SignerPlacementService
                 continue;
             }
 
-            if (isset($tamamlanan[$roleKey])) {
+            if ($roleKey === 'vice_mayor' && ! empty($application->vice_mayor_name)) {
+                // BAŞKAN YARDIMCISI: formda/e-imza öncesi promptta kullanıcının
+                // girdiği ad (vice_mayor_name) HER ZAMAN kullanılır. Bu genelde
+                // VEKALETEN bir imzadır (ör. Müdür, Ön Kazı İznini "Başkan a."
+                // imzalar) — belgedeki bu isim, sürecin AYRI 'vice_mayor' adımının
+                // (ör. Ruhsat'ı asil Başkan Yrd.'nın imzalaması) o ANDA tamamlanmış
+                // olmasına BAĞLI DEĞİLDİR — eskiden bu isim asagidaki 'tamamlanan'
+                // kontrolüne baklıydı ve Müdür imzalarken (vice_mayor adımı henüz
+                // gerçekleşmediği için) hep BOŞ basılıyordu.
+                $sigMap[$placeholder]['ad_soyad'] = $application->vice_mayor_name;
+            } elseif (isset($tamamlanan[$roleKey])) {
                 // O adım kriptografik/onay ile tamamlandı -> onaylayanın adı.
                 $sigMap[$placeholder]['ad_soyad'] = $tamamlanan[$roleKey];
-
-                // BAŞKAN YARDIMCISI: formda kullanıcının girdiği ad (vice_mayor_name)
-                // en doğru kaynaktır. ProcessEngine onay anında approved_by_name'e
-                // onaylayan kullanıcının adını yazabiliyordu (Süper Admin testi);
-                // belgeye BASILACAK ad her zaman vice_mayor_name olmalıdır.
-                if ($roleKey === 'vice_mayor' && ! empty($application->vice_mayor_name)) {
-                    $sigMap[$placeholder]['ad_soyad'] = $application->vice_mayor_name;
-                }
             } else {
                 // Henüz tamamlanmadı -> ad BOŞ kalır ("Başkan Yardımcısı" dinamik beklentisi).
                 $sigMap[$placeholder]['ad_soyad'] = '';

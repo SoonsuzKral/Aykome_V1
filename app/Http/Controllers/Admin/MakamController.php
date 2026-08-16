@@ -79,6 +79,13 @@ class MakamController extends Controller
 
         $currentStep = $this->engine->currentStep($application);
 
+        // 16.08 (2. tur) FIX: Makam Masası artık adımın action_type'ına göre
+        // GERÇEK e-imza/paraf akışını mı yoksa düz onayı mı göstereceğine karar
+        // verir. Eskiden "ONAYLIYORUM E-İMZAYLA & GÖNDER" butonu adım e-imza
+        // gerektirse bile hep düz onay yapıyordu — e-imza masaüstü uygulaması
+        // hiçbir zaman açılmıyor, başvuru sessizce direkt onaylanıyordu.
+        $actionType = $currentStep ? $this->engine->getStepActionType($currentStep) : 'onay';
+
         return view('admin.makam.show', [
             'application' => $application,
             'engine' => $this->engine,
@@ -87,6 +94,10 @@ class MakamController extends Controller
             'approvalLog' => $application->approval_log ?? [],
             'canApprove' => $this->engine->userCanApprove($application, $user),
             'currentStepLabel' => $this->engine->stageLabel($application->approval_stage),
+            'actionType' => $actionType,
+            'stepPdfType' => $currentStep ? $this->engine->getSignaturePdfType($currentStep) : null,
+            'canSignStep' => $currentStep && $this->engine->canSignStep($currentStep, $user),
+            'canParafStep' => $currentStep && $this->engine->canParafStep($currentStep, $user),
         ]);
     }
 
@@ -99,6 +110,18 @@ class MakamController extends Controller
 
         if (! $this->engine->userCanApprove($application, $user)) {
             abort(403, 'Bu başvuru şu an onayınıza açık değil.');
+        }
+
+        // 16.08 (2. tur) FIX: bu adım GERÇEK e-imza veya paraf gerektiriyorsa bu
+        // route (düz onay) kullanılamaz — arayüz artık bu durumlarda GERÇEK
+        // butonu (e-imza-btn / paraf formu) gösteriyor, ama bu uç nokta yine de
+        // doğrudan çağrılabileceğinden (curl/URL) sunucu tarafında da kilitlenir.
+        $currentStep = $this->engine->currentStep($application);
+        if ($currentStep && $this->engine->stepRequiresSignature($currentStep)) {
+            abort(422, 'Bu adım e-imza gerektiriyor. Lütfen "E-İmza At" butonunu kullanın.');
+        }
+        if ($currentStep && $this->engine->stepRequiresParaf($currentStep)) {
+            abort(422, 'Bu adım paraf gerektiriyor. Lütfen "Paraf At" butonunu kullanın.');
         }
 
         $service->advanceApproval($user, $application, $user->name);

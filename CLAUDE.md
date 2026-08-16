@@ -15,11 +15,25 @@
 - Gereksiz soru sorma — makul varsayım yap ve devam et
 - Her zaman kaldığın yerden devam et
 
-## 1b. GIT PUSH KURALI (ZORUNLU)
+## 1b. GIT COMMIT + PUSH KURALI (ZORUNLU, OTOMATİK — ONAY BEKLEME)
 
+- **HER görev/işlem tamamlandığında** (her düzenleme turu, her bug fix, her özellik)
+  değişiklikler OTOMATİK olarak commit'lenir ve push edilir — kullanıcı onayı
+  beklenmez, ayrıca sorulmaz. Kullanıcı aksini açıkça söylemedikçe (ör. "bunu
+  commit'leme") her oturum sonunda (veya anlamlı bir adım bittiğinde) çalışan
+  kod commit'lenip push edilir.
+- Commit mesajı kısa, net, ne değiştiğini anlatır (bkz. kullanıcının genel Git
+  commit stil tercihi: kısa imperative subject + gerekirse kısa body).
 - HER commit push işlemi **her iki remote'a birden** yapılır: `git push github main` + `git push origin main`
-- Push sonrası `git fetch` + `git rev-parse` ile HEAD == github/main == origin/main doğrulanır
-- Tarihçe asla silinmez / force-push atılmaz; history bağlantı sorunları için `git merge -s ours --allow-unrelated-histories` kullanılır (ağacı değiştirmez, sadece tarihçeyi birleştirir)
+  (`github` = GitHub, `origin` = GitLab — `git remote -v` ile doğrulanabilir).
+- Push sonrası `git fetch` + `git rev-parse` ile HEAD == github/main == origin/main doğrulanır.
+- **Tarihçe ASLA silinmez / force-push ASLA atılmaz** — eski commit'ler her zaman
+  korunur. History bağlantı sorunları (iki remote'un ayrı koldan ilerlemesi) için
+  `git merge -s ours --allow-unrelated-histories` kullanılır (ağacı DEĞİŞTİRMEZ,
+  sadece iki tarihçeyi bağlantılı hale getirir — hiçbir commit kaybolmaz).
+- Push reddedilirse (non-fast-forward, diverged history) ASLA `--force` ile
+  ezilmez — önce `git fetch`, sonra yukarıdaki `merge -s ours` yöntemiyle
+  bağlanıp normal (fast-forward) push tekrar denenir.
 
 ---
 

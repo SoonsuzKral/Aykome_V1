@@ -861,12 +861,12 @@
                         <li class="ms-6 pb-5 last:pb-0">
                             <span class="absolute -start-[0.52rem] mt-1.5 h-3.5 w-3.5 rounded-full border-2 border-white {{ $entry->type === 'audit' ? 'bg-emerald-400' : 'bg-[#02E0FB]' }}"></span>
                             <div class="rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
-                                <p class="text-sm font-medium text-slate-800">{{ $entry->action }}</p>
+                                <p class="text-sm font-medium text-slate-800">{{ $entry->type === 'log' ? \App\Models\ApplicationTimelineLog::actionLabel($entry->action) : $entry->action }}</p>
                                 @if(isset($entry->old_status) || isset($entry->new_status))
                                 <p class="mt-0.5 text-xs">
-                                    <span class="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">{{ $entry->old_status ?? '—' }}</span>
+                                    <span class="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-600">{{ \App\Enums\ApplicationStatus::tryLabel($entry->old_status) }}</span>
                                     <span class="text-slate-400 mx-1">→</span>
-                                    <span class="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-[10px] text-emerald-700">{{ $entry->new_status ?? '—' }}</span>
+                                    <span class="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">{{ \App\Enums\ApplicationStatus::tryLabel($entry->new_status) }}</span>
                                 </p>
                                 @endif
                                 @if(isset($entry->message) && $entry->message)<p class="mt-0.5 text-xs text-slate-600">{{ $entry->message }}</p>@endif
@@ -1156,7 +1156,7 @@
                                             📄 Üst Yazı (Dilekçe) Görüntüle / İndir (PDF)
                                         </a>
 
-                                        {{-- Üst Yazı Taslak Düzenleme: SADECE alt kurum kullanıcısı, SADECE draft/rejected/revision --}}
+                                        {{-- Üst Yazı Taslak Düzenleme: alt kurum kullanıcısı, SADECE draft/rejected/revision --}}
                                         @if(!$kullaniciBelediyeMi && in_array($guncelStatus, ['draft', 'rejected', 'revision']))
                                         <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
@@ -1164,7 +1164,21 @@
                                             ✏️ Üst Yazı Taslağını Düzenle
                                         </a>
                                         @endif
-                                        {{-- Belediye kullanıcısı: Ön Kazı editörleri Step 2 (Ön Kazı) adımındadır --}}
+
+                                        {{-- 16.08 (5. tur) FIX: Belediye personeli için de aynı buton — eskiden
+                                             SADECE alt kurum görüyordu. Başvuru belediyeye geldikten sonra, Ön Kazı
+                                             İzni GERÇEKTEN e-imza ile imzalanana kadar (Onay Rotası geçilmeden ÖNCE)
+                                             belediye personeli de Üst Yazı'yı Word gibi düzenleyebilmeli. --}}
+                                        @php
+                                            $ustYaziImzalandiMi = data_get($application->module_documents, 'pre_permit.status') === 'completed';
+                                        @endphp
+                                        @if($kullaniciBelediyeMi && !$ustYaziImzalandiMi)
+                                        <a href="{{ route('admin.applications.edit-document', [$application, 'cover_letter']) }}" target="_blank"
+                                           class="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                            ✏️ Üst Yazı Taslak Düzenleme (Word)
+                                        </a>
+                                        @endif
                                     @endif
 
                                     {{-- draft/submitted: gönder ile onay rotası (yalnızca bu statülerde) --}}
@@ -1191,6 +1205,8 @@
                                             {{-- Süreç & Onay Rotası: action_type'a göre dinamik buton --}}
                                             @php $actionType = $processCurrentStep?->action_type ?? 'onay'; @endphp
 
+                                            @include('admin.applications._process_steps_indicator')
+
                                             {{-- PARAF BUTONU --}}
                                             @if($isCurrent && ($can['paraf'] ?? false) && $actionType === 'paraf')
                                                 <form method="POST" action="{{ route('admin.applications.paraf-step', $application) }}" class="mb-2">
@@ -1204,10 +1220,16 @@
                                                     </button>
                                                 </form>
 
-                                            {{-- E-İMZA BUTONU --}}
+                                            {{-- E-İMZA BUTONU (GÖREV: 16.08 fix — artık GERÇEK e-imza akışını
+                                                 tetikler; eskiden var olmayan bir modal açmaya çalışıp
+                                                 sessizce başarısız oluyordu) --}}
                                             @elseif($isCurrent && ($can['e_imza'] ?? false) && $actionType === 'e_imza')
-                                                <button type="button" onclick="document.getElementById('e-imza-modal-{{ $application->id }}').classList.remove('hidden')"
-                                                        class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
+                                                @php $stepPdfType = data_get($processCurrentStep?->signature_config, 'pdf_type') ?: 'cover_letter'; @endphp
+                                                <button type="button" class="e-imza-btn mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                                                        data-app-id="{{ $application->id }}"
+                                                        data-pdf-type="{{ $stepPdfType }}"
+                                                        data-vice-mayor-name="{{ $application->vice_mayor_name }}"
+                                                        data-update-vice-mayor-url="{{ route('admin.applications.update-vice-mayor-name', $application) }}">
                                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
                                                     </svg>
@@ -1266,6 +1288,8 @@
                                             <div class="mb-3 rounded-xl border border-cyan-300 bg-cyan-50 p-3">
                                                 <p class="text-xs font-semibold text-cyan-800 mb-2">📋 Ön Kazı Onay Rotası</p>
 
+                                                @include('admin.applications._process_steps_indicator')
+
                                                 {{-- PARAF BUTONU --}}
                                                 @if($isCurrent && ($can['paraf'] ?? false) && $actionType === 'paraf')
                                                     <form method="POST" action="{{ route('admin.applications.paraf-step', $application) }}" class="mb-2">
@@ -1279,10 +1303,16 @@
                                                         </button>
                                                     </form>
 
-                                                {{-- E-İMZA BUTONU --}}
+                                                {{-- E-İMZA BUTONU (GÖREV: 16.08 fix — artık GERÇEK e-imza akışını
+                                                     tetikler; eskiden var olmayan bir modal açmaya çalışıp
+                                                     sessizce başarısız oluyordu) --}}
                                                 @elseif($isCurrent && ($can['e_imza'] ?? false) && $actionType === 'e_imza')
-                                                    <button type="button" onclick="document.getElementById('e-imza-modal-{{ $application->id }}').classList.remove('hidden')"
-                                                            class="mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
+                                                    @php $stepPdfType = data_get($processCurrentStep?->signature_config, 'pdf_type') ?: 'pre_permit'; @endphp
+                                                    <button type="button" class="e-imza-btn mb-2 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                                                            data-app-id="{{ $application->id }}"
+                                                            data-pdf-type="{{ $stepPdfType }}"
+                                                            data-vice-mayor-name="{{ $application->vice_mayor_name }}"
+                                                            data-update-vice-mayor-url="{{ route('admin.applications.update-vice-mayor-name', $application) }}">
                                                         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
                                                         </svg>
@@ -2059,6 +2089,15 @@
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
         </div>
+        @php
+            $onKaziImzalandiMiModal = data_get($application->module_documents, 'pre_permit.status') === 'completed';
+        @endphp
+        @if(!$onKaziImzalandiMiModal)
+        <a href="{{ route('admin.applications.edit-document', [$application, 'on_kazi']) }}" target="_blank"
+           class="mb-4 flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100">
+            ✏️ Ön Kazı İzni Taslak Düzenleme (Word)
+        </a>
+        @endif
         <form method="POST" action="{{ route('admin.applications.approve-pre-excavation', $application) }}" id="pre-excavation-form">
             @csrf
             <div class="mb-4">
@@ -2831,182 +2870,6 @@ function toggleStep(id) {
     });
 })();
 
-// ── E-İmza Server kontrolu (sayfa acilirken) ────────────────────
-(function () {
-    // ── E-İmza local server port taraması ─────────────────────────────
-    // Electron src/server 58910'dan başlar, port doluysa küçük aralıkta
-    // +1 atlar (Windows 58055-58354'ü Docker/Hyper-V için rezerve ettiği
-    // için eski 58210 portu ASLA kullanılamıyordu). Üst sınır 58930
-    // (server.js MAX_PORT ile aynı) — tarama yalnızca 21 portu kapsar,
-    // milisaniyeler içinde biter, konsol hata yağmuru olmaz.
-    // Bulunan port window.eimzaPort'a saklanır ve imza butonu aynı portu
-    // kullanır. NOT: window'a global atanır — imza butonu farklı bir IIFE
-    // bloğunda olduğu için yerel fonksiyona erişemez (ReferenceError olurdu).
-    window.buildEimzaPorts = function () {
-        var ports = [];
-        for (var p = 58910; p <= 58930; p++) ports.push(p);
-        return ports;
-    };
-
-    var checking = false;
-    function checkEimzaServer() {
-        if (checking) return;          // çakışan taramayı önle (15sn interval + manuel tetikleme)
-        checking = true;
-        var ports = window.buildEimzaPorts();
-        function finish() { checking = false; }
-        function tryPort(i) {
-            if (i >= ports.length) {
-                window.eimzaPort = null;
-                var el = document.getElementById('eimza-status');
-                if (el) { el.innerHTML = '<span class="text-red-500">● E-İmza Uygulaması: Bulunamadı — masaüstü uygulamasını başlatın</span>'; }
-                finish();
-                return;
-            }
-            // Port yanıt vermezse 1.2sn sonra iptal et → "kontrol ediliyor" asla takılı kalmaz
-            var ctrl = new AbortController();
-            var timer = setTimeout(function () { ctrl.abort(); }, 1200);
-            fetch('http://127.0.0.1:' + ports[i] + '/health', { signal: ctrl.signal })
-                .then(function (r) {
-                    clearTimeout(timer);
-                    if (r.ok) {
-                        window.eimzaPort = ports[i];
-                        var el = document.getElementById('eimza-status');
-                        if (el) { el.innerHTML = '<span class="text-green-600">● E-İmza Uygulaması: Çalışıyor</span>'; }
-                        finish();
-                    } else {
-                        tryPort(i + 1);
-                    }
-                }).catch(function () {
-                    clearTimeout(timer);
-                    tryPort(i + 1);
-                });
-        }
-        tryPort(0);
-    }
-    document.addEventListener('DOMContentLoaded', checkEimzaServer);
-    // Masaüstü uygulaması sayfa açıldıktan SONRA başlatılırsa durum 15sn içinde kendiliğinden yeşile döner
-    setInterval(checkEimzaServer, 15000);
-})();
-
-// ── E-İmza Buton ────────────────────────────────────────────────
-(function () {
-    var buttons = document.querySelectorAll('.e-imza-btn');
-    if (!buttons.length) return;
-
-    buttons.forEach(function (btn) {
-        btn.addEventListener('click', async function () {
-            var appId = this.dataset.appId;
-            var pdfType = this.dataset.pdfType;
-
-            btn.disabled = true;
-            btn.innerHTML = '<svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> İmza başlatılıyor...';
-
-            // GÖREV 6: İmzalayan formu SORULMAZ; ad/soyad/unvan arka planda
-            // giriş yapmış kullanıcıdan alınır (EImzaController::baslat → Auth::user()).
-
-            try {
-                var res = await fetch('/api/e-imza/baslat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                    },
-                    body: JSON.stringify({ application_id: appId, pdf_type: pdfType })
-                });
-
-                var data = await res.json();
-                if (!res.ok) throw new Error(data.message || 'İmza başlatılamadı');
-
-                var serverUrl = window.location.origin.replace('localhost', '127.0.0.1');
-
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'E-İmza işlemi başlatıldı',
-                        text: 'Lütfen açılan uygulamada PIN\'inizi girin.',
-                        timer: 5000,
-                        showConfirmButton: false
-                    });
-                }
-
-                // Electron local HTTP server'a istek gonder
-                // Önce checkEimzaServer'ın bulduğu port (varsa), yoksa tüm aralık taranır
-                // Önce checkEimzaServer'ın bulduğu portu dene; başarısızsa TÜM aralığı tara;
-                // hepsi başarısızsa aykome:// protocol fallback (port GEREKTİRMEZ, her zaman çalışır)
-                var electronPorts = window.buildEimzaPorts();
-                if (window.eimzaPort) {
-                    electronPorts = [window.eimzaPort].concat(
-                        electronPorts.filter(function (p) { return p !== window.eimzaPort; })
-                    );
-                }
-                function tryElectronServer(portIndex) {
-                    if (portIndex >= electronPorts.length) {
-                        // Hepsi basarisizsa protocol URL dene (fallback)
-                        var protocolUrl = 'aykome://sign?tid=' + encodeURIComponent(data.transaction_id) + '&token=' + encodeURIComponent(data.token) + '&server=' + encodeURIComponent(serverUrl);
-                        window.location.href = protocolUrl;
-                        return;
-                    }
-                    var ctrl = new AbortController();
-                    var timer = setTimeout(function () { ctrl.abort(); }, 1500);
-                    fetch('http://127.0.0.1:' + electronPorts[portIndex] + '/sign', {
-                        method: 'POST',
-                        signal: ctrl.signal,
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            transaction_id: data.transaction_id,
-                            token: data.token,
-                            server_url: serverUrl
-                        })
-                    }).then(function (r) {
-                        clearTimeout(timer);
-                        if (r.ok) {
-                            console.log('E-Imza istegi gonderildi (port ' + electronPorts[portIndex] + ')');
-                        } else {
-                            // Non-OK yanıt (ör. başka bir servis) → taramaya devam et, takılma
-                            tryElectronServer(portIndex + 1);
-                        }
-                    }).catch(function () {
-                        clearTimeout(timer);
-                        tryElectronServer(portIndex + 1);
-                    });
-                }
-                tryElectronServer(0);
-
-                // Polling
-                var pollInterval = setInterval(async function () {
-                    try {
-                        var durumRes = await fetch('/api/e-imza/durum/' + data.transaction_id, {
-                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
-                        });
-                        var durumData = await durumRes.json();
-                        if (durumData.status === 'completed') {
-                            clearInterval(pollInterval);
-                            // GÖREV 3: İmzalı nüsha otomatik yeni sekmede açılır (indirme algısı biter).
-                            if (durumData.imzali_url) {
-                                window.open(durumData.imzali_url, '_blank');
-                            }
-                            if (typeof Swal !== 'undefined') {
-                                Swal.fire({ icon: 'success', title: 'İmza tamamlandı!', timer: 2000, showConfirmButton: false });
-                            }
-                            setTimeout(function () { location.reload(); }, 1500);
-                        }
-                    } catch (e) {}
-                }, 3000);
-
-                // 10dk timeout
-                setTimeout(function () { clearInterval(pollInterval); btn.disabled = false; btn.innerHTML = 'E-İmza ile İmzala'; }, 600000);
-
-            } catch (err) {
-                btn.disabled = false;
-                btn.innerHTML = 'E-İmza ile İmzala';
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({ icon: 'error', title: 'Hata', text: err.message || 'İmza başlatılamadı.' });
-                }
-            }
-        });
-    });
-})();
 </script>
+@include('partials._eimza_signing_js')
 @endpush

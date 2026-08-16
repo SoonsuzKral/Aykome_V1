@@ -316,7 +316,13 @@ class EImzaService
                 // önizleme (downloadCoverLetter) ile birebir olması için aynı
                 // desenle enjekte edilir (logo data URI → dompdf'te yüklenir).
                 // pre_permit BELEDİYE belgesidir → belediye logo önceliği uygulanır.
-                if (in_array($pdfType, ['cover_letter', 'pre_permit'], true) && str_contains($html, '<div class="a4-container">')) {
+                // 16.08 13. tur: içerikte ZATEN bir <img> varsa (Word'den logo/QR ile
+                // birlikte içe aktarılmış bir taslak — artık resimler korunuyor,
+                // bkz. DocumentTemplateService::sanitizeWordImportHtml) otomatik
+                // enjeksiyon ATLANIR, aksi halde iki logo üst üste binerdi.
+                if (in_array($pdfType, ['cover_letter', 'pre_permit'], true)
+                    && str_contains($html, '<div class="a4-container">')
+                    && stripos($html, '<img') === false) {
                     $logoBase64 = null;
                     if ($pdfType === 'pre_permit') {
                         $logoBase64 = \App\Models\PreExcavationPermitSetting::toBase64DataUri(
@@ -742,6 +748,71 @@ class EImzaService
             'application_id' => $application->id,
             'pdf_type' => $transaction->pdf_type,
         ]);
+
+        // 16.08 kullanıcı talebi: e-imza tamanınca süreç otomatik ilerlesin
+        // (müdür imzalayınca başkan yrd. adımına geçsin). Sadece GÖREV 4'te
+        // kurulan "e_imza" adimlarinda tetiklenir; onay tabanli varsayilan
+        // süreçlerde (action_type='onay') hiçbir davranış değişmez.
+        $this->ilerletSurecEgerEImzaAdimiTamamlandiysa($transaction, $imzalayanInfo);
+    }
+
+    /**
+     * E-imza ile tamamlanan adim, ProcessEngine'deki mevcut adimla (action_type
+     * = 'e_imza') eşleşiyorsa süreci bir sonraki adıma ilerletir. Güvenlik:
+     * imzayı BAŞLATAN kullanıcı (imzalayan_info.baslatan_user_id — tamamla()
+     * route'u api-key ile çalıştığı için auth()->user() burada YOKTUR) ile bu
+     * adımda imza yetkisi (canSignStep) tekrar doğrulanır. Herhangi bir adımda
+     * uyuşmazlık/hata olursa SADECE loglanır — e-imza kaydını asla bozmaz.
+     */
+    private function ilerletSurecEgerEImzaAdimiTamamlandiysa(EImzaTransaction $transaction, array $imzalayanInfo): void
+    {
+        try {
+            $application = $transaction->application()->first();
+            if (! $application) {
+                return;
+            }
+
+            $baslatanUserId = $imzalayanInfo['baslatan_user_id'] ?? null;
+            if (! $baslatanUserId) {
+                return;
+            }
+            $user = \App\Models\User::find($baslatanUserId);
+            if (! $user) {
+                return;
+            }
+
+            $engine = app(ProcessEngine::class);
+            $step = $engine->currentStep($application);
+            if (! $step || ! $engine->stepRequiresSignature($step)) {
+                return;
+            }
+
+            // Bu adım belirli bir PDF tipine kilitliyse (GÖREV 4 seed'i gibi),
+            // sadece o tip imzalandığında ilerlet; başka bir belge (ör. önizleme)
+            // imzalandıysa dokunma.
+            $expectedPdfType = data_get($step->signature_config, 'pdf_type');
+            if ($expectedPdfType && $expectedPdfType !== $transaction->pdf_type) {
+                return;
+            }
+
+            if (! $engine->canSignStep($step, $user)) {
+                return;
+            }
+
+            $result = $engine->approve($application->fresh(), $user);
+
+            // 16.08 FIX: e-imza ile süreç ilerleyince de SADECE yeni aktif adımın
+            // rolüne bildirim gider (advanceApproval() ile aynı mantık — bkz.
+            // ApplicationService::notifyStepUsers).
+            if (($result['approved'] ?? false) && ! ($result['finished'] ?? true) && ($result['next'] ?? null)) {
+                app(ApplicationService::class)->notifyStepUsers($application, $result['next'], $user->id);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('E-imza sonrası süreç ilerletme başarısız (e-imza kaydı etkilenmedi)', [
+                'transaction_id' => $transaction->transaction_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     public function tokenDogrula(EImzaTransaction $transaction, string $token): bool

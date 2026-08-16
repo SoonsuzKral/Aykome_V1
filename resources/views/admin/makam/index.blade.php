@@ -18,6 +18,7 @@
                     Sayın <b class="text-slate-800">{{ $user->name }}</b> — sistemde en yetkili makamsınız.
                     Aşağıdaki bekleyen imzalar onayınızı bekliyor.
                 </p>
+                <div id="eimza-status" class="mt-1 text-xs font-medium text-slate-400">● E-İmza uygulaması kontrol ediliyor...</div>
                 <div class="mt-2 flex flex-wrap gap-1.5">
                     @foreach($user->roles as $role)
                         <span class="rounded-full bg-slate-900 px-2.5 py-0.5 text-[11px] font-bold text-white">{{ $role->name }}</span>
@@ -65,6 +66,13 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100">
                     @foreach($pending as $app)
+                        @php
+                            $rowStep = $engine->currentStep($app);
+                            $rowActionType = $rowStep ? $engine->getStepActionType($rowStep) : 'onay';
+                            $rowPdfType = $rowStep ? $engine->getSignaturePdfType($rowStep) : null;
+                            $rowCanSign = $rowStep && $engine->canSignStep($rowStep, $user);
+                            $rowCanParaf = $rowStep && $engine->canParafStep($rowStep, $user);
+                        @endphp
                         <tr class="align-top hover:bg-amber-50/40">
                             <td class="px-5 py-3">
                                 <a href="{{ route('admin.makam.show', $app) }}" class="font-bold text-slate-800 hover:text-cyan-700">
@@ -89,17 +97,38 @@
                             </td>
                             <td class="px-5 py-3">
                                 <div class="flex flex-col items-end gap-1.5">
-                                    <form method="POST" action="{{ route('admin.makam.onayla', $app) }}"
-                                          onsubmit="return confirm('#{{ $app->application_no }} başvurusunu ONAYLIYOR, e-imzalayıp gönderiyorsunuz. Emin misiniz?')">
-                                        @csrf
-                                        <button type="submit"
-                                                class="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700">
+                                    @if($rowActionType === 'e_imza' && $rowCanSign)
+                                        <button type="button" class="e-imza-btn flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700"
+                                                data-app-id="{{ $app->id }}"
+                                                data-pdf-type="{{ $rowPdfType ?: 'pre_permit' }}"
+                                                data-vice-mayor-name="{{ $app->vice_mayor_name }}"
+                                                data-update-vice-mayor-url="{{ route('admin.applications.update-vice-mayor-name', $app) }}">
                                             <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/>
                                             </svg>
-                                            ONAYLIYORUM E-İMZAYLA &amp; GÖNDER
+                                            E-İMZA AT &amp; GÖNDER
                                         </button>
-                                    </form>
+                                    @elseif($rowActionType === 'paraf' && $rowCanParaf)
+                                        <form method="POST" action="{{ route('admin.applications.paraf-step', $app) }}">
+                                            @csrf
+                                            <button type="submit"
+                                                    class="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700">
+                                                PARAF AT &amp; GÖNDER
+                                            </button>
+                                        </form>
+                                    @else
+                                        <form method="POST" action="{{ route('admin.makam.onayla', $app) }}"
+                                              onsubmit="return confirm('#{{ $app->application_no }} başvurusunu ONAYLIYOR, e-imzalayıp gönderiyorsunuz. Emin misiniz?')">
+                                            @csrf
+                                            <button type="submit"
+                                                    class="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-amber-700">
+                                                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                                ONAYLIYORUM E-İMZAYLA &amp; GÖNDER
+                                            </button>
+                                        </form>
+                                    @endif
                                     <a href="{{ route('admin.makam.show', $app) }}"
                                        class="text-[11px] font-semibold text-cyan-700 hover:text-cyan-800">Dosyayı Aç</a>
                                 </div>
@@ -140,3 +169,7 @@
     </div>
     @endif
 @endsection
+
+@push('scripts')
+@include('partials._eimza_signing_js')
+@endpush
