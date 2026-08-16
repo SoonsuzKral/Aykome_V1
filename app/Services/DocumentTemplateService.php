@@ -1276,18 +1276,14 @@ CSS;
         // 16.08 5. tur — kullanıcı raporu: "A4 boyutunda değil, taşıyor".
         $fragment = self::sanitizeWordImportHtml($fragment, $documentType);
 
-        // 16.08 14. tur — kullanıcı raporu: "World'deki logo konumu (sağ/sol/
-        // yukarı/35mm gibi) taslakta hiç aynı gelmiyor, kayma var". KÖK NEDEN:
-        // PhpWord'ün HTML writer'ı kayan/sabit-konumlu (anchored/floating,
-        // wp:anchor) resimlerin sayfadaki GERÇEK X/Y konumunu YAZMIYOR — sadece
-        // resmin kendisini düz akışa (normal <img>) gömüyor (doğrulanmış: PhpWord
-        // Reader'ının Word2007/AbstractPart::readRunChild() metodu wp:inline VE
-        // wp:anchor'ı AYNI şekilde işliyor, yalnızca embedId alıyor, konum/boyut
-        // stilini HİÇ okumuyor). Çözüm: .docx'in HAM XML'inden (word/document.xml
-        // içindeki wp:anchor/wp:positionH/wp:positionV) konumu KENDİMİZ okuyup,
-        // eşleşen <img>'e position:absolute;left/top (mm) olarak enjekte ediyoruz —
-        // bu resim artık mevcut "Taşı Modu" ile de kullanıcı tarafından serbestçe
-        // sürüklenebilir/sıfırlanabilir hale gelir (bkz. applyWordFloatingImagePositions).
+        // 16.08 14/16. tur — kullanıcı raporu: büyük/yüksek çözünürlüklü logo
+        // dosyaları Word'de KUÇÜK gösterilse bile PhpWord bunu ham piksel
+        // boyutuyla basıyordu (metnin üzerine biniyordu). Çözüm: .docx'in HAM
+        // XML'inden (wp:extent) Word'ün GERÇEKTEN gösterdiği boyutu okuyup
+        // enjekte ediyoruz. NOT (16. tur): konum (position:absolute) enjeksiyonu
+        // denenmiş ama gerçek kullanıcı belgesinde metinle çakışmaya sebep
+        // olduğu için KALDIRILDI — resim artık SADECE doğru boyutla, normal
+        // akış konumunda kalıyor (bkz. applyWordFloatingImagePositions docblock).
         return self::applyWordFloatingImagePositions($fragment, $filePath);
     }
 
@@ -1432,19 +1428,33 @@ CSS;
     }
 
     /**
-     * 16.08 14. tur — .docx'in HAM XML'inden (word/document.xml) kayan/sabit
-     * konumlu (floating/anchored, wp:anchor) resimlerin GERÇEK sayfa konumunu
-     * (mm cinsinden, sol-üst köşeden) çıkarır.
+     * 16.08 14/16. tur — .docx'in HAM XML'inden (word/document.xml) kayan/sabit
+     * konumlu (floating/anchored, wp:anchor) resimlerin GERÇEK GÖRÜNTÜLENME
+     * BOYUTUNU (wp:extent, mm) çıkarır. Konum (leftMm/topMm) da çıkarılıp
+     * döndürülür AMA ARTıK OTOMATİK UYGULANMIYOR (bkz. 16. tur notu aşağıda).
      *
-     * NEDEN GEREKLİ: PhpWord'ün OOXML Reader'ı (Word2007\AbstractPart::
-     * readRunChild()) `wp:inline` ve `wp:anchor` çizimlerini AYNI şekilde işler —
-     * yalnızca görsel verisini (embedId üzerinden) alır, `wp:positionH`/
-     * `wp:positionV` konum bilgisini HİÇ okumaz. Bu yüzden HTML writer çıktısında
-     * tüm resimler düz akışlı (normal) <img> olarak görünür; kurum antetindeki
-     * "logo sağ üstte, tarihin yanında, sayfanın X mm içinde" gibi kesin
-     * konumlandırmalar kaybolur. Çözüm: ham XML'i (ZipArchive + DOMXPath ile)
-     * kendimiz okuyup eşleşen resme dışardan position:absolute enjekte ediyoruz
-     * (bkz. applyWordFloatingImagePositions).
+     * NEDEN GEREKLİ (boyut için): PhpWord'ün OOXML Reader'ı (Word2007\
+     * AbstractPart::readRunChild()) `wp:inline` ve `wp:anchor` çizimlerini AYNI
+     * şekilde işler — yalnızca görsel verisini (embedId üzerinden) alır,
+     * `wp:extent` (boyut) / `wp:positionH`/`wp:positionV` (konum) bilgisini HİÇ
+     * okumaz (`addImage($imageSource, null, false, $name)` — stil hep null).
+     * Bu yüzden resim, Word'ün GÖSTERDİĞİ küçük boyutta değil, dosyanın
+     * KENDİ HAM PİKSEL çözünürlüğünde basılıyordu (genelde çok daha büyük
+     * bir kurumsal logo dosyası) — kullanıcı ekran görüntüsü: logo metnin
+     * üzerine biniyordu. wp:extent (cx/cy, EMU) burada okunup boyut olarak
+     * enjekte ediliyor (bkz. applyWordFloatingImagePositions).
+     *
+     * 16. tur NOTU (KONUM ARTıK UYGULANMIYOR): bir önceki turda leftMm/topMm
+     * değerleri `position:absolute` olarak da enjekte ediliyordu, ama gerçek
+     * belgede (test edilemeyen karışık XML — iç içe tablo/bölüm/relativeFrom
+     * çeşitleri) logo yine metnin üzerine biniyor, sayfanın üstünde takılı
+     * kalıyordu (kullanıcı ekran görüntüsü, İKİ farklı denemede de). Gerçek
+     * dosya elimizde olmadan bu matematiği doğrulamak mümkün değil — riski
+     * kabul etmek yerine GÜVENLİ tarafta kalındı: resim normal akışta
+     * (PhpWord'ün koyduğu yerde) kalır, SADECE doğru boyutla. Kullanıcı hala
+     * ✥ Taşı Modu ile istediği yere kesin cm/mm hassasiyetinde sürükleyebilir
+     * — bu, kullanıcının gözle doğrulayabildiği, HER ZAMAN doğru çalışan tek
+     * yöntem.
      *
      * Eşleştirme stratejisi: her <wp:anchor> resmin ham baytının MD5'i üzerinden
      * yapılır — PhpWord\Element\Image::getImageString() SOURCE_ARCHIVE için
@@ -1457,7 +1467,7 @@ CSS;
      * ile hizalanmış resimler atlanır (konumları zaten PhpWord'ün akışıyla
      * makul şekilde geliyor, karmaşıklık eklemeye değmez).
      *
-     * @return array<string, array{leftMm: float, topMm: float}> md5(resim baytı) => konum
+     * @return array<string, array{leftMm: float, topMm: float, widthMm: ?float, heightMm: ?float}> md5(resim baytı) => veri
      */
     private static function extractFloatingImagePositions(string $docxPath): array
     {
@@ -1556,6 +1566,23 @@ CSS;
                 $topMm += $marginTopMm;
             }
 
+            // wp:extent = Word'ün GERÇEKTEN gösterdiği boyut (cx/cy, EMU) —
+            // dosyanın kendi ham piksel çözünürlüğünden BAĞIMSIZ, tek güvenilir
+            // kaynak. Bu, ARTıK UYGULANAN tek veri (konum sadece bilgi amaçlı).
+            $extent = $xpath->query('./wp:extent', $anchor)->item(0);
+            $widthMm = null;
+            $heightMm = null;
+            if ($extent instanceof \DOMElement) {
+                $cx = (float) $extent->getAttribute('cx');
+                $cy = (float) $extent->getAttribute('cy');
+                if ($cx > 0) {
+                    $widthMm = round($emuToMm($cx), 2);
+                }
+                if ($cy > 0) {
+                    $heightMm = round($emuToMm($cy), 2);
+                }
+            }
+
             $target = ltrim(str_replace('\\', '/', $relMap[$embedId]), '/');
             if (! str_starts_with($target, 'word/')) {
                 $target = 'word/' . $target;
@@ -1565,7 +1592,12 @@ CSS;
                 continue;
             }
 
-            $result[md5($bin)] = ['leftMm' => round($leftMm, 2), 'topMm' => round($topMm, 2)];
+            $result[md5($bin)] = [
+                'leftMm' => round($leftMm, 2),
+                'topMm' => round($topMm, 2),
+                'widthMm' => $widthMm,
+                'heightMm' => $heightMm,
+            ];
         }
 
         $zip->close();
@@ -1574,12 +1606,22 @@ CSS;
     }
 
     /**
-     * 16.08 14. tur — extractFloatingImagePositions() ile bulunan konumları,
-     * PhpWord'ün ürettiği HTML'deki eşleşen <img> etiketlerine
-     * position:absolute;left/top (mm) olarak enjekte eder. Eşleşen resimler
-     * `data-aykome-free-position="1"` ile işaretlenir — böylece editördeki
-     * mevcut "Taşı Modu" (✥ sürükle / ⇺ sıfırla) araçları bu resimleri de
-     * doğrudan tanır, kullanıcı gerekirse ince ayarı kendisi yapabilir.
+     * 16.08 16. tur (KÖKTEN DEĞİŞTİ — kullanıcı 2 ayrı canlı testte de "logolar
+     * metnin üzerine biniyor / sayfanın üstünde takılı kalıyor" bildirdi) —
+     * extractFloatingImagePositions() ile bulunan SADECE BOYUTU (width/height,
+     * wp:extent'ten mm) eşleşen <img> etiketine enjekte eder. KONUM ARTIK
+     * ENJEKTE EDİLMİYOR — resim PhpWord'ün koyduğu normal akış konumunda
+     * kalır (böylece başka hiçbir içerikle üst üste binmesi FİZİKSEL OLARAK
+     * mümkün değil — normal akış elemanları birbirini asla ezmez).
+     *
+     * NEDEN VAZGEÇİLDİ: konum matematiği (EMU→mm + relativeFrom kenar boşluğu
+     * düzeltmesi) sentetik/elle kurulmuş test belgelerinde MÜKEMMEL çalıştı,
+     * ama GERÇEK kullanıcı belgesi (iç içe tablo/bölüm yapısı bilinmiyor,
+     * elimizde dosya yok) üzerinde 2 farklı denemede de yanlış çıktı. Gerçek
+     * dosya olmadan bu hesabı güvenilir şekilde doğrulamak mümkün değil.
+     * GÜVENLİ yöntem: SADECE doğru boyut (ki bu, dosyanın kendi çözünürlüğünden
+     * bağımsız, HER ZAMAN doğru bir değerdir) + kullanıcının zaten güvenip
+     * kullandığı ✥ Taşı Modu ile gözle doğrulanarak elle konumlandırma.
      */
     private static function applyWordFloatingImagePositions(string $html, string $docxPath): string
     {
@@ -1614,11 +1656,18 @@ CSS;
             }
 
             $pos = $positions[$hash];
+            if ($pos['widthMm'] === null && $pos['heightMm'] === null) {
+                continue;
+            }
             $style = trim((string) $img->getAttribute('style'), '; ');
-            $style = ($style !== '' ? $style . '; ' : '')
-                . sprintf('position: absolute; left: %smm; top: %smm; margin: 0; z-index: 50;', $pos['leftMm'], $pos['topMm']);
-            $img->setAttribute('style', $style);
-            $img->setAttribute('data-aykome-free-position', '1');
+            $style = $style !== '' ? $style . '; ' : '';
+            if ($pos['widthMm'] !== null) {
+                $style .= sprintf('width: %smm !important; max-width: %smm !important; ', $pos['widthMm'], $pos['widthMm']);
+            }
+            if ($pos['heightMm'] !== null) {
+                $style .= sprintf('height: %smm !important; max-height: %smm !important; ', $pos['heightMm'], $pos['heightMm']);
+            }
+            $img->setAttribute('style', trim($style, '; ') . ';');
             $changed = true;
         }
 
