@@ -34,7 +34,10 @@
         body.panel-open .editor-wrap { right: 300px; }
 
         /* ── BİLGİ KATMANI: sağ dinamik alan seçici paneli ── */
-        .fp-toggle { position: fixed; top: 66px; right: 12px; z-index: 960; width: 38px; height: 38px; border-radius: 9px; border: 1px solid #334155; background: #243141; color: #e2e8f0; font-size: 16px; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+        /* 16.08 6. tur FIX: #fmt-bar (top:58px, z-index:990) eklenince bu ikon
+           (eskiden top:66px, z-index:960) çubuğun ARKASINDA kalıp görünmez oldu —
+           fmt-bar'ın ALTINA (top:106px) indirildi + z-index yükseltildi. */
+        .fp-toggle { position: fixed; top: 106px; right: 12px; z-index: 991; width: 38px; height: 38px; border-radius: 9px; border: 1px solid #334155; background: #243141; color: #e2e8f0; font-size: 16px; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.25); }
         .fp-toggle:hover { background: #334155; color: #fff; }
         #field-panel { position: fixed; top: 58px; right: 0; bottom: 0; width: 300px; z-index: 950; background: #fff; border-left: 1px solid #cbd5e1; box-shadow: -2px 0 10px rgba(0,0,0,.08); transform: translateX(100%); transition: transform .2s ease; display: flex; flex-direction: column; }
         #field-panel.panel-open { transform: translateX(0); }
@@ -50,24 +53,82 @@
         .fp-item .fp-lbl { font-family: inherit; color: #64748b; font-size: 11px; }
 
         /* ── ContentEditable A4 kağıt ── */
+        /* 16.08 6. tur FIX: "max-width" tek başına yetersiz kaldı (kullanıcı raporu:
+           sayfa hala çok geniş) — gerçek PDF çıktısındaki .a4-container ile BİREBİR
+           aynı SABiT genişlik (210mm) + olası içerik taşmasını kesin engelleyen
+           overflow-x:hidden eklendi. */
         #doc-editor {
-            max-width: 220mm;
+            width: 210mm;
+            max-width: 210mm;
+            overflow-x: hidden;
             margin: 0 auto;
             background: #fff;
-            box-shadow: 0 6px 20px rgba(0,0,0,.35);
+            /* 16.08 14. tur FIX: 1px'lik gerçek `border` KALDIRILDI — kutu modelini
+               (padding box orijinini) gerçek .a4-container ile BİREBİR aynı yapmak
+               için (o, border kullanmıyor, sadece box-shadow). Serbest konumlandırılan
+               (position:absolute) blokların px koordinatı CSS'e göre konteynerin
+               PADDING KUTUSUNA (border'ın hemen içi) göre hesaplanır — 1px'lik border
+               farklılığı bile başvuru modülündeki gerçek çıktıyla ufak bir kaymaya
+               sebep olabiliyordu; görsel sınır çizgisi tamamen box-shadow'a devredildi. */
+            box-shadow: 0 0 0 1px #cbd5e1, 0 6px 20px rgba(0,0,0,.35);
             min-height: 297mm;
-            padding: 18mm 20mm;
-            border: 1px solid #cbd5e1;
+            /* 16.08 14. tur FIX: sabit "18mm 20mm" yerine PDF/e-imza çıktısıyla AYNI
+               TEK kaynaktan gelen değer (bkz. DocumentTemplateService::
+               A4_CONTAINER_PADDING + DocumentTemplateController::editorView()) —
+               kullanıcı raporu: taslakta taşınan bir blok başvuru modülünde aynı
+               mesafede çıkmıyordu, kök neden bu iki değerin BAĞIMSIZ olmasıydı. */
+            padding: {{ $containerPadding ?? '18mm 20mm' }};
             outline: none;
             font-family: 'Times New Roman', Times, serif;
+            /* 16.08 8. tur FIX: gercek PDF'teki .a4-container'da position:relative VAR
+               (bkz. cover_letter.blade.php) - icerideki .a4-footer gibi position:absolute
+               bloklar (Tesis Kontrol/Yetkilisi, dogrulama kodu) bu ANKORA gore konumlanir.
+               #doc-editor'da bu eksikti -> mutlak bloklar SAYFAYA degil, en yakin
+               konumlanmis ataya (.editor-wrap, tam ekran genislikte) gore hizalaniyordu;
+               sayfa dar+ortali hale gelince bu kayma GORUNUR oldu (sayfanin SOLUNA tasti). */
+            position: relative;
+        }
+        /* 16.08 9. tur FIX: cover_letter.blade.php'nin .a4-footer'i (Tesis Kontrol +
+           dogrulama kodu) PDF'te BiLiNCLi olarak position:absolute;bottom:10mm
+           kullanir (imza/dogrulama her zaman sayfanin dibine sabitlenir - gerçek
+           PDF'te DOGRU). Ama editorde icerik KISA oldugunda #doc-editor'in
+           min-height:297mm'lik TAM sayfa yuksekliginin dibine yapisip devasa
+           bosluk yaratiyordu (kullanici ekran goruntusu). AYNI FELSEFE zaten
+           pre_permit.blade.php'deki .sayfa-alti-wrapper'da var (PDF'te absolute,
+           web onizlemede normal akis) - burada da ayni desen uygulandi. Gercek
+           cover_letter.blade.php DOKUNULMADI (PDF ciktisi ETKiLENMEZ), sadece
+           EDiTOR gorunumu override edildi. */
+        #doc-editor .a4-footer {
+            position: static !important;
+            left: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+            margin-top: 24px !important;
+        }
+        /* 16.08 10. tur FIX: kullanıcı netleştirdi — "Tesis Kontrol/Yetkilisi" (sig-table)
+           içeriğin HEMEN ALTINDA aksın (yukarıdaki düzeltme), AMA "BELGE DOĞRULAMA
+           KODU" (.footer-line) — ve e-imza sonrası üstüne gelecek 5070 metni —
+           GERÇEK bir sayfa altbilgisi gibi hep SAYFA DİBİNE yapışık kalmalı.
+           .a4-footer static olunca .footer-line'ın mutlak konumu artık bir üst
+           konumlanmış atası olan #doc-editor'e (position:relative) göre çalışır. */
+        #doc-editor .a4-footer .footer-line {
+            position: absolute !important;
+            bottom: 10mm !important;
+            left: 20mm !important;
+            right: 20mm !important;
+            margin-top: 0 !important;
         }
         /* Düzenlenebilir hücre/metin odak stili */
         #doc-editor [contenteditable="true"] { border-radius: 2px; transition: box-shadow .15s, background .15s; }
         #doc-editor [contenteditable="true"]:hover { box-shadow: inset 0 0 0 1px rgba(37,99,235,.35); }
         #doc-editor [contenteditable="true"]:focus { box-shadow: inset 0 0 0 2px rgba(37,99,235,.6); background: rgba(37,99,235,.04); outline: none; }
-        #doc-editor img { max-height: 100px; max-width: auto; object-fit: contain; }
-        #doc-editor table { width: 100% !important; border-collapse: collapse !important; }
-        #doc-editor td, #doc-editor th { vertical-align: top !important; padding: 3px !important; }
+        #doc-editor img { max-height: 100px; max-width: 100% !important; object-fit: contain; }
+        #doc-editor table { max-width: 100% !important; border-collapse: collapse !important; }
+        #doc-editor td, #doc-editor th { vertical-align: top !important; padding: 3px !important; max-width: 210mm; }
+        /* 16.08 6. tur — Kazı Metraj gibi yatay (landscape) belgeler portrait 210mm'e
+           SıKIŞTIRILMAZ — tam yatay A4 genişliği kullanır. */
+        #doc-editor.landscape-doc { width: 297mm; max-width: 297mm; }
+        #doc-editor.landscape-doc td, #doc-editor.landscape-doc th { max-width: 297mm; }
 
         /* ── Toast ── */
         #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 2000; background: #0f172a; color: #fff; padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; box-shadow: 0 6px 18px rgba(0,0,0,.35); opacity: 0; pointer-events: none; transition: opacity .25s; }
@@ -83,6 +144,66 @@
         body.ro-readonly .save-btn, body.ro-readonly .reset-btn { display: none !important; }
         body.ro-readonly #doc-editor [contenteditable] { cursor: default !important; user-select: none !important; }
         body.ro-readonly #doc-editor td { cursor: default !important; }
+        body.ro-readonly #fmt-bar { display: none !important; }
+
+        /* ── 16.08 5. tur — BİÇİMLENDİRME ARAÇ ÇUBUĞU (Windows Word/Dabnet benzeri) ── */
+        #fmt-bar { position: fixed; top: 58px; left: 0; right: 0; z-index: 990; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 6px 12px; background: #eef2f7; border-bottom: 1px solid #cbd5e1; transition: right .2s ease; }
+        body.panel-open #fmt-bar { right: 300px; }
+        body.ro-readonly .editor-wrap { top: 58px !important; }
+        .fmt-group { display: flex; align-items: center; gap: 2px; padding: 0 6px; border-right: 1px solid #cbd5e1; }
+        .fmt-group:last-child { border-right: none; }
+        .fmt-btn { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #1e293b; font-size: 13px; font-weight: 700; cursor: pointer; }
+        .fmt-btn:hover { background: #dbeafe; border-color: #93c5fd; }
+        .fmt-btn.active { background: #bfdbfe; border-color: #60a5fa; }
+        .fmt-select { height: 28px; border: 1px solid #cbd5e1; border-radius: 5px; font-size: 12px; background: #fff; color: #1e293b; padding: 0 4px; }
+        #fmt-font-name { width: 130px; }
+        #fmt-font-size { width: 62px; }
+        .fmt-color-btn { position: relative; }
+        .fmt-color-btn input[type=color] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+        /* Araç çubuğu varken çalışma alanını aşağı it */
+        .editor-wrap { top: 96px !important; }
+
+        /* ── Resim sürükle-boyutlandır (TAM_WORLD_YAPISI.md Aşama 4) ── */
+        #doc-editor img { cursor: pointer; }
+        #doc-editor img.aykome-img-selected { outline: 2px solid #2563eb; }
+        #img-resize-overlay { position: fixed; pointer-events: none; z-index: 1500; outline: 2px dashed #2563eb; }
+        .img-resize-handle { position: absolute; width: 11px; height: 11px; background: #2563eb; border: 2px solid #fff; border-radius: 3px; pointer-events: all; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+        .img-resize-handle.handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+        .img-resize-handle.handle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+        .img-resize-handle.handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+        .img-resize-handle.handle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+
+        /* ── 16.08 11. tur — SERBEST BLOK TAŞIMA ("tutup istediğim yere sürükleme") ── */
+        #doc-editor.move-mode-active [contenteditable="true"]:hover,
+        #doc-editor.move-mode-active td:hover,
+        #doc-editor.move-mode-active div:hover,
+        #doc-editor.move-mode-active p:hover { outline: 1.5px dashed #7c3aed !important; cursor: default; }
+        [data-aykome-free-position="1"] { outline: 1px dashed #a78bfa; }
+        #block-move-handle { position: fixed; width: 24px; height: 24px; background: #7c3aed; color: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: move; z-index: 1600; box-shadow: 0 2px 8px rgba(0,0,0,.4); user-select: none; }
+        #block-move-handle:active { background: #6d28d9; }
+        /* 16.08 13. tur: reset ARTıK amber (daha az yıkıcı "geri al" eylemi) —
+           gerçek KıRMIZI renk sadece silme (delete) için ayırıldı, karışıklık önlenir. */
+        #block-reset-handle { position: fixed; width: 20px; height: 20px; background: #d97706; color: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; cursor: pointer; z-index: 1600; box-shadow: 0 2px 8px rgba(0,0,0,.4); user-select: none; }
+        #move-readout { position: fixed; background: #0f172a; color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; z-index: 1700; pointer-events: none; white-space: nowrap; }
+        #move-mode-btn.active { background: #7c3aed !important; color: #fff !important; }
+        /* 16.08 12. tur — blok DARALTMA/GENİŞLETME tutamacı (sağ-alt köşe) */
+        #block-resize-handle { position: fixed; width: 14px; height: 14px; background: #2563eb; border: 2px solid #fff; border-radius: 3px; cursor: nwse-resize; z-index: 1600; box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+        /* 16.08 13. tur — blok SİLME tutamacı (sağ-üst köşe) */
+        #block-delete-handle { position: fixed; width: 20px; height: 20px; background: #dc2626; color: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; cursor: pointer; z-index: 1600; box-shadow: 0 2px 8px rgba(0,0,0,.4); user-select: none; }
+        #block-delete-handle:hover { background: #b91c1c; }
+
+        /* ── Taslak Kütüphanesi paneli (Bilgi Alanları paneliyle aynı desen) ── */
+        #draft-panel { position: fixed; top: 58px; right: 0; bottom: 0; width: 300px; z-index: 950; background: #fff; border-left: 1px solid #cbd5e1; box-shadow: -2px 0 10px rgba(0,0,0,.08); transform: translateX(100%); transition: transform .2s ease; display: flex; flex-direction: column; }
+        #draft-panel.panel-open { transform: translateX(0); }
+        .draft-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 9px 10px; margin-bottom: 8px; }
+        .draft-card-name { font-weight: 700; font-size: 12px; color: #0f172a; }
+        .draft-card-meta { font-size: 10px; color: #94a3b8; margin: 2px 0 8px; }
+        .draft-card-actions { display: flex; gap: 6px; }
+        .draft-btn-load { background: #2563eb; color: #fff; border: none; border-radius: 6px; padding: 4px 9px; font-size: 11px; font-weight: 600; cursor: pointer; }
+        .draft-btn-load:hover { background: #1d4ed8; }
+        .draft-btn-del { background: transparent; color: #dc2626; border: 1px solid #fca5a5; border-radius: 6px; padding: 4px 9px; font-size: 11px; font-weight: 600; cursor: pointer; }
+        .draft-btn-del:hover { background: #fee2e2; }
     </style>
 
     {{-- Belgenin kendi CSS'i (A4 görünümünü korur) --}}
@@ -217,13 +338,98 @@
                 <button type="button" class="tool-btn" onclick="excelAction('insertRow')">＋ Satır Ekle</button>
                 <button type="button" class="tool-btn" onclick="excelAction('deleteRow')">－ Satır Sil</button>
             @endif
+            @if(!empty($importWordUrl) && !($readOnly ?? false))
+                <input type="file" id="word-import-input" accept=".docx" class="hidden" onchange="importWordFile(this)">
+                <button type="button" class="tool-btn" onclick="document.getElementById('word-import-input').click()" title="Kendi bilgisayarınızdaki .docx dosyasını yükleyip belgenin yerine koyar">📄 Word'den İçe Aktar</button>
+            @endif
             @if($resetUrl)
                 <button type="button" class="reset-btn" onclick="resetOverride()">↺ Varsayılana Dön</button>
+            @endif
+            @if(!empty($draftsUrl) && !($readOnly ?? false))
+                <button type="button" class="tool-btn" onclick="toggleDraftPanel()" title="Kaydedilmiş taslak sürümleri (Word'den yüklenen veya elle yazılan)">📂 Taslak Kütüphanesi</button>
             @endif
             <button type="button" class="cancel-btn" onclick="goBack()">İptal</button>
             <button type="button" class="save-btn" id="btn-save" onclick="saveDoc()">💾 Kaydet</button>
         </div>
     </div>
+
+    {{-- 16.08 5. tur — BİÇİMLENDİRME ARAÇ ÇUBUĞU: Windows Word/Dabnet benzeri ribbon.
+         Mevcut contenteditable motoruna DOKUNMADAN (hücre kilitleri + canlı matematik
+         korunur) document.execCommand ile çalışır — TipTap gibi bir motor değişikliği
+         RiSKi YOK. --}}
+    @if(!($readOnly ?? false))
+    <div id="fmt-bar">
+        <div class="fmt-group">
+            <select id="fmt-font-name" class="fmt-select" onchange="setFontName(this.value)" title="Yazı Tipi">
+                <option value="">Yazı Tipi</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Arial">Arial</option>
+                <option value="Calibri">Calibri</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Courier New">Courier New</option>
+            </select>
+            <select id="fmt-font-size" class="fmt-select" onchange="setFontSize(this.value)" title="Yazı Boyutu">
+                <option value="">Boyut</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+                <option value="10">10</option>
+                <option value="11">11</option>
+                <option value="12">12</option>
+                <option value="14">14</option>
+                <option value="16">16</option>
+                <option value="18">18</option>
+                <option value="20">20</option>
+                <option value="24">24</option>
+                <option value="28">28</option>
+                <option value="32">32</option>
+                <option value="36">36</option>
+            </select>
+        </div>
+        <div class="fmt-group">
+            <button type="button" class="fmt-btn" style="font-style:normal;" onclick="fmt('bold')" title="Kalın (Ctrl+B)"><b>K</b></button>
+            <button type="button" class="fmt-btn" onclick="fmt('italic')" title="Eğik (Ctrl+I)"><i>Y</i></button>
+            <button type="button" class="fmt-btn" style="text-decoration:underline;" onclick="fmt('underline')" title="Altı Çizili (Ctrl+U)">A</button>
+            <button type="button" class="fmt-btn" style="text-decoration:line-through;" onclick="fmt('strikeThrough')" title="Üstü Çizili">A</button>
+        </div>
+        <div class="fmt-group">
+            <button type="button" class="fmt-btn" onclick="fmt('justifyLeft')" title="Sola Yasla">≡</button>
+            <button type="button" class="fmt-btn" onclick="fmt('justifyCenter')" title="Ortala">☰</button>
+            <button type="button" class="fmt-btn" onclick="fmt('justifyRight')" title="Sağa Yasla">≡</button>
+            <button type="button" class="fmt-btn" onclick="fmt('justifyFull')" title="iki Yana Yasla">☱</button>
+        </div>
+        <div class="fmt-group">
+            <button type="button" class="fmt-btn fmt-color-btn" title="Yazı Rengi">
+                A
+                <input type="color" onchange="fmt('foreColor', this.value)" value="#000000">
+            </button>
+            <button type="button" class="fmt-btn fmt-color-btn" title="Vurgu (Fon) Rengi">
+                🖊
+                <input type="color" onchange="fmt('hiliteColor', this.value)" value="#fff59d">
+            </button>
+        </div>
+        <div class="fmt-group">
+            <button type="button" class="fmt-btn" onclick="fmt('insertUnorderedList')" title="Madde İşareti">•≡</button>
+            <button type="button" class="fmt-btn" onclick="fmt('insertOrderedList')" title="Numaralı Liste">1≡</button>
+            <button type="button" class="fmt-btn" onclick="fmt('outdent')" title="Girintiyi Azalt">⇤</button>
+            <button type="button" class="fmt-btn" onclick="fmt('indent')" title="Girinti Ekle">⇥</button>
+        </div>
+        <div class="fmt-group">
+            <button type="button" class="fmt-btn" style="width:auto;padding:0 8px;" onclick="insertTableAtCursor()" title="Tablo Ekle">⊞ Tablo</button>
+            <input type="file" id="img-insert-input" accept="image/*" class="hidden" onchange="insertImageAtCursor(this)">
+            <button type="button" class="fmt-btn" style="width:auto;padding:0 8px;" onclick="document.getElementById('img-insert-input').click()" title="Resim Ekle (sonrasında köşesinden sürükleyerek boyutlandırın)">🖼 Resim</button>
+        </div>
+        <div class="fmt-group">
+            <button type="button" class="fmt-btn" onclick="fmt('undo')" title="Geri Al (Ctrl+Z)">↶</button>
+            <button type="button" class="fmt-btn" onclick="fmt('redo')" title="Yinele (Ctrl+Y)">↷</button>
+            <button type="button" class="fmt-btn" onclick="fmt('removeFormat')" title="Biçimlendirmeyi Temizle">⌫A</button>
+        </div>
+        <div class="fmt-group">
+            <button type="button" class="fmt-btn" id="move-mode-btn" style="width:auto;padding:0 10px;" onclick="toggleMoveMode()" title="AçıncA: herhangi bir bloğun (hücre/paragraf) üzerine gelip ✥ simgesinden tutup istediğiniz yere sürükleyin (cm hassasiyetinde serbest konumlandırma)">✥ Taşı Modu</button>
+            <button type="button" class="fmt-btn" style="width:auto;padding:0 10px;" onclick="splitSelectionIntoBlock()" title="Önce ayırmak istediğiniz cümleyi/metni seçin, sonra bu butona basın — seçili kısım AYRI, bağımsız taşınabilir bir hücre haline gelir">✂ Seçimi Ayır</button>
+        </div>
+    </div>
+    @endif
 
     <div class="ro-banner" id="ro-banner">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
@@ -231,7 +437,7 @@
     </div>
 
     <div class="editor-wrap">
-        <div id="doc-editor"></div>
+        <div id="doc-editor" class="{{ !empty($isLandscape) ? 'landscape-doc' : '' }}"></div>
     </div>
 
     {{-- BİLGİ KATMANI: sağ dinamik alan seçici — başvuru verisinin {token} ile nereye
@@ -247,6 +453,23 @@
         <div id="fp-groups" class="fp-groups"></div>
     </div>
 
+    {{-- 16.08 5. tur — TASLAK KÜTÜPHANESİ: birden fazla adlandırılmış şablon sürümü
+         (elle yazılan / Word'den aktarılan) sakla + editöre yükle. AKTİF şablonu
+         DEĞİŞTİRMEZ — kullanıcı hala 💾 Kaydet'e basmalı. --}}
+    @if(!empty($draftsUrl) && !($readOnly ?? false))
+    <div id="draft-panel">
+        <div class="fp-head">
+            <span class="fp-title">📂 Taslak Kütüphanesi</span>
+            <button type="button" class="fp-close" onclick="toggleDraftPanel()" title="Kapat">✕</button>
+        </div>
+        <div style="padding:10px 12px;border-bottom:1px solid #e2e8f0;">
+            <button type="button" class="tool-btn" style="width:100%;" onclick="saveAsNewDraft()">💾 Farklı Kaydet (Yeni Taslak)</button>
+            <p style="margin:8px 0 0;font-size:10.5px;color:#94a3b8;line-height:1.4;">Editördeki mevcut içeriği bir isimle (ör. "WORLD_PC") sakla. Aktif şablonu değiştirmez.</p>
+        </div>
+        <div id="draft-list" style="flex:1;overflow-y:auto;padding:10px 12px;"></div>
+    </div>
+    @endif
+
     <div id="toast"></div>
 
     <form id="reset-form" method="POST" action="{{ $resetUrl ?? '#' }}" class="hidden">
@@ -258,6 +481,8 @@
         var CSRF_TOKEN = @json(csrf_token());
         var SAVE_URL = @json($saveUrl);
         var BACK_URL = @json($backUrl);
+        var IMPORT_WORD_URL = @json($importWordUrl ?? null);
+        var DRAFTS_URL = @json($draftsUrl ?? null);
         // GÖREV 2 (CELL-BASED AUTH): Alt kurum oturumunda (IS_MUNI=false) belediye
         // makam hücreleri KESİN kilitlenir; hiçbir JS kod yolu bunları "true" yapamaz.
         var IS_MUNI = @json($isMuni ?? true);
@@ -275,11 +500,9 @@
         //    tıklama/yazma preventDefault ile engellenir. (Belediye makam hücreleri)
         var EDITABLE_SELECTOR = 'td, th, p, h1, h2, h3, h4, li, .imza .ad, .imza .unvan';
 
-        function initEditor() {
-            var el = document.getElementById('doc-editor');
-            if (!el) return;
-            el.innerHTML = INITIAL_CONTENT || '';
-
+        // Cell-based auth kilit mantığı — hem sayfa açılışında (initEditor) hem
+        // Word içe aktarma sonrası (importWordFile) AYNI şekilde uygulanır.
+        function applyCellLocks(el) {
             var editable = el.querySelectorAll(EDITABLE_SELECTOR);
             for (var i = 0; i < editable.length; i++) {
                 var cur = editable[i].getAttribute('contenteditable');
@@ -302,6 +525,13 @@
             if (READ_ONLY === true) {
                 lockAllCells(el);
             }
+        }
+
+        function initEditor() {
+            var el = document.getElementById('doc-editor');
+            if (!el) return;
+            el.innerHTML = INITIAL_CONTENT || '';
+            applyCellLocks(el);
         }
 
         // GÖREV 2 (TESLİMİYET DONDURMASI): Yayınlanmış (submit edilmiş) üst yazıda alt kurum
@@ -546,6 +776,60 @@
             document.getElementById('reset-form').submit();
         }
 
+        // TAM_WORLD_YAPISI.md Aşama 1 — Word (.docx) içe aktarma. Seçilen dosya sunucuya
+        // gönderilir (PhpWord ile HTML'e çevrilir), dönen HTML editorün içeriğinin
+        // YERİNE konur (mevcut içerik kaybolur — kullanıcı önce onaylar). Sonuç henüz
+        // KAYDEDilMEZ — kullanıcı gözden geçirip 💾 Kaydet'e basmalı.
+        function importWordFile(input) {
+            if (!input.files || !input.files[0]) return;
+            if (!IMPORT_WORD_URL) { toast('İçe aktarma adresi bulunamadı.', 'err'); input.value = ''; return; }
+            if (READ_ONLY === true) { toast('Bu belge salt-okunurdur.', 'err'); input.value = ''; return; }
+            if (!confirm('Word dosyasını içe aktarmak MEVCUT belge içeriğinin üzerine yazacak (henüz kaydedilmez, gözden geçirebilirsiniz; ayrıca taslak kütüphanesine de kaydedilecek). Devam edilsin mi?')) {
+                input.value = '';
+                return;
+            }
+            // 16.08 5. tur - kullanici istegi: eski taslak SILINMESIN, Word yuklenince
+            // ONAY sonrasi hem editore yuklenir HEM DE (isim verilirse) Taslak Kutuphanesi'ne
+            // AYRI bir surum olarak kaydedilir - aktif sablon SADECE Kaydet'e basilirsa
+            // degisir, eski surumler kutuphanede kalir.
+            var suggested = input.files[0].name.replace(/\.docx$/i, '');
+            var draftName = DRAFTS_URL ? prompt('Bu Word belgesine taslak kutuphanesinde bir isim verin (ornek: WORLD_PC). Bos birakirsaniz kutuphaneye kaydedilmez, sadece editore yuklenir:', suggested) : null;
+
+            var fd = new FormData();
+            fd.append('file', input.files[0]);
+            toast('Word dosyası içe aktarılıyor...', 'ok');
+
+            fetch(IMPORT_WORD_URL, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                body: fd
+            })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (res) {
+                if (!res.ok || !res.data.ok) {
+                    toast(res.data.message || 'İçe aktarma başarısız.', 'err');
+                    return;
+                }
+                var el = document.getElementById('doc-editor');
+                el.innerHTML = res.data.html;
+                applyCellLocks(el);
+                if (draftName && DRAFTS_URL) {
+                    fetch(DRAFTS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                        body: JSON.stringify({ name: draftName, content_data: res.data.html, source: 'word_import' })
+                    }).catch(function () {});
+                }
+                toast(draftName ? ("Word icerigi aktarildi ve '" + draftName + "' adiyla kutuphaneye kaydedildi. Kontrol edip Kaydet'e basin.") : "Word icerigi aktarildi, kontrol edip Kaydet'e basin.", 'ok');
+            })
+            .catch(function (err) {
+                toast('Ice aktarma hatasi: ' + err.message, 'err');
+            })
+            .finally(function () {
+                input.value = '';
+            });
+        }
+
         // ── Excel satır ekle/sil (contenteditable tablo üzerinde) ──
         function excelAction(method) {
             var el = document.getElementById('doc-editor');
@@ -587,7 +871,595 @@
             }
         }
 
-        // ── CANLI DOM MATEMATİĞİ (GÖREV 2 / AykomeMath aynası) ────────────
+        // ── 16.08 5. tur — BİÇİMLENDİRME ARAÇ ÇUBUĞU (Windows Word/Dabnet benzeri) ──
+        // Mevcut contenteditable motoruna dokunmadan document.execCommand kullanır —
+        // hücre kilitleri + canlı matematik motoru ETKİLENMEZ (TipTap geçiş riski YOK).
+        function fmt(cmd, value) {
+            if (READ_ONLY === true) { toast('Bu belge salt-okunurdur.', 'err'); return; }
+            var editor = document.getElementById('doc-editor');
+            editor.focus();
+            var sel = window.getSelection && window.getSelection();
+            var anchor = sel && sel.anchorNode;
+            if (anchor && isLockedCell(anchor.nodeType === 3 ? anchor.parentNode : anchor)) {
+                toast('Bu alan kilitli olduğu için biçimlendirilemez.', 'err');
+                return;
+            }
+            try {
+                document.execCommand(cmd, false, value || null);
+            } catch (e) {
+                toast('Biçimlendirme uygulanamadı: ' + e.message, 'err');
+            }
+        }
+
+        function setFontName(name) {
+            if (!name) return;
+            fmt('fontName', name);
+        }
+
+        // execCommand('fontSize') yalnızca 1-7 eski ölçek destekler; gerçek px
+        // boyutu için execCommand ile geçici <font size=7> üretip px'e çeviriyoruz
+        // (Word/Dabnet'teki gibi serbest punto seçimi).
+        function setFontSize(px) {
+            if (!px) return;
+            if (READ_ONLY === true) { toast('Bu belge salt-okunurdur.', 'err'); return; }
+            var editor = document.getElementById('doc-editor');
+            editor.focus();
+            var sel = window.getSelection && window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+                toast('Önce boyutunu değiştirmek istediğiniz metni seçin.', 'err');
+                return;
+            }
+            var anchor = sel.anchorNode;
+            if (anchor && isLockedCell(anchor.nodeType === 3 ? anchor.parentNode : anchor)) {
+                toast('Bu alan kilitli olduğu için biçimlendirilemez.', 'err');
+                return;
+            }
+            document.execCommand('fontSize', false, '7');
+            var marks = editor.querySelectorAll('font[size="7"]');
+            for (var i = 0; i < marks.length; i++) {
+                marks[i].removeAttribute('size');
+                marks[i].style.fontSize = px + 'px';
+            }
+        }
+
+        function insertTableAtCursor() {
+            if (READ_ONLY === true) { toast('Bu belge salt-okunurdur.', 'err'); return; }
+            var rows = parseInt(prompt('Satır sayısı:', '3'), 10);
+            var cols = parseInt(prompt('Sütun sayısı:', '3'), 10);
+            if (!rows || !cols || rows < 1 || cols < 1 || rows > 30 || cols > 15) { toast('Geçersiz satır/sütun sayısı.', 'err'); return; }
+            var html = '<table style="width:100%;border-collapse:collapse;" border="1"><tbody>';
+            for (var r = 0; r < rows; r++) {
+                html += '<tr>';
+                for (var c = 0; c < cols; c++) {
+                    html += '<td contenteditable="true" style="padding:4px;border:1px solid #94a3b8;">&nbsp;</td>';
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table><p contenteditable="true">&nbsp;</p>';
+            document.getElementById('doc-editor').focus();
+            document.execCommand('insertHTML', false, html);
+            toast('Tablo eklendi', 'ok');
+        }
+
+        function insertImageAtCursor(input) {
+            if (!input.files || !input.files[0]) return;
+            if (READ_ONLY === true) { toast('Bu belge salt-okunurdur.', 'err'); input.value = ''; return; }
+            var file = input.files[0];
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var html = '<img src="' + e.target.result + '" style="max-width:300px;height:auto;">';
+                document.getElementById('doc-editor').focus();
+                document.execCommand('insertHTML', false, html);
+                toast('Resim eklendi — üzerine tıklayıp köşesinden sürükleyerek boyutlandırabilirsiniz.', 'ok');
+            };
+            reader.onerror = function () { toast('Resim okunamadı.', 'err'); };
+            reader.readAsDataURL(file);
+            input.value = '';
+        }
+
+        // ── 16.08 5. tur — RESİM SÜRÜKLE-BOYUTLANDIR (TAM_WORLD_YAPISI.md Aşama 4) ──
+        // Tutamalar #doc-editor'ün DIŞINDA (document.body'e eklenir) — kaydedilen
+        // içeriğe (innerHTML) ASLA karışmaz, saveDoc() etkilenmez.
+        var IMG_RESIZE = null;
+
+        function initImageResize() {
+            var editor = document.getElementById('doc-editor');
+            if (!editor) return;
+            editor.addEventListener('click', function (e) {
+                if (e.target && e.target.tagName === 'IMG' && !isLockedCell(e.target) && READ_ONLY !== true) {
+                    showResizeHandles(e.target);
+                } else {
+                    hideResizeHandles();
+                }
+            });
+            document.getElementById('doc-editor').closest('.editor-wrap').addEventListener('scroll', function () {
+                if (IMG_RESIZE) positionOverlay(IMG_RESIZE.img);
+            });
+        }
+
+        function showResizeHandles(img) {
+            hideResizeHandles();
+            var overlay = document.createElement('div');
+            overlay.id = 'img-resize-overlay';
+            ['nw', 'ne', 'sw', 'se'].forEach(function (pos) {
+                var h = document.createElement('div');
+                h.className = 'img-resize-handle handle-' + pos;
+                h.addEventListener('mousedown', function (e) { startResize(e, img, pos); });
+                overlay.appendChild(h);
+            });
+            document.body.appendChild(overlay);
+            img.classList.add('aykome-img-selected');
+            IMG_RESIZE = { img: img, overlay: overlay };
+            positionOverlay(img);
+        }
+
+        function positionOverlay(img) {
+            if (!IMG_RESIZE) return;
+            var r = img.getBoundingClientRect();
+            var o = IMG_RESIZE.overlay;
+            o.style.left = r.left + 'px';
+            o.style.top = r.top + 'px';
+            o.style.width = r.width + 'px';
+            o.style.height = r.height + 'px';
+        }
+
+        function hideResizeHandles() {
+            if (IMG_RESIZE) {
+                IMG_RESIZE.img.classList.remove('aykome-img-selected');
+                IMG_RESIZE.overlay.remove();
+            }
+            IMG_RESIZE = null;
+        }
+
+        function startResize(e, img, corner) {
+            e.preventDefault();
+            e.stopPropagation();
+            var startX = e.clientX;
+            var startW = img.getBoundingClientRect().width;
+            var startH = img.getBoundingClientRect().height;
+            var ratio = startW / (startH || 1);
+            function onMove(ev) {
+                var dx = ev.clientX - startX;
+                var dir = (corner === 'ne' || corner === 'se') ? 1 : -1;
+                var newW = Math.max(30, startW + dx * dir);
+                var newH = newW / ratio;
+                img.style.width = newW + 'px';
+                img.style.height = newH + 'px';
+                positionOverlay(img);
+            }
+            function onUp() {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            }
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        }
+
+        // ── 16.08 11. tur — SERBEST BLOK TAŞIMA ("tutup istediğim yere sürükleme") ──
+        // Kullanıcı isteği: geniş hücre/paragraf bloklarını (ör. "Tesis Kontrol/
+        // Yetkilisi") fareyle tutup cm hassasiyetinde istediği yere taşıyabilsin.
+        // GÜVENLİK: kilitli hücreler (isLockedCell) VE canlı matematik izleyen
+        // hücreler (data-aykome-surface/col, .sync-dom-value) TAŞINAMAZ — fiyat
+        // hesaplaması / belediye yetki kilitleri bozulmasın diye.
+        var MOVE_MODE = false;
+        var MOVE_HOVER = null;
+        var MOVE_DRAG = null;
+
+        function toggleMoveMode() {
+            MOVE_MODE = !MOVE_MODE;
+            document.getElementById('doc-editor').classList.toggle('move-mode-active', MOVE_MODE);
+            var btn = document.getElementById('move-mode-btn');
+            if (btn) btn.classList.toggle('active', MOVE_MODE);
+            if (!MOVE_MODE) removeMoveHandles();
+            toast(MOVE_MODE
+                ? 'Taşıma modu AÇIK — bir bloğun üzerine gelip ✥ simgesinden tutup sürükleyin'
+                : 'Taşıma modu kapatıldı', 'ok');
+        }
+
+        // Üç ÖZEL: dogrudan tiklanan en KUCUK anlamli blogu bulur (td > p > div ...).
+        function findMovableBlock(el) {
+            var selector = 'td, th, p, div, li, h1, h2, h3, h4';
+            var editor = document.getElementById('doc-editor');
+            while (el && el !== editor && el.nodeType) {
+                if (el.nodeType === 1 && el.matches && el.matches(selector)) {
+                    if (isLockedCell(el)) return null;
+                    if (el.hasAttribute('data-aykome-surface') || el.hasAttribute('data-aykome-fee')
+                        || el.querySelector('[data-aykome-col], .sync-dom-value')) return null;
+                    if (el.hasAttribute('data-aykome-col') || el.classList.contains('sync-dom-value')) return null;
+                    // 16.08 14. tur — kullanıcı raporu: ".a4-footer" içindeki bir hücreyi
+                    // (ör. "Tesis Kontrol/Yetkilisi") serbest taşıyla konumlandırınca,
+                    // başvuru modulünde AYNI MESAFEDE çıkmıyordu. KÖK NEDEN: ".a4-footer"
+                    // editörde BiLiNÇLi olarak position:static (9. tur — içerik kısaysa dev
+                    // boşluk oluşmasın diye), AMA gerçek çıktıda (PDF/önizleme) HER ZAMAN
+                    // position:absolute;bottom:10mm kalıyor (imza/doğrulama sayfa dibine
+                    // sabit). Yani bu alanın konum REFERANS NOKTASI editörde ile gerçek
+                    // çıktıda FARKLI — serbest sürükleme ile eklenen px offset iki yerde
+                    // asla aynı görsel mesafeye denk gelmez. Güvenli çözüm: bu alanı
+                    // serbest taşımadan MUAF tut (kilitli hücre muamelesiyle aynı);
+                    // kullanıcı hala normal metin düzenleyebilir, sadece ✥ ile
+                    // sürükleyemez.
+                    if (el.closest('.a4-footer')) return null;
+                    return el;
+                }
+                el = el.parentElement;
+            }
+            return null;
+        }
+
+        function initBlockMove() {
+            var editor = document.getElementById('doc-editor');
+            if (!editor) return;
+            editor.addEventListener('mouseover', function (e) {
+                if (!MOVE_MODE || (MOVE_DRAG && MOVE_DRAG.active)) return;
+                var block = findMovableBlock(e.target);
+                if (block) showMoveHandles(block);
+            });
+            document.getElementById('doc-editor').closest('.editor-wrap').addEventListener('scroll', function () {
+                if (MOVE_HOVER) positionMoveHandles(MOVE_HOVER.block);
+            });
+        }
+
+        function showMoveHandles(block) {
+            if (MOVE_HOVER && MOVE_HOVER.block === block) { positionMoveHandles(block); return; }
+            removeMoveHandles();
+            var moveBtn = document.createElement('div');
+            moveBtn.id = 'block-move-handle';
+            moveBtn.textContent = '✥';
+            moveBtn.title = 'Tutup sürükleyerek taşıyın';
+            moveBtn.addEventListener('mousedown', function (e) { startBlockDrag(e, block); });
+
+            var resetBtn = document.createElement('div');
+            resetBtn.id = 'block-reset-handle';
+            resetBtn.textContent = '⇺';
+            resetBtn.title = 'Normal konuma geri döndür (boyut da sıfırlanır)';
+            resetBtn.addEventListener('mousedown', function (e) { e.preventDefault(); e.stopPropagation(); });
+            resetBtn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); resetBlockPosition(block); });
+
+            // 16.08 12. tur — DARALTMA/GENİŞLETME tutamacı (sağ-alt köşe).
+            var resizeBtn = document.createElement('div');
+            resizeBtn.id = 'block-resize-handle';
+            resizeBtn.title = 'Köşeden tutup sürükleyerek hücreyi daraltın/genişletin';
+            resizeBtn.addEventListener('mousedown', function (e) { startBlockResize(e, block); });
+            resizeBtn.addEventListener('mouseenter', cancelHideMoveHandles);
+            resizeBtn.addEventListener('mouseleave', scheduleHideMoveHandles);
+
+            // 16.08 13. tur — SİLME tutamacı (sağ-üst köşe).
+            var deleteBtn = document.createElement('div');
+            deleteBtn.id = 'block-delete-handle';
+            deleteBtn.textContent = '✕';
+            deleteBtn.title = 'Bu hücreyi/bloğu kalıcı olarak sil';
+            deleteBtn.addEventListener('mousedown', function (e) { e.preventDefault(); e.stopPropagation(); });
+            deleteBtn.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); deleteBlock(block); });
+            deleteBtn.addEventListener('mouseenter', cancelHideMoveHandles);
+            deleteBtn.addEventListener('mouseleave', scheduleHideMoveHandles);
+
+            document.body.appendChild(moveBtn);
+            document.body.appendChild(resetBtn);
+            document.body.appendChild(resizeBtn);
+            document.body.appendChild(deleteBtn);
+            MOVE_HOVER = { block: block, moveBtn: moveBtn, resetBtn: resetBtn, resizeBtn: resizeBtn, deleteBtn: deleteBtn };
+            positionMoveHandles(block);
+
+            block.addEventListener('mouseleave', scheduleHideMoveHandles);
+            moveBtn.addEventListener('mouseenter', cancelHideMoveHandles);
+            moveBtn.addEventListener('mouseleave', scheduleHideMoveHandles);
+            resetBtn.addEventListener('mouseenter', cancelHideMoveHandles);
+            resetBtn.addEventListener('mouseleave', scheduleHideMoveHandles);
+        }
+
+        function positionMoveHandles(block) {
+            if (!MOVE_HOVER) return;
+            var r = block.getBoundingClientRect();
+            MOVE_HOVER.moveBtn.style.left = r.left + 'px';
+            MOVE_HOVER.moveBtn.style.top = Math.max(0, r.top - 26) + 'px';
+            MOVE_HOVER.resetBtn.style.left = (r.left + 28) + 'px';
+            MOVE_HOVER.resetBtn.style.top = Math.max(0, r.top - 25) + 'px';
+            MOVE_HOVER.resizeBtn.style.left = (r.right - 7) + 'px';
+            MOVE_HOVER.resizeBtn.style.top = (r.bottom - 7) + 'px';
+            MOVE_HOVER.deleteBtn.style.left = (r.right - 22) + 'px';
+            MOVE_HOVER.deleteBtn.style.top = Math.max(0, r.top - 25) + 'px';
+        }
+
+        var MOVE_HIDE_TIMER = null;
+        function scheduleHideMoveHandles() {
+            clearTimeout(MOVE_HIDE_TIMER);
+            MOVE_HIDE_TIMER = setTimeout(function () {
+                if (!MOVE_DRAG || !MOVE_DRAG.active) removeMoveHandles();
+            }, 220);
+        }
+        function cancelHideMoveHandles() { clearTimeout(MOVE_HIDE_TIMER); }
+
+        function removeMoveHandles() {
+            if (MOVE_HOVER) {
+                MOVE_HOVER.moveBtn.remove();
+                MOVE_HOVER.resetBtn.remove();
+                MOVE_HOVER.resizeBtn.remove();
+                MOVE_HOVER.deleteBtn.remove();
+            }
+            MOVE_HOVER = null;
+        }
+
+        // Serbest konuma geçirir (ilk sürüklemede GORSEL OLARAK YER DEGISTIRMEZ —
+        // mevcut render konumu px'e sabitlenip oradan devam edilir) ve fareyi takip eder.
+        function startBlockDrag(e, block) {
+            e.preventDefault();
+            e.stopPropagation();
+            var editor = document.getElementById('doc-editor');
+            var editorRect = editor.getBoundingClientRect();
+            var blockRect = block.getBoundingClientRect();
+
+            if (block.getAttribute('data-aykome-free-position') !== '1') {
+                var startLeftPx = blockRect.left - editorRect.left + editor.scrollLeft;
+                var startTopPx = blockRect.top - editorRect.top + editor.scrollTop;
+                block.style.position = 'absolute';
+                block.style.left = startLeftPx + 'px';
+                block.style.top = startTopPx + 'px';
+                block.style.margin = '0';
+                block.style.zIndex = '400';
+                block.setAttribute('data-aykome-free-position', '1');
+            }
+
+            var startMouseX = e.clientX;
+            var startMouseY = e.clientY;
+            var origLeft = parseFloat(block.style.left) || 0;
+            var origTop = parseFloat(block.style.top) || 0;
+            MOVE_DRAG = { active: true };
+
+            function onMove(ev) {
+                var dx = ev.clientX - startMouseX;
+                var dy = ev.clientY - startMouseY;
+                var newLeft = origLeft + dx;
+                var newTop = origTop + dy;
+                block.style.left = newLeft + 'px';
+                block.style.top = newTop + 'px';
+                positionMoveHandles(block);
+                showPositionReadout(ev.clientX, ev.clientY, newLeft, newTop);
+            }
+            function onUp() {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                MOVE_DRAG.active = false;
+                hidePositionReadout();
+                toast('Konum güncellendi — kalıcı olması için 💾 Kaydet\'e basın.', 'ok');
+            }
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        }
+
+        // Bloğu tekrar normal (akış içi) konuma döndürür — serbest konum VE özel
+        // boyut (16.08 12. tur daraltma/genişletme) tamamen kaldırılır.
+        function resetBlockPosition(block) {
+            block.style.position = '';
+            block.style.left = '';
+            block.style.top = '';
+            block.style.margin = '';
+            block.style.zIndex = '';
+            block.style.width = '';
+            block.style.height = '';
+            block.removeAttribute('data-aykome-free-position');
+            removeMoveHandles();
+            toast('Blok normal konumuna/boyutuna döndürüldü.', 'ok');
+        }
+
+        // 16.08 13. tur — HÜCRE/BLOK SİLME. Kilit/matematik koruması zaten
+        // findMovableBlock() üzerinden miras alınır (bu tutamaçlar o korumalı
+        // hücrelerde hiç gösterilmez). Geri alınamaz olduğu için onay istenir —
+        // Kaydet'e basılmadan sayfa yenilenirse silme de geri alınmış olur.
+        function deleteBlock(block) {
+            if (READ_ONLY === true) { toast('Bu belge salt-okunurdur.', 'err'); return; }
+            if (!confirm('Bu hücre/blok KALICI olarak silinsin mi? (Sayfayı Kaydet\'e basmadan yenilerseniz silme işlemi geri alınır.)')) {
+                return;
+            }
+            removeMoveHandles();
+            block.remove();
+            toast('Blok silindi — kalıcı olması için 💾 Kaydet\'e basın.', 'ok');
+        }
+
+        // 16.08 12. tur — HÜCRE DARALTMA/GENİŞLETME: sağ-alt köşeden tutup
+        // sürükleyerek bloğun genişlik/yükseklik piksel değerini değiştirir
+        // (resim resize'dan farkı: en-boy oranı SABiT TUTULMAZ — metin blokları
+        // bağımsız genişlik/yükseklik ister).
+        function startBlockResize(e, block) {
+            e.preventDefault();
+            e.stopPropagation();
+            var rect = block.getBoundingClientRect();
+            var startW = rect.width;
+            var startH = rect.height;
+            var startX = e.clientX;
+            var startY = e.clientY;
+
+            // Ilk boyutlandirmada mevcut px genisligi/yuksekligi sabitle (gorsel sicrama olmaz).
+            block.style.width = startW + 'px';
+            block.style.boxSizing = 'border-box';
+
+            function onMove(ev) {
+                var dx = ev.clientX - startX;
+                var dy = ev.clientY - startY;
+                var newW = Math.max(40, startW + dx);
+                var newH = Math.max(20, startH + dy);
+                block.style.width = newW + 'px';
+                block.style.height = newH + 'px';
+                positionMoveHandles(block);
+                showPositionReadout(ev.clientX, ev.clientY, newW, newH, true);
+            }
+            function onUp() {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                hidePositionReadout();
+                toast('Boyut güncellendi — kalıcı olması için 💾 Kaydet\'e basın.', 'ok');
+            }
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        }
+
+        function showPositionReadout(mouseX, mouseY, leftPx, topPx, isSize) {
+            var el = document.getElementById('move-readout');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'move-readout';
+                document.body.appendChild(el);
+            }
+            var cmA = (leftPx / 96 * 2.54).toFixed(1);
+            var cmB = (topPx / 96 * 2.54).toFixed(1);
+            el.textContent = isSize
+                ? ('Genişlik: ' + cmA + ' cm  •  Yükseklik: ' + cmB + ' cm')
+                : ('X: ' + cmA + ' cm  •  Y: ' + cmB + ' cm');
+            el.style.left = (mouseX + 16) + 'px';
+            el.style.top = (mouseY + 16) + 'px';
+        }
+
+        function hidePositionReadout() {
+            var el = document.getElementById('move-readout');
+            if (el) el.remove();
+        }
+
+        // 16.08 12. tur — SEÇİMİ AYIR: bir hücre/paragraf içindeki BELİRLİ bir cümleyi/
+        // metni seçip AYRI, bağımsız taşınabilir bir hücre haline getirir. Kullanıcı
+        // örneği: "Tesis Kontrol / Yetkilisi" gibi geniş bir hücredeki tek bir cümleyi
+        // ayırıp başka bir yere taşımak.
+        function splitSelectionIntoBlock() {
+            if (READ_ONLY === true) { toast('Bu belge salt-okunurdur.', 'err'); return; }
+            var sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+                toast('Önce ayırmak istediğiniz metni (bir cümle vb.) seçin.', 'err');
+                return;
+            }
+            var range = sel.getRangeAt(0);
+            var editor = document.getElementById('doc-editor');
+            if (!editor.contains(range.commonAncestorContainer)) {
+                toast('Seçim belge içinde olmalı.', 'err');
+                return;
+            }
+            var anchorEl = range.commonAncestorContainer.nodeType === 3
+                ? range.commonAncestorContainer.parentElement
+                : range.commonAncestorContainer;
+            if (isLockedCell(anchorEl)) {
+                toast('Bu alan kilitli olduğu için ayrılamaz.', 'err');
+                return;
+            }
+            if (anchorEl.closest && anchorEl.closest('[data-aykome-surface], [data-aykome-fee], [data-aykome-col], .sync-dom-value')) {
+                toast('Bu hücre canlı fiyat hesaplamasına bağlı olduğu için ayrılamaz.', 'err');
+                return;
+            }
+
+            var sourceBlock = findMovableBlock(anchorEl) || anchorEl;
+            var extracted;
+            try {
+                extracted = range.extractContents();
+            } catch (e) {
+                toast('Seçim ayrılamadı: ' + e.message, 'err');
+                return;
+            }
+            if (!extracted || !extracted.textContent || !extracted.textContent.trim()) {
+                toast('Seçili alan boş görünüyor.', 'err');
+                return;
+            }
+
+            var newBlock = document.createElement('div');
+            newBlock.setAttribute('contenteditable', 'true');
+            newBlock.style.cssText = 'display:inline-block; padding:2px 4px;';
+            newBlock.appendChild(extracted);
+
+            if (sourceBlock && sourceBlock.parentNode) {
+                sourceBlock.parentNode.insertBefore(newBlock, sourceBlock.nextSibling);
+            } else {
+                range.insertNode(newBlock);
+            }
+
+            sel.removeAllRanges();
+            toast('Yeni bağımsız hücre oluşturuldu — Taşı Modu ile istediğiniz yere sürükleyin.', 'ok');
+            if (!MOVE_MODE) toggleMoveMode();
+            showMoveHandles(newBlock);
+        }
+
+        // ── 16.08 5. tur — TASLAK KÜTÜPHANESİ (elle veya Word'den kaydedilen çoklu sürüm) ──
+        var DRAFT_PANEL_OPEN = false;
+
+        function toggleDraftPanel() {
+            DRAFT_PANEL_OPEN = !DRAFT_PANEL_OPEN;
+            var p = document.getElementById('draft-panel');
+            if (p) p.classList.toggle('panel-open', DRAFT_PANEL_OPEN);
+            document.body.classList.toggle('panel-open', DRAFT_PANEL_OPEN);
+            if (DRAFT_PANEL_OPEN) loadDraftsList();
+        }
+
+        function escapeHtmlText(s) {
+            var d = document.createElement('div');
+            d.textContent = s || '';
+            return d.innerHTML;
+        }
+
+        function loadDraftsList() {
+            if (!DRAFTS_URL) return;
+            var wrap = document.getElementById('draft-list');
+            if (!wrap) return;
+            wrap.innerHTML = '<div style="color:#94a3b8;font-size:12px;">Yükleniyor...</div>';
+            fetch(DRAFTS_URL, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                wrap.innerHTML = '';
+                if (!data.drafts || !data.drafts.length) {
+                    wrap.innerHTML = '<div style="color:#94a3b8;font-size:12px;">Henüz kayıtlı taslak yok. Word içe aktarırken isim verin ya da "Farklı Kaydet" ile ekleyin.</div>';
+                    return;
+                }
+                data.drafts.forEach(function (d) {
+                    var icon = d.source === 'word_import' ? '📄' : '✍️';
+                    var card = document.createElement('div');
+                    card.className = 'draft-card';
+                    card.innerHTML = '<div class="draft-card-name">' + icon + ' ' + escapeHtmlText(d.name) + '</div>'
+                        + '<div class="draft-card-meta">' + escapeHtmlText(d.created_at || '') + '</div>'
+                        + '<div class="draft-card-actions"><button type="button" class="draft-btn-load">📥 Yükle</button> <button type="button" class="draft-btn-del">🗑 Sil</button></div>';
+                    card.querySelector('.draft-btn-load').addEventListener('click', function () { loadDraftIntoEditor(d.id, d.name); });
+                    card.querySelector('.draft-btn-del').addEventListener('click', function () { deleteDraft(d.id); });
+                    wrap.appendChild(card);
+                });
+            })
+            .catch(function () { wrap.innerHTML = '<div style="color:#dc2626;font-size:12px;">Taslaklar yüklenemedi.</div>'; });
+        }
+
+        function saveAsNewDraft() {
+            if (!DRAFTS_URL) return;
+            var name = prompt('Bu taslağa bir isim verin (örn: WORLD_PC, Kendi Yazdığım Taslak):', '');
+            if (!name) return;
+            var content;
+            try { content = collectContent(); } catch (e) { toast(e.message, 'err'); return; }
+            fetch(DRAFTS_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                body: JSON.stringify({ name: name, content_data: content, source: 'manual' })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.ok) { toast('"' + name + '" taslak olarak kaydedildi.', 'ok'); loadDraftsList(); }
+                else { toast(data.message || 'Kaydedilemedi.', 'err'); }
+            })
+            .catch(function (err) { toast('Hata: ' + err.message, 'err'); });
+        }
+
+        function loadDraftIntoEditor(id, name) {
+            if (!confirm('"' + name + '" taslağı editöre yüklensin mi? Editördeki kaydedilmemiş değişiklikleriniz kaybolur. Aktif şablon SADECE Kaydet basilinca degisir.')) return;
+            fetch(DRAFTS_URL + '/' + id, { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.ok) { toast('Taslak yüklenemedi.', 'err'); return; }
+                var el = document.getElementById('doc-editor');
+                el.innerHTML = data.html;
+                applyCellLocks(el);
+                toggleDraftPanel();
+                toast('"' + name + '" editöre yüklendi, kontrol edip Kaydet e basin.', 'ok');
+            })
+            .catch(function (err) { toast('Hata: ' + err.message, 'err'); });
+        }
+
+        function deleteDraft(id) {
+            if (!confirm('Bu taslak kalıcı olarak silinsin mi?')) return;
+            fetch(DRAFTS_URL + '/' + id, { method: 'DELETE', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } })
+            .then(function (r) { return r.json(); })
+            .then(function () { toast('Taslak silindi.', 'ok'); loadDraftsList(); })
+            .catch(function (err) { toast('Hata: ' + err.message, 'err'); });
+        }
+
+        // ── CANLI DOM MATEMATiĞi (GÖREV 2 / AykomeMath aynası) ────
         // Memur bir Excel belgesinin (ruhsat/tahakkuk/metraj) sayısal hücresini
         // düzenlediğinde satır tutarı + ücret hücreleri (KDV/harç/keşif/teminat/
         // genel toplam) MS Excel gibi ANINDA yeniden hesaplanır. Kırmızı Çizgi
@@ -776,6 +1648,8 @@
         initEditor();
         annotateLineIds();
         initReactiveMath();
+        initImageResize();
+        initBlockMove();
 
         // BİLGİ KATMANI: salt-okunur durumda panel gizlenir; değilse katalog çizilir.
         if (READ_ONLY === true) {
@@ -792,8 +1666,37 @@
                 e.preventDefault();
                 if (READ_ONLY === true) return;
                 saveDoc();
+                return;
+            }
+            // 16.08 14. tur — kullanıcı raporu: "silme butonu bazen ayarlamıyor,
+            // koordinatların dolayı silme tuşu gelmiyor" — blok uzak bir konuma
+            // taşınınca küçük ✕ tutamacı ekran dışına/yanlış yere denk gelebiliyordu.
+            // Klavyeden Delete/Backspace artık AYNI silme işlemini tetikler — ama
+            // SADECE Taşı Modu AÇIKKEN, üzerine gelinmiş (MOVE_HOVER) bir blok
+            // varken VE kullanıcı o an bir metin alanında YAZI YAZMIYORKEN (aksi
+            // halde normal metin düzenlemede Backspace/Delete ile karakter silmeyi
+            // KIRARDI).
+            if ((e.key === 'Delete' || e.key === 'Backspace') && MOVE_MODE && MOVE_HOVER && MOVE_HOVER.block) {
+                if (READ_ONLY === true) return;
+                if (isCaretInsideEditableText()) return;
+                if (!document.body.contains(MOVE_HOVER.block)) return;
+                e.preventDefault();
+                deleteBlock(MOVE_HOVER.block);
             }
         });
+
+        // Seçim imleci (caret) şu an düzenlenebilir bir metin alanının İÇİNDE mi?
+        // Delete/Backspace'in blok silmeyi mi yoksa normal metin düzenlemeyi mi
+        // hedeflemesi gerektiğini ayırt etmek için kullanılır.
+        function isCaretInsideEditableText() {
+            var active = document.activeElement;
+            if (active && active.isContentEditable) return true;
+            var sel = window.getSelection ? window.getSelection() : null;
+            if (!sel || sel.rangeCount === 0 || !sel.anchorNode) return false;
+            var node = sel.anchorNode;
+            var el = node.nodeType === 1 ? node : node.parentElement;
+            return !!(el && el.closest && el.closest('[contenteditable="true"]'));
+        }
     </script>
 </body>
 </html>

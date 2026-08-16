@@ -80,7 +80,11 @@ static void cmd_cert(const char* pin_hex) {
     pin[pin_len] = 0;
     rv = fn->C_Login(session, CKU_USER, pin, pin_len);
     free(pin);
-    if (rv != CKR_OK) { printf("ERR Login: %lu\n", rv); fn->C_CloseSession(session); free(slots); bridge_close(); return; }
+    // GOREV 1 FIX (COZUM_08): CKO_CERTIFICATE nesneleri PKCS#11 standardinda
+    // PUBLIC veridir - AKIS middleware'i dahil, login basarisiz olsa da
+    // (PIN'siz onizleme senaryosu) sertifika okunabiliyor (canli test ile
+    // dogrulandi). "cert" komutu icin login hatasi artik toleranslidir.
+    if (rv != CKR_OK) { fprintf(stderr, "WARN LoginSkipped: %lu\n", rv); }
 
     // Find certificate objects
     CK_OBJECT_CLASS cls = CKO_CERTIFICATE;

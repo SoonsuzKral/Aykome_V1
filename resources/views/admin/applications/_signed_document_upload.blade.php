@@ -45,6 +45,13 @@
     if (!$kurumUrl && $kurumPath && preg_match('#e-imza/([^/]+)/#', $kurumPath, $m)) {
         $kurumUrl = route('e-imza.indir', ['transactionId' => $m[1]], false);
     }
+
+    // 16.08 FIX: tarayıcının "PDF her zaman indir" ayarından bağımsız çalışması için
+    // tüm "Görüntüle" linkleri iframe tabanlı viewer'a yönlendirilir.
+    $toViewer = fn (?string $u) => $u ? route('admin.pdf-viewer') . '?url=' . urlencode($u) : null;
+    $viewUrlViewer = $toViewer($viewUrl);
+    $belediyeUrlViewer = $toViewer($belediyeUrl ?: (\Illuminate\Support\Facades\Storage::disk('public')->url($belediyePath ?? '') ?: null));
+    $kurumUrlViewer = $toViewer($kurumUrl ?: (\Illuminate\Support\Facades\Storage::disk('public')->url($kurumPath ?? '') ?: null));
 @endphp
 <div class="mt-2 rounded-lg border border-slate-200 bg-slate-50/50 p-2">
     <p class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{{ $label }}</p>
@@ -53,8 +60,8 @@
     <div class="mb-1.5 flex items-center gap-2 rounded-lg px-2 py-2"
          style="background:repeating-linear-gradient(90deg,#047857 0 3px,#059669 3px 6px);">
         <span class="rounded-md bg-white px-2 py-1 text-[11px] font-black uppercase tracking-widest text-emerald-700 shadow-sm">🟢 E-İmzalandı</span>
-        @if($viewUrl)
-        <a href="{{ $viewUrl }}" target="_blank" class="ml-auto rounded-md bg-white px-3 py-1 text-[11px] font-bold text-emerald-700 shadow-sm hover:bg-emerald-50">Görüntüle</a>
+        @if($viewUrlViewer)
+        <a href="{{ $viewUrlViewer }}" target="_blank" class="ml-auto rounded-md bg-white px-3 py-1 text-[11px] font-bold text-emerald-700 shadow-sm hover:bg-emerald-50">Görüntüle</a>
         @endif
     </div>
     @endif
@@ -63,14 +70,14 @@
     <div class="mb-1 flex items-center gap-1.5 text-[10px] text-slate-600">
         <svg class="h-3 w-3 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span>Belediye imzaladı</span>
-        <a href="{{ $belediyeUrl ?: \Illuminate\Support\Facades\Storage::disk('public')->url($belediyePath) }}" target="_blank" class="ml-auto font-medium text-cyan-700 hover:underline">📄 Görüntüle</a>
+        <a href="{{ $belediyeUrlViewer }}" target="_blank" class="ml-auto font-medium text-cyan-700 hover:underline">📄 Görüntüle</a>
     </div>
     @endif
     @if($hasKurum)
     <div class="mb-1 flex items-center gap-1.5 text-[10px] text-slate-600">
         <svg class="h-3 w-3 text-emerald-500" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span>Kurum imzaladı</span>
-        <a href="{{ $kurumUrl ?: \Illuminate\Support\Facades\Storage::disk('public')->url($kurumPath) }}" target="_blank" class="ml-auto font-medium text-cyan-700 hover:underline">📄 Görüntüle</a>
+        <a href="{{ $kurumUrlViewer }}" target="_blank" class="ml-auto font-medium text-cyan-700 hover:underline">📄 Görüntüle</a>
     </div>
     @endif
 
@@ -101,7 +108,9 @@
     <button type="button" class="e-imza-btn mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm text-[12px] transition duration-200 flex items-center justify-center gap-2"
             style="background-color:#2563eb !important;color:#ffffff !important;"
             data-app-id="{{ $application->id }}"
-            data-pdf-type="{{ $module }}">
+            data-pdf-type="{{ $module }}"
+            data-vice-mayor-name="{{ $application->vice_mayor_name }}"
+            data-update-vice-mayor-url="{{ route('admin.applications.update-vice-mayor-name', $application) }}">
         <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
         E-İmza ile İmzala
     </button>

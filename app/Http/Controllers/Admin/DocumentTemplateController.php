@@ -122,6 +122,8 @@ class DocumentTemplateController extends Controller
             'docCss' => $src['css'],
             'saveUrl' => route('admin.document-templates.update', $documentType),
             'resetUrl' => $institutionScope ? route('admin.document-templates.destroy-institution', $documentType) : null,
+            'importWordUrl' => route('admin.document-templates.import-word', $documentType),
+            'draftsUrl' => route('admin.document-templates.drafts.index', $documentType),
             'backUrl' => route('admin.document-templates.index'),
             'title' => $t['full'],
         ]);
@@ -186,6 +188,8 @@ class DocumentTemplateController extends Controller
             'docCss' => $src['css'],
             'saveUrl' => route('admin.document-templates.update-institution-cover', $institution),
             'resetUrl' => route('admin.document-templates.destroy-institution-cover', $institution),
+            'importWordUrl' => route('admin.document-templates.import-word-institution-cover', $institution),
+            'draftsUrl' => route('admin.document-templates.drafts-institution-cover.index', $institution),
             'backUrl' => route('admin.document-templates.index'),
             'title' => $institution->name . ' — Üst Yazı Şablonu',
         ]);
@@ -279,6 +283,8 @@ class DocumentTemplateController extends Controller
             'docCss' => $src['css'],
             'saveUrl' => route('admin.applications.edit-document.save', [$application, $documentType]),
             'resetUrl' => $userCanReset = auth()->user()->isMunicipalityPersonel() ? route('admin.applications.edit-document.destroy', [$application, $documentType]) : null,
+            'importWordUrl' => route('admin.applications.edit-document.import-word', [$application, $documentType]),
+            'draftsUrl' => route('admin.applications.edit-document.drafts.index', [$application, $documentType]),
             'backUrl' => route('admin.applications.show', $application),
             'title' => $t['label'] . ' — ' . $application->application_no,
             'readOnly' => $bodyReadOnly,
@@ -419,6 +425,220 @@ class DocumentTemplateController extends Controller
         return back()->with('success', 'Başvuruya özel taslak kaldırıldı. Varsayılan şablona dönüldü.');
     }
 
+    /* ─── TAM_WORLD_YAPISI.md Aşama 1 — Word (.docx) içe aktarma ────────────────────── */
+
+    /**
+     * Yüklenen .docx dosyasını HTML'e çevirir. Çağıran metodlar kendi yetki
+     * kontrolünü yaptıktan SONRA bunu çağrır — bu metod yetki kontrolü YAPMAZ.
+     */
+    private function handleWordImport(Request $request, string $documentType = 'cover_letter'): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:docx|max:10240',
+        ], [
+            'file.mimes' => 'Yalnızca .docx (Word 2007+) dosyaları yüklenebilir.',
+            'file.max' => 'Dosya en fazla 10MB olabilir.',
+        ]);
+
+        try {
+            $html = DocumentTemplateService::importWordToHtml($request->file('file')->getRealPath(), $documentType);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Word içe aktarma başarısız', ['error' => $e->getMessage()]);
+
+            return response()->json([
+                'ok' => false,
+                'message' => 'Word dosyası okunamadı. Dosyanın bozuk olmadığından ve .docx (eski .doc DEĞiİL) formatında olduğundan emin olun.',
+            ], 422);
+        }
+
+        return response()->json(['ok' => true, 'html' => $html]);
+    }
+
+    /** Global (master) şablona Word içe aktar. */
+    public function importWordGlobal(Request $request, string $documentType): JsonResponse
+    {
+        $this->guardAccess();
+        abort_unless(DocumentTemplateService::isValid($documentType), 404);
+        if ($this->isInstitutionScope() && $documentType === 'on_kazi') {
+            abort(403, 'Ön Kazı şablonu belediye yetkisindedir.');
+        }
+
+        return $this->handleWordImport($request, $documentType);
+    }
+
+    /** Kurum Üst Yazı şablonuna Word içe aktar. */
+    public function importWordInstitutionCover(Request $request, \App\Models\Institution $institution): JsonResponse
+    {
+        $this->guardAccess();
+        abort_unless(! (bool) $institution->is_municipality, 403, 'Yalnızca alt kurum üst yazı şablonları düzenlenebilir.');
+
+        return $this->handleWordImport($request, 'cover_letter');
+    }
+
+    /** Başvuruya özel taslağa Word içe aktar. */
+    public function importWordApplication(Request $request, Application $application, string $documentType): JsonResponse
+    {
+        $this->guardApplicationScope($application);
+        abort_unless(DocumentTemplateService::isValid($documentType), 404);
+
+        return $this->handleWordImport($request, $documentType);
+    }
+
+    /* ─── 16.08 5. tur — Taslak Kütüphanesi (Word/manuel çoklu sürüm kasası) ──────── */
+
+    private function draftsList(string $scope, ?int $scopeId, string $documentType): JsonResponse
+    {
+        $drafts = \App\Models\DocumentTemplateDraft::query()
+            ->where('scope', $scope)
+            ->where('scope_id', $scopeId)
+            ->where('document_type', $documentType)
+            ->orderByDesc('id')
+            ->get(['id', 'name', 'source', 'created_at'])
+            ->map(fn ($d) => [
+                'id' => $d->id,
+                'name' => $d->name,
+                'source' => $d->source,
+                'created_at' => optional($d->created_at)->format('d.m.Y H:i'),
+            ]);
+
+        return response()->json(['ok' => true, 'drafts' => $drafts]);
+    }
+
+    private function draftsStore(Request $request, string $scope, ?int $scopeId, string $documentType): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:150',
+            'content_data' => 'required|string',
+            'source' => 'nullable|string|in:manual,word_import',
+        ]);
+
+        $draft = \App\Models\DocumentTemplateDraft::create([
+            'scope' => $scope,
+            'scope_id' => $scopeId,
+            'document_type' => $documentType,
+            'name' => $data['name'],
+            'content_data' => $data['content_data'],
+            'source' => $data['source'] ?? 'manual',
+            'created_by' => auth()->id(),
+        ]);
+
+        return response()->json(['ok' => true, 'draft' => ['id' => $draft->id, 'name' => $draft->name]]);
+    }
+
+    private function draftsShow(string $scope, ?int $scopeId, string $documentType, int $draftId): JsonResponse
+    {
+        $draft = \App\Models\DocumentTemplateDraft::query()
+            ->where('scope', $scope)
+            ->where('scope_id', $scopeId)
+            ->where('document_type', $documentType)
+            ->findOrFail($draftId);
+
+        return response()->json(['ok' => true, 'html' => $draft->content_data, 'name' => $draft->name]);
+    }
+
+    private function draftsDestroy(string $scope, ?int $scopeId, string $documentType, int $draftId): JsonResponse
+    {
+        \App\Models\DocumentTemplateDraft::query()
+            ->where('scope', $scope)
+            ->where('scope_id', $scopeId)
+            ->where('document_type', $documentType)
+            ->where('id', $draftId)
+            ->delete();
+
+        return response()->json(['ok' => true]);
+    }
+
+    // Global taslaklar
+    public function draftsIndexGlobal(string $documentType): JsonResponse
+    {
+        $this->guardAccess();
+        abort_unless(DocumentTemplateService::isValid($documentType), 404);
+
+        return $this->draftsList('global', null, $documentType);
+    }
+
+    public function draftsStoreGlobal(Request $request, string $documentType): JsonResponse
+    {
+        $this->guardAccess();
+        abort_unless(DocumentTemplateService::isValid($documentType), 404);
+
+        return $this->draftsStore($request, 'global', null, $documentType);
+    }
+
+    public function draftsShowGlobal(string $documentType, int $draft): JsonResponse
+    {
+        $this->guardAccess();
+
+        return $this->draftsShow('global', null, $documentType, $draft);
+    }
+
+    public function draftsDestroyGlobal(string $documentType, int $draft): JsonResponse
+    {
+        $this->guardAccess();
+
+        return $this->draftsDestroy('global', null, $documentType, $draft);
+    }
+
+    // Kurum Üst Yazı taslakları
+    public function draftsIndexInstitutionCover(\App\Models\Institution $institution): JsonResponse
+    {
+        $this->guardAccess();
+
+        return $this->draftsList('institution', $institution->id, 'cover_letter');
+    }
+
+    public function draftsStoreInstitutionCover(Request $request, \App\Models\Institution $institution): JsonResponse
+    {
+        $this->guardAccess();
+
+        return $this->draftsStore($request, 'institution', $institution->id, 'cover_letter');
+    }
+
+    public function draftsShowInstitutionCover(\App\Models\Institution $institution, int $draft): JsonResponse
+    {
+        $this->guardAccess();
+
+        return $this->draftsShow('institution', $institution->id, 'cover_letter', $draft);
+    }
+
+    public function draftsDestroyInstitutionCover(\App\Models\Institution $institution, int $draft): JsonResponse
+    {
+        $this->guardAccess();
+
+        return $this->draftsDestroy('institution', $institution->id, 'cover_letter', $draft);
+    }
+
+    // Başvuruya özel taslaklar
+    public function draftsIndexApplication(Application $application, string $documentType): JsonResponse
+    {
+        $this->guardApplicationScope($application);
+        abort_unless(DocumentTemplateService::isValid($documentType), 404);
+
+        return $this->draftsList('application', $application->id, $documentType);
+    }
+
+    public function draftsStoreApplication(Request $request, Application $application, string $documentType): JsonResponse
+    {
+        $this->guardApplicationScope($application);
+        abort_unless(DocumentTemplateService::isValid($documentType), 404);
+
+        return $this->draftsStore($request, 'application', $application->id, $documentType);
+    }
+
+    public function draftsShowApplication(Application $application, string $documentType, int $draft): JsonResponse
+    {
+        $this->guardApplicationScope($application);
+
+        return $this->draftsShow('application', $application->id, $documentType, $draft);
+    }
+
+    public function draftsDestroyApplication(Application $application, string $documentType, int $draft): JsonResponse
+    {
+        $this->guardApplicationScope($application);
+
+        return $this->draftsDestroy('application', $application->id, $documentType, $draft);
+    }
+
     protected function editorView(array $data): View
     {
         // GÖREV 2 (CELL-BASED AUTH): Editöre oturum rolünü ilet — alt kurum oturumunda
@@ -436,6 +656,18 @@ class DocumentTemplateController extends Controller
 
         // BİLGİ KATMANI: editör sağ panelindeki alan kataloğu (tüm belge tipleri).
         $data['fieldCatalog'] = DocumentTemplateService::fieldCatalog();
+
+        // 16.08 6. tur FIX: A4 genişlik sabitlemesi belge tipine göre değişmeli —
+        // Kazı Metraj (landscape=true) yatay A4'tur, portrait (210mm) ile SABiTlenirse
+        // tablo sıkışır/bozulur. docType'a bakıp doğru yönelimi ilet.
+        $data['isLandscape'] = ! empty(DocumentTemplateService::TYPES[$data['docType'] ?? '']['landscape']);
+
+        // 16.08 14. tur FIX: #doc-editor'ün padding'i artık PDF/e-imza çıktısıyla
+        // AYNI TEK kaynaktan (bkz. DocumentTemplateService::A4_CONTAINER_PADDING) —
+        // kullanıcının taslakta serbest konumlandırdığı bloklar artık başvuru
+        // modülünde AYNI mesafede çıkar (önceden editör bağımsız, farklı bir
+        // padding değeri kullanıyordu).
+        $data['containerPadding'] = DocumentTemplateService::A4_CONTAINER_PADDING;
 
         return view('admin.document-templates.editor', $data);
     }

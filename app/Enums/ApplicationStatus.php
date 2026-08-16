@@ -72,6 +72,20 @@ enum ApplicationStatus: string
         };
     }
 
+    /**
+     * Ham durum string'ini (DB'de saklanan, ör. eski/legacy bir değer olabilir)
+     * güvenle Türkçe etikete çevirir. Enum'da olmayan/bilinmeyen bir değer için
+     * (ValueError fırlatmadan) değerin kendisini döner.
+     */
+    public static function tryLabel(?string $value): string
+    {
+        if ($value === null || $value === '') {
+            return '—';
+        }
+
+        return self::tryFrom($value)?->label() ?? $value;
+    }
+
     public static function workflowStep(string $status, bool $isMunicipality = false): array
     {
         if ($isMunicipality) {

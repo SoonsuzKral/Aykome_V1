@@ -35,6 +35,38 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
+    // 16.08 - PDF'ler tarayici ayarina bagli olarak "indir" davranisi gosterebiliyordu
+    // (Content-Disposition: inline dogru gonderiliyor ama tarayici tercihi ezebiliyor).
+    // Iframe tabanli bu viewer, PDF'i HTML sayfasi icine gomer - tarayicinin "PDF her
+    // zaman indir" tercihi SADECE ust-seviye navigasyonu etkiler, iframe icini etkilemez.
+    Route::get('pdf-viewer', function (\Illuminate\Http\Request $request) {
+        $url = (string) $request->query('url', '');
+
+        // FIX (16.08): route() helper'i varsayilan olarak ABSOLUTE URL uretir
+        // (orn. http://127.0.0.1:8001/admin/...) - eskiden sadece "/" ile baslayan
+        // relative URL'ler kabul ediliyordu, bu yuzden module-document linki 403
+        // aliyordu. Simdi absolute URL VERILIRSE once kendi origin'imizle eslesıp
+        // esleşmiyorsa 403 (open redirect onlemi), esleşiyorsa path+query'e indirilir.
+        if (preg_match('#^https?://#i', $url)) {
+            $parsed = parse_url($url);
+            $host = $parsed['host'] ?? '';
+            $port = isset($parsed['port']) ? ':' . $parsed['port'] : '';
+            if (($host . $port) !== $request->getHttpHost()) {
+                abort(403, 'Gecersiz belge adresi (farkli sunucu).');
+            }
+            $url = ($parsed['path'] ?? '') . (isset($parsed['query']) ? '?' . $parsed['query'] : '');
+        }
+
+        $allowedPrefixes = ['/e-imza/', '/storage/', '/admin/applications/'];
+        $isRelativeSafe = str_starts_with($url, '/') && ! str_starts_with($url, '//')
+            && collect($allowedPrefixes)->contains(fn ($p) => str_starts_with($url, $p));
+        if (! $isRelativeSafe) {
+            abort(403, 'Gecersiz belge adresi.');
+        }
+
+        return view('admin.pdf-viewer', ['url' => $url]);
+    })->name('pdf-viewer');
+
     Route::middleware('license:applications')->group(function () {
         Route::post('applications/data',         [ApplicationsController::class, 'data']          )->name('applications.data');
         Route::post('applications/check-applicant', [ApplicationsController::class, 'checkApplicant'])->name('applications.check-applicant');
@@ -46,6 +78,8 @@ Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix
         Route::match(['GET', 'POST'], 'applications/{application}/submit', [ApplicationsController::class, 'submit'])->name('applications.submit');
         Route::post('applications/{application}/approve-pre-excavation', [ApplicationsController::class, 'approvePreExcavation'])->name('applications.approve-pre-excavation');
         Route::post('applications/{application}/paraf-step', [ApplicationsController::class, 'parafStep'])->name('applications.paraf-step');
+        // 16.08: E-imza öncesi Başkan Yrd. adını sormak için küçük, tek-alanlı endpoint.
+        Route::post('applications/{application}/vice-mayor-name', [ApplicationsController::class, 'updateViceMayorName'])->name('applications.update-vice-mayor-name');
         Route::post('applications/{application}/sign-step', [ApplicationsController::class, 'signStep'])->name('applications.sign-step');
 
         Route::match(['GET', 'POST'], 'applications/{application}/approve-price', [ApplicationsController::class, 'approvePrice'])->name('applications.approve-price');
@@ -84,6 +118,15 @@ Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix
         Route::get('applications/{application}/edit-document/{documentType}', [DocumentTemplateController::class, 'editApplication'])->name('applications.edit-document');
         Route::post('applications/{application}/edit-document/{documentType}', [DocumentTemplateController::class, 'saveApplication'])->name('applications.edit-document.save');
         Route::delete('applications/{application}/edit-document/{documentType}', [DocumentTemplateController::class, 'destroyApplication'])->name('applications.edit-document.destroy');
+        // TAM_WORLD_YAPISI.md Aşama 1 — başvuru özel taslağına Word (.docx) içe aktar
+        Route::post('applications/{application}/edit-document/{documentType}/import-word', [DocumentTemplateController::class, 'importWordApplication'])->name('applications.edit-document.import-word');
+        // 16.08 5. tur — Taslak Kütüphanesi (başvuruya özel taslak)
+        Route::prefix('applications/{application}/edit-document/{documentType}/drafts')->name('applications.edit-document.drafts.')->group(function () {
+            Route::get('/',        [DocumentTemplateController::class, 'draftsIndexApplication']  )->name('index');
+            Route::post('/',       [DocumentTemplateController::class, 'draftsStoreApplication']  )->name('store');
+            Route::get('{draft}',  [DocumentTemplateController::class, 'draftsShowApplication']   )->name('show');
+            Route::delete('{draft}', [DocumentTemplateController::class, 'draftsDestroyApplication'])->name('destroy');
+        });
         Route::get('applications/{application}/status',          [ApplicationsController::class, 'statusJson']             )->name('applications.status');
         Route::get('api/geocode', [ApplicationsController::class, 'geocodeProxy'])->name('api.geocode');
 
@@ -198,11 +241,28 @@ Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix
         Route::get('{documentType}/edit', [DocumentTemplateController::class, 'editGlobal'])->name('edit');
         Route::post('{documentType}',     [DocumentTemplateController::class, 'updateGlobal'])->name('update');
         Route::delete('{documentType}/institution', [DocumentTemplateController::class, 'destroyInstitution'])->name('destroy-institution');
+        // TAM_WORLD_YAPISI.md Aşama 1 — global/kurum taslağına Word (.docx) içe aktar
+        Route::post('{documentType}/import-word', [DocumentTemplateController::class, 'importWordGlobal'])->name('import-word');
+        // 16.08 5. tur — Taslak Kütüphanesi (global şablon)
+        Route::prefix('{documentType}/drafts')->name('drafts.')->group(function () {
+            Route::get('/',        [DocumentTemplateController::class, 'draftsIndexGlobal']  )->name('index');
+            Route::post('/',       [DocumentTemplateController::class, 'draftsStoreGlobal']  )->name('store');
+            Route::get('{draft}',  [DocumentTemplateController::class, 'draftsShowGlobal']   )->name('show');
+            Route::delete('{draft}', [DocumentTemplateController::class, 'draftsDestroyGlobal'])->name('destroy');
+        });
 
         // Kurum bazlı Üst Yazı şablonu (merkezden düzenleme)
         Route::get('institutions/{institution}/cover',     [DocumentTemplateController::class, 'editInstitutionCover']  )->name('edit-institution-cover');
         Route::post('institutions/{institution}/cover',    [DocumentTemplateController::class, 'updateInstitutionCover'])->name('update-institution-cover');
         Route::delete('institutions/{institution}/cover',  [DocumentTemplateController::class, 'destroyInstitutionCover'])->name('destroy-institution-cover');
+        Route::post('institutions/{institution}/cover/import-word', [DocumentTemplateController::class, 'importWordInstitutionCover'])->name('import-word-institution-cover');
+        // 16.08 5. tur — Taslak Kütüphanesi (kurum Üst Yazı)
+        Route::prefix('institutions/{institution}/cover/drafts')->name('drafts-institution-cover.')->group(function () {
+            Route::get('/',        [DocumentTemplateController::class, 'draftsIndexInstitutionCover']  )->name('index');
+            Route::post('/',       [DocumentTemplateController::class, 'draftsStoreInstitutionCover']  )->name('store');
+            Route::get('{draft}',  [DocumentTemplateController::class, 'draftsShowInstitutionCover']   )->name('show');
+            Route::delete('{draft}', [DocumentTemplateController::class, 'draftsDestroyInstitutionCover'])->name('destroy');
+        });
     });
 
     // ─── Modül Yönetimi ─────────────────────────────────────────────────────────

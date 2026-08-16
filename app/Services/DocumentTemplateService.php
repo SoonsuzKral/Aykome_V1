@@ -1228,9 +1228,455 @@ CSS;
             // CSS için blade render'a ihtiyaç var (content zaten kayıtlı şablondan geldi)
             $rendered = self::renderBlade($type, $app, $institutionId);
         }
-        $css = self::extractStyles($rendered);
+        // TAM_WORLD_YAPISI.md §5 FIX: editor önizlemesi eskiden SADECE blade'in
+        // kendi ham <style> bloklarını alıyordu — asl PDF üretiminde uygulanan
+        // pdfCssEnjekte() sıkıştırma/taşma düzeltmeleri (font-size 10.5px,
+        // box-sizing:border-box, padding 8mm 12mm, table border-collapse vb.)
+        // editorü HiÇ görmüyordu — bu yüzden edörde metin/tablo TAŞIYOR gibi
+        // görünüyordu ama gerçek PDF'te sorun yoktu (ya da tam tersi). Artık
+        // editor CSS'i, PDF'in GÖRDÜĞÜ AYNI enjeksiyondan çıkarılıyor.
+        $css = self::extractStyles(self::pdfCssEnjekte($rendered));
 
         return ['editor' => 'contenteditable', 'content' => $content, 'css' => $css];
+    }
+
+    /**
+     * TAM_WORLD_YAPISI.md Aşama 1 — Word (.docx) içe aktarma.
+     * Kullanıcı kendi PC'sinde hazırladığı (içinde {basvuru_no} gibi değişken
+     * yer tutucular olabilen) bir .docx dosyasını yükler; PhpWord ile HTML'e
+     * çevrilir, editabl (contenteditable) hale getirilir ve editorün çalışma
+     * formatına (a4-container içi fragment, extractA4Fragment() ile AYNI şekil)
+     * dönüştürülür. Biçim %100 korunmaz (Word'ün kendisi değildir) ama kalın/
+     * italik/hizalama/tablo/resim byyükünlükle korunur (bkz. TAM_WORLD_YAPISI.md §3).
+     */
+    public static function importWordToHtml(string $filePath, string $documentType = 'cover_letter'): string
+    {
+        $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
+
+        // PhpWord'ün HTML writer'ı tam bir <html><head><body> dokümanı üretir;
+        // geçici bir dosyaya yazıp sadece <body> içeriğini çıkarıyoruz.
+        $tmpPath = tempnam(sys_get_temp_dir(), 'aykome_word_') . '.html';
+        try {
+            $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'HTML');
+            $writer->save($tmpPath);
+            $fullHtml = (string) file_get_contents($tmpPath);
+        } finally {
+            if (file_exists($tmpPath)) {
+                @unlink($tmpPath);
+            }
+        }
+
+        $fragment = $fullHtml;
+        if (preg_match('/<body[^>]*>(.*)<\/body>/is', $fullHtml, $m)) {
+            $fragment = $m[1];
+        }
+
+        $fragment = self::markWordImportEditable($fragment);
+
+        // 16.08 5. tur — kullanıcı raporu: "A4 boyutunda değil, taşıyor".
+        $fragment = self::sanitizeWordImportHtml($fragment, $documentType);
+
+        // 16.08 14. tur — kullanıcı raporu: "World'deki logo konumu (sağ/sol/
+        // yukarı/35mm gibi) taslakta hiç aynı gelmiyor, kayma var". KÖK NEDEN:
+        // PhpWord'ün HTML writer'ı kayan/sabit-konumlu (anchored/floating,
+        // wp:anchor) resimlerin sayfadaki GERÇEK X/Y konumunu YAZMIYOR — sadece
+        // resmin kendisini düz akışa (normal <img>) gömüyor (doğrulanmış: PhpWord
+        // Reader'ının Word2007/AbstractPart::readRunChild() metodu wp:inline VE
+        // wp:anchor'ı AYNI şekilde işliyor, yalnızca embedId alıyor, konum/boyut
+        // stilini HİÇ okumuyor). Çözüm: .docx'in HAM XML'inden (word/document.xml
+        // içindeki wp:anchor/wp:positionH/wp:positionV) konumu KENDİMİZ okuyup,
+        // eşleşen <img>'e position:absolute;left/top (mm) olarak enjekte ediyoruz —
+        // bu resim artık mevcut "Taşı Modu" ile de kullanıcı tarafından serbestçe
+        // sürüklenebilir/sıfırlanabilir hale gelir (bkz. applyWordFloatingImagePositions).
+        return self::applyWordFloatingImagePositions($fragment, $filePath);
+    }
+
+    /**
+     * 16.08 5. tur — Word içe aktarma sonrası A4 uyumu + yasal metin garantisi.
+     * 16.08 13. tur — GÜNCELLENDİ: kullanıcı isteği "Word'de ne görüyorsam
+     * (logo dahil) TASLAKTA da birebir aynısı gelsin, silme/taşıma/boyutlandırmayı
+     * ben kendim yaparım" — bu yüzden resimler ARTIK KALDIRILMIYOR (bkz. madde 2).
+     * Çift logo riski, bu fonksiyonda içerik kırpılarak değil, sistemin otomatik
+     * logo enjekte ettiği noktalarda (`EImzaService::pdfOlustur`,
+     * `ApplicationsController::downloadCoverLetter`) "içerikte zaten <img> var mı"
+     * kontrolüyle engelleniyor.
+     * 1) Word'ün kendi mutlak konumlandırma / sabit pt-piksel genişlik-yükseklik
+     *    kalıntılarını temizler (metin kutusu/çerçeve artıkları A4 container'ı
+     *    taşırıyor ve boş "kutu" görünümü yaratıyordu — kullanıcı ekran görüntüsü).
+     * 2) Art arda gelen boş paragrafları (Word'ün kendi satır boşluğu alışkanlığı)
+     *    tek paragrafa indirir — A4 önizlemede biriken dev boşlukları önler.
+     * 3) TÜM belge tiplerinde (cover_letter/on_kazi DAHİL) içe aktarılan resimler
+     *    KORUNUR — sadece taşmayı önlemek için max-width:100% zorlanır.
+     * 4) "BELGE DOĞRULAMA KODU" / "doğrulama kodu" ifadesi YOKSA sona otomatik
+     *    eklenir — bu satır olmadan hem gerçek doğrulama kodu hem de 5070 sayılı
+     *    e-imza yasal metninin doğru konumu (bkz. EImzaService::imzaYasalMetinEkle
+     *    GRUP A) kaybolabilir. Kontrol artık ETİKETLERİ AYIKLANMIŞ düz metin
+     *    üzerinde yapılıyor (16.08 13. tur düzeltmesi) — eskiden ham HTML'de
+     *    arandığı için, Word'ün KENDİ belgesi bu ifadeyi zaten içerse bile
+     *    aradaki satır-içi etiketler (span/td vb.) eşleşmeyi bozup İKİNCİ,
+     *    yer tutuculu bir kopyanın eklenmesine (kullanıcının bildirdiği "kayma"/
+     *    yinelenen doğrulama bloğu) sebep oluyordu.
+     */
+    private static function sanitizeWordImportHtml(string $html, string $documentType): string
+    {
+        if (trim($html) === '') {
+            return $html;
+        }
+
+        $doc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="utf-8" ?><div id="aykome-sanitize-root">' . $html . '</div>');
+        libxml_clear_errors();
+        $xpath = new \DOMXPath($doc);
+
+        // 1) Mutlak konumlandirma / sabit genislik-yukseklik kalintilarini temizle.
+        foreach (iterator_to_array($xpath->query('//*[@style]')) as $el) {
+            /** @var \DOMElement $el */
+            $style = (string) $el->getAttribute('style');
+            if ($style === '') {
+                continue;
+            }
+            $decls = [];
+            foreach (explode(';', $style) as $d) {
+                $pp = explode(':', $d, 2);
+                if (count($pp) !== 2) {
+                    continue;
+                }
+                $prop = strtolower(trim($pp[0]));
+                $val = trim($pp[1]);
+                if ($prop === '' || $val === '') {
+                    continue;
+                }
+                // Word metin kutusu / cerceve kalintilari (mutlak konum) - A4 akisini bozar.
+                if (in_array($prop, ['position', 'top', 'left', 'right', 'bottom', 'z-index'], true)) {
+                    continue;
+                }
+                // Word genelde mutlak pt/px genislik basar - akiskan genislige birak.
+                if ($prop === 'width' && ! str_contains($val, '%')) {
+                    continue;
+                }
+                if ($prop === 'height' && strtolower($el->tagName) !== 'img') {
+                    continue;
+                }
+                $decls[] = $prop . ': ' . $val;
+            }
+            if ($decls) {
+                $el->setAttribute('style', implode('; ', $decls));
+            } else {
+                $el->removeAttribute('style');
+            }
+        }
+
+        // 2) 16.08 13. tur: resimler ARTIK HİÇBİR TİPTE KALDIRILMIYOR — Word'de
+        //    ne varsa (logo/QR/imza vb.) taslakta da aynen görünür, kullanıcı
+        //    isterse editördeki taşı/boyutlandır araçlarıyla kendisi düzenler.
+        //    Sadece A4 container'ı taşırmasın diye max-width sabitlenir.
+        foreach ($doc->getElementsByTagName('img') as $img) {
+            /** @var \DOMElement $img */
+            $img->setAttribute('style', trim($img->getAttribute('style') . '; max-width: 100%; height: auto;'));
+        }
+
+        // 3) Bos <p>/<div>/<table> temizligi: art arda 2+ bos paragraf -> tek
+        //    paragrafa iner; icerik/resim tasimayan bos div/table tamamen silinir
+        //    (Word'un donusturemedigi metin kutusu/cerceve kalintisi = bos kutu).
+        // NOT: Word'un bosluk paragraflari genelde &nbsp; (U+00A0) icerir - duz trim()
+        // bunu YAKALAMAZ (sadece ASCII bosluk siler), bu yuzden once nbsp temizlenir.
+        $stripNbsp = static fn (string $s): string => trim(str_replace("\xC2\xA0", ' ', $s));
+
+        $emptyRun = 0;
+        foreach (iterator_to_array($xpath->query('//p')) as $p) {
+            $isEmpty = $stripNbsp($p->textContent) === '' && $p->getElementsByTagName('img')->length === 0;
+            if ($isEmpty) {
+                $emptyRun++;
+                if ($emptyRun > 1) {
+                    $p->parentNode?->removeChild($p);
+                }
+            } else {
+                $emptyRun = 0;
+            }
+        }
+        foreach (['div', 'table'] as $tag) {
+            foreach (iterator_to_array($doc->getElementsByTagName($tag)) as $el) {
+                if ($stripNbsp($el->textContent) === '' && $el->getElementsByTagName('img')->length === 0) {
+                    $el->parentNode?->removeChild($el);
+                }
+            }
+        }
+
+        $root = $xpath->query("//div[@id='aykome-sanitize-root']")->item(0);
+        $result = $html;
+        if ($root) {
+            $result = '';
+            foreach ($root->childNodes as $child) {
+                $result .= $doc->saveHTML($child);
+            }
+        }
+
+        // 4) BELGE DOGRULAMA KODU satiri yoksa garanti altina al.
+        // 16.08 13. tur DÜZELTMESİ: eskiden $result (ham HTML) içinde arıyordu —
+        // Word'ün KENDİ belgesi bu ifadeyi zaten içerse bile aradaki satır-içi
+        // etiketler (span/td/br vb.) substring eşleşmesini bozup İKİNCİ, yer
+        // tutuculu bir kopyanın eklenmesine sebep oluyordu (kullanıcının bildirdiği
+        // alt kısımdaki "kayma"/yinelenen doğrulama bloğu). Artık etiketlerden
+        // ayıklanmış DÜZ METİN üzerinde aranıyor.
+        $plainCheck = (string) preg_replace('/<(p|div|td|th|tr|li|br|h[1-6])[^>]*>/i', ' ', $result);
+        $plainCheck = html_entity_decode(strip_tags($plainCheck), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $plainCheck = trim((string) preg_replace('/\s+/u', ' ', str_replace("\xC2\xA0", ' ', $plainCheck)));
+        if (mb_stripos($plainCheck, 'doğrulama kodu') === false) {
+            $result .= '<p contenteditable="true" style="text-align:center;font-size:8px;color:#888;margin:10px 0 0;">'
+                . 'BELGE DOĞRULAMA KODU: <b style="color:#d97706;">' . self::DOGRULAMA_TOKEN . '</b>'
+                . ' | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b></p>';
+        }
+
+        return $result;
+    }
+
+    /**
+     * 16.08 14. tur — .docx'in HAM XML'inden (word/document.xml) kayan/sabit
+     * konumlu (floating/anchored, wp:anchor) resimlerin GERÇEK sayfa konumunu
+     * (mm cinsinden, sol-üst köşeden) çıkarır.
+     *
+     * NEDEN GEREKLİ: PhpWord'ün OOXML Reader'ı (Word2007\AbstractPart::
+     * readRunChild()) `wp:inline` ve `wp:anchor` çizimlerini AYNI şekilde işler —
+     * yalnızca görsel verisini (embedId üzerinden) alır, `wp:positionH`/
+     * `wp:positionV` konum bilgisini HİÇ okumaz. Bu yüzden HTML writer çıktısında
+     * tüm resimler düz akışlı (normal) <img> olarak görünür; kurum antetindeki
+     * "logo sağ üstte, tarihin yanında, sayfanın X mm içinde" gibi kesin
+     * konumlandırmalar kaybolur. Çözüm: ham XML'i (ZipArchive + DOMXPath ile)
+     * kendimiz okuyup eşleşen resme dışardan position:absolute enjekte ediyoruz
+     * (bkz. applyWordFloatingImagePositions).
+     *
+     * Eşleştirme stratejisi: her <wp:anchor> resmin ham baytının MD5'i üzerinden
+     * yapılır — PhpWord\Element\Image::getImageString() SOURCE_ARCHIVE için
+     * dosyayı OLDUĞU GİBİ (yeniden kodlamadan) okur (doğrulandı, kod incelendi),
+     * yani HTML'deki base64 ile buradaki ham zip baytı BİREBİR aynı çıkar.
+     *
+     * KAPSAM (bilinçli sınır): sadece word/document.xml (gövde) taranır —
+     * başlık/altbilgi (header/footer XML parçaları) kapsam dışı. Sadece kesin
+     * `wp:posOffset` (mm) kullanan resimler yakalanır — `wp:align` (ör. "center")
+     * ile hizalanmış resimler atlanır (konumları zaten PhpWord'ün akışıyla
+     * makul şekilde geliyor, karmaşıklık eklemeye değmez).
+     *
+     * @return array<string, array{leftMm: float, topMm: float}> md5(resim baytı) => konum
+     */
+    private static function extractFloatingImagePositions(string $docxPath): array
+    {
+        $result = [];
+        if (! class_exists(\ZipArchive::class) || ! is_readable($docxPath)) {
+            return $result;
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($docxPath) !== true) {
+            return $result;
+        }
+
+        $documentXml = $zip->getFromName('word/document.xml');
+        $relsXml = $zip->getFromName('word/_rels/document.xml.rels');
+        if (! is_string($documentXml) || ! is_string($relsXml)) {
+            $zip->close();
+            return $result;
+        }
+
+        // r:id -> media/imageN.png hedef yolu eşlemesi.
+        $relMap = [];
+        $relsDoc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $relsDoc->loadXML($relsXml);
+        libxml_clear_errors();
+        foreach ($relsDoc->getElementsByTagName('Relationship') as $rel) {
+            /** @var \DOMElement $rel */
+            $relMap[$rel->getAttribute('Id')] = $rel->getAttribute('Target');
+        }
+
+        $doc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $doc->loadXML($documentXml);
+        libxml_clear_errors();
+
+        $xpath = new \DOMXPath($doc);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+        $xpath->registerNamespace('wp', 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing');
+        $xpath->registerNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
+        $xpath->registerNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+
+        // Sayfa kenar boşlukları (relativeFrom="margin" için gerekli) - twip -> mm.
+        // 1440 twip = 1 inç = 25.4mm. sectPr/pgMar yoksa Word varsayılanı (1 inç) kullanılır.
+        $marginLeftMm = 25.4;
+        $marginTopMm = 25.4;
+        $pgMar = $xpath->query('//w:sectPr/w:pgMar')->item(0);
+        if ($pgMar instanceof \DOMElement) {
+            $twipLeft = (float) $pgMar->getAttribute('w:left');
+            $twipTop = (float) $pgMar->getAttribute('w:top');
+            if ($twipLeft > 0) {
+                $marginLeftMm = $twipLeft / 1440 * 25.4;
+            }
+            if ($twipTop > 0) {
+                $marginTopMm = $twipTop / 1440 * 25.4;
+            }
+        }
+
+        $emuToMm = static fn (float $emu): float => $emu / 36000;
+
+        foreach ($xpath->query('//w:drawing/wp:anchor') as $anchor) {
+            /** @var \DOMElement $anchor */
+            $blip = $xpath->query('.//a:blip', $anchor)->item(0);
+            if (! $blip instanceof \DOMElement) {
+                continue;
+            }
+            $embedId = $blip->getAttribute('r:embed');
+            if ($embedId === '' || ! isset($relMap[$embedId])) {
+                continue;
+            }
+
+            $posHOffset = $xpath->query('./wp:positionH/wp:posOffset', $anchor)->item(0);
+            $posVOffset = $xpath->query('./wp:positionV/wp:posOffset', $anchor)->item(0);
+            if (! $posHOffset || ! $posVOffset) {
+                // Hizalama tabanlı (wp:align, ör. "center"/"right") anchor - kesin
+                // EMU yok, PhpWord'ün kendi akış sırasına bırakılır (atla).
+                continue;
+            }
+
+            $hRelEl = $xpath->query('./wp:positionH', $anchor)->item(0);
+            $vRelEl = $xpath->query('./wp:positionV', $anchor)->item(0);
+            $hRel = $hRelEl instanceof \DOMElement ? $hRelEl->getAttribute('relativeFrom') : 'page';
+            $vRel = $vRelEl instanceof \DOMElement ? $vRelEl->getAttribute('relativeFrom') : 'page';
+
+            $leftMm = $emuToMm((float) $posHOffset->nodeValue);
+            $topMm = $emuToMm((float) $posVOffset->nodeValue);
+
+            // "page" = fiziksel sayfanın sol-üst köşesinden (bizim #doc-editor/
+            // .a4-container'ın da kendi kenar boşluğunu YOK SAYAN mutlak-konum
+            // referans noktası TİPKı BUNA denk gelir). "margin"/"column" vb. ise
+            // kenar boşluğu İÇİNDEN ölçülür - sayfa kenarına çevirmek için eklenir.
+            if (in_array($hRel, ['margin', 'leftMargin', 'rightMargin', 'insideMargin', 'outsideMargin', 'column'], true)) {
+                $leftMm += $marginLeftMm;
+            }
+            if (in_array($vRel, ['margin', 'topMargin', 'bottomMargin', 'insideMargin', 'outsideMargin', 'line', 'paragraph'], true)) {
+                $topMm += $marginTopMm;
+            }
+
+            $target = ltrim(str_replace('\\', '/', $relMap[$embedId]), '/');
+            if (! str_starts_with($target, 'word/')) {
+                $target = 'word/' . $target;
+            }
+            $bin = $zip->getFromName($target);
+            if (! is_string($bin) || $bin === '') {
+                continue;
+            }
+
+            $result[md5($bin)] = ['leftMm' => round($leftMm, 2), 'topMm' => round($topMm, 2)];
+        }
+
+        $zip->close();
+
+        return $result;
+    }
+
+    /**
+     * 16.08 14. tur — extractFloatingImagePositions() ile bulunan konumları,
+     * PhpWord'ün ürettiği HTML'deki eşleşen <img> etiketlerine
+     * position:absolute;left/top (mm) olarak enjekte eder. Eşleşen resimler
+     * `data-aykome-free-position="1"` ile işaretlenir — böylece editördeki
+     * mevcut "Taşı Modu" (✥ sürükle / ⇺ sıfırla) araçları bu resimleri de
+     * doğrudan tanır, kullanıcı gerekirse ince ayarı kendisi yapabilir.
+     */
+    private static function applyWordFloatingImagePositions(string $html, string $docxPath): string
+    {
+        if (trim($html) === '') {
+            return $html;
+        }
+
+        $positions = self::extractFloatingImagePositions($docxPath);
+        if (empty($positions)) {
+            return $html;
+        }
+
+        $doc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="utf-8" ?><div id="aykome-float-root">' . $html . '</div>');
+        libxml_clear_errors();
+
+        $changed = false;
+        foreach ($doc->getElementsByTagName('img') as $img) {
+            /** @var \DOMElement $img */
+            $src = (string) $img->getAttribute('src');
+            if (! preg_match('/base64,(.+)$/s', $src, $m)) {
+                continue;
+            }
+            $bin = base64_decode($m[1], true);
+            if ($bin === false) {
+                continue;
+            }
+            $hash = md5($bin);
+            if (! isset($positions[$hash])) {
+                continue;
+            }
+
+            $pos = $positions[$hash];
+            $style = trim((string) $img->getAttribute('style'), '; ');
+            $style = ($style !== '' ? $style . '; ' : '')
+                . sprintf('position: absolute; left: %smm; top: %smm; margin: 0; z-index: 50;', $pos['leftMm'], $pos['topMm']);
+            $img->setAttribute('style', $style);
+            $img->setAttribute('data-aykome-free-position', '1');
+            $changed = true;
+        }
+
+        if (! $changed) {
+            return $html;
+        }
+
+        $xpath = new \DOMXPath($doc);
+        $root = $xpath->query("//div[@id='aykome-float-root']")->item(0);
+        if (! $root) {
+            return $html;
+        }
+
+        $result = '';
+        foreach ($root->childNodes as $child) {
+            $result .= $doc->saveHTML($child);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Word'den gelen fragment'taki düzenlenebilir etiketlere (p/td/th/li/h1-h4)
+     * contenteditable="true" ekler. GEREKLİ ÇÜNKÜ editor.blade.php::initEditor()
+     * varsayılan olarak contenteditable ÖZNİTELİĞI TAŞIMAYAN her EDITABLE_SELECTOR
+     * elemanini KILITLER (güvenlik varsayılanı kapalı) — taze içe aktarılan Word
+     * içeriğinde bu öznitelik hiç olmadığı için açıkça eklenmesi ŞART.
+     */
+    private static function markWordImportEditable(string $html): string
+    {
+        if (trim($html) === '') {
+            return $html;
+        }
+
+        $doc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $doc->loadHTML('<?xml encoding="utf-8" ?><div id="aykome-word-import-root">' . $html . '</div>');
+        libxml_clear_errors();
+
+        $xpath = new \DOMXPath($doc);
+        foreach (['p', 'td', 'th', 'li', 'h1', 'h2', 'h3', 'h4'] as $tag) {
+            foreach (iterator_to_array($xpath->query("//{$tag}")) as $node) {
+                /** @var \DOMElement $node */
+                $node->setAttribute('contenteditable', 'true');
+            }
+        }
+
+        $root = $xpath->query("//div[@id='aykome-word-import-root']")->item(0);
+        if (! $root) {
+            return $html;
+        }
+
+        $result = '';
+        foreach ($root->childNodes as $child) {
+            $result .= $doc->saveHTML($child);
+        }
+
+        return $result;
     }
 
     /**
@@ -1694,6 +2140,19 @@ CSS;
         return $doc->saveHTML();
     }
 
+    /**
+     * 16.08 14. tur — word tipi belgelerin (.a4-container/.a4-landscape-container)
+     * TEK gerçek padding değeri. Daha önce bu değer sadece pdfCssEnjekte() içinde
+     * literal string olarak (hatta YANLIŞLIKLA iki kez alt alta) tanımlanmıştı;
+     * editörün kendi #doc-editor kuralı (editor.blade.php) ise bağımsız, farklı
+     * bir değer (18mm 20mm) kullanıyordu — kullanıcı raporu: "taslakta taşıdığım
+     * bir hücre başvuru modülünde aynı mesafede çıkmıyor". Artık TİKTEK kaynak:
+     * hem PDF/e-imza çıktısı hem editör bu SABiTi kullanır, serbest konumlandırılan
+     * blokların px koordinatı iki ortamda da AYNI referans kutusuna (padding box)
+     * göre hesaplanır.
+     */
+    public const A4_CONTAINER_PADDING = '8mm 12mm';
+
     public static function pdfCssEnjekte(string $html): string
     {
         // DOWNSTREAM: dompdf'e verilecek HTML'de container genişliğini sayfaya sığdır.
@@ -1730,8 +2189,7 @@ CSS;
             // Dikkat: blade'lerdeki td/body font-size `!important` taşır — override
             // için aynı seçici özgünlüğünde ve !important ile, AYNI KAYNAKTA verilir.
             . '.a4-container, .a4-landscape-container { position: relative; }'
-            . '.a4-container, .a4-landscape-container { font-size: 10.5px !important; line-height: 1.15 !important; min-height: 0 !important; padding: 8mm 12mm !important; }'
-            . '.a4-container, .a4-landscape-container { font-size: 10.5px !important; line-height: 1.15 !important; min-height: 0 !important; padding: 8mm 12mm !important; }'
+            . '.a4-container, .a4-landscape-container { font-size: 10.5px !important; line-height: 1.15 !important; min-height: 0 !important; padding: ' . self::A4_CONTAINER_PADDING . ' !important; }'
             // ÇÖZÜM_02: portrait tablolar %100 → tablo sağ kenarı metin marjıyla (18mm)
             // birebir simetrik. Landscape %98.5 KASITLI (metraj onaylı görünüm).
             . '.a4-container table { font-size: 10.5px !important; line-height: 1.15 !important; width: 100% !important; }'

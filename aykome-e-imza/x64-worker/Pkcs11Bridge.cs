@@ -159,7 +159,21 @@ class Pkcs11Bridge
 
                 byte[] pinBytesUtf8 = Encoding.UTF8.GetBytes(pinStr);
                 rv = cLogin(session, CKU_USER, pinBytesUtf8, (uint)pinBytesUtf8.Length);
-                if (rv != CKR_OK) { Console.Error.WriteLine("ERR Login: 0x" + rv.ToString("X8")); cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return; }
+                // GOREV 1 FIX (COZUM_08): CKO_CERTIFICATE nesneleri PKCS#11 standardinda
+                // PUBLIC veridir (ozel anahtar degildir) — cogu middleware'de (AKIS dahil)
+                // LOGIN GEREKTIRMEZ. "cert" komutu, PIN'siz onizleme senaryosunda (ana ekranda
+                // token sahibinin adini PIN sormadan gostermek icin) login basarisiz olsa
+                // bile sertifika aramaya devam eder. "sign" (ozel anahtarla imzalama) icin
+                // login HALA ZORUNLUDUR, davranis degismedi.
+                if (rv != CKR_OK && cmd != "cert")
+                {
+                    Console.Error.WriteLine("ERR Login: 0x" + rv.ToString("X8"));
+                    cCloseSession(session); cFinalize(IntPtr.Zero); Cleanup(); return;
+                }
+                if (rv != CKR_OK)
+                {
+                    Console.Error.WriteLine("WARN LoginSkipped: 0x" + rv.ToString("X8"));
+                }
 
                 if (cmd == "cert")
                 {
