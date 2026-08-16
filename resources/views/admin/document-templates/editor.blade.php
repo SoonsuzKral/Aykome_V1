@@ -966,6 +966,11 @@
             var editor = document.getElementById('doc-editor');
             if (!editor) return;
             editor.addEventListener('click', function (e) {
+                // 16.08 16. tur — Taşı Modu AÇIKKEN resimler artık findMovableBlock()
+                // üzerinden GENEL taşı/boyutlandır/sil tutamaçlarını kullanıyor (serbest
+                // konum). Bu ESKİ (sadece oranlı boyutlandırma) sistem, iki ayrı tutamaç
+                // takımının üst üste binmemesi için SADECE Taşı Modu KAPALIYKEN çalışır.
+                if (MOVE_MODE) { hideResizeHandles(); return; }
                 if (e.target && e.target.tagName === 'IMG' && !isLockedCell(e.target) && READ_ONLY !== true) {
                     showResizeHandles(e.target);
                 } else {
@@ -1057,8 +1062,13 @@
         }
 
         // Üç ÖZEL: dogrudan tiklanan en KUCUK anlamli blogu bulur (td > p > div ...).
+        // 16.08 16. tur — kullanıcı raporu: bir hücre içindeki logoyu (img) sadece
+        // çevresindeki hücreyle AYNI hizada taşıyabiliyordu — çünkü "img" bu listede
+        // yoktu, tıklama her zaman EN YAKIN td/p/div'e çıkıyordu. Artık resmin
+        // üzerine gelindiğinde/tıklandığında RESMİN KENDiSi seçiliyor — hücreden
+        // BAĞIMSIZ, istediği her yere sürüklenebilir.
         function findMovableBlock(el) {
-            var selector = 'td, th, p, div, li, h1, h2, h3, h4';
+            var selector = 'td, th, p, div, li, h1, h2, h3, h4, img';
             var editor = document.getElementById('doc-editor');
             while (el && el !== editor && el.nodeType) {
                 if (el.nodeType === 1 && el.matches && el.matches(selector)) {
@@ -1089,18 +1099,65 @@
         function initBlockMove() {
             var editor = document.getElementById('doc-editor');
             if (!editor) return;
+
+            // 16.08 16. tur — kullanıcı raporu: "hangi hücreye tıklasam [tutamaçlar]
+            // gelsin, yoksa yakalayamıyorum" + "silme X'e basamıyorum, Delete'te
+            // çalışmıyor". KÖK NEDEN: tutamaçlar sadece fare TAM üzerindeyken
+            // (hover) görünüyordu, fare hafif kaydığında ~220ms sonra kayboluyordu
+            // — küçük bir butona (özellikle ✕) yetişmek zordu. Çözüm: TİKLAMA artık
+            // KALıCI ("kilitli") bir seçim yapıyor — tutamaçlar fare uzaklaşsa bile
+            // başka bir yere tıklanıncaya kadar EKRANDA KALIR. `mousedown`
+            // (capture fazında, contenteditable'ın kendi imleç yerleştirmesinden
+            // ÖNCE) ile metin imleci bilerek YERLEŞTİRİLMİYOR — Taşı Modu açıkken
+            // bir bloğa tıklamak HER ZAMAN "bu bloğu seç" demektir, metin düzenleme
+            // ile karışmaz (metin düzenlemek için kullanıcı önce Taşı Modu'nu kapatır).
+            // Bu aynı zamanda Delete tuşunu da GÜVENİLİR hale getirir: seçili blok
+            // artık metin imleci ALMADIĞI için "kullanıcı yazı mı yazıyor" belirsizliği
+            // ortadan kalkar.
+            editor.addEventListener('mousedown', function (e) {
+                if (!MOVE_MODE) return;
+                var block = findMovableBlock(e.target);
+                if (!block) return;
+                e.preventDefault();
+                showMoveHandles(block, true);
+            }, true);
+
+            // Hover: sadece KİLİTLİ (tıklanmış) bir seçim YOKKEN önizleme amaçlı
+            // gösterir — kilitli seçimi fare geçişiyle değiştirmez.
             editor.addEventListener('mouseover', function (e) {
                 if (!MOVE_MODE || (MOVE_DRAG && MOVE_DRAG.active)) return;
+                if (MOVE_HOVER && MOVE_HOVER.locked) return;
                 var block = findMovableBlock(e.target);
-                if (block) showMoveHandles(block);
+                if (block) showMoveHandles(block, false);
             });
+
+            // Editör içinde boş bir alana veya editör dışına tıklanınca kilitli
+            // seçim kaldırılır (yeni bir bloğa tıklamak zaten kendi mousedown'ında
+            // seçimi değiştirir).
+            document.addEventListener('mousedown', function (e) {
+                if (!MOVE_MODE || !MOVE_HOVER || !MOVE_HOVER.locked) return;
+                if (editor.contains(e.target) && findMovableBlock(e.target)) return;
+                removeMoveHandles();
+            });
+
+            // Escape ile kilitli seçimi kaldır (klasik, beklenen davranış).
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && MOVE_HOVER && MOVE_HOVER.locked) {
+                    removeMoveHandles();
+                }
+            });
+
             document.getElementById('doc-editor').closest('.editor-wrap').addEventListener('scroll', function () {
                 if (MOVE_HOVER) positionMoveHandles(MOVE_HOVER.block);
             });
         }
 
-        function showMoveHandles(block) {
-            if (MOVE_HOVER && MOVE_HOVER.block === block) { positionMoveHandles(block); return; }
+        function showMoveHandles(block, locked) {
+            if (MOVE_HOVER && MOVE_HOVER.block === block) {
+                if (locked) MOVE_HOVER.locked = true;
+                positionMoveHandles(block);
+                return;
+            }
             removeMoveHandles();
             var moveBtn = document.createElement('div');
             moveBtn.id = 'block-move-handle';
@@ -1137,7 +1194,7 @@
             document.body.appendChild(resetBtn);
             document.body.appendChild(resizeBtn);
             document.body.appendChild(deleteBtn);
-            MOVE_HOVER = { block: block, moveBtn: moveBtn, resetBtn: resetBtn, resizeBtn: resizeBtn, deleteBtn: deleteBtn };
+            MOVE_HOVER = { block: block, moveBtn: moveBtn, resetBtn: resetBtn, resizeBtn: resizeBtn, deleteBtn: deleteBtn, locked: !!locked };
             positionMoveHandles(block);
 
             block.addEventListener('mouseleave', scheduleHideMoveHandles);
@@ -1162,6 +1219,9 @@
 
         var MOVE_HIDE_TIMER = null;
         function scheduleHideMoveHandles() {
+            // 16.08 16. tur — kilitli (tıklanmış) bir seçim fare uzaklaştı diye
+            // KAYBOLMAZ; sadece başka bir yere tıklayınca veya Escape ile kapanır.
+            if (MOVE_HOVER && MOVE_HOVER.locked) return;
             clearTimeout(MOVE_HIDE_TIMER);
             MOVE_HIDE_TIMER = setTimeout(function () {
                 if (!MOVE_DRAG || !MOVE_DRAG.active) removeMoveHandles();
