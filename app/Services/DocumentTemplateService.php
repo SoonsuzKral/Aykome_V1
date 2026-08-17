@@ -100,8 +100,13 @@ class DocumentTemplateService
 body { background: #e5e7eb; padding-top: 0; display: block; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
 /* A4 kağıtlar DİKEY eksende alt alta (Word/PDF viewer düzeni) — block model, asla yan yana değil */
 .a4-container { background: #fff; width: 210mm; min-height: 297mm; padding: 18mm 20mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 0 auto; box-sizing: border-box; }
-/* ÜST ORTA İZOLE PANEL: kâğıt DOM'unun dışında, havada duran modern action bar — asla antetle çakışmaz */
-.print-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
+/* ÜST ORTA PANEL — ÇÖZÜM_10 §3: eskiden position:fixed idi; akıştan çıktığı için
+   KENDİ YÜKSEKLİĞİNE YER AYIRMIYOR, A4'ün en üstündeki logo/antet (serbest konumlu
+   bloklar top: 7-48px) barın ALTINDA kalıyordu. sticky = akışta yer ayırır (kâğıt
+   barın ALTINDAN başlar) + kaydırırken üstte sabit kalır. display:none olduğunda
+   (yazdır / PDF / salt-okunur) HİÇ yer kaplamaz → body{padding-top} çözümünün
+   bıraktığı hayalet boşluk oluşmaz. Ortalama: left/transform yerine margin auto. */
+.print-bar { position: sticky; top: 8px; width: fit-content; max-width: calc(100% - 16px); margin: 8px auto 12px; z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
 .print-bar .title { font-size: 15px; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 8px; }
 .print-bar .title .doc-ico { font-size: 18px; }
 .print-bar .actions { display: flex; align-items: center; gap: 10px; }
@@ -121,8 +126,9 @@ CSS;
 body { background: #e5e7eb; padding-top: 0; display: block; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
 /* A4 kağıtlar DİKEY eksende alt alta (Word/PDF viewer düzeni) — block model, asla yan yana değil */
 .a4-container { background: #fff; width: 297mm; min-height: 210mm; padding: 12mm 14mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 0 auto; box-sizing: border-box; }
-/* ÜST ORTA İZOLE PANEL: kâğıt DOM'unun dışında, havada duran modern action bar — asla antetle çakışmaz */
-.print-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
+/* ÜST ORTA PANEL — ÇÖZÜM_10 §3 (bkz. LAYOUT_CSS'teki ayrıntılı not): sticky,
+   akışta kendi yerini ayırır; kâğıdın antetini/logosunu asla örtmez. */
+.print-bar { position: sticky; top: 8px; width: fit-content; max-width: calc(100% - 16px); margin: 8px auto 12px; z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
 .print-bar .title { font-size: 15px; font-weight: 700; letter-spacing: .3px; display: flex; align-items: center; gap: 8px; }
 .print-bar .title .doc-ico { font-size: 18px; }
 .print-bar .actions { display: flex; align-items: center; gap: 10px; }
@@ -701,6 +707,10 @@ CSS;
             'İmza' => [
                 ['key' => 'mudur_adi',       'label' => 'Müdür Adı',             'tip' => 'text'],
                 ['key' => 'mudur_unvani',    'label' => 'Müdür Unvanı',          'tip' => 'text'],
+                // ÇÖZÜM_10 §1 — Ön Kazı'yı imzalayan Başkan Yardımcısı. Değer
+                // imza/onay anında dolar; panelde tanımlı asıl yetkiliye düşer.
+                ['key' => 'baskan_yardimcisi_adi',    'label' => 'Başkan Yardımcısı Adı',    'tip' => 'text'],
+                ['key' => 'baskan_yardimcisi_unvani', 'label' => 'Başkan Yardımcısı Unvanı', 'tip' => 'text'],
                 ['key' => 'duzenleyen',      'label' => 'Evrağı Düzenleyen',     'tip' => 'text'],
             ],
             'Kurum & İmza Yetkilileri' => [
@@ -717,15 +727,21 @@ CSS;
 
     /**
      * Bir token anahtarının başvurudan gelecek değerini üretir.
-     * Bilinmeyen anahtar '' döner → hidrasyonda token dokunulmaz kalır.
+     * Bilinmeyen anahtar '' döner → hidrasyonda token dokunulmaz kalır
+     * (istisna: BOS_BIRAKILABILIR_ANAHTARLAR — boşsa token silinir).
+     *
+     * @param string|null $documentType Şablon tipi (imza yetkilisi çözümü için;
+     *                                  ör. 'on_kazi' → ayar tipi 'pre_permit')
      */
-    public static function fieldValue(Application $app, string $key): string
+    public static function fieldValue(Application $app, string $key, ?string $documentType = null): string
     {
         $d = static fn ($v) => (string) ($v ?? '');
 
         return match ($key) {
             'basvuru_no', 'application_no' => $d($app->application_no),
             'dogrulama_kodu' => $d($app->verification_code),
+            'baskan_yardimcisi_adi' => self::baskanYardimcisi($app, $documentType, 'ad_soyad'),
+            'baskan_yardimcisi_unvani' => self::baskanYardimcisi($app, $documentType, 'unvan'),
             'kurum_adi' => mb_strtoupper(trim($d($app->institution?->name)), 'UTF-8'),
             'proje_kodu' => $d($app->project_code),
             'proje_adi' => $d($app->description),
@@ -763,6 +779,87 @@ CSS;
             'muhtelif_adres_tablosu' => self::muhtelifAdresTablosu($app),
             default => '',
         };
+    }
+
+    /**
+     * ÇÖZÜM_10 §1 — Şablon tipi → İMZA YETKİLİSİ ayar tipi eşlemesi.
+     * DocumentSignatorySetting kayıtları 'pre_permit' tipinde tutulur; şablon
+     * tarafındaki tip adı ise 'on_kazi'dır (bkz. EImzaService::pdfOlustur $map).
+     */
+    protected const IMZA_TIP_ESLEME = ['on_kazi' => 'pre_permit'];
+
+    /** Değeri boş olduğunda token'ın SİLİNECEĞİ (ham basılmayacağı) anahtarlar. */
+    protected const BOS_BIRAKILABILIR_ANAHTARLAR = [
+        'baskan_yardimcisi_adi',
+        'baskan_yardimcisi_unvani',
+    ];
+
+    /** yerlesimHazirla()/roleMap() (5'e kadar DB sorgusu) render başına 1 kez. */
+    protected static array $imzaYerlesimCache = [];
+
+    protected static function imzaAyarTipi(?string $documentType): string
+    {
+        $tip = trim((string) $documentType);
+
+        return self::IMZA_TIP_ESLEME[$tip] ?? ($tip !== '' ? $tip : 'pre_permit');
+    }
+
+    /**
+     * İmza haritası: 'yerlesim' = FİİLEN imzalayan/onaylayan (imzalanmamışsa boş),
+     * 'ayar' = Belge İmza Yetkilileri panelinde tanımlı asıl yetkili.
+     *
+     * @return array{yerlesim: array<string,array>, ayar: array<string,array>}
+     */
+    protected static function imzaHaritasi(Application $app, ?string $documentType): array
+    {
+        $tip = self::imzaAyarTipi($documentType);
+        // Anahtara updated_at girer: kuyruk işçisi gibi uzun ömürlü süreçlerde
+        // imza/onay sonrası (approval_log değişir → updated_at yenilenir) bayat
+        // isim basılmaz; aynı render içindeki tekrar çağrılar ise DB'ye gitmez.
+        $ck = (int) ($app->id ?? 0) . '|' . $tip . '|' . ($app->updated_at?->getTimestamp() ?? 0);
+
+        if (! array_key_exists($ck, self::$imzaYerlesimCache)) {
+            $bos = ['yerlesim' => [], 'ayar' => []];
+            // id=0 → sampleApp/önizleme: DB'ye hiç gitmeyiz (bladeData ile aynı guard).
+            if ((int) ($app->id ?? 0) <= 0) {
+                self::$imzaYerlesimCache[$ck] = $bos;
+            } else {
+                try {
+                    self::$imzaYerlesimCache[$ck] = [
+                        'yerlesim' => app(SignerPlacementService::class)->yerlesimHazirla($app, $tip),
+                        'ayar' => SignatoryEngine::roleMap($tip, $app),
+                    ];
+                } catch (\Throwable $e) {
+                    self::$imzaYerlesimCache[$ck] = $bos;
+                }
+            }
+        }
+
+        return self::$imzaYerlesimCache[$ck];
+    }
+
+    /**
+     * ÇÖZÜM_10 §1 — {baskan_yardimcisi_adi} / {baskan_yardimcisi_unvani} değeri.
+     *
+     * Sıra: (1) FİİLEN imzalayan/onaylayan (vice_mayor_name ya da approval_log),
+     * (2) Belge İmza Yetkilileri panelindeki tanımlı yetkili, (3) boş.
+     * 'Yetkili' SignatoryEngine'in son çare literal'idir — belgeye asla basılmaz.
+     *
+     * @param  'ad_soyad'|'unvan'  $alan
+     */
+    protected static function baskanYardimcisi(Application $app, ?string $documentType, string $alan): string
+    {
+        $h = self::imzaHaritasi($app, $documentType);
+
+        foreach (['yerlesim', 'ayar'] as $kaynak) {
+            $deger = trim((string) ($h[$kaynak]['belediye_baskan_yardimcisi'][$alan] ?? ''));
+            if ($deger !== '' && mb_strtolower($deger) !== 'yetkili') {
+                return $deger;
+            }
+        }
+
+        // Unvan için son çare sabit metin (ad_soyad'da uydurma isim basılmaz).
+        return $alan === 'unvan' ? 'Belediye Başkan Yardımcısı' : '';
     }
 
     /**
@@ -822,8 +919,11 @@ CSS;
      *          eski davranış aynen korunur.
      * Adım 2 — kullanıcının Bilgi Katmanı'ndan eklediği dinamik {alan_adi} token'ları
      *          fieldValue() ile doldurur; bilinmeyen anahtar token'ı dokunulmaz bırakır.
+     *
+     * ÇÖZÜM_10 §1: $documentType, imza yetkilisi token'larının doğru belge tipinden
+     * (on_kazi → pre_permit) çözülmesi için fieldValue()'ya taşınır.
      */
-    public static function hydrateTemplateTokens(string $html, Application $app): string
+    public static function hydrateTemplateTokens(string $html, Application $app, ?string $documentType = null): string
     {
         // Adım 1 — mevcut sabit cover token map'i (eski davranış).
         $html = self::hydrateInstitutionTokens($html, $app);
@@ -834,7 +934,7 @@ CSS;
 
         $html = (string) preg_replace_callback(
             '/\{([a-z_çğıiöşü0-9]+)\}/u',
-            function (array $m) use ($app, $hasMuhtelif, $overflow): string {
+            function (array $m) use ($app, $hasMuhtelif, $overflow, $documentType): string {
                 $key = $m[1] ?? '';
                 if ($key === '') {
                     return $m[0];
@@ -852,9 +952,12 @@ CSS;
 
                     return self::muhtelifAdresTablosu($app);
                 }
-                $val = self::fieldValue($app, $key);
+                $val = self::fieldValue($app, $key, $documentType);
                 if ($val === '') {
-                    return $m[0]; // bilinmeyen / boş → token dokunulmaz
+                    // İMZA token'ları (ÇÖZÜM_10 §1): değer boşsa belgeye ham
+                    // "{baskan_yardimcisi_adi}" basmak yerine iz bırakmadan silinir —
+                    // imza satırı boş kalır, çıktı bozulmaz.
+                    return in_array($key, self::BOS_BIRAKILABILIR_ANAHTARLAR, true) ? '' : $m[0];
                 }
 
                 return e($val);
@@ -1427,16 +1530,118 @@ CSS;
         // tutuculu bir kopyanın eklenmesine sebep oluyordu (kullanıcının bildirdiği
         // alt kısımdaki "kayma"/yinelenen doğrulama bloğu). Artık etiketlerden
         // ayıklanmış DÜZ METİN üzerinde aranıyor.
-        $plainCheck = (string) preg_replace('/<(p|div|td|th|tr|li|br|h[1-6])[^>]*>/i', ' ', $result);
-        $plainCheck = html_entity_decode(strip_tags($plainCheck), ENT_QUOTES | ENT_HTML5, 'UTF-8');
-        $plainCheck = trim((string) preg_replace('/\s+/u', ' ', str_replace("\xC2\xA0", ' ', $plainCheck)));
-        if (mb_stripos($plainCheck, 'doğrulama kodu') === false) {
-            $result .= '<p contenteditable="true" style="text-align:center;font-size:8px;color:#888;margin:10px 0 0;">'
-                . 'BELGE DOĞRULAMA KODU: <b style="color:#d97706;">' . self::DOGRULAMA_TOKEN . '</b>'
-                . ' | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b></p>';
-        }
+        // ÇÖZÜM_10 §2: bu kontrol + ekleme TEK KAYNAĞA taşındı
+        // (belgeDogrulamaSatiriGaranti) — aynı garanti her render'da da işler.
+        $result = self::belgeDogrulamaSatiriGaranti($result);
 
         return $result;
+    }
+
+    /**
+     * ÇÖZÜM_10 §2 — Belgede "BELGE DOĞRULAMA KODU" satırı VAR MI?
+     * Kontrol, etiketlerden ayıklanmış DÜZ METİN üzerinde yapılır: ifade
+     * span/td/br ile parçalanmış olsa bile (Word çıktısı) yakalanır, böylece
+     * yinelenen ikinci bir blok eklenmez.
+     */
+    public static function dogrulamaSatiriVar(string $html): bool
+    {
+        $plain = (string) preg_replace('/<(p|div|td|th|tr|li|br|h[1-6])[^>]*>/i', ' ', $html);
+        $plain = html_entity_decode(strip_tags($plain), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $plain = trim((string) preg_replace('/\s+/u', ' ', str_replace("\xC2\xA0", ' ', $plain)));
+
+        return mb_stripos($plain, 'doğrulama kodu') !== false;
+    }
+
+    /**
+     * Doğrulama satırının HTML'i. $topPx verilirse şablonun SERBEST KONUM
+     * düzenine uyan absolute blok, null ise akışta normal paragraf döner.
+     *
+     * SARMALAYICI <div> KASITLIDIR: EImzaService::imzaYasalMetinEkle() kırmızı
+     * 5070 metnini "belge doğrulama kodu" içeren SON elemanın (buradaki iç <p>)
+     * ÖNÜNE ekler → 5070 metni de aynı absolute blokta, kodun hemen ÜSTÜNDE
+     * konumlanır (ÇÖZÜM_06 sırası: 5070 üstte, doğrulama kodu altta).
+     */
+    public static function dogrulamaSatiriHtml(?float $topPx = null): string
+    {
+        $stil = 'text-align:center;font-size:8px;color:#888;margin:10px 0 0;';
+        $ic = 'BELGE DOĞRULAMA KODU: <b style="color:#d97706;">' . self::DOGRULAMA_TOKEN . '</b>'
+            . ' | KONTROL ADRESİ: <b>aykome.eyyubiye.bel.tr/dogrulama</b>';
+
+        if ($topPx === null) {
+            return '<p contenteditable="true" style="' . $stil . '">' . $ic . '</p>';
+        }
+
+        return '<div class="aykome-dogrulama-blok" contenteditable="true" data-aykome-free-position="1"'
+            . ' style="position:absolute;left:0;top:' . round($topPx, 2) . 'px;width:100%;z-index:400;">'
+            . '<p style="' . $stil . '">' . $ic . '</p></div>';
+    }
+
+    /**
+     * Serbest konumlu (absolute) şablonlarda doğrulama satırının düşeceği BOŞ
+     * BANDIN top koordinatını bulur; akış tabanlı belgelerde null döner (satır
+     * doğal olarak belgenin sonuna eklenir).
+     *
+     * NEDEN GEREKLİ: Word'den içe aktarılmış EBYS belgelerinde (ör. Ön Kazı)
+     * blokların TAMAMI position:absolute'tur → akışa eklenen bir paragraf
+     * sayfanın ORTASINDA, gövde metninin üstünde kalır. Blok top'ları sıralanıp
+     * belgenin alt yarısındaki EN BÜYÜK dikey boşluk seçilir (ör. imza bloğu
+     * 858px ile alt bilgi bandı 1071px arası).
+     */
+    protected static function dogrulamaSatiriTopPx(string $html): ?float
+    {
+        if (! preg_match_all('/<(?:p|div|table|img)\b[^>]*data-aykome-free-position="1"[^>]*>/i', $html, $m)) {
+            return null;
+        }
+
+        $tops = [];
+        foreach ($m[0] as $etiket) {
+            if (preg_match('/top:\s*(-?[\d.]+)px/i', $etiket, $t)) {
+                $tops[] = (float) $t[1];
+            }
+        }
+        if (count($tops) < 3) {
+            return null; // ağırlıklı akış belgesi → sona eklenmesi doğru
+        }
+
+        $tops = array_values(array_unique($tops));
+        sort($tops);
+        $tops[] = self::A4_ICERIK_YUKSEKLIK_PX; // sayfa sonu sanal sınır
+
+        $bandBas = null;
+        $bandBoy = 0.0;
+        $adet = count($tops);
+        for ($i = 0; $i < $adet - 1; $i++) {
+            $bas = $tops[$i];
+            $boy = $tops[$i + 1] - $bas;
+            // Yalnızca belgenin ALT yarısı (imza / alt bilgi bandı) ve en az 80px.
+            if ($bas < self::A4_ICERIK_YUKSEKLIK_PX * 0.45 || $boy < 80.0) {
+                continue;
+            }
+            if ($boy > $bandBoy) {
+                $bandBoy = $boy;
+                $bandBas = $bas;
+            }
+        }
+        if ($bandBas === null) {
+            return null;
+        }
+
+        // Boşluğun ~%40'ı kadar aşağı; 5070 + kod satırı için altta en az 45px pay.
+        return round(min($bandBas + $bandBoy * 0.4, $bandBas + $bandBoy - 45.0), 2);
+    }
+
+    /**
+     * Doğrulama satırı yoksa belgeye ekler (idempotent). Word içe aktarımında VE
+     * her render'da (renderFor) çağrılır → hiçbir belge doğrulama kodsuz basılmaz,
+     * 5070 kırmızı metni de daima doğru çapaya (kodun üstüne) oturur.
+     */
+    public static function belgeDogrulamaSatiriGaranti(string $html): string
+    {
+        if (self::dogrulamaSatiriVar($html)) {
+            return $html;
+        }
+
+        return $html . self::dogrulamaSatiriHtml(self::dogrulamaSatiriTopPx($html));
     }
 
     /**
@@ -1779,6 +1984,14 @@ CSS;
         $looksLikeJsonGrid = str_starts_with(trim($content), '[') || str_starts_with(trim($content), '{');
 
         if ($isWord || ! $looksLikeJsonGrid) {
+            // ÇÖZÜM_10 §2 — Şablonda "BELGE DOĞRULAMA KODU" satırı HİÇ yoksa
+            // (ör. eski akışla Word'den içe aktarılmış Ön Kazı şablonu) render
+            // anında eklenir: imzalı PDF asla kodsuz çıkmaz ve 5070 kırmızı
+            // metni de doğru konuma (kodun hemen ÜSTÜNE) oturur. Satır zaten
+            // varsa hiçbir şey yapılmaz (idempotent). JSON grid dalına
+            // UYGULANMAZ — orada içerik HTML değil, kayıt dizisidir.
+            $content = self::belgeDogrulamaSatiriGaranti($content);
+
             // Word tipleri + contenteditable ile kaydedilmiş (artık HTML olan) excel tipleri
             $css = self::extractStyles(self::renderBlade($type, $app));
             // GÖREV 1: Şablon CSS'indeki tüm font-family bildirimleri DejaVu'ya yönlendirilir
@@ -1793,7 +2006,7 @@ CSS;
         // BİLGİ KATMANI: şablondaki tüm {alan_adi} / {KURUM_ADI} / {DOGRULAMA_KODU}
         // yer tutucularını başvurunun kendi verisiyle doldurur (tüm belge tipleri).
         // Kullanıcı Bilgi Katmanı panelinden hangi alanı nereye koyacağını seçer.
-        $html = self::hydrateTemplateTokens($html, $app);
+        $html = self::hydrateTemplateTokens($html, $app, $type);
 
         return $withStamp ? self::applyEImzaStamp($html, $app) : $html;
     }
@@ -1898,9 +2111,17 @@ CSS;
             . 'overflow-x:hidden;'                    // #doc-editor ile aynı taşma davranışı
             . '}'
             . '.a4-container *,.a4-landscape-container *{box-sizing:border-box;}'
+            // ÇÖZÜM_10 §3 — EN SON basılan kural: blade'lerin kendi
+            // `.print-bar{position:fixed}` bildirimi ($docCss, bu bloktan ÖNCE
+            // basılır) burada kesin olarak ezilir. Bar akışta yer ayırır →
+            // kâğıdın logosu/anteti barın altında kalmaz.
+            . '.print-bar{position:sticky !important;top:8px !important;left:auto !important;right:auto !important;'
+            . 'transform:none !important;width:fit-content !important;max-width:calc(100% - 16px) !important;'
+            . 'margin:8px auto 12px !important;}'
             . '@media print{'
             . '@page{size:' . $size . ';margin:0 !important;}'
             . 'body{background:#fff !important;margin:0 !important;padding:0 !important;}'
+            . '.print-bar,.no-print,.no-print-bar,.toolbar{display:none !important;}'
             . '.a4-container,.a4-landscape-container{'
             . 'position:relative !important;box-sizing:border-box !important;'
             . 'width:' . $w . ' !important;max-width:' . $w . ' !important;'
@@ -1919,7 +2140,7 @@ CSS;
             : self::LAYOUT_CSS;
 
         $uiBar = $withUi
-            ? '<div class="print-bar no-print fixed top-2 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-slate-900/90 backdrop-blur py-2 px-4 rounded-xl shadow-lg border border-slate-700">'
+            ? '<div class="print-bar no-print">'
                 . '<span class="title"><span class="doc-ico">📄</span>' . e($title) . '</span>'
                 . '<div class="actions">'
                 . '<button type="button" class="btn-close" onclick="window.close()">✕ Kapat</button>'
@@ -2276,6 +2497,13 @@ CSS;
      * göre hesaplanır.
      */
     public const A4_CONTAINER_PADDING = '8mm 12mm';
+
+    /**
+     * ÇÖZÜM_10 §2 — A4 dikey yüksekliğinin px karşılığı (297mm @ 96dpi ≈ 1122px).
+     * Serbest konumlu blokların koordinat uzayı tarayıcı px'idir; doğrulama
+     * satırının düşeceği boş bant hesabında sayfa sonu sınırı olarak kullanılır.
+     */
+    public const A4_ICERIK_YUKSEKLIK_PX = 1122.0;
 
     public static function pdfCssEnjekte(string $html): string
     {

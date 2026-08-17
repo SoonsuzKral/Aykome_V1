@@ -22,7 +22,9 @@
         table.mini-sign th { font-size: 12px; font-weight:bold; }
         table.mini-sign td { height: 50px; vertical-align: bottom; padding-bottom:5px; font-size:12px; font-weight:bold; color: #0f172a;}
 
-        .print-bar { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
+        /* ÇÖZÜM_10 §3: fixed → sticky. Akıştan çıkan bar kendi yüksekliğine yer
+           ayırmadığı için kâğıdın üst anteti/logosu barın altında kalıyordu. */
+        .print-bar { position: sticky; top: 8px; width: fit-content; max-width: calc(100% - 16px); margin: 8px auto 12px; z-index: 50; background: rgba(15,23,42,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); color: #fff; display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3); border: 1px solid #334155; }
         .print-btn { background:#3b82f6; color:#fff; border:none; padding:10px 20px; font-size:14px; border-radius:5px; font-weight:bold; cursor:pointer;}
 
         @page { size: A4 landscape; margin: 8mm !important; }
