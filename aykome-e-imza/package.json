@@ -2,6 +2,7 @@
   "name": "aykome-e-imza",
   "version": "1.0.0",
   "description": "Aykome E-İmza Masaüstü Uygulaması",
+  "author": "HGB Bilişim",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -52,8 +53,7 @@
       "installerIcon": "assets/icon.ico",
       "uninstallerIcon": "assets/icon.ico",
       "installerSidebar": "assets/icon.ico",
-      "runAfterFinish": true,
-      "autoLaunch": true
+      "runAfterFinish": true
     },
     "mac": {
       "target": [

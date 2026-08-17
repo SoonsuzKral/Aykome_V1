@@ -687,6 +687,12 @@ CSS;
                 ['key' => 'baslangic_tarihi', 'label' => 'Başlangıç Tarihi',     'tip' => 'tarih'],
                 ['key' => 'bitis_tarihi',     'label' => 'Bitiş Tarihi',         'tip' => 'tarih'],
                 ['key' => 'olusturulma_tarihi', 'label' => 'Oluşturulma Tarihi', 'tip' => 'tarih'],
+                // Belge Tarihi = tanzim tarihi. Başvurunun created_at'i kullanılır →
+                // aynı belge 2 gün sonra tekrar açıldığında AYNI tarihi gösterir
+                // (ruhsat/tahakkuk'taki "Tanzim Tarihi" ile tutarlı).
+                ['key' => 'belge_tarihi',     'label' => 'Belge Tarihi (Tanzim)', 'tip' => 'tarih'],
+                // Yazdırma Tarihi = HER görüntülemede/PDF üretiminde O GÜNÜN tarihi.
+                ['key' => 'yazdirma_tarihi',  'label' => 'Yazdırma Tarihi (Bugün)', 'tip' => 'tarih'],
             ],
             'Alanlar' => [
                 ['key' => 'toplam_alan_m2',  'label' => 'Toplam Alan (m²)',      'tip' => 'sayi'],
@@ -743,6 +749,12 @@ CSS;
             'baslangic_tarihi' => $d($app->start_date?->format('d.m.Y')),
             'bitis_tarihi' => $d($app->end_date?->format('d.m.Y')),
             'olusturulma_tarihi' => $d($app->created_at?->format('d.m.Y')),
+            // Tanzim tarihi: kayıt tarihi sabit kalır; henüz kaydedilmemiş
+            // (sampleApp/önizleme) durumda bugüne düşer ki token boş kalıp
+            // hidrasyonda "{belge_tarihi}" olarak basılmasın.
+            'belge_tarihi' => $d(($app->created_at ?? now())->format('d.m.Y')),
+            // Yazdırma tarihi: her render'da o günün tarihi.
+            'yazdirma_tarihi' => now()->format('d.m.Y'),
             'toplam_alan_m2' => $d($app->total_area_m2),
             'kazi_miktari' => number_format((float) collect($app->surfaceLines ?? [])->sum('quantity'), 2, ',', '.') . ' m² / m.',
             // GÖREV 1: muhtelif ise {adres} tokeni "MUHTELİF CADDE VE SOKAK" başlığını oluşturur;
@@ -1840,10 +1852,69 @@ CSS;
             . '<g fill="#000">' . $rects . '</g></svg>';
     }
 
+    /**
+     * TEK KAYNAK — tarayıcı görüntülemesindeki (.a4-container) kâğıt geometrisini
+     * editördeki (#doc-editor) geometriyle birebir eşitler. ÇÖZÜM_09 §2.
+     *
+     * KÖK NEDEN (ölçülmüş, 17 blokla doğrulanmış): "Taşı Modu" ile serbest
+     * konumlandırılan bloklar `data-aykome-free-position="1"` +
+     * `position:absolute; left/top: <px>` olarak kaydediliyor. Bu px değerleri
+     * CSS'e göre "en yakın KONUMLANMIŞ ata"nın padding box'ına göre çözülür.
+     * Editörde bu ata var (#doc-editor { position: relative }) ve 210mm'dir.
+     * Tarayıcı görüntülemesinde LAYOUT_CSS'in .a4-container kuralında
+     * position YOKTU → bloklar kâğıda değil VIEWPORT'a (initial containing
+     * block) göre konumlanıyor, pencere genişliğine göre kayıp belge dağılmış
+     * görünüyordu ("Ön Kazı Görüntüle bozuk"). İkinci fark: blade'in kendi
+     * .a4-container kuralı (ör. pre_permit: 15mm) LAYOUT_CSS'i eziyor,
+     * editör ise A4_CONTAINER_PADDING kullanıyordu.
+     *
+     * Bu blok $docCss'ten SONRA basılır; !important ile blade'i de ezer.
+     * @media print aynı geometriyi tekrarlar → ekran ve yazdırma da birbirinin
+     * aynısı olur (aksi halde blade'in print kuralı padding'i 0'a çekip
+     * koordinat sistemini yine kaydırıyordu).
+     *
+     * ⚠️ SADECE TARAYICI: bu blok yalnızca $withUi === true (tarayıcıda
+     * görüntüleme) çıktısına eklenir. dompdf yolu (renderFor(..., withUi: false)
+     * → Pdf::loadHTML / pdfCssEnjekte) DOKUNULMAZ; oradaki geometri
+     * a4ContainerInlineWidth() ile INLINE 174mm + @page 6mm olarak turlarca
+     * ayarlandı ve inline width, buradaki `!important` CSS'e KAYBEDER →
+     * imzalı PDF çıktısı bozulurdu.
+     */
+    protected static function browserA4ContainerCss(bool $landscape): string
+    {
+        $w = $landscape ? '297mm' : '210mm';
+        $h = $landscape ? '210mm' : '297mm';
+        $pad = self::A4_CONTAINER_PADDING;
+        $size = $landscape ? 'A4 landscape' : 'A4';
+
+        return '.a4-container,.a4-landscape-container{'
+            . 'position:relative !important;'          // serbest konum bloklarının çapası
+            . 'box-sizing:border-box !important;'
+            . 'width:' . $w . ' !important;max-width:' . $w . ' !important;'
+            . 'min-height:' . $h . ' !important;'
+            . 'padding:' . $pad . ' !important;'
+            . 'margin:0 auto !important;'
+            . 'background:#fff !important;'
+            . 'overflow-x:hidden;'                    // #doc-editor ile aynı taşma davranışı
+            . '}'
+            . '.a4-container *,.a4-landscape-container *{box-sizing:border-box;}'
+            . '@media print{'
+            . '@page{size:' . $size . ';margin:0 !important;}'
+            . 'body{background:#fff !important;margin:0 !important;padding:0 !important;}'
+            . '.a4-container,.a4-landscape-container{'
+            . 'position:relative !important;box-sizing:border-box !important;'
+            . 'width:' . $w . ' !important;max-width:' . $w . ' !important;'
+            . 'min-height:' . $h . ' !important;'
+            . 'padding:' . $pad . ' !important;'
+            . 'margin:0 !important;box-shadow:none !important;'
+            . '}}';
+    }
+
     protected static function wrapStandalone(string $type, string $docCss, string $bodyHtml, bool $withUi = true): string
     {
         $title = self::TYPES[$type]['pdf_title'] ?? self::label($type);
-        $layoutCss = ! empty(self::TYPES[$type]['landscape'])
+        $isLandscape = ! empty(self::TYPES[$type]['landscape']);
+        $layoutCss = $isLandscape
             ? self::LAYOUT_CSS_LANDSCAPE
             : self::LAYOUT_CSS;
 
@@ -1860,6 +1931,10 @@ CSS;
         return '<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><title>' . e($title) . '</title>'
             . '<style>' . $layoutCss . '</style>'
             . '<style>' . $docCss . '</style>'
+            // ÇÖZÜM_09 §2 — EN SON basılır: blade'in .a4-container kuralını da ezip
+            // kâğıt geometrisini editördeki #doc-editor ile birebir eşitler.
+            // SADECE tarayıcı görüntülemesi ($withUi); dompdf yolu hariç tutulur.
+            . ($withUi ? '<style>' . self::browserA4ContainerCss($isLandscape) . '</style>' : '')
             . '</head><body>'
             . $uiBar
             . '<div class="a4-container">' . $bodyHtml . '</div>'
