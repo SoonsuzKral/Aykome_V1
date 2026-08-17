@@ -15,6 +15,7 @@ const store = new Store({
 
 const { handleSignUrl } = require('./src/protocol');
 const localServer = require('./src/server');
+const updater = require('./src/updater');
 
 let tray = null;
 let pinWindow = null;
@@ -222,21 +223,48 @@ function createSetupWindow() {
   setupWin.loadFile(path.join(__dirname, 'renderer', 'setup.html'));
 }
 
-function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')).resize({ width: 16, height: 16 });
-  tray = new Tray(icon);
+/**
+ * COZUM_09 §3 - tray menusu artik guncelleme durumunu de gosteriyor.
+ * updater.init() bir onStatus callback'i ile bu fonksiyonu tekrar cagirir,
+ * boylece "Indiriliyor: %42" gibi durumlar menude canli gorunur.
+ */
+function refreshTrayMenu() {
+  if (!tray) return;
+
+  const st = updater.getStatus();
 
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Eyyübiye AYKOME - E-İmza Köprüsü', enabled: false },
+    { label: `Sürüm: ${app.getVersion()}`, enabled: false },
     { type: 'separator' },
     { label: 'Kurulum Sihirbazı', click: () => createSetupWindow() },
     { label: 'Durum: Çalışıyor', enabled: false },
     { type: 'separator' },
+    { label: st.text, enabled: false },
+    {
+      label: st.state === 'downloaded' ? 'Yeniden başlat ve kur' : 'Güncellemeleri Denetle',
+      click: () => {
+        if (updater.getStatus().state === 'downloaded') {
+          app.isQuitting = true;
+          updater.installNow();
+        } else {
+          updater.checkNow(true);
+        }
+      },
+    },
+    { type: 'separator' },
     { label: 'Çıkış', click: () => app.quit() },
   ]);
 
-  tray.setToolTip('Eyyübiye AYKOME - E-İmza Köprüsü');
   tray.setContextMenu(contextMenu);
+}
+
+function createTray() {
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')).resize({ width: 16, height: 16 });
+  tray = new Tray(icon);
+
+  tray.setToolTip('Eyyübiye AYKOME - E-İmza Köprüsü');
+  refreshTrayMenu();
   tray.on('double-click', () => createSetupWindow());
 }
 
@@ -284,6 +312,13 @@ function registerAutoStart() {
 app.on('ready', () => {
   createTray();
   registerAutoStart();
+
+  // COZUM_09 §3 - otomatik guncelleme (feed: <server_url>/storage/downloads/eimza/)
+  updater.init({
+    store,
+    getTray: () => tray,
+    onStatus: () => refreshTrayMenu(),
+  });
 
   // GÖREV 4: Token durumu polling (renderer'a push)
   startSlotPolling();

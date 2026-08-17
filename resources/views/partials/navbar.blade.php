@@ -37,6 +37,16 @@
             </div>
         </div>
 
+        {{-- ÇÖZÜM_09 §3 — E-İmza masaüstü uygulaması indirme (dosya yüklüyse görünür) --}}
+        @if(\App\Http\Controllers\Admin\EImzaReleaseController::hasSetup())
+        <a href="{{ route('admin.e-imza-release.download') }}"
+           title="E-İmza masaüstü uygulamasını indir (Windows kurulum dosyası)"
+           class="inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-xs font-semibold text-cyan-700 transition hover:bg-cyan-100">
+            <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+            <span class="hidden sm:inline">E-İmza İndir</span>
+        </a>
+        @endif
+
         {{-- Tarih / Saat / Hoş Geldin --}}
         <div class="hidden items-center gap-2 border-r border-slate-200 pr-3 md:flex">
             <span id="navbar-clock" class="font-mono text-xs font-semibold tabular-nums text-[#02AFC6]">--:--:--</span>

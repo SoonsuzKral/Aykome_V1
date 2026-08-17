@@ -28,7 +28,10 @@ class MakamOnlyAccess
 
         $allowed = $name === 'admin.dashboard'
             || str_starts_with($name, 'admin.makam.')
-            || str_starts_with($name, 'admin.profile.');
+            || str_starts_with($name, 'admin.profile.')
+            // ÇÖZÜM_09 §3: Başkan da belgeleri e-imza ile imzalar; masaüstü
+            // uygulamasının kurulum dosyasını indirebilmesi gerekir.
+            || $name === 'admin.e-imza-release.download';
 
         if (! $allowed) {
             return redirect()->route('admin.makam.index');

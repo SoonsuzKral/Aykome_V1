@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\WorkOrderController;
 use App\Http\Controllers\Admin\DepositController;
 use App\Http\Controllers\Admin\DocumentSettingsController;
 use App\Http\Controllers\Admin\DocumentTemplateController;
+use App\Http\Controllers\Admin\EImzaReleaseController;
 use App\Http\Controllers\Admin\FaultController;
 use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\ModuleFieldController;
@@ -225,6 +226,19 @@ Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix
 
         Route::get('settings/pre-excavation-permit',  [PreExcavationPermitSettingController::class, 'edit']  )->name('settings.pre-excavation-permit');
         Route::put('settings/pre-excavation-permit',  [PreExcavationPermitSettingController::class, 'update'])->name('settings.pre-excavation-permit.update');
+    });
+
+    // ─── E-İmza Masaüstü Uygulaması — sürüm yayınlama + indirme (ÇÖZÜM_09 §3) ──
+    Route::prefix('e-imza-surum')->name('e-imza-release.')->group(function () {
+        // İndirme linki her oturumlu kullanıcıya açık (navbar butonu).
+        Route::get('indir', [EImzaReleaseController::class, 'download'])->name('download');
+
+        // Sürüm yükleme/silme yalnızca Süper Admin.
+        Route::middleware('role:super-admin')->group(function () {
+            Route::get('/',       [EImzaReleaseController::class, 'index']  )->name('index');
+            Route::post('/',      [EImzaReleaseController::class, 'store']  )->name('store');
+            Route::delete('/',    [EImzaReleaseController::class, 'destroy'])->name('destroy');
+        });
     });
 
     // ─── Evrak & Makam Ayarları (Global Signatory Engine) ─────────────────────
