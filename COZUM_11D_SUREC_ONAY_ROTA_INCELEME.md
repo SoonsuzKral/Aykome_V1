@@ -262,7 +262,7 @@ return back()->with('success', ...);     // Blade redirect
 ## Yapılacaklar
 
 ### Öncelik 1 (Acil)
-- [ ] **Süreç silme özelliği ekle** — Issue #4
+- [x] **Süreç silme özelliği ekle** — Issue #4 ✅ (eklendi + syntax hatası düzeltildi)
 - [ ] BlueprintCanvas.vue `closeAddStep()` düzelt — Issue #3
 - [ ] `storeStep()` ölü kod temizle — Issue #1
 
