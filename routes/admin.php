@@ -321,6 +321,7 @@ Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix
         Route::post('/{process}/set-default',  [ProcessController::class, 'setDefault']        )->name('set-default');
         Route::post('/{process}/toggle-active',[ProcessController::class, 'toggleActive']      )->name('toggle-active');
         Route::match(['put', 'patch'], '/{process}', [ProcessController::class, 'updateDefinition'])->name('update-definition');
+        Route::delete('/{process}',            [ProcessController::class, 'destroyDefinition'])->name('destroy-definition');
 
         // Blueprint Canvas
         Route::get('/{process}/blueprint',     [ProcessController::class, 'blueprint']        )->name('blueprint');

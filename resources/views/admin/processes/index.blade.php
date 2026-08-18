@@ -72,6 +72,13 @@
                                 {{ $process->is_active ? 'Pasife Al' : 'Aktifleştir' }}
                             </button>
                         </form>
+                        <form method="POST" action="{{ route('admin.processes.destroy-definition', $process) }}" onsubmit="return confirm('⚠️ &quot;{{ addslashes($process->name) }}&quot; sürecini silmek istediğinize emin misiniz?\n\nBu işlem geri alınamaz ve sürecin tüm adımları silinecektir.')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="rounded-lg border border-rose-200 px-3 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-rose-50" title="Süreci Sil">
+                                🗑️ Sil
+                            </button>
+                        </form>
                     </div>
                 </div>
 

@@ -140,6 +140,31 @@ class ProcessController extends Controller
         return back()->with('success', "\"{$process->name}\" " . ($process->is_active ? 'aktifleştirildi' : 'pasife alındı') . '.');
     }
 
+    public function destroyDefinition(Request $request, ProcessDefinition $process): RedirectResponse
+    {
+        // Varsayılan süreç silinemez — önce başka bir süreci varsayılan yap
+        if ($process->is_default) {
+            return back()->with('error', "\"{$process->name}\" varsayılan süreç olduğu için silinemez. Önce başka bir süreci varsayılan yapın.');
+        }
+
+        // Bu sürece bağlı başvuru sayısını kontrol et
+        $applicationCount = \App\Models\Application::query()
+            ->where('process_id', $process->id)
+            ->count();
+
+        if ($applicationCount > 0) {
+            return back()->with('error', "\"{$process->name}\" silinemez çünkü {$applicationCount} başvuru bu sürece bağlıdır. Önce başvuruları başka bir sürece taşıyın.");
+        }
+
+        $name = $process->name;
+
+        // Adımlar cascade ile otomatik silinir (FK cascadeOnDelete)
+        $process->delete();
+
+        return redirect()->route('admin.processes.index')
+            ->with('success', "Süreç \"{$name}\" ve tüm adımları silindi.");
+    }
+
     public function updateDefinition(Request $request, ProcessDefinition $process): RedirectResponse
     {
         $data = $request->validate([
