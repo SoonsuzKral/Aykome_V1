@@ -51,6 +51,8 @@
             'metrage_sent'           => ['label' => 'Metraj Kurum Onayında',  'class' => 'bg-indigo-100 text-indigo-700'],
             'metrage_revision'       => ['label' => 'Metraj Revizyon',        'class' => 'bg-rose-100 text-rose-700'],
             'metrage_approved'       => ['label' => 'Metraj Onaylı',          'class' => 'bg-emerald-100 text-emerald-700'],
+            'odeme_ust_yazi_pending' => ['label' => 'Ödeme Üst Yazı Açıldı', 'class' => 'bg-emerald-100 text-emerald-700'],
+            'odeme_ust_yazi_sent'    => ['label' => 'Ödeme Üst Yazı Kuruma Gönderildi', 'class' => 'bg-emerald-100 text-emerald-700'],
             'tahakkuk_pending'       => ['label' => 'Tahakkuk & Makbuz Açıldı','class' => 'bg-indigo-100 text-indigo-700'],
             'payment_completed'      => ['label' => 'Ödeme Tamamlandı',       'class' => 'bg-teal-100 text-teal-700'],
             'approved'               => ['label' => 'Onaylandı',             'class' => 'bg-emerald-100 text-emerald-700'],
@@ -120,7 +122,7 @@
             $alertViewerIsMuni = auth()->user()->isMunicipalityPersonel();
             $alertKaStage = $st;
         @endphp
-        @if(in_array($alertKaStage, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'pre_excavation_approved', 'pre_approved', 'awaiting_payment', 'receipt_pending']))
+        @if(in_array($alertKaStage, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'odeme_ust_yazi_pending', 'odeme_ust_yazi_sent', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'pre_excavation_approved', 'pre_approved', 'awaiting_payment', 'receipt_pending']))
         <div class="mb-6 rounded-2xl border border-blue-300 bg-gradient-to-r from-blue-50 to-sky-50 p-4 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-start gap-3">
@@ -189,6 +191,18 @@
                         </form>
                     @endif
                     @if($alertViewerIsMuni && $alertKaStage === 'metrage_approved')
+                        <form method="POST" action="{{ route('admin.applications.open-odeme-ust-yazi', $application) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 ÖDEME ÜST YAZI MODÜLÜNÜ AÇ</button>
+                        </form>
+                    @endif
+                    @if($alertViewerIsMuni && $alertKaStage === 'odeme_ust_yazi_pending')
+                        <form method="POST" action="{{ route('admin.applications.send-odeme-ust-yazi', $application) }}">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-sky-700">📤 Ödeme Üst Yazıyı Kuruma Gönder</button>
+                        </form>
+                    @endif
+                    @if($alertViewerIsMuni && $alertKaStage === 'odeme_ust_yazi_sent')
                         <form method="POST" action="{{ route('admin.applications.open-tahakkuk', $application) }}">
                             @csrf
                             <button type="submit" class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-blue-700">🔓 TAHAKKUK VE MAKBUZ MODÜLÜNÜ AÇ</button>
@@ -1038,7 +1052,7 @@
                                     @endif
 
                                     {{-- Tahsilat Fişi & Makbuz -- MERKEZ BELEDİYE (vatandaş): serbest erişim — statüden bağımsız göster + Tahakkuk Fişi PDF --}}
-                                    @if($isMuniApp || in_array($st, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'awaiting_payment', 'receipt_pending', 'pre_approved', 'measurement_done', 'tahakkuk_pending', 'tahakkuk_sent', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
+                                    @if($isMuniApp || in_array($st, ['excavation_completed', 'metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'odeme_ust_yazi_pending', 'odeme_ust_yazi_sent', 'awaiting_payment', 'receipt_pending', 'pre_approved', 'measurement_done', 'tahakkuk_pending', 'tahakkuk_sent', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'completed']))
                                         {{-- MERKEZ BELEDİYE: Tahakkuk Fişi (PDF) — alt kurum Step 4 ile aynı yapı --}}
                                         @if($isMuniApp)
                                         <a href="{{ route('admin.applications.pdf.tahakkuk', $application) }}" target="_blank"
@@ -1462,8 +1476,8 @@
                                     @php
                                         // GÖREV 2: metraj bir kez "Kuruma Gönder" edildiyse (metrage_sent sonrası) ileri
                                         // statülerde de (tahakkuk_sent/ruhsat_sent dahil) KALICI görünür.
-                                        $step3KurumGorebilir = $passedMetraj || in_array($st, ['metrage_sent', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
-                                        $step3BelediyeGorebilir = $passedMetraj || in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
+                                        $step3KurumGorebilir = $passedMetraj || in_array($st, ['metrage_sent', 'metrage_approved', 'odeme_ust_yazi_pending', 'odeme_ust_yazi_sent', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
+                                        $step3BelediyeGorebilir = $passedMetraj || in_array($st, ['metrage_pending', 'metrage_sent', 'metrage_revision', 'metrage_approved', 'odeme_ust_yazi_pending', 'odeme_ust_yazi_sent', 'measurement_done', 'priced', 'awaiting_payment', 'receipt_pending', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
                                         $step3Gorunur = ($isUserInstitution && $step3KurumGorebilir) || (!$isUserInstitution && $step3BelediyeGorebilir);
                                     @endphp
                                     @if(($isCurrent || $isPast) && $step3Gorunur)
@@ -1634,11 +1648,52 @@
                                         // GÖREV 4: Alt kurumun ÖDEME DEKONTU yükleyebilmesi için kart,
                                         // fiyatlandırma (awaiting_payment) ve makbuz bekleme (receipt_pending)
                                         // anlarından itibaren görünür olmalıdır — aksi halde dekont girişi imkânsız olur.
+                                        // ÇÖZÜM_11B: Ödeme Üst Yazı gönderildikten sonra (odeme_ust_yazi_sent)
+                                        // alt kurum Step 4'ü ilk kez görür.
                                         $tahakkukGeldi = in_array($st, ['awaiting_payment', 'receipt_pending',
+                                            'odeme_ust_yazi_sent',
                                             'tahakkuk_sent', 'accrued', 'approved',
                                             'payment_completed', 'taahhutname_pending', 'taahhutname_sent',
                                             'licensed', 'ruhsat_sent', 'field_work', 'completed']);
                                     @endphp
+                                    {{-- ÇÖZÜM_11B: ADIM — ÖDEME ÜST YAZI (kurum Step 4 / belediye Step 3).
+                                         Belediye üst yazıyı doldurur + e-imzalar (pdf_type odeme_ust_yazi
+                                         süreç adımı) ve "Gönder" der; kurum odeme_ust_yazi_sent'ten sonra görür. --}}
+                                    @php
+                                        $odemeUstYaziGeldi = $isUserInstitution
+                                            ? in_array($st, ['odeme_ust_yazi_sent', 'tahakkuk_pending', 'tahakkuk_sent', 'accrued', 'approved', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'licensed', 'ruhsat_sent', 'field_work', 'completed'])
+                                            : in_array($st, ['odeme_ust_yazi_pending', 'odeme_ust_yazi_sent', 'tahakkuk_pending', 'tahakkuk_sent', 'payment_completed', 'taahhutname_pending', 'taahhutname_sent', 'approved', 'licensed', 'ruhsat_sent', 'field_work', 'completed']);
+                                    @endphp
+                                    @if($odemeUstYaziGeldi)
+                                    <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                        <div class="mb-2 flex items-center justify-between">
+                                            <h4 class="text-xs font-bold text-slate-700">💰 Ödeme Üst Yazı</h4>
+                                            @if(!$isUserInstitution)
+                                                <span class="rounded-full bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
+                                                    {{ $st === 'odeme_ust_yazi_pending' ? 'Hazırlıkta (kuruma gizli)' : 'Kuruma gönderildi' }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <div class="mb-2 grid gap-2">
+                                            <a href="{{ route('admin.applications.pdf.odeme-ust-yazi', $application) }}" target="_blank"
+                                               class="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-100">
+                                                📄 Ödeme Üst Yazısını Görüntüle (A4 Düzenle)
+                                            </a>
+                                            @if(!$isUserInstitution && ($can['update'] ?? false))
+                                            <a href="{{ route('admin.applications.edit-document', [$application, 'odeme_ust_yazi']) }}" target="_blank"
+                                               class="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white shadow-md transition hover:bg-blue-700">
+                                                ✏️ Ödeme Üst Yazısını Düzenle (Kaydet)
+                                            </a>
+                                            @endif
+                                        </div>
+                                        {{-- İmzalı nüsha yükleme: ÇÖZÜM_11C adım kapısı (allow_signed_copy_upload) --}}
+                                        @include('admin.applications._signed_document_upload', [
+                                            'module' => 'odeme_ust_yazi',
+                                            'label' => '🗂 İmzalı Ödeme Üst Yazısı',
+                                            'canUpload' => $can['upload_copy'] ?? false,
+                                        ])
+                                    </div>
+                                    @endif
                                     @if($isUserInstitution && !$tahakkukGeldi)
                                         {{-- Alt kurum: Tahakkuk henüz hazır değil — bu adım gizli (d-none eşdeğeri) --}}
                                         <p class="text-xs text-slate-400 text-center py-4">Bu adım belediye tahakkuk&nbsp;&amp;&nbsp;makbuz bilgilerini hazırladıktan sonra aktif olacaktır.</p>

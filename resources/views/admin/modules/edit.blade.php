@@ -696,6 +696,86 @@
                     </button>
                 </div>
             </form>
+
+            {{-- ÇÖZÜM_11C: Süreç Onay Rotası — bu modüle bağlı süreç adımları (bağımsız formlar) --}}
+            <div class="mt-6 space-y-6">
+                <div class="rounded-xl border border-slate-200 bg-white shadow-sm">
+                    <div class="border-b border-slate-100 px-5 py-4 flex items-center justify-between">
+                        <h3 class="text-sm font-semibold text-slate-700">
+                            <i class="fas fa-route mr-2 text-violet-500"></i>Süreç Onay Rotası
+                            <span class="ml-2 text-xs font-normal text-slate-400">({{ $module->icon }} {{ $module->name }} modülüne bağlı e-imza / onay adımları)</span>
+                        </h3>
+                        <span class="rounded-full bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-600">{{ $moduleSteps->count() }} adım</span>
+                    </div>
+                    <div class="p-5 space-y-5">
+                        @if($moduleSteps->isNotEmpty())
+                            <div class="divide-y divide-slate-100 rounded-lg border border-slate-200">
+                                @foreach($moduleSteps as $ms)
+                                    <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                                        <div class="min-w-0">
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500">{{ $ms->process?->name }}</span>
+                                                <span class="text-xs font-semibold text-slate-700">{{ $ms->step_order }}. {{ $ms->name }}</span>
+                                                <span class="rounded-md bg-cyan-50 px-2 py-0.5 text-[10px] font-bold uppercase text-cyan-700">{{ $ms->role_key }}</span>
+                                                @if(($ms->action_type ?? 'onay') === 'e_imza')
+                                                    <span class="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">🔏 E-İMZA</span>
+                                                @elseif(($ms->action_type ?? 'onay') === 'paraf')
+                                                    <span class="rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">📝 PARAF</span>
+                                                @else
+                                                    <span class="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">✅ ONAY</span>
+                                                @endif
+                                                @if(!empty($ms->signature_config['allow_signed_copy_upload'] ?? null))
+                                                    <span class="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">🗂 İmzalı Nüsha Yükleme</span>
+                                                @endif
+                                            </div>
+                                            @if(($ms->signature_config['pdf_type'] ?? null))
+                                                <p class="mt-0.5 text-[10px] text-slate-400">PDF: {{ $pdfTypeOptions[$ms->signature_config['pdf_type']] ?? $ms->signature_config['pdf_type'] }}</p>
+                                            @endif
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <a href="{{ route('admin.processes.blueprint', $ms->process) }}"
+                                               class="rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[11px] font-bold text-cyan-700 hover:bg-cyan-100">
+                                                🎨 Süreçte Aç
+                                            </a>
+                                            <form method="POST" action="{{ route('admin.processes.destroy-step', $ms) }}" onsubmit="return confirm('Bu adımı süreçten silmek istediğinize emin misiniz?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="rounded-lg border border-rose-200 px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-50">Sil</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="text-xs text-slate-400">Bu modüle henüz süreç adımı bağlanmamış. Aşağıdan bir sürece e-imza / onay adımı ekleyin.</p>
+                        @endif
+
+                        <div class="border-t border-slate-100 pt-4">
+                            <h4 class="mb-3 text-xs font-bold text-slate-600">＋ Sürece Adım Ekle</h4>
+                            <div class="space-y-4">
+                                @foreach($processes as $process)
+                                    <details class="rounded-lg border border-slate-200 bg-slate-50">
+                                        <summary class="cursor-pointer px-4 py-3 text-xs font-semibold text-slate-700 hover:text-slate-900">
+                                            {{ $process->name }}
+                                            <span class="ml-2 text-[10px] font-normal text-slate-400">
+                                                ({{ $process->steps()->count() }} adım{{ $process->is_default ? ' · Varsayılan' : '' }}{{ $process->is_active ? '' : ' · Pasif' }})
+                                            </span>
+                                        </summary>
+                                        <div class="px-4 pb-4">
+                                            @include('admin.processes._step_form', [
+                                                'formMode' => 'add',
+                                                'formId' => 'module-' . $module->slug . '-proc-' . $process->id,
+                                                'process' => $process,
+                                                'moduleFilter' => $module->slug,
+                                            ])
+                                        </div>
+                                    </details>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>

@@ -6,6 +6,10 @@
     // 'showEImza' => false gönderir (ör. ruhsat İşlem Tabı'nda yeşil E-imza linki zaten var).
     $showEImza = $showEImza ?? true;
 
+    // ÇÖZÜM_11C: İmzalı nüsha yükleme bölümü görünürlüğü — çağıran 'canUpload' verirse
+    // adım bazlı kapı uygulanır (allow_signed_copy_upload); verilmezse eski davranış (update).
+    $canUpload = $canUpload ?? ($can['update'] ?? false);
+
     // GÖREV 2: "Kurum İmzaladı / Belediye İmzaladı" Görüntüle satırları, modülün
     // eş anlamlısı olan *_signed anahtarına (alt kurum işlem tabı) ÇİFT YÖNLÜ bakar.
     // Örn: belediye 'metraj' anahtarına yükler, alt kurum 'metraj_signed' anahtarına yükler;
@@ -89,7 +93,7 @@
     </div>
     @endif
 
-    @if($can['update'] ?? false)
+    @if($canUpload)
     <div class="signed-doc-upload mt-2" data-module="{{ $module }}" data-app-id="{{ $application->id }}">
         <div class="flex flex-col gap-2 w-full">
             <input type="file" accept=".pdf,.jpg,.jpeg,.png" class="sdoc-file block w-full text-sm text-slate-600 border border-slate-300 rounded-lg cursor-pointer bg-slate-50 file:mr-3 file:py-2 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors shadow-sm" required>

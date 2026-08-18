@@ -37,6 +37,18 @@ class DocumentTemplateService
             'icon'  => '🪪',
             'pdf_title' => 'ÖN KAZI İZNİ ONAYI',
         ],
+        // ÇÖZÜM_11B: Ödeme Üst Yazı — Saha Metraj onayı sonrası belediyenin tahakkuk
+        // bedelini kuruma bildirdiği belgedir. Ön Kazı gibi BELEDİYE belgesidir
+        // (kurum düzenleyemez); editörde şablonu düzenlenebilir (word editor).
+        'odeme_ust_yazi' => [
+            'label' => 'Ödeme Üst Yazı',
+            'full'  => 'Ödeme Üst Yazı Şablonu',
+            'desc'  => 'Metraj onayı sonrası tahakkuk bedeli bildirim yazısı',
+            'editor'=> 'word',
+            'blade' => 'admin.pdf.odeme_ust_yazi',
+            'icon'  => '💰',
+            'pdf_title' => 'ÖDEME ÜST YAZISI',
+        ],
         'ruhsat' => [
             'label' => 'Ruhsat',
             'full'  => 'Ruhsat Şablonu (Excel)',

@@ -19,6 +19,8 @@
         'metrage_sent'           => ['Metraj Kuruma Gönderildi', 'bg-indigo-100 text-indigo-700'],
         'metrage_revision'       => ['Metraj Revizyon',       'bg-purple-100 text-purple-700'],
         'metrage_approved'       => ['Metraj Onaylı',         'bg-teal-100 text-teal-700'],
+        'odeme_ust_yazi_pending' => ['Ödeme Üst Yazı Açıldı', 'bg-teal-100 text-teal-700'],
+        'odeme_ust_yazi_sent'    => ['Ödeme Üst Yazı Kuruma Gönderildi', 'bg-teal-100 text-teal-700'],
         'tahakkuk_pending'       => ['Tahakkuk & Makbuz Açıldı', 'bg-amber-100 text-amber-700'],
         'tahakkuk_sent'          => ['Tahakkuk & Makbuz Kuruma Gönderildi', 'bg-amber-100 text-amber-700'],
         'taahhutname_pending'    => ['Taahhütname Açıldı',    'bg-violet-100 text-violet-700'],

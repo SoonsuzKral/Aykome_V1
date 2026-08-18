@@ -410,6 +410,7 @@ class ProcessEngine
         return [
             'pre_excavation' => 'Ön Kazı Onayı',
             'metraj' => 'Metraj Onayı',
+            'odeme_ust_yazi' => 'Ödeme Üst Yazı',
             'ruhsat' => 'Ruhsat İzni',
             'tahakkuk' => 'Tahakkuk',
             'makbuz' => 'Tahsilat Makbuzu',

@@ -21,6 +21,10 @@ enum ApplicationStatus: string
     case MetrageSent = 'metrage_sent';
     case MetrageRevision = 'metrage_revision';
     case MetrageApproved = 'metrage_approved';
+    // ÇÖZÜM_11B: Belediye "ÖDEME ÜST YAZI MODÜLÜNÜ AÇ" dediğinde odeme_ust_yazi_pending (kuruma gizli);
+    // "Kuruma Gönder" dediğinde odeme_ust_yazi_sent → alt kurum Step 4'ü ilk kez burada görür.
+    case OdemeUstYaziPending = 'odeme_ust_yazi_pending';
+    case OdemeUstYaziSent = 'odeme_ust_yazi_sent';
     case TahakkukPending = 'tahakkuk_pending';
     // Belediye imzalı tahakkuk/makbuzu "Kuruma Gönder" dediğinde geçilir → alt kurum Step 4'ü ilk kez burada görür
     case TahakkukSent = 'tahakkuk_sent';
@@ -56,6 +60,8 @@ enum ApplicationStatus: string
             self::MetrageSent            => 'Metraj Kuruma Gönderildi',
             self::MetrageRevision        => 'Metraj Revizyon',
             self::MetrageApproved        => 'Metraj Onaylı',
+            self::OdemeUstYaziPending    => 'Ödeme Üst Yazı Açıldı',
+            self::OdemeUstYaziSent       => 'Ödeme Üst Yazı Kuruma Gönderildi',
             self::TahakkukPending        => 'Tahakkuk & Makbuz Açıldı',
             self::TahakkukSent           => 'Tahakkuk & Makbuz Kuruma Gönderildi',
             self::TaahhutnamePending     => 'Taahhütname Açıldı',
@@ -101,17 +107,20 @@ enum ApplicationStatus: string
                 'metrage_sent',
                 'metrage_revision',
                 'metrage_approved' => ['step' => 2, 'label' => 'Kazı Metraj Bilgi',        'icon' => '📐', 'module' => 'metraj'],
+                // ÇÖZÜM_11B: Saha Metraj onayı sonrası Ödeme Üst Yazı aşaması (belediye; kuruma gizli)
+                'odeme_ust_yazi_pending',
+                'odeme_ust_yazi_sent' => ['step' => 3, 'label' => 'Ödeme Üst Yazı',        'icon' => '💰', 'module' => 'odeme_ust_yazi'],
                 'accrued',
                 'approved',
                 'taahhutname_pending',
-                'taahhutname_sent' => ['step' => 3, 'label' => 'Taahhütname İmza',         'icon' => '✍️', 'module' => 'taahhut'],
+                'taahhutname_sent' => ['step' => 4, 'label' => 'Taahhütname İmza',         'icon' => '✍️', 'module' => 'taahhut'],
                 'tahakkuk_pending',
                 'tahakkuk_sent',
                 'payment_completed' => ['step' => 1, 'label' => 'Tahakkuk & Tahsilat Fişi', 'icon' => '🧾', 'module' => 'tahakkuk'],
                 'licensed',
                 'field_work',
                 'ruhsat_sent',
-                'completed'        => ['step' => 4, 'label' => 'Ruhsat Çıktısı',           'icon' => '📜', 'module' => 'ruhsat'],
+                'completed'        => ['step' => 5, 'label' => 'Ruhsat Çıktısı',           'icon' => '📜', 'module' => 'ruhsat'],
                 'cancelled'        => ['step' => 0, 'label' => 'İptal Edildi',             'icon' => '❌', 'module' => ''],
                 default            => ['step' => 0, 'label' => 'Beklemede',                 'icon' => '⏳', 'module' => ''],
             };
@@ -135,23 +144,25 @@ enum ApplicationStatus: string
             'priced',
             'awaiting_payment',
             'receipt_pending'    => ['step' => 3, 'label' => 'Saha Metraj',           'icon' => '📐', 'module' => 'metraj'],
+            // ÇÖZÜM_11B: Ödeme Üst Yazı KURUMA YALNIZCA gönderilince görünür (odeme_ust_yazi_pending gizli)
+            'odeme_ust_yazi_sent' => ['step' => 4, 'label' => 'Ödeme Üst Yazı',       'icon' => '💰', 'module' => 'odeme_ust_yazi'],
             // Tahakkuk & Makbuz: belediye fiyatlandırdı / makbuz beklentisi
-            // tahakkuk_sent: belediye imzalı evrakı kuruma gönderdi → alt kurum Step 4'ü ilk kez burada görür
+            // tahakkuk_sent: belediye imzalı evrakı kuruma gönderdi → alt kurum Step 5'i ilk kez burada görür
             'tahakkuk_pending',
             'tahakkuk_sent',
             'accrued',
             'approved',
-            'payment_completed'  => ['step' => 4, 'label' => 'Tahakkuk & Makbuz',     'icon' => '🧾', 'module' => 'tahakkuk'],
+            'payment_completed'  => ['step' => 5, 'label' => 'Tahakkuk & Makbuz',     'icon' => '🧾', 'module' => 'tahakkuk'],
             // Taahhütname imzası (GÖREV 5): belediye modülü açar (taahhutname_pending, kuruma gizli),
-            // "Kuruma Gönder" dediğinde taahhutname_sent → alt kurum Step 5'i ilk kez burada görür.
+            // "Kuruma Gönder" dediğinde taahhutname_sent → alt kurum Step 6'yı ilk kez burada görür.
             'taahhutname_pending',
-            'taahhutname_sent'   => ['step' => 5, 'label' => 'Taahhütname',           'icon' => '✍️', 'module' => 'taahhut'],
+            'taahhutname_sent'   => ['step' => 6, 'label' => 'Taahhütname',           'icon' => '✍️', 'module' => 'taahhut'],
             // Ruhsat (GÖREV 4): licensed belediye hazırlığıdır (kuruma gizli); belediye
-            // "İmzala & Kuruma Gönder" dediğinde ruhsat_sent → alt kurum Step 6'yı ilk kez burada görür.
+            // "İmzala & Kuruma Gönder" dediğinde ruhsat_sent → alt kurum Step 7'yi ilk kez burada görür.
             'licensed',
             'ruhsat_sent',
             'field_work',
-            'completed'          => ['step' => 6, 'label' => 'Ruhsat',                'icon' => '📜', 'module' => 'ruhsat'],
+            'completed'          => ['step' => 7, 'label' => 'Ruhsat',                'icon' => '📜', 'module' => 'ruhsat'],
             'cancelled'          => ['step' => 0, 'label' => 'İptal Edildi',          'icon' => '❌', 'module' => ''],
             default              => ['step' => 0, 'label' => 'Beklemede',             'icon' => '⏳', 'module' => ''],
         };
@@ -163,6 +174,7 @@ enum ApplicationStatus: string
             return [
                 ['status' => 'submitted',   'label' => 'Tahakkuk & Tahsilat Fişi', 'icon' => '🧾'],
                 ['status' => 'measurement_done', 'label' => 'Kazı Metraj Bilgi',    'icon' => '📐'],
+                ['status' => 'odeme_ust_yazi_pending', 'label' => 'Ödeme Üst Yazı', 'icon' => '💰'],
                 ['status' => 'accrued',      'label' => 'Taahhütname İmza',        'icon' => '✍️'],
                 ['status' => 'licensed',     'label' => 'Ruhsat Çıktısı',          'icon' => '📜'],
             ];
@@ -172,6 +184,7 @@ enum ApplicationStatus: string
             ['status' => 'pending',          'label' => 'Üst Yazı',              'icon' => '✉️'],
             ['status' => 'pre_approved',     'label' => 'Ön Kazı',               'icon' => '⛏️'],
             ['status' => 'measurement_done', 'label' => 'Saha Metraj',           'icon' => '📐'],
+            ['status' => 'odeme_ust_yazi_sent', 'label' => 'Ödeme Üst Yazı',     'icon' => '💰'],
             ['status' => 'accrued',          'label' => 'Tahakkuk & Makbuz',     'icon' => '🧾'],
             ['status' => 'approved',         'label' => 'Taahhütname',           'icon' => '✍️'],
             ['status' => 'licensed',         'label' => 'Ruhsat',                'icon' => '📜'],

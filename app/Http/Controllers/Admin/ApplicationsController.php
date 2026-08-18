@@ -434,6 +434,13 @@ class ApplicationsController extends Controller
                     && ($engine->roleCanApproveStep($currentStep, $request->user())
                         || $engine->canSignStep($currentStep, $request->user())
                         || (!$request->user()->isMunicipalityPersonel() && $request->user()->can('update', $application))),
+                // ÇÖZÜM_11C: "İmzalı Nüsha Yükleme" bölümü — yalnızca aktif e-imza
+                // adımında allow_signed_copy_upload açıkken ve adım yetkilisiyken görünür.
+                'upload_copy' => $currentStep !== null
+                    && !empty($currentStep->signature_config['allow_signed_copy_upload'] ?? null)
+                    && ($engine->roleCanApproveStep($currentStep, $request->user())
+                        || $engine->canSignStep($currentStep, $request->user())
+                        || (!$request->user()->isMunicipalityPersonel() && $request->user()->can('update', $application))),
                 'approve_price' => $request->user()->can('approvePrice', $application),
                 'approve_receipt' => $request->user()->can('approveReceipt', $application),
                 'transfer' => $request->user()->can('transferTask', $application),
@@ -1043,7 +1050,8 @@ class ApplicationsController extends Controller
             ? $application->status->value
             : (string) $application->status;
 
-        abort_unless($currentStatus === 'metrage_approved', 422, 'Tahakkuk & Makbuz modülü bu aşamada açılamaz.');
+        // ÇÖZÜM_11B: Tahakkuk & Makbuz artık Ödeme Üst Yazı gönderiminden SONRA açılır.
+        abort_unless($currentStatus === 'odeme_ust_yazi_sent', 422, 'Tahakkuk & Makbuz modülü bu aşamada açılamaz.');
 
         $application->update(['status' => \App\Enums\ApplicationStatus::TahakkukPending]);
 
@@ -1211,6 +1219,88 @@ class ApplicationsController extends Controller
         return back()->with('success', 'Ruhsat kuruma gönderildi.');
     }
 
+    /**
+     * KATI ADIM KAPISI / ÇÖZÜM_11B: Belediye "ÖDEME ÜST YAZI MODÜLÜNÜ AÇ" tuşuna basar.
+     * metrage_approved → odeme_ust_yazi_pending (yalnızca belediye görür; kuruma gizli).
+     */
+    public function openOdemeUstYazi(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'metrage_approved', 422, 'Ödeme Üst Yazı modülü bu aşamada açılamaz.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::OdemeUstYaziPending]);
+
+        AuditLogger::log(
+            'application.odeme_ust_yazi_opened',
+            "Belediye Ödeme Üst Yazı modülünü açtı: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', '🔓 Ödeme Üst Yazı modülü açıldı.');
+    }
+
+    /**
+     * KATI ADIM KAPISI / ÇÖZÜM_11B: Belediye imzalı Ödeme Üst Yazı evrakını kuruma gönderir.
+     * odeme_ust_yazi_pending → odeme_ust_yazi_sent (Alt kurum Step 4'ü yalnızca bu andan itibaren görür).
+     * Modülün config.bundled_modules'ündeki (metraj + tahakkuk) modüller için
+     * ApplicationModuleSubmission kayıtları "paket gönderildi" işaretlenir.
+     */
+    public function sendOdemeUstYaziToInstitution(Request $request, Application $application): RedirectResponse
+    {
+        $this->authorize('update', $application);
+
+        abort_unless($request->user()->isMunicipalityPersonel(), 403, 'Bu işlem yalnızca belediye yetkisiyle yapılır.');
+        abort_unless($application->isInstitutionApplication(), 422, 'Bu akış yalnızca kurum başvurularında geçerlidir.');
+
+        $currentStatus = $application->status instanceof \App\Enums\ApplicationStatus
+            ? $application->status->value
+            : (string) $application->status;
+
+        abort_unless($currentStatus === 'odeme_ust_yazi_pending', 422, 'Ödeme Üst Yazı bu aşamada kuruma gönderilemez.');
+
+        $application->update(['status' => \App\Enums\ApplicationStatus::OdemeUstYaziSent]);
+
+        // Paket kayıtları: metraj + tahakkuk belgeleri bu gönderimle birlikte kuruma ulaşmış sayılır.
+        $module = \App\Models\ApplicationModule::query()->where('slug', 'odeme_ust_yazi')->first();
+        $bundled = $module?->getConfigValue('bundled_modules') ?? [];
+        foreach ($bundled as $slug) {
+            $m = \App\Models\ApplicationModule::query()->where('slug', $slug)->first();
+            if (! $m) {
+                continue;
+            }
+            \App\Models\ApplicationModuleSubmission::updateOrCreate(
+                [
+                    'application_id' => $application->id,
+                    'application_module_id' => $m->id,
+                ],
+                [
+                    'status' => 'submitted',
+                    'submitted_at' => now(),
+                    'submitted_by' => $request->user()->id,
+                    'notes' => json_encode(['sent_via' => 'odeme_ust_yazi_bundle', 'application_no' => $application->application_no]),
+                ]
+            );
+        }
+
+        AuditLogger::log(
+            'application.odeme_ust_yazi_sent_institution',
+            "Belediye Ödeme Üst Yazı evrakını kuruma gönderdi: {$application->application_no}",
+            'Application',
+            $application->id
+        );
+
+        return back()->with('success', 'Ödeme Üst Yazı kuruma gönderildi.');
+    }
+
     public function downloadPrePermit(Application $application)
     {
         $this->authorize('view', $application);
@@ -1256,6 +1346,57 @@ class ApplicationsController extends Controller
         ];
 
         $html = \Illuminate\Support\Facades\View::make('admin.pdf.pre_permit', $data)->render();
+        $html = $this->lockForAltKurum($html, $application);
+        return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+    }
+
+    /**
+     * ÇÖZÜM_11B: Ödeme Üst Yazı — belediye hazırlar (üst yazıyı e-imzalar), kurum görüntüler.
+     * Şablon varsa (DocumentTemplateService::TYPES['odeme_ust_yazi']) editör içeriği kullanılır;
+     * yoksa hazır blade fallback'i render edilir. ALT KURUM KİLİDİ uygulanır.
+     */
+    public function downloadOdemeUstYazi(Application $application)
+    {
+        $this->authorize('view', $application);
+        if ($resp = $this->signedResponseOrNull($application, 'odeme_ust_yazi')) {
+            return $resp;
+        }
+        if ($html = DocumentTemplateService::renderFor('odeme_ust_yazi', $application)) {
+            $html = $this->lockForAltKurum($html, $application);
+            return response($html)->header('Content-Type', 'text/html; charset=utf-8');
+        }
+        $application->load(['institution', 'creator']);
+        $settings = PreExcavationPermitSetting::first();
+
+        $signatories = app(\App\Services\SignerPlacementService::class)
+            ->yerlesimHazirla($application, 'odeme_ust_yazi');
+
+        $data = [
+            'application' => $application,
+            'belediye' => 'EYYÜBİYE BELEDİYE BAŞKANLIĞI',
+            'mudurluk' => 'Fen İşleri Müdürlüğü',
+            'sayi' => 'E-' . ($settings->document_prefix ?? '18790261') . '-' . str_pad($application->id, 6, '0', STR_PAD_LEFT),
+            'tarih' => now()->format('d.m.Y'),
+            'konu' => mb_strtoupper('Kazı İşi Bedel Tahakkuku Hk.', 'UTF-8'),
+            'kurum' => mb_strtoupper($application->institution?->name ?? 'KURUM', 'UTF-8'),
+            'ilgi_tarih' => $application->created_at?->format('d.m.Y') ?? now()->format('d.m.Y'),
+            'ilgi_sayi' => str_pad($application->id, 7, '0', STR_PAD_LEFT),
+            'metin' => 'İlginizde kayıtlı kazı çalışmasına ilişkin saha metrajı tarafımızca onaylanmıştır.',
+            'tahakkuk_tutar' => $application->total_price ?? 0,
+            'imza_ad' => $signatories['belediye_baskan_yardimcisi']['ad_soyad'] ?? '',
+            'imza_unvan' => $signatories['belediye_baskan_yardimcisi']['unvan'] ?? 'Belediye Başkan Yardımcısı',
+            'adres' => $settings->address ?? '',
+            'bilgi_kisi' => $settings->signer_name ?? '',
+            'telefon' => $settings->phone ?? '',
+            'fax' => $settings->fax ?? '',
+            'eposta' => $application->institution?->email ?? $settings->email ?? '-',
+            'web' => $settings->website ?? '-',
+            'kep_adresi' => $application->institution?->email ?? 'eyyubiye@hs03.kep.tr',
+            'logo_base64' => \App\Models\PreExcavationPermitSetting::toBase64DataUri($settings->logo_path)
+                ?: \App\Services\EImzaService::belediyeLogoBase64(),
+        ];
+
+        $html = \Illuminate\Support\Facades\View::make('admin.pdf.odeme_ust_yazi', $data)->render();
         $html = $this->lockForAltKurum($html, $application);
         return response($html)->header('Content-Type', 'text/html; charset=utf-8');
     }
@@ -1903,7 +2044,7 @@ class ApplicationsController extends Controller
         $request->validate([
             // GÖREV 5: "İmzalı Yükle" (signed-doc-upload) bileşeninin gönderdiği tüm modül anahtarları.
             // E-imza data-pdf-type ile birebir aynı sette olmalı; aksi halde upload 422 ile reddedilir.
-            'module' => 'required|string|in:tahakkuk,metraj,ruhsat,taahhutname,pre_permit,makbuz,cover_letter_signed,on_kazi_signed,metraj_signed,taahhutname_imzali,ruhsat_teslim',
+            'module' => 'required|string|in:tahakkuk,metraj,ruhsat,taahhutname,pre_permit,makbuz,cover_letter_signed,on_kazi_signed,metraj_signed,taahhutname_imzali,ruhsat_teslim,odeme_ust_yazi,odeme_ust_yazi_signed',
             'file' => 'required|file|mimes:pdf,jpg,jpeg,png|max:20480',
         ]);
 

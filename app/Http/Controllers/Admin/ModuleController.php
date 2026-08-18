@@ -4,6 +4,9 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ApplicationModule;
+use App\Models\ProcessDefinition;
+use App\Models\User;
+use App\Services\ProcessEngine;
 use Illuminate\Http\Request;
 
 class ModuleController extends Controller
@@ -56,7 +59,42 @@ class ModuleController extends Controller
     {
         $module->load(['fields', 'templates', 'sequences']);
 
-        return view('admin.modules.edit', compact('module'));
+        $engine = app(ProcessEngine::class);
+
+        // ÇÖZÜM_11C: Modül Ayarları → Süreç Onay Rotası sekmesi için gerekli veriler.
+        $municipalityUsers = User::query()
+            ->whereHas('institution', fn($q) => $q->where('is_municipality', true))
+            ->orWhereNull('institution_id')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email'])
+            ->map(fn($u) => ['id' => $u->id, 'label' => $u->name . ' (' . $u->email . ')']);
+
+        // Modülün mevcut bağlı adımları: approvable_modules'ünde bu modülün slug'ı geçenler.
+        $moduleSteps = \App\Models\ProcessStep::query()
+            ->where('approvable_modules', 'like', '%"' . $module->slug . '"%')
+            ->with('process')
+            ->orderBy('process_definition_id')
+            ->orderBy('step_order')
+            ->get();
+
+        return view('admin.modules.edit', [
+            'module' => $module,
+            'processes' => ProcessDefinition::query()->with('steps')->orderBy('id')->get(),
+            'moduleSteps' => $moduleSteps,
+            'roleOptions' => $engine->roleOptions(),
+            'moduleOptions' => $engine->moduleOptions(),
+            'municipalityUsers' => $municipalityUsers,
+            'pdfTypeOptions' => [
+                'ruhsat' => 'Kazı Ruhsatı',
+                'metraj' => 'Metraj Formu',
+                'tahakkuk' => 'Tahakkuk Formu',
+                'taahhutname' => 'Taahhütname',
+                'makbuz' => 'Makbuz',
+                'pre_permit' => 'Ön Kazı İzni',
+                'cover_letter' => 'Üst Yazı',
+                'odeme_ust_yazi' => 'Ödeme Üst Yazı',
+            ],
+        ]);
     }
 
     public function update(Request $request, ApplicationModule $module)

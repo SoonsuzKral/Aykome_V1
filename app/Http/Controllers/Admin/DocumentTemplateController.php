@@ -45,8 +45,8 @@ class DocumentTemplateController extends Controller
         $types = [];
         foreach (DocumentTemplateService::TYPES as $key => $t) {
             // GÖREV 3.1: Alt kurum "Ön Kazı Şablonu" kartını GÖRMEZ — Ön Kazı belediyeye aittir.
-            // Diğer tüm şablonlar açıktır.
-            if ($institutionScope && $key === 'on_kazi') {
+            // ÇÖZÜM_11B: "Ödeme Üst Yazı" da belediye belgesidir → alt kurum kartı görmez.
+            if ($institutionScope && in_array($key, ['on_kazi', 'odeme_ust_yazi'], true)) {
                 continue;
             }
 

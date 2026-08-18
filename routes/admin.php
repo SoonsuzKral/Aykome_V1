@@ -87,6 +87,8 @@ Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix
         Route::post('applications/{application}/complete-field-work', [ApplicationsController::class, 'completeFieldWork'])->name('applications.complete-field-work');
         Route::post('applications/{application}/open-metraj',           [ApplicationsController::class, 'openMetraj']           )->name('applications.open-metraj');
         Route::post('applications/{application}/send-metrage',          [ApplicationsController::class, 'sendMetrageToInstitution'])->name('applications.send-metrage');
+        Route::post('applications/{application}/open-odeme-ust-yazi',   [ApplicationsController::class, 'openOdemeUstYazi']      )->name('applications.open-odeme-ust-yazi');
+        Route::post('applications/{application}/send-odeme-ust-yazi',   [ApplicationsController::class, 'sendOdemeUstYaziToInstitution'])->name('applications.send-odeme-ust-yazi');
         Route::post('applications/{application}/approve-metrage',       [ApplicationsController::class, 'approveMetrage']       )->name('applications.approve-metrage');
         Route::post('applications/{application}/reject-metrage',        [ApplicationsController::class, 'rejectMetrage']        )->name('applications.reject-metrage');
         Route::post('applications/{application}/open-tahakkuk',         [ApplicationsController::class, 'openTahakkuk']         )->name('applications.open-tahakkuk');
@@ -107,6 +109,7 @@ Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix
         Route::get('applications/{application}/payment-receipt', [ApplicationsController::class, 'generatePaymentReceipt'])->name('applications.payment-receipt');
         Route::get('applications/{application}/pdf/cover-letter', [ApplicationsController::class, 'downloadCoverLetter'])->name('applications.pdf.cover-letter');
         Route::get('applications/{application}/pdf/pre-permit',   [ApplicationsController::class, 'downloadPrePermit']   )->name('applications.pdf.pre-permit');
+        Route::get('applications/{application}/pdf/odeme-ust-yazi', [ApplicationsController::class, 'downloadOdemeUstYazi'])->name('applications.pdf.odeme-ust-yazi');
         Route::get('applications/{application}/pdf/taahhutname',  [ApplicationsController::class, 'downloadTaahhutname'] )->name('applications.pdf.taahhutname');
         Route::get('applications/{application}/pdf/ruhsat',       [ApplicationsController::class, 'downloadRuhsat']     )->name('applications.pdf.ruhsat');
         Route::get('applications/{application}/pdf/metraj',       [ApplicationsController::class, 'downloadMetraj']     )->name('applications.pdf.metraj');

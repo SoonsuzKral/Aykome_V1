@@ -22,6 +22,7 @@ class SignatoryEngine
             'taahhutname' => 'Taahhütname',
             'cover_letter' => 'Üst Yazı (Dilekçe)',
             'on_kazi' => 'Ön Kazı',
+            'odeme_ust_yazi' => 'Ödeme Üst Yazı',
         ];
     }
 

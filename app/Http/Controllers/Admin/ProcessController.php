@@ -59,6 +59,7 @@ class ProcessController extends Controller
                 'makbuz' => 'Makbuz',
                 'pre_permit' => 'Ön Kazı İzni',
                 'cover_letter' => 'Üst Yazı',
+                'odeme_ust_yazi' => 'Ödeme Üst Yazı',
             ],
         ]);
     }
@@ -280,7 +281,8 @@ class ProcessController extends Controller
             'signature_config.signer_ids.*' => ['nullable', 'integer'],
             'signature_config.signer_roles' => ['nullable', 'array'],
             'signature_config.signer_roles.*' => ['nullable', 'string'],
-            'signature_config.pdf_type' => ['nullable', 'string', 'in:ruhsat,metraj,tahakkuk,taahhutname,makbuz,pre_permit,cover_letter'],
+            'signature_config.pdf_type' => ['nullable', 'string', 'in:ruhsat,metraj,tahakkuk,taahhutname,makbuz,pre_permit,cover_letter,odeme_ust_yazi'],
+            'signature_config.allow_signed_copy_upload' => ['nullable', 'boolean'],
             'signature_config.delegation' => ['nullable', 'array'],
             'signature_config.delegation.allowed' => ['nullable', 'boolean'],
             'signature_config.delegation.delegable_to' => ['nullable', 'array'],
@@ -372,7 +374,8 @@ class ProcessController extends Controller
             'signature_config.signer_ids.*' => ['nullable', 'integer'],
             'signature_config.signer_roles' => ['nullable', 'array'],
             'signature_config.signer_roles.*' => ['nullable', 'string'],
-            'signature_config.pdf_type' => ['nullable', 'string', 'in:ruhsat,metraj,tahakkuk,taahhutname,makbuz,pre_permit,cover_letter'],
+            'signature_config.pdf_type' => ['nullable', 'string', 'in:ruhsat,metraj,tahakkuk,taahhutname,makbuz,pre_permit,cover_letter,odeme_ust_yazi'],
+            'signature_config.allow_signed_copy_upload' => ['nullable', 'boolean'],
             'signature_config.delegation' => ['nullable', 'array'],
             'signature_config.delegation.allowed' => ['nullable', 'boolean'],
             'signature_config.delegation.delegable_to' => ['nullable', 'array'],

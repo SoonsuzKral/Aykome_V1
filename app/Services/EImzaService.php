@@ -306,6 +306,7 @@ class EImzaService
             'tahakkuk'     => 'tahakkuk',
             'makbuz'       => 'makbuz',
             'cover_letter' => 'cover_letter',
+            'odeme_ust_yazi' => 'odeme_ust_yazi',
         ];
         $mapped = $map[$pdfType] ?? null;
         if ($mapped !== null) {
@@ -368,6 +369,7 @@ class EImzaService
             'tahakkuk' => 'admin.pdf.tahakkuk',
             'makbuz' => 'admin.pdf.tahsilat_makbuzu',
             'cover_letter' => 'admin.pdf.cover_letter',
+            'odeme_ust_yazi' => 'admin.pdf.odeme_ust_yazi',
             default => throw new \InvalidArgumentException("Geçersiz PDF türü: {$pdfType}"),
         };
 
@@ -715,6 +717,7 @@ class EImzaService
             'tahakkuk' => 'Tahakkuk',
             'makbuz' => 'Tahsilat Makbuzu',
             'cover_letter' => 'Üst Yazı',
+            'odeme_ust_yazi' => 'Ödeme Üst Yazı',
         ];
         $pdfTypeLabel = $pdfTypeLabels[$transaction->pdf_type] ?? $transaction->pdf_type;
         $moduleDocs[$transaction->pdf_type] = [
