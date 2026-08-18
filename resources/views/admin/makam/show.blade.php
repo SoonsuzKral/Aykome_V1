@@ -37,7 +37,8 @@
         }
         $kdv = $ztb * 0.20;
         $ruhsatHarci = $isDicle ? 0 : $toplamMiktar * 9;
-        $kesifBedeli = 361 + ($ztb * 0.01);
+        // ÇÖZÜM_11A §4 — metraj hiç yoksa keşif bedeli de 0 (AykomeMath ile birebir ayna).
+        $kesifBedeli = ($toplamMiktar > 0 || $ztb > 0) ? 361 + ($ztb * 0.01) : 0;
         $ztbToplam = $ztb + $kdv + $ruhsatHarci + $kesifBedeli;
         $teminat = $isInstApp ? 0 : $ztb * 0.50;
         $genelToplam = $ztbToplam + $teminat;

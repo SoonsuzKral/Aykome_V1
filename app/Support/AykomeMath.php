@@ -14,6 +14,8 @@ namespace App\Support;
  *  - DİCLE ELEKTRİK kurumu → Ruhsat Harcı HER ZAMAN 0 TL.
  *  - TÜM alt kurumlar (is_municipality=false) ve Ek Ruhsat → TEMİNAT 0 TL;
  *    yalnızca ZTB + KDV + Harç + Keşif toplanır, teminat eklenmez/çarpılmaz.
+ *  - ÇÖZÜM_11A §4: METRAJ HİÇ YOKSA (miktar=0 ve ZTB=0) Keşif Bedeli de 0 TL —
+ *    veri girilmemiş başvuruda belgeye tek başına "361,00 TL" basılmaz.
  */
 class AykomeMath
 {
@@ -47,7 +49,11 @@ class AykomeMath
 
         $kdv = $ztb * self::KDV_RATE;
         $licenseFee = $isDicle ? 0.0 : $toplamMiktar * self::HARC_PER_M2;
-        $discoveryFee = self::KESIF_BASE + ($ztb * self::KESIF_RATE);
+        // ÇÖZÜM_11A §4 — Keşif Bedeli, FİİLEN yapılan keşfin ücretidir: metraj
+        // (miktar/ZTB) hiç girilmemişse keşif de yoktur → 0,00. Aksi hâlde eski
+        // formül aynen korunur (gerçek başvurularda hiçbir tutar değişmez).
+        $hasMetraj = $toplamMiktar > 0 || $ztb > 0;
+        $discoveryFee = $hasMetraj ? self::KESIF_BASE + ($ztb * self::KESIF_RATE) : 0.0;
         $teminat = ($isInstApp || $isAdditionalPermit) ? 0.0 : $ztb * self::TEMINAT_RATE;
         $ztbTotal = $ztb + $kdv + $licenseFee + $discoveryFee;
         $generalTotal = $ztbTotal + $teminat;

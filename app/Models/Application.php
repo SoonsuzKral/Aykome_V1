@@ -334,9 +334,16 @@ class Application extends Model implements HasMedia
         if (empty($rows) && ! empty($this->address_text)) {
             $ilkSatir = trim(explode("\n", $this->address_text)[0] ?? '');
             if ($ilkSatir !== '') {
+                // ÇÖZÜM_11A §6 — serbest metin adres mahalle/sokak olarak ayrıştırılır;
+                // ayrıştırılamazsa eski davranış (tüm satır "yol" olarak) korunur.
+                $parcali = \App\Support\AdresAyristirici::ayir($ilkSatir);
                 $rows[] = [
-                    'mahalle' => 'BELİRTİLMEMİŞ MAHALLE',
-                    'yol' => mb_strtoupper($ilkSatir, 'UTF-8'),
+                    'mahalle' => $parcali['mahalle'] !== '' && $parcali['cadde'] !== ''
+                        ? $parcali['mahalle']
+                        : 'BELİRTİLMEMİŞ MAHALLE',
+                    'yol' => $parcali['cadde'] !== ''
+                        ? $parcali['cadde']
+                        : mb_strtoupper($ilkSatir, 'UTF-8'),
                 ];
             }
         }
@@ -376,8 +383,23 @@ class Application extends Model implements HasMedia
     public function getDistrictNameAttribute(): ?string
     {
         $d = trim((string) ($this->district ?? ''));
+        if ($d !== '') {
+            return $d;
+        }
 
-        return $d !== '' ? $d : 'EYYÜBİYE';
+        // ÇÖZÜM_11A §5 — applications tablosunda "district" kolonu YOK; ilçe bilgisi
+        // GIS noktasında (gis_basvuru_noktalar.ilce) tutulur. İlişki YÜKLÜ ise oradan
+        // okunur (ek sorgu açılmaz), yoksa kurumsal varsayılana düşer.
+        if ($this->relationLoaded('gisNoktalari')) {
+            foreach ($this->gisNoktalari as $nokta) {
+                $ilce = trim((string) ($nokta->ilce ?? ''));
+                if ($ilce !== '') {
+                    return mb_strtoupper($ilce, 'UTF-8');
+                }
+            }
+        }
+
+        return 'EYYÜBİYE';
     }
 
     /** EK-1 sayfası için mahalle bazında gruplanmış sokak listesi. */

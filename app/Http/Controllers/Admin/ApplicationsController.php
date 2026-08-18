@@ -26,6 +26,7 @@ use App\Services\PricingService;
 use App\Services\ProcessEngine;
 use App\Services\SignatoryEngine;
 use App\Services\TaskTransferService;
+use App\Support\AdresAyristirici;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -2589,8 +2590,19 @@ HTML;
                 }
             }
         }
-        $mahalle = $mahalleList ? implode(', ', array_unique($mahalleList)) : ($app->address_text ? mb_strtoupper(trim(explode("\n", $app->address_text)[0]), 'UTF-8') : '');
+        $mahalle = $mahalleList ? implode(', ', array_unique($mahalleList)) : '';
         $cadde = $caddeList ? implode(', ', array_unique($caddeList)) : '';
+
+        // ÇÖZÜM_11A §6 — YAPILANDIRILMIŞ mahalle/sokak kaydı yoksa (başvuru TEK
+        // serbest metin "Adres" kutusundan girilmişse) ham adres MAHALLE sütununa
+        // olduğu gibi düşüyordu, CADDE VE SOKAK boş kalıyordu. Artık serbest metin
+        // mahalle / cadde-sokak olarak ayrıştırılır; ayrıştırılamazsa eski davranış
+        // (her şey mahalleye) korunur — yanlış sütuna uydurma veri yazılmaz.
+        if ($mahalle === '' || $cadde === '') {
+            $serbest = AdresAyristirici::ozet($app->address_text);
+            $mahalle = $mahalle !== '' ? $mahalle : $serbest['mahalle'];
+            $cadde = $cadde !== '' ? $cadde : $serbest['cadde'];
+        }
 
         if ($app->relationLoaded('surfaceLines') && $app->surfaceLines->count() > 0) {
             foreach ($app->surfaceLines as $sl) {

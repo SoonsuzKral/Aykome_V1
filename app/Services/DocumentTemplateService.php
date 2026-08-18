@@ -794,6 +794,37 @@ CSS;
         'baskan_yardimcisi_unvani',
     ];
 
+    /** fieldCatalog() anahtar kümesi (ÇÖZÜM_11A §2) — istek başına 1 kez kurulur. */
+    protected static ?array $bilinenAlanKumesi = null;
+
+    /**
+     * ÇÖZÜM_11A §2 — Anahtar, Bilgi Alanları kataloğunda TANIMLI mı?
+     *
+     * Gerçek çıktı yolunda (renderFor: görüntüle/yazdır/PDF) katalogda tanımlı
+     * ama değeri boş olan alanlar ham "{proje_kodu}" yerine boş basılır; katalogda
+     * OLMAYAN (yazım hatalı / şablona elle yazılmış) token'lar ise olduğu gibi
+     * kalır — böylece şablon hatası görünür olmaya devam eder.
+     */
+    protected static function bilinenAlanMi(string $key): bool
+    {
+        if (self::$bilinenAlanKumesi === null) {
+            $kume = [];
+            foreach (self::fieldCatalog() as $grup) {
+                foreach ($grup as $alan) {
+                    $k = (string) ($alan['key'] ?? '');
+                    if ($k !== '') {
+                        $kume[$k] = true;
+                    }
+                }
+            }
+            // fieldValue() içinde eşlenen ama katalogda listelenmeyen eş anlamlı anahtar.
+            $kume['application_no'] = true;
+            self::$bilinenAlanKumesi = $kume;
+        }
+
+        return isset(self::$bilinenAlanKumesi[$key]);
+    }
+
     /** yerlesimHazirla()/roleMap() (5'e kadar DB sorgusu) render başına 1 kez. */
     protected static array $imzaYerlesimCache = [];
 
@@ -922,8 +953,13 @@ CSS;
      *
      * ÇÖZÜM_10 §1: $documentType, imza yetkilisi token'larının doğru belge tipinden
      * (on_kazi → pre_permit) çözülmesi için fieldValue()'ya taşınır.
+     *
+     * ÇÖZÜM_11A §2: $strictEmpty=true SADECE gerçek çıktı yolunda (renderFor →
+     * Görüntüle/Yazdır/PDF Kaydet) verilir; o modda katalogda tanımlı boş alanlar
+     * ham "{proje_kodu}" basmak yerine boş bırakılır. Editör/önizleme yolları
+     * varsayılan false ile çağırır (hangi alanın boş kaldığı görünür kalsın).
      */
-    public static function hydrateTemplateTokens(string $html, Application $app, ?string $documentType = null): string
+    public static function hydrateTemplateTokens(string $html, Application $app, ?string $documentType = null, bool $strictEmpty = false): string
     {
         // Adım 1 — mevcut sabit cover token map'i (eski davranış).
         $html = self::hydrateInstitutionTokens($html, $app);
@@ -934,7 +970,7 @@ CSS;
 
         $html = (string) preg_replace_callback(
             '/\{([a-z_çğıiöşü0-9]+)\}/u',
-            function (array $m) use ($app, $hasMuhtelif, $overflow, $documentType): string {
+            function (array $m) use ($app, $hasMuhtelif, $overflow, $documentType, $strictEmpty): string {
                 $key = $m[1] ?? '';
                 if ($key === '') {
                     return $m[0];
@@ -957,7 +993,14 @@ CSS;
                     // İMZA token'ları (ÇÖZÜM_10 §1): değer boşsa belgeye ham
                     // "{baskan_yardimcisi_adi}" basmak yerine iz bırakmadan silinir —
                     // imza satırı boş kalır, çıktı bozulmaz.
-                    return in_array($key, self::BOS_BIRAKILABILIR_ANAHTARLAR, true) ? '' : $m[0];
+                    if (in_array($key, self::BOS_BIRAKILABILIR_ANAHTARLAR, true)) {
+                        return '';
+                    }
+
+                    // ÇÖZÜM_11A §2: gerçek çıktıda (strict) katalogda TANIMLI her boş
+                    // alan da silinir → son kullanıcı asla "{proje_kodu}" görmez.
+                    // Katalogda olmayan token dokunulmaz (şablon hatası görünür kalır).
+                    return ($strictEmpty && self::bilinenAlanMi($key)) ? '' : $m[0];
                 }
 
                 return e($val);
@@ -1175,7 +1218,7 @@ CSS;
     {
         $surfaceRows = [];
         if ($app) {
-            $app->loadMissing(['institution', 'surfaceLines.surfaceType']);
+            $app->loadMissing(['institution', 'surfaceLines.surfaceType', 'gisNoktalari']);
             foreach ($app->surfaceLines ?? [] as $sl) {
                 if (! $sl->surfaceType) {
                     continue;
@@ -1199,10 +1242,20 @@ CSS;
         $teminat = $app ? $app->teminat_amount : '0,00';
         $genelToplam = $app ? $app->general_total : '0,00';
 
+        // ÇÖZÜM_11A §5 — Ruhsat bilgi satırları başvurudan doğru kolonlarla okunur:
+        // $app->address diye bir kolon YOKTU (her zaman '-' basıyordu) → address_text,
+        // muhtelif başvuruda ise belge dilindeki "MUHTELİF CADDE VE SOKAK" ibaresi.
+        $adres = '';
+        if ($app) {
+            $adres = $app->streetCount() > 1
+                ? 'MUHTELİF CADDE VE SOKAK'
+                : trim(strip_tags((string) ($app->address_text ?? '')));
+        }
+
         $info = [
             ['TALEP SAHİBİ', $app?->institution?->name ?? 'KURUM ADI', '', '', '', ''],
-            ['İLÇE', 'EYYÜBİYE', '', '', '', ''],
-            ['ADRES', $app?->address ?? '-', '', '', '', ''],
+            ['İLÇE', $app?->district_name ?? 'EYYÜBİYE', '', '', '', ''],
+            ['ADRES', $adres !== '' ? $adres : '-', '', '', '', ''],
         ];
 
         $header = ['AÇILACAK ZEMİN', 'BİRİM', 'MİKTAR', 'TUTAR', 'DİĞER BEDELLER', 'TOPLAM'];
@@ -2006,7 +2059,9 @@ CSS;
         // BİLGİ KATMANI: şablondaki tüm {alan_adi} / {KURUM_ADI} / {DOGRULAMA_KODU}
         // yer tutucularını başvurunun kendi verisiyle doldurur (tüm belge tipleri).
         // Kullanıcı Bilgi Katmanı panelinden hangi alanı nereye koyacağını seçer.
-        $html = self::hydrateTemplateTokens($html, $app, $type);
+        // ÇÖZÜM_11A §2: burası GERÇEK çıktı yolu (Görüntüle/Yazdır/PDF) → strict mod;
+        // katalogda tanımlı boş alanlar ham "{...}" basmaz.
+        $html = self::hydrateTemplateTokens($html, $app, $type, true);
 
         return $withStamp ? self::applyEImzaStamp($html, $app) : $html;
     }

@@ -63,11 +63,25 @@
         // kendi (firma/sorumlu) hücrelerine dokunabilir. Makam hücreleri belediyeye kilitli.
         // KURUM İMZA TABANI: signatureSaveBase() belediyeye açık üretim için forceMuni gönderir.
         $isMuni = ($forceMuni ?? false) || (auth()->check() && auth()->user()->isMunicipalityPersonel());
-        $application->loadMissing(['institution', 'surfaceLines.surfaceType']);
+        $application->loadMissing(['institution', 'surfaceLines.surfaceType', 'creator', 'gisNoktalari']);
         $sl = collect($application->surfaceLines)->keyBy(function($item) { return trim(mb_strtoupper($item->surfaceType->name ?? '', 'UTF-8')); });
         if (! function_exists('sv')) {
             function sv($sl, $isim) { return isset($sl[$isim]) ? $sl[$isim] : null; }
         }
+
+        // ÇÖZÜM_11A §5 — Başvuru bilgileri eksik geliyordu: şablon $application->project_name
+        // okuyordu, oysa applications tablosunda böyle bir kolon YOK (kolonlar: excavation_reason,
+        // work_type, description). ADA/PARSEL de başvuruda değil GIS noktalarında tutuluyor.
+        $acimAmaci = trim((string) ($application->excavation_reason
+            ?: $application->work_type
+            ?: $application->description));
+        $parselNoktasi = collect($application->gisNoktalari ?? [])
+            ->first(fn ($n) => filled($n->ada ?? null) || filled($n->parsel ?? null));
+        // TANZİM EDEN: kuyruk/konsol (auth yok) yolunda sabit kişi adı basılmaz;
+        // başvuruyu oluşturan kullanıcıya, o da yoksa boşa düşer.
+        $tanzimEden = $application->institution
+            ? (auth()->user()->name ?? $application->creator?->name ?? '')
+            : ($application->applicant_name ?? $application->creator?->name ?? '');
     @endphp
 
     <div class="print-bar no-print">
@@ -99,10 +113,10 @@
             <tr><td class="font-bold">ADRES</td><td colspan="5"><span contenteditable="true">: {{ $application->isMuhtelif() ? 'MUHTELİF CADDE VE SOKAK' : mb_substr(strip_tags($application->address_text ?? ''), 0, 95) }}</span></td></tr>
             <tr>
                 <td class="font-bold">AÇIM AMACI</td>
-                <td colspan="2" style="width: 40%;"><span contenteditable="{{ $isMuni ? 'true' : 'false' }}">: {{ mb_strtoupper($application->project_name ?? '', 'UTF-8') }}</span></td>
-                <td class="font-bold text-center" style="width: 14%;"><span contenteditable="{{ $isMuni ? 'true' : 'false' }}">ADA NO : {{ $application->ada ?? '' }}</span></td>
-                <td class="font-bold text-center" style="width: 13%;"><span contenteditable="{{ $isMuni ? 'true' : 'false' }}">PAR NO : {{ $application->parsel ?? '' }}</span></td>
-                <td class="font-bold text-center" style="width: 13%;"><span contenteditable="{{ $isMuni ? 'true' : 'false' }}">EV NO : {{ $application->ev_no ?? '' }}</span></td>
+                <td colspan="2" style="width: 40%;"><span contenteditable="{{ $isMuni ? 'true' : 'false' }}">: {{ mb_strtoupper($acimAmaci, 'UTF-8') }}</span></td>
+                <td class="font-bold text-center" style="width: 14%;"><span contenteditable="{{ $isMuni ? 'true' : 'false' }}">ADA NO : {{ $parselNoktasi->ada ?? '' }}</span></td>
+                <td class="font-bold text-center" style="width: 13%;"><span contenteditable="{{ $isMuni ? 'true' : 'false' }}">PAR NO : {{ $parselNoktasi->parsel ?? '' }}</span></td>
+                <td class="font-bold text-center" style="width: 13%;"><span contenteditable="{{ $isMuni ? 'true' : 'false' }}">EV NO : </span></td>
             </tr>
         </table>
 
@@ -115,7 +129,7 @@
             </tr>
             <tr>
                 <td class="font-bold">TANZİM EDEN</td>
-                <td class="font-bold" contenteditable="{{ $isMuni ? 'true' : 'false' }}">: {{ $application->institution ? (mb_strtoupper(auth()->user()->name ?? 'OSMAN ZAMAN', 'UTF-8')) : (mb_strtoupper($application->applicant_name ?? 'OSMAN ZAMAN', 'UTF-8')) }}</td>
+                <td class="font-bold" contenteditable="{{ $isMuni ? 'true' : 'false' }}">: {{ mb_strtoupper($tanzimEden, 'UTF-8') }}</td>
                 <td class="font-bold text-right" style="border-right:none;">TANZİM TARİHİ</td>
                 <td class="font-bold text-left" style="border-left:none;" contenteditable="{{ $isMuni ? 'true' : 'false' }}">: {{ date('d.m.Y') }}</td>
             </tr>

@@ -1672,6 +1672,8 @@
             var kdv = ztb * MATH_KDV;
             var harci = isDicle ? 0 : toplamMiktar * MATH_HARC_PER_M2;
             var kesif = MATH_KESIF_BASE + ztb * MATH_KESIF_RATE;
+            // ÇÖZÜM_11A §4 — metraj hiç yoksa keşif de 0 (AykomeMath ile birebir ayna).
+            if (!(toplamMiktar > 0 || ztb > 0)) kesif = 0;
             var ztbToplam = ztb + kdv + harci + kesif;
             var teminat = (instApp || addPerm) ? 0 : ztb * MATH_TEMINAT_RATE;
             var genel = ztbToplam + teminat;
