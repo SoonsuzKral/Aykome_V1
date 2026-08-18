@@ -144,7 +144,7 @@ class ProcessController extends Controller
     {
         // Varsayılan süreç silinemez — önce başka bir süreci varsayılan yap
         if ($process->is_default) {
-            return back()->with('error', "\"{$process->name}\" varsayılan süreç olduğu için silinemez. Önce başka bir süreci varsayılan yapın.');
+            return back()->with('error', "\"{$process->name}\" varsayılan süreç olduğu için silinemez. Önce başka bir süreci varsayılan yapın.");
         }
 
         // Bu sürece bağlı başvuru sayısını kontrol et
