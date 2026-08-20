@@ -55,7 +55,7 @@ services:
       - REDIS_PASSWORD=null
       - SESSION_DRIVER=redis
       - CACHE_DRIVER=redis
-      - BROADCAST_CONNECTION=redis
+      - BROADCAST_CONNECTION=log
       - LOG_CHANNEL=daily
       - MIX_PUSHER_APP_KEY="${MIX_PUSHER_APP_KEY}"
       - MIX_PUSHER_APP_CLUSTER="${MIX_PUSHER_APP_CLUSTER}"
@@ -76,6 +76,7 @@ services:
       DB_PASSWORD: aykome123
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      REDIS_CLIENT: predis
     command: ["tail", "-f", "/dev/null"]
 
   serve:
