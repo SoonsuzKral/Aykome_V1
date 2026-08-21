@@ -36,6 +36,8 @@ class ProcessEngine
      */
     public const LEGACY_FIELDS = [
         'staff' => ['by' => 'staff_approved_by', 'at' => 'staff_approved_at'],
+        'sef' => ['by' => 'sef_approved_by', 'at' => 'sef_approved_at'],
+        'mudur' => ['by' => 'mudur_approved_by', 'at' => 'mudur_approved_at'],
         'director' => ['by' => 'director_approved_by', 'at' => 'director_approved_at'],
         'vice_mayor' => ['by' => 'vice_mayor_approved_by', 'at' => 'vice_mayor_approved_at'],
     ];

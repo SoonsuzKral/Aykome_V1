@@ -370,9 +370,7 @@ class ProcessController extends Controller
 
         // For Inertia requests, redirect back with flash data
         // The new_step will be available in page.props.flash.new_step on the client
-        return back()->with('new_step', $step);
-
-        return back()->with('success', "Adım \"{$data['name']}\" silsileye eklendi.");
+        return back()->with('new_step', $step)->with('success', "Adım \"{$data['name']}\" silsileye eklendi.");
     }
 
     public function updateStep(Request $request, ProcessStep $step): RedirectResponse

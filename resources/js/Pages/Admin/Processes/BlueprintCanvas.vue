@@ -574,7 +574,8 @@ function openAddStep() {
 
 function closeAddStep() {
     showAddStep.value = false;
-    editingStep.value = null;
+    // editingStep.value'i burada temizlemiyoruz — sadece formu kapatıyoruz.
+    // editingStep, sadece adım silindiğinde veya tamamen另行 temizlenmeli.
 }
 
 function saveStep() {
