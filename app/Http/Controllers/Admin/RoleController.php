@@ -86,4 +86,24 @@ class RoleController extends Controller
 
         return redirect()->route('admin.roles.index')->with('success', 'Rol güncellendi.');
     }
+
+    public function destroy(Role $role): RedirectResponse
+    {
+        $this->authorize('delete', $role);
+
+        // Super-admin rolünü yalnızca super-admin silebilir
+        if ($role->name === 'super-admin' && ! auth()->user()->hasRole('super-admin')) {
+            abort(403, 'Bu rolü silme yetkiniz yok.');
+        }
+
+        // Rolün atanmış kullanıcıları var mı kontrol et
+        if ($role->users()->count() > 0) {
+            return redirect()->route('admin.roles.index')
+                ->with('error', 'Bu role ait ' . $role->users()->count() . ' kullanıcı bulunmaktadır. Önce kullanıcıların rollerini değiştirin.');
+        }
+
+        $role->delete();
+
+        return redirect()->route('admin.roles.index')->with('success', 'Rol silindi.');
+    }
 }

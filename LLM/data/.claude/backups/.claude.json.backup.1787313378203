@@ -1,0 +1,44 @@
+{
+  "numStartups": 1,
+  "tipsHistory": {
+    "new-user-warmup": 1,
+    "plan-mode-for-complex-tasks": 1
+  },
+  "firstStartTime": "2026-08-21T11:53:56.571Z",
+  "machineID": "ae61af93f05a579295631080dade0fd61a6358b1b5bbe7b11e5cccb47e242772",
+  "opusProMigrationComplete": true,
+  "sonnet1m45MigrationComplete": true,
+  "seenNotifications": {},
+  "hasResetAutoModeOptInForDefaultOffer": true,
+  "migrationVersion": 13,
+  "userID": "c04037fb972bedb2dc4dca5ccc1c35810d7a7cf77266cac8dff3b43f71807e82",
+  "changelogLastFetched": 1787313237134,
+  "hasCompletedOnboarding": true,
+  "lastOnboardingVersion": "2.1.231",
+  "projects": {
+    "C:/": {
+      "allowedTools": [],
+      "mcpContextUris": [],
+      "mcpServers": {},
+      "enabledMcpjsonServers": [],
+      "disabledMcpjsonServers": [],
+      "hasTrustDialogAccepted": true,
+      "projectOnboardingSeenCount": 1,
+      "hasClaudeMdExternalIncludesApproved": false,
+      "hasClaudeMdExternalIncludesWarningShown": false,
+      "lastGracefulShutdown": false,
+      "lastVersionBase": "2.1.231"
+    }
+  },
+  "lastReleaseNotesSeen": "2.1.231",
+  "tipLifetimeShownCounts": {
+    "new-user-warmup": 1,
+    "plan-mode-for-complex-tasks": 1
+  },
+  "officialMarketplaceAutoInstallAttempted": true,
+  "officialMarketplaceAutoInstalled": false,
+  "officialMarketplaceAutoInstallFailReason": "unknown",
+  "officialMarketplaceAutoInstallRetryCount": 1,
+  "officialMarketplaceAutoInstallLastAttemptTime": 1787313262678,
+  "officialMarketplaceAutoInstallNextRetryTime": 1787320462678
+}

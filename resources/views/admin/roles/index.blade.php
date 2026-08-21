@@ -239,6 +239,13 @@
                     <td class="px-4 py-3 text-slate-600">{{ $roleRow->permissions_count }}</td>
                     <td class="px-4 py-3 text-right">
                         <a href="{{ route('admin.roles.edit', $roleRow) }}" class="text-emerald-700 hover:underline">Düzenle</a>
+                        @if($roleRow->name !== 'super-admin')
+                            <form method="POST" action="{{ route('admin.roles.destroy', $roleRow) }}" class="inline ml-2" onsubmit="return confirm('Bu rolü silmek istediğinize emin misiniz?');">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="text-red-600 hover:text-red-800 hover:underline">Sil</button>
+                            </form>
+                        @endif
                     </td>
                 </tr>
             @endforeach

@@ -180,7 +180,7 @@ Route::middleware(['auth', 'license', 'field-team-scope', 'makam-only'])->prefix
     Route::middleware('permission:users.manage')->group(function () {
         Route::post('users/data', [UserController::class, 'data'])->name('users.data');
         Route::resource('users', UserController::class);
-        Route::resource('roles', RoleController::class)->except(['show', 'destroy']);
+        Route::resource('roles', RoleController::class)->except(['show']);
     });
 
     Route::middleware('permission:licenses.manage')->group(function () {
