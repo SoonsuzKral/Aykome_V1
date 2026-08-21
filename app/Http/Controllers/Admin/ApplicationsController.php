@@ -386,22 +386,35 @@ class ApplicationsController extends Controller
             ? Institution::query()->where('is_municipality', false)->whereKeyNot($application->institution_id)->orderBy('name')->get(['id', 'name'])
             : collect();
 
-        $engine = app(ProcessEngine::class);
-        $currentStep = $engine->currentStep($application);
+        // ─── MERKEZ BELEDİYE BYPASS ─────────────────────────────────
+        // Merkez Belediye başvurularında süreç ATLANIR: tüm modüller
+        // baştan açık, onay/adım kısıtı uygulanmaz.
+        $isMuniApp = (bool) ($application->institution?->is_municipality ?? false);
+        $engine = null;
 
-        // 16.08 ÇOKLU İMZA GÖSTERGESİ: tüm süreç adımları + her birinin durumu
-        // (tamamlandı / aktif / bekliyor) — "kaç kişi imzalayacak, hangi sırada"
-        // sorusuna görsel cevap. show.blade.php "📋 Onay Rotası" panelinde kullanılır.
-        $allSteps = $engine->steps(null, $application);
-        $currentStepIndex = $currentStep ? $allSteps->search(fn ($s) => $s->id === $currentStep->id) : false;
-        $processSteps = $allSteps->values()->map(function ($step, $idx) use ($currentStepIndex) {
-            return [
-                'step' => $step,
-                'durum' => $currentStepIndex === false
-                    ? 'bekliyor'
-                    : ($idx < $currentStepIndex ? 'tamamlandi' : ($idx === $currentStepIndex ? 'aktif' : 'bekliyor')),
-            ];
-        });
+        if ($isMuniApp) {
+            $currentStep = null;
+            $processSteps = [];
+            $processCurrentStepIsFinal = false;
+        } else {
+            $engine = app(ProcessEngine::class);
+            $currentStep = $engine->currentStep($application);
+
+            // 16.08 ÇOKLU İMZA GÖSTERGESİ: tüm süreç adımları + her birinin durumu
+            // (tamamlandı / aktif / bekliyor) — "kaç kişi imzalayacak, hangi sırada"
+            // sorusuna görsel cevap. show.blade.php "📋 Onay Rotası" panelinde kullanılır.
+            $allSteps = $engine->steps(null, $application);
+            $currentStepIndex = $currentStep ? $allSteps->search(fn ($s) => $s->id === $currentStep->id) : false;
+            $processSteps = $allSteps->values()->map(function ($step, $idx) use ($currentStepIndex) {
+                return [
+                    'step' => $step,
+                    'durum' => $currentStepIndex === false
+                        ? 'bekliyor'
+                        : ($idx < $currentStepIndex ? 'tamamlandi' : ($idx === $currentStepIndex ? 'aktif' : 'bekliyor')),
+                ];
+            });
+            $processCurrentStepIsFinal = $currentStep ? $engine->isLastStep($application) : false;
+        }
 
         return view('admin.applications.show', [
             'application' => $application,
@@ -760,21 +773,21 @@ class ApplicationsController extends Controller
             }
         } else {
             // Eski sistem için fallback
-            $stage = $application->approval_stage ?? 'staff';
+            $stage = $application->approval_stage ?? 'buro_personeli';
             $this->authorize(match ($stage) {
-                'director'   => 'approveDirector',
-                'vice_mayor' => 'approveViceMayor',
-                default      => 'approveStaff',
+                'director'           => 'approveDirector',
+                'baskan_yardimcisi'  => 'approveViceMayor',
+                default              => 'approveStaff',
             }, $application);
         }
         
-        $stage = $application->approval_stage ?? 'staff';
+        $stage = $application->approval_stage ?? 'buro_personeli';
 
-        $viceMayorName = $stage === 'vice_mayor' ? trim((string) $request->input('vice_mayor_name')) : null;
+        $viceMayorName = $stage === 'baskan_yardimcisi' ? trim((string) $request->input('vice_mayor_name')) : null;
 
         // Başkan Yrd. adı boş bırakılırsa global makam ayarından çekilir;
         // ayar da yoksa boş string ile onay zorla ilerletilir (onay asla bloke olmaz).
-        if ($stage === 'vice_mayor' && $viceMayorName === '') {
+        if ($stage === 'baskan_yardimcisi' && $viceMayorName === '') {
             $setting = SignatoryEngine::resolve('pre_permit', $application->institution_id, 'belediye_baskan_yardimcisi');
             $viceMayorName = $setting?->ad_soyad ?? '';
         }
@@ -782,9 +795,10 @@ class ApplicationsController extends Controller
         $service->advanceApproval($request->user(), $application, $viceMayorName);
 
         $message = match ($stage) {
-            'staff'      => 'Onay alındı. Başvuru Müdür onayına gönderildi.',
-            'director'   => 'Müdür onayı alındı. Başvuru Başkan Yardımcısı onayına gönderildi.',
-            default      => 'Ön kazı izni onaylandı.',
+            'buro_personeli'     => 'Onay alındı. Başvuru Şef onayına gönderildi.',
+            'sef'                => 'Şef onayı alındı. Başvuru Müdür onayına gönderildi.',
+            'director'           => 'Müdür onayı alındı. Başvuru Başkan Yardımcısı onayına gönderildi.',
+            default              => 'Ön kazı izni onaylandı.',
         };
 
         AuditLogger::log('pre_excavation.approve', "Ön kazı onay akışı ilerledi: {$application->application_no} ({$stage})", 'Application', $application->id);

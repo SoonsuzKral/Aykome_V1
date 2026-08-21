@@ -354,12 +354,14 @@
                     @endif
                     @if(!$application->institution?->is_municipality && in_array($st, ['draft', 'submitted', 'pending']))
                     @php
-                        $onayStage = $application->approval_stage ?? 'staff';
+                        $onayStage = $application->approval_stage ?? 'buro_personeli';
                         $onayMeta = [
-                            'staff'      => ['label' => 'Personel Onayı', 'class' => 'bg-sky-100 text-sky-700'],
-                            'director'   => ['label' => 'Müdür Onayı',    'class' => 'bg-indigo-100 text-indigo-700'],
-                            'vice_mayor' => ['label' => 'Başkan Yrd.',    'class' => 'bg-amber-100 text-amber-700'],
-                            'approved'   => ['label' => 'Onaylandı',      'class' => 'bg-emerald-100 text-emerald-700'],
+                            'buro_personeli'  => ['label' => 'Büro Personeli',    'class' => 'bg-sky-100 text-sky-700'],
+                            'sef'             => ['label' => 'Şef Onayı',         'class' => 'bg-cyan-100 text-cyan-700'],
+                            'mudur'           => ['label' => 'Müdür Onayı',       'class' => 'bg-indigo-100 text-indigo-700'],
+                            'director'        => ['label' => 'Müdür Onayı',       'class' => 'bg-indigo-100 text-indigo-700'],
+                            'baskan_yardimcisi' => ['label' => 'Başkan Yrd.',     'class' => 'bg-amber-100 text-amber-700'],
+                            'approved'        => ['label' => 'Onaylandı',         'class' => 'bg-emerald-100 text-emerald-700'],
                         ];
                         $onay = $onayMeta[$onayStage] ?? ['label' => ucfirst($onayStage), 'class' => 'bg-slate-100 text-slate-700'];
                     @endphp
@@ -940,7 +942,7 @@
                 // ─── MERKEZ BELEDİYE BYPASS ─────────────────────────────────
                 // Merkez Belediye başvurusunda süreç ATLANIR, tüm modüller
                 // baştan açıktır — mevcut adım son adıma eşitlenir.
-                if ($isMuniApp && $st === 'approved') {
+                if ($isMuniApp && $st !== 'draft') {
                     $currentStepNum = count($workflowSteps);
                 }
             @endphp
@@ -1221,7 +1223,7 @@
                                         @endif
 
                                         @if($isAltKurum && !$kullaniciBelediyeMi)
-                                            @php $onayStage = $application->approval_stage ?? ($processCurrentStep?->role_key ?? 'staff'); @endphp
+                                            @php $onayStage = $application->approval_stage ?? ($processCurrentStep?->role_key ?? 'buro_personeli'); @endphp
 
                                             {{-- Süreç & Onay Rotası: action_type'a göre dinamik buton --}}
                                             @php $actionType = $processCurrentStep?->action_type ?? 'onay'; @endphp
@@ -1303,7 +1305,7 @@
 
                                         {{-- ===== BELEDiYE KULLANICISI: ONAY ROTASI BURAYA ===== --}}
                                         @if(!$isUserInstitution && $isAltKurum && in_array($st, ['submitted']))
-                                            @php $onayStage = $application->approval_stage ?? ($processCurrentStep?->role_key ?? 'staff'); @endphp
+                                            @php $onayStage = $application->approval_stage ?? ($processCurrentStep?->role_key ?? 'buro_personeli'); @endphp
                                             @php $actionType = $processCurrentStep?->action_type ?? 'onay'; @endphp
 
                                             <div class="mb-3 rounded-xl border border-cyan-300 bg-cyan-50 p-3">
