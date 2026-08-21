@@ -35,11 +35,11 @@ class ProcessEngine
      * Legacy onay kolonları — role_key → applications kolonları eşlemesi.
      */
     public const LEGACY_FIELDS = [
-        'staff' => ['by' => 'staff_approved_by', 'at' => 'staff_approved_at'],
+        'buro_personeli' => ['by' => 'staff_approved_by', 'at' => 'staff_approved_at'],
         'sef' => ['by' => 'sef_approved_by', 'at' => 'sef_approved_at'],
         'mudur' => ['by' => 'mudur_approved_by', 'at' => 'mudur_approved_at'],
         'director' => ['by' => 'director_approved_by', 'at' => 'director_approved_at'],
-        'vice_mayor' => ['by' => 'vice_mayor_approved_by', 'at' => 'vice_mayor_approved_at'],
+        'baskan_yardimcisi' => ['by' => 'vice_mayor_approved_by', 'at' => 'vice_mayor_approved_at'],
     ];
 
     public function activeProcess(): ?ProcessDefinition
@@ -424,16 +424,15 @@ class ProcessEngine
     {
         $labels = [
             'super-admin'          => 'Süper Admin',
+            'mudur'                => 'Fen İşleri Müdürü',
+            'sef'                  => 'Aykome Birim Şefi',
+            'buro_personeli'       => 'Büro Personeli',
+            'baskan_yardimcisi'    => 'Belediye Başkan Yardımcısı',
+            'alt_kurum'            => 'Alt Kurum',
             'municipality-admin'   => 'Belediye Yöneticisi',
-            'municipality-staff'   => 'Belediye Personeli',
             'institution-manager'  => 'Kurum Yöneticisi',
             'institution-staff'    => 'Kurum Personeli',
             'field-team'           => 'Saha Personeli',
-            'institution-admin'    => 'Kurum Yöneticisi (Üst)',
-            'municipality-buro'   => 'Büro Personeli',
-            'municipality-sef'    => 'Aykome Birim Şefi',
-            'municipality-mudur'  => 'Fen İşleri Müdürü',
-            'municipality-makam'  => 'Belediye Başkan Yardımcısı',
         ];
 
         $roles = Role::query()->orderBy('name')->pluck('name', 'name')->all();
@@ -451,9 +450,11 @@ class ProcessEngine
         $step = $stage ? $this->steps()->firstWhere('role_key', $stage) : null;
 
         return $step?->name ?? (match ($stage) {
-            'staff' => 'Büro Personeli Onayı',
+            'buro_personeli' => 'Büro Personeli Onayı',
+            'sef' => 'Şef Onayı',
+            'mudur' => 'Müdür Onayı',
             'director' => 'Müdür Onayı',
-            'vice_mayor' => 'Başkan Yrd. Onayı',
+            'baskan_yardimcisi' => 'Başkan Yrd. Onayı',
             'approved' => 'Onaylandı',
             default => 'Beklemede',
         });

@@ -33,9 +33,11 @@ class SignerPlacementService
      * Varsayılan süreç: staff (Büro) -> director (Aykome Şefi) -> vice_mayor (Makam).
      */
     private const STEP_TO_PLACEHOLDER = [
-        'staff'       => 'aykome_sorumlusu',
-        'director'    => 'fen_isleri_muduru',
-        'vice_mayor'  => 'belediye_baskan_yardimcisi',
+        'buro_personeli'    => 'aykome_sorumlusu',
+        'sef'               => 'aykome_sorumlusu',
+        'director'          => 'fen_isleri_muduru',
+        'mudur'             => 'fen_isleri_muduru',
+        'baskan_yardimcisi' => 'belediye_baskan_yardimcisi',
     ];
 
     /**
@@ -78,7 +80,7 @@ class SignerPlacementService
                 continue;
             }
 
-            if ($roleKey === 'vice_mayor' && ! empty($application->vice_mayor_name)) {
+            if ($roleKey === 'baskan_yardimcisi' && ! empty($application->vice_mayor_name)) {
                 // BAŞKAN YARDIMCISI: formda/e-imza öncesi promptta kullanıcının
                 // girdiği ad (vice_mayor_name) HER ZAMAN kullanılır. Bu genelde
                 // VEKALETEN bir imzadır (ör. Müdür, Ön Kazı İznini "Başkan a."

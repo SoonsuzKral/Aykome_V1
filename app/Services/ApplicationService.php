@@ -205,7 +205,8 @@ class ApplicationService
         }
 
         $message = match ($result['stage']) {
-            'staff' => 'Onay alındı. Başvuru Müdür onayına gönderildi.',
+            'buro_personeli' => 'Onay alındı. Başvuru Şef onayına gönderildi.',
+            'sef' => 'Şef onayı alındı. Başvuru Müdür onayına gönderildi.',
             'director' => 'Müdür onayı alındı. Başvuru Başkan Yardımcısı onayına gönderildi.',
             default => $result['finished']
                 ? 'Ön kazı izni onaylandı.'
@@ -312,7 +313,7 @@ class ApplicationService
 
         $application->update([
             'status' => ApplicationStatus::Submitted,
-            'approval_stage' => $firstStep?->role_key ?? 'staff',
+            'approval_stage' => $firstStep?->role_key ?? 'buro_personeli',
         ]);
 
         $this->pricingService->recalculateTotals($application);
