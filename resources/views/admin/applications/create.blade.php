@@ -910,7 +910,16 @@
             var varMi = surfaceLines.some(function (r) {
                 return String(r.address || '').trim().toUpperCase() === adres.toUpperCase();
             });
-            if (!varMi) addSurfaceLine({ address: adres });
+            if (!varMi) {
+                // Yeni adres eklenmeden ÖNCE: tam olarak 1 tane BOŞ (adres/pin olmayan) satır varsa sil
+                var emptyRows = surfaceLines.filter(function (r) {
+                    return !r.address && !rowDrawings[r.rowId];
+                });
+                if (emptyRows.length === 1) {
+                    removeSurfaceLine(emptyRows[0].rowId);
+                }
+                addSurfaceLine({ address: adres });
+            }
         }
 
         // Satırdaki 📍 ikonu — cadde listesindeki 📍 ile aynı mantık:
