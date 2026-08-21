@@ -703,7 +703,8 @@
 
             var kdv = ztb * 0.20;
             var ruhsatHarci = isDicleElektrik ? 0 : toplamMiktar * 9;
-            var kesifBedeli = 361 + (ztb * 0.01);
+            // ÇÖZÜM_11A §4: metraj hiç girilmemişse keşif bedeli 0
+            var kesifBedeli = (toplamMiktar > 0 || ztb > 0) ? 361 + (ztb * 0.01) : 0;
             var ztbToplam = ztb + kdv + ruhsatHarci + kesifBedeli;
             var teminat = isInstitutionUser ? 0 : ztb * 0.50;
             var genelToplam = ztbToplam + teminat;
