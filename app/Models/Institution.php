@@ -42,4 +42,13 @@ class Institution extends Model
     {
         return $this->hasMany(Application::class);
     }
+
+    /**
+     * Bu kurum Merkez Belediye mi? (is_municipality=true && slug=belediye)
+     * Merkez Belediye için süreç atlanır, tüm modüller baştan açıktır.
+     */
+    public function isMerkezBelediye(): bool
+    {
+        return (bool) $this->is_municipality && $this->slug === 'belediye';
+    }
 }

@@ -936,6 +936,13 @@
                 if ($kullaniciBelediyeMi && $isAltKurum && $st === 'submitted') {
                     $currentStepNum = 2;
                 }
+
+                // ─── MERKEZ BELEDİYE BYPASS ─────────────────────────────────
+                // Merkez Belediye başvurusunda süreç ATLANIR, tüm modüller
+                // baştan açıktır — mevcut adım son adıma eşitlenir.
+                if ($isMuniApp && $st === 'approved') {
+                    $currentStepNum = count($workflowSteps);
+                }
             @endphp
 
             @foreach($workflowSteps as $num => $step)

@@ -289,6 +289,25 @@ class ApplicationService
     public function submit(User $user, Application $application): Application
     {
         $engine = app(ProcessEngine::class);
+
+        // ─── MERKEZ BELEDİYE BYPASS ──────────────────────────────────────
+        // Merkez Belediye başvurularında süreç ATLANIR — tüm modüller
+        // baştan açıktır, yalnızca Müdür e-imza adımı zorunludur.
+        $isMerkezBelediye = $application->institution && $application->institution->isMerkezBelediye();
+
+        if ($isMerkezBelediye) {
+            $application->update([
+                'status' => ApplicationStatus::Submitted,
+                'approval_stage' => 'approved',
+            ]);
+            $this->pricingService->recalculateTotals($application);
+            $this->log($application, $user, 'application.submitted', [], 'Başvuru belediyeye gönderildi (Merkez Belediye — süreç atlandı, tüm modüller açık)');
+
+            $fresh = $application->fresh(['institution', 'excavationAreas', 'surfaceLines.surfaceType', 'creator']);
+            ApplicationSubmitted::dispatch($fresh);
+            return $fresh;
+        }
+        // ─── NORMAL SÜREÇ AKIŞI ─────────────────────────────────────────
         $firstStep = $engine->steps(null, $application)->first() ?? $engine->firstStep();
 
         $application->update([
