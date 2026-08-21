@@ -109,7 +109,7 @@ class DocumentTemplateService
     /** Standalone PDF sarmalayıcısı için temel A4 + yazdırma çubuğu CSS'i. */
     protected const LAYOUT_CSS = <<<'CSS'
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #e5e7eb; padding-top: 0; display: block; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
+body { background: #e5e7eb; padding-top: 64px; display: block; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
 /* A4 kağıtlar DİKEY eksende alt alta (Word/PDF viewer düzeni) — block model, asla yan yana değil */
 .a4-container { background: #fff; width: 210mm; min-height: 297mm; padding: 18mm 20mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 0 auto; box-sizing: border-box; }
 /* ÜST ORTA PANEL — ÇÖZÜM_10 §3: eskiden position:fixed idi; akıştan çıktığı için
@@ -135,7 +135,7 @@ CSS;
     /** Landscape (metraj) A4 sarmalayıcı CSS'i. */
     protected const LAYOUT_CSS_LANDSCAPE = <<<'CSS'
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #e5e7eb; padding-top: 0; display: block; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
+body { background: #e5e7eb; padding-top: 64px; display: block; font-family: 'DejaVu Sans', 'Helvetica', sans-serif; }
 /* A4 kağıtlar DİKEY eksende alt alta (Word/PDF viewer düzeni) — block model, asla yan yana değil */
 .a4-container { background: #fff; width: 297mm; min-height: 210mm; padding: 12mm 14mm; box-shadow: 0 5px 15px rgba(0,0,0,0.4); margin: 0 auto; box-sizing: border-box; }
 /* ÜST ORTA PANEL — ÇÖZÜM_10 §3 (bkz. LAYOUT_CSS'teki ayrıntılı not): sticky,
