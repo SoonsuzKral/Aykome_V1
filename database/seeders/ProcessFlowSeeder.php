@@ -64,5 +64,55 @@ class ProcessFlowSeeder extends Seeder
                 'is_active' => true,
             ]));
         }
+
+        // ─── 2. Ödeme Üst Yazı Onay Süreci ────────────────────────────────
+        // CLAUDE.md: "var olan bir sürecin (örn. on_kazi) İÇİNE farklı bir
+        // modülün (örn. odeme_ust_yazi) adımlarını EKLEMEYİN". Bu yüzden
+        // tamamen ayrı bir ProcessDefinition. COZUM_11B / COZUM_12 GÖREV 3.
+        $odemeProcess = ProcessDefinition::query()->firstOrCreate(
+            ['slug' => 'odeme-ust-yazi-onay-mio6'],
+            [
+                'name' => 'Ödeme Üst Yazı Onay Süreci',
+                'description' => 'Ödeme Üst Yazı (e-imza) aşaması için ayrı, bağımsız süreç. on_kazi/pre_permit süreciyle paylaşmaz.',
+                'is_active' => true,
+                'is_default' => false,
+                'created_by' => null,
+            ]
+        );
+        $odemeProcess->update(['is_active' => true, 'is_default' => false]);
+
+        $odemeSteps = [
+            [
+                'name' => 'Ödeme Üst Yazı — Müdür E-İmza',
+                'role_key' => 'mudur',
+                'roles' => ['mudur'],
+                'approvable_modules' => ['odeme_ust_yazi'],
+                'action_type' => 'e_imza',
+                'signature_config' => ['pdf_type' => 'odeme_ust_yazi'],
+                'approval_config' => ['mode' => 'any'],
+                'canvas_x' => 100,
+                'canvas_y' => 100,
+            ],
+            [
+                'name' => 'Ödeme Üst Yazı — Bşk Yrd. E-İmza',
+                'role_key' => 'vice_mayor',
+                'roles' => ['vice_mayor'],
+                'approvable_modules' => ['odeme_ust_yazi'],
+                'action_type' => 'e_imza',
+                'signature_config' => ['pdf_type' => 'odeme_ust_yazi'],
+                'approval_config' => ['mode' => 'any'],
+                'canvas_x' => 100,
+                'canvas_y' => 100,
+            ],
+        ];
+
+        $odemeProcess->steps()->delete();
+        foreach ($odemeSteps as $order => $step) {
+            ProcessStep::query()->create(array_merge($step, [
+                'process_definition_id' => $odemeProcess->id,
+                'step_order' => $order + 1,
+                'is_active' => true,
+            ]));
+        }
     }
 }
