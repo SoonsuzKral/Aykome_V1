@@ -31,41 +31,19 @@
     </div>
 </div>
 
-{{-- Role filter pills --}}
-<div class="mb-4 flex flex-wrap gap-1.5" id="roleFilterBar">
-    @php
-        $roleFilters = [
-            ''                    => 'Tümü',
-            'super-admin'         => 'Super Admin',
-            'municipality-admin'  => 'Belediye Admin',
-            'municipality-staff'  => 'Belediye Personel',
-            'institution-manager' => 'Kurum Yöneticisi',
-            'institution-staff'   => 'Kurum Personeli',
-            'field-team'          => 'Saha Personeli',
-        ];
-    @endphp
-    @foreach($roleFilters as $val => $lbl)
-        <button type="button" data-role="{{ $val }}"
-            class="role-btn px-3 py-1.5 text-xs font-medium rounded-full border transition duration-150
-                   {{ $val === '' ? 'bg-[#FA6001] text-white border-[#FA6001] shadow-md' : 'border-gray-300 text-gray-600 hover:text-white hover:bg-[#FA6001] hover:border-[#FA6001]' }}">
-            {{ $lbl }}
-        </button>
-    @endforeach
-</div>
-
 {{-- DataTable --}}
 <div class="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-    <div class="overflow-x-auto">
-    <table id="usersTable" class="w-full border-collapse bg-white">
-        <thead>
+    <div class="overflow-auto max-h-screen">
+    <table id="usersTable" class="w-full border-collapse bg-white table-fixed">
+        <thead class="sticky top-0 z-10">
             <tr>
-                <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">#</th>
-                <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Ad Soyad</th>
-                <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">E-posta</th>
-                <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Kurum</th>
-                <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Roller</th>
-                <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">Durum</th>
-                <th class="bg-gray-50/50 px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200 no-sort">İşlem</th>
+                <th class="bg-gray-100 px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-200 w-12">#</th>
+                <th class="bg-gray-100 px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-200 w-40">Ad Soyad</th>
+                <th class="bg-gray-100 px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-200 w-48 hidden md:table-cell">E-posta</th>
+                <th class="bg-gray-100 px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-200 w-32">Kurum</th>
+                <th class="bg-gray-100 px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-200 w-36">Roller</th>
+                <th class="bg-gray-100 px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-200 w-16 hidden lg:table-cell">Durum</th>
+                <th class="bg-gray-100 px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide border-b border-gray-200 w-28">İşlem</th>
             </tr>
         </thead>
         <tbody></tbody>
@@ -81,7 +59,6 @@
 <script>
 const USERS_DATA_URL = '{{ route('admin.users.data') }}';
 const CSRF_TOKEN     = '{{ csrf_token() }}';
-let activeRole = '';
 let usersTable;
 
 function stylePagination() {
@@ -104,8 +81,10 @@ $(function () {
     usersTable = $('#usersTable').DataTable({
         processing : true,
         serverSide : true,
-        responsive : true,
+        responsive : false,
         searchDelay: 400,
+        scrollX: false,
+        autoWidth: false,
         ajax: {
             url : USERS_DATA_URL,
             type: 'POST',
@@ -115,32 +94,32 @@ $(function () {
             },
         },
         columns: [
-            { data: 0, title: '#',       width: '50px', className: 'font-mono text-xs text-gray-400' },
-            { data: 1, title: 'Ad',      className: 'font-semibold text-slate-800' },
-            { data: 2, title: 'E-posta', className: 'text-slate-500 text-xs' },
-            { data: 3, title: 'Kurum',   className: 'text-slate-600' },
-            { data: 4, title: 'Roller',  orderable: false },
-            { data: 5, title: 'Durum',   orderable: false },
+            { data: 0, title: '#',       className: 'font-mono text-xs text-gray-400' },
+            { data: 1, title: 'Ad',      className: 'font-semibold text-slate-800 text-sm' },
+            { data: 2, title: 'E-posta', className: 'text-slate-500 text-xs hidden md:table-cell' },
+            { data: 3, title: 'Kurum',   className: 'text-slate-600 text-xs' },
+            { data: 4, title: 'Roller',  orderable: false, className: 'text-xs' },
+            { data: 5, title: 'Durum',   orderable: false, className: 'hidden lg:table-cell' },
             {
                 data: 6, title: 'İşlem', orderable: false,
                 render: function (id) {
-                    return `<div class="flex items-center gap-2">
-                        <a href="/admin/users/${id}" class="inline-flex items-center rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50">Görüntüle</a>
-                        <a href="/admin/users/${id}/edit" class="inline-flex items-center rounded-md bg-[#02E0FB] px-2.5 py-1 text-xs font-medium text-white transition hover:opacity-90">Düzenle</a>
-                        <button onclick="deleteUser(${id})" class="text-red-600 hover:text-red-900 font-medium text-xs transition">Sil</button>
+                    return `<div class="flex items-center gap-1.5">
+                        <a href="/admin/users/${id}" class="inline-flex items-center rounded border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 whitespace-nowrap">Görüntüle</a>
+                        <a href="/admin/users/${id}/edit" class="inline-flex items-center rounded bg-[#02E0FB] px-2 py-1 text-xs font-medium text-white transition hover:opacity-90 whitespace-nowrap">Düzenle</a>
+                        <button onclick="deleteUser(${id})" class="text-red-600 hover:text-red-900 font-medium text-xs transition whitespace-nowrap">Sil</button>
                     </div>`;
                 },
             },
         ],
         createdRow: function (row) {
             $(row).addClass('hover:bg-gray-50/70 transition');
-            $('td', row).addClass('px-6 py-4 whitespace-nowrap text-sm border-b border-gray-100');
+            $('td', row).addClass('px-3 py-2.5 text-sm border-b border-gray-100 align-middle');
         },
         headerCallback: function (thead) {
             $(thead).find('th').addClass('bg-gray-50/50');
         },
         drawCallback : function () { stylePagination(); },
-        dom          : '<"flex flex-wrap items-center justify-between gap-3 mb-4 px-4 pt-4"lf><"rounded-xl border border-slate-200"rt><"flex flex-wrap items-center justify-between gap-3 mt-4 px-4 pb-4"ip>',
+        dom          : '<"flex flex-wrap items-center justify-between gap-3 mb-3 px-1 pt-3"lf><"rounded-xl border border-slate-200"rt><"flex flex-wrap items-center justify-between gap-3 mt-3 px-1 pb-3"ip>',
         language     : { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/tr.json' },
         order        : [[0, 'asc']],
         pageLength   : 15,

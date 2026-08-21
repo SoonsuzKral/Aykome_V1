@@ -76,86 +76,12 @@ class AykomeSeeder extends Seeder
         }
 
         // ─────────────────────────────────────────────────────────────────────
-        // 3 KATMANLI ROL HİYERARŞİSİ
-        //
-        // KATMAN 1 — Platform (HGB Bilişim Super Admin)
-        //   super-admin        → Tüm firmalara, lisanslara, kullanıcılara tam erişim.
-        //                        Dashboard: dashboard-superadmin (lisans & firma özeti)
-        //
-        // KATMAN 2 — Admin (Belediye / Kurum Yöneticileri)
-        //   municipality-admin → Kendi belediyesini tam yönetir. Fiyat/makbuz/ruhsat onayı.
-        //   municipality-staff → Başvuru oluşturur & onaylar. Kullanıcı yönetemez.
-        //   institution-manager→ TEDAŞ/ŞUSKİ yöneticisi. Kendi kurumunu tam yönetir.
-        //
-        // KATMAN 3 — Saha / Alt Kullanıcı
-        //   institution-staff  → Sadece başvuru oluşturur & düzenler.
-        //   field-team         → Atanmış görevleri görür, fotoğraf yükler.
-        //                        Dashboard: dashboard-field (basitleştirilmiş widget)
+        // TEK ROL — super-admin (tüm permission'lar)
+        // Diğer roller (municipality-admin, municipality-staff, institution-*,
+        // field-team, municipality-buro/sef/mudur/makam) tamamen silindi.
         // ─────────────────────────────────────────────────────────────────────
 
-        // KATMAN 1
         $superAdmin = Role::query()->firstOrCreate(['name' => 'super-admin', 'guard_name' => 'web']);
-
-        // KATMAN 2
-        $municipalityAdmin = Role::query()->firstOrCreate(['name' => 'municipality-admin', 'guard_name' => 'web']);
-        $municipalityStaff = Role::query()->firstOrCreate(['name' => 'municipality-staff', 'guard_name' => 'web']);
-        $institutionManager = Role::query()->firstOrCreate(['name' => 'institution-manager', 'guard_name' => 'web']);
-        $institutionAdmin = Role::query()->firstOrCreate(['name' => 'institution-admin', 'guard_name' => 'web']);
-
-        // KATMAN 3
-        $institutionStaff = Role::query()->firstOrCreate(['name' => 'institution-staff', 'guard_name' => 'web']);
-        $fieldTeam = Role::query()->firstOrCreate(['name' => 'field-team', 'guard_name' => 'web']);
-
-        $municipalityAdmin->syncPermissions([
-            'applications.view', 'applications.create', 'applications.edit', 'applications.delete',
-            'applications.approve_pre_excavation', 'applications.approve_price', 'applications.approve_receipt', 'applications.issue_license',
-            'tasks.transfer', 'surface_types.manage', 'users.manage', 'institutions.manage',
-            'users.view_all_scoped',
-            'reports.view', 'reports.advanced',
-            'document-settings.manage', 'document-templates.manage',
-            'processes.manage', 'processes.blueprint',
-            'makam.view',
-            'extra-permits.view',
-            // Teminat & Arıza Yönetimi
-            'deposits.view', 'deposits.manage',
-            'faults.view', 'faults.manage',
-            // PRO Modüller — belediye yöneticisi tam yetkili
-            'pro.live_map', 'pro.work_orders', 'pro.advanced_reports',
-            'pro.field_tracking', 'pro.field_reports', 'pro.evrak_tevdi',
-        ]);
-
-        $municipalityStaff->syncPermissions([
-            'applications.view', 'applications.create', 'applications.edit',
-            'applications.approve_pre_excavation', 'applications.approve_price', 'applications.approve_receipt',
-            'tasks.transfer',
-            'reports.view',
-        ]);
-
-        $institutionManager->syncPermissions([
-            'applications.view', 'applications.create', 'applications.edit', 'applications.delete',
-            'reports.view', 'reports.advanced',
-        ]);
-
-        $institutionAdmin->syncPermissions([
-            'applications.view', 'applications.create', 'applications.edit', 'applications.delete',
-            'users.manage', 'institutions.manage',
-            'reports.view', 'reports.advanced',
-            'pro.live_map', 'pro.field_tracking', 'pro.work_orders', 'pro.advanced_reports',
-            'pro.field_reports', 'pro.evrak_tevdi',
-        ]);
-
-        $institutionStaff->syncPermissions([
-            'applications.view', 'applications.create', 'applications.edit',
-            'reports.view',
-        ]);
-
-        $fieldTeam->syncPermissions([
-            'applications.view',
-            'field.tasks_view',
-            'field.upload_media',
-            'field.upload',   // geriye dönük uyumluluk
-        ]);
-
         $superAdmin->syncPermissions(Permission::query()->pluck('name'));
 
         $belediye = Institution::query()->firstOrCreate(
@@ -237,7 +163,7 @@ class AykomeSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-        $mAdmin->syncRoles(['municipality-admin']);
+        $mAdmin->syncRoles(['super-admin']);
 
         $kurum = User::query()->firstOrCreate(
             ['email' => 'tedas@aykome.local'],
@@ -248,7 +174,7 @@ class AykomeSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-        $kurum->syncRoles(['institution-staff']);
+        $kurum->syncRoles(['super-admin']);
 
         $saha = User::query()->firstOrCreate(
             ['email' => 'saha@aykome.local'],
@@ -259,6 +185,6 @@ class AykomeSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
-        $saha->syncRoles(['field-team']);
+        $saha->syncRoles(['super-admin']);
     }
 }

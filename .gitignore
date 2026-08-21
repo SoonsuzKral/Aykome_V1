@@ -64,3 +64,6 @@ check_mudur_step.php
 COZUM_07_YOL_HARITASI.md
 .opencode/
 aykome_export.log
+
+LLM/
+.claude/

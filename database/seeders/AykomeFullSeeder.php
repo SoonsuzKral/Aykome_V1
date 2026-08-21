@@ -96,18 +96,19 @@ class AykomeFullSeeder extends Seeder
             ['email' => 'admin@aykome.local'],
             ['name' => 'Süper Admin', 'password' => Hash::make('password'), 'institution_id' => $belediye->id, 'email_verified_at' => now()]
         );
+        $admin->syncRoles(['super-admin']);
 
         $field1 = User::firstOrCreate(
             ['email' => 'saha1@aykome.local'],
             ['name' => 'Kadir Şahin', 'password' => Hash::make('password'), 'institution_id' => $belediye->id, 'email_verified_at' => now()]
         );
-        $field1->syncRoles(['field-team']);
+        $field1->syncRoles(['super-admin']);
 
         $field2 = User::firstOrCreate(
             ['email' => 'saha2@aykome.local'],
             ['name' => 'Ömer Polat', 'password' => Hash::make('password'), 'institution_id' => $belediye->id, 'email_verified_at' => now()]
         );
-        $field2->syncRoles(['field-team']);
+        $field2->syncRoles(['super-admin']);
 
         // ─── 3. Surface Types ─────────────────────────────────────────────────
         $asfalt  = SurfaceType::firstOrCreate(['name' => 'Asfalt'], ['price_per_m2' => 100, 'active' => true]);
