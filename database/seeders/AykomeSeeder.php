@@ -67,6 +67,8 @@ class AykomeSeeder extends Seeder
             'field.tasks_view',
             'field.upload_media',
             'field.upload',   // geriye dönük uyumluluk
+            // Aykome Maps
+            'maps.view',
             // Oracle Veritabanı (Super Admin)
             'oracle.manage',
         ];

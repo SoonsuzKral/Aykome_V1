@@ -48,7 +48,7 @@ Route::get('/dashboard', function () {
     return redirect()->route('admin.dashboard');
 })->middleware(['auth'])->name('dashboard');
 
-Route::middleware(['auth'])->prefix('maps')->name('maps.')->group(function () {
+Route::middleware(['auth', 'permission:maps.view'])->prefix('maps')->name('maps.')->group(function () {
     Route::get('/',                          [MapsController::class, 'index'])->name('index');
     Route::get('/proxy',                     [MapsController::class, 'proxy'])->name('proxy');
     Route::post('/nokta-kaydet',             [MapsController::class, 'noktaKaydet'])->name('noktaKaydet');

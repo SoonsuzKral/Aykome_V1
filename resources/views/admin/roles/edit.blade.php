@@ -69,6 +69,9 @@
             'field.upload_media' => 'Fotoğraf Yükle',
             'field.upload'       => 'Medya Yükle (legacy)',
         ],
+        'HARİTA & CBS' => [
+            'maps.view' => 'Aykome Maps Görüntüle',
+        ],
         'ORACLE' => [
             'oracle.manage' => 'Oracle Veritabanı',
         ],
@@ -87,6 +90,7 @@
         'TEMİNAT & İADELER'       => ['badge' => 'bg-sky-100 text-sky-700 border-sky-200',           'check' => 'accent-sky-600'],
         'TOPLU ARIZA'             => ['badge' => 'bg-yellow-100 text-yellow-700 border-yellow-200',   'check' => 'accent-yellow-600'],
         'SAHA'                     => ['badge' => 'bg-emerald-100 text-emerald-700 border-emerald-200','check' => 'accent-emerald-600'],
+        'HARİTA & CBS'            => ['badge' => 'bg-teal-100 text-teal-700 border-teal-200',        'check' => 'accent-teal-600'],
         'ORACLE'                   => ['badge' => 'bg-red-100 text-red-700 border-red-200',           'check' => 'accent-red-600'],
     ];
 
