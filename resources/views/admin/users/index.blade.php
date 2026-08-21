@@ -89,8 +89,7 @@ $(function () {
             url : USERS_DATA_URL,
             type: 'POST',
             data: function (d) {
-                d._token      = CSRF_TOKEN;
-                d.role_filter = activeRole;
+                d._token = CSRF_TOKEN;
             },
         },
         columns: [
@@ -119,17 +118,10 @@ $(function () {
             $(thead).find('th').addClass('bg-gray-50/50');
         },
         drawCallback : function () { stylePagination(); },
-        dom          : '<"flex flex-wrap items-center justify-between gap-3 mb-3 px-1 pt-3"lf><"rounded-xl border border-slate-200"rt><"flex flex-wrap items-center justify-between gap-3 mt-3 px-1 pb-3"ip>',
+        dom          : '<"flex flex-wrap items-center justify-between gap-3 mb-3 px-1 pt-3"f><"rounded-xl border border-slate-200"rt><"flex flex-wrap items-center justify-between gap-3 mt-3 px-1 pb-3"ip>',
         language     : { url: 'https://cdn.datatables.net/plug-ins/1.13.8/i18n/tr.json' },
         order        : [[0, 'asc']],
         pageLength   : 15,
-    });
-
-    $('#roleFilterBar').on('click', '.role-btn', function () {
-        activeRole = $(this).data('role');
-        $('.role-btn').removeClass('bg-[#FA6001] text-white border-[#FA6001] shadow-md').addClass('border-gray-300 text-gray-600');
-        $(this).addClass('bg-[#FA6001] text-white border-[#FA6001] shadow-md').removeClass('border-gray-300 text-gray-600');
-        usersTable.ajax.reload();
     });
 
     $('#btn-refresh').on('click', function () {

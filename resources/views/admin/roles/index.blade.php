@@ -98,20 +98,13 @@
     ];
 
     $roleLabels = [
-        // Ana Roller (AykomeSeeder)
+        // Standart Roller (Migration ile oluşturulur — UI'dan DÜZENLENMEZ)
         'super-admin'          => ['label' => 'Süper Admin',              'badge' => 'SA',  'color' => 'text-purple-100  bg-gradient-to-br from-purple-700/60 to-fuchsia-700/50 border-purple-500/60'],
-        'municipality-admin'   => ['label' => 'Belediye Yöneticisi',       'badge' => 'BY',  'color' => 'text-blue-100    bg-gradient-to-br from-blue-700/60 to-cyan-700/50 border-blue-500/60'],
-        'municipality-staff'   => ['label' => 'Belediye Personeli',        'badge' => 'BP',  'color' => 'text-cyan-100    bg-gradient-to-br from-cyan-700/60 to-sky-700/50 border-cyan-500/60'],
-        'institution-manager'  => ['label' => 'Kurum Yöneticisi',         'badge' => 'KY',  'color' => 'text-teal-100    bg-gradient-to-br from-teal-700/60 to-emerald-700/50 border-teal-500/60'],
-        'institution-staff'    => ['label' => 'Kurum Personeli',           'badge' => 'KP',  'color' => 'text-emerald-100 bg-gradient-to-br from-emerald-700/60 to-green-700/50 border-emerald-500/60'],
-        'field-team'           => ['label' => 'Saha Personeli',           'badge' => 'SP',  'color' => 'text-green-100    bg-gradient-to-br from-green-700/60 to-lime-700/50 border-green-500/60'],
-        // Hiyerarşi Roller (ProcessFlowSeeder — Süreç Onay Rotası)
-        'municipality-buro'   => ['label' => 'Büro Personeli',            'badge' => 'BÜ',  'color' => 'text-yellow-100  bg-gradient-to-br from-yellow-700/60 to-amber-700/50 border-yellow-500/60'],
-        'municipality-sef'    => ['label' => 'Aykome Birim Şefi',        'badge' => 'ŞEF', 'color' => 'text-orange-100  bg-gradient-to-br from-orange-700/60 to-red-700/50 border-orange-500/60'],
-        'municipality-mudur'  => ['label' => 'Fen İşleri Müdürü',        'badge' => 'MÜD', 'color' => 'text-red-100     bg-gradient-to-br from-red-700/60 to-rose-700/50 border-red-500/60'],
-        'municipality-makam'  => ['label' => 'Belediye Başkan Yardımcısı','badge' => 'MKM', 'color' => 'text-rose-100    bg-gradient-to-br from-rose-700/60 to-pink-700/50 border-rose-500/60'],
-        // Kurum Yöneticisi (kodda referans verilen ama seeder'da oluşturulmayan rol)
-        'institution-admin'   => ['label' => 'Kurum Yöneticisi (Üst)',    'badge' => 'KÜ',  'color' => 'text-fuchsia-100 bg-gradient-to-br from-fuchsia-700/60 to-purple-700/50 border-fuchsia-500/60'],
+        'mudur'                => ['label' => 'Fen İşleri Müdürü',        'badge' => 'MÜD', 'color' => 'text-red-100     bg-gradient-to-br from-red-700/60 to-rose-700/50 border-red-500/60'],
+        'sef'                  => ['label' => 'Aykome Birim Şefi',        'badge' => 'ŞEF', 'color' => 'text-orange-100  bg-gradient-to-br from-orange-700/60 to-red-700/50 border-orange-500/60'],
+        'buro_personeli'       => ['label' => 'Büro Personeli',           'badge' => 'BÜR', 'color' => 'text-yellow-100  bg-gradient-to-br from-yellow-700/60 to-amber-700/50 border-yellow-500/60'],
+        'baskan_yardimcisi'    => ['label' => 'Başkan Yardımcısı',       'badge' => 'B.Y', 'color' => 'text-rose-100    bg-gradient-to-br from-rose-700/60 to-pink-700/50 border-rose-500/60'],
+        'alt_kurum'            => ['label' => 'Alt Kurum',                'badge' => 'A.K', 'color' => 'text-emerald-100 bg-gradient-to-br from-emerald-700/60 to-green-700/50 border-emerald-500/60'],
     ];
 @endphp
 
@@ -123,9 +116,9 @@
             ⚡ God-Mode
         </span>
     </div>
-    <a href="{{ route('admin.roles.create') }}" class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800">
-        + Yeni Rol
-    </a>
+    <div class="rounded-lg bg-amber-50 border border-amber-200 px-4 py-2 text-xs text-amber-800">
+        ⚠️ Roller migration ile yönetilir. Değiştirmek için <code>database/migrations/</code> klasöründeki dosyayı düzenleyin.
+    </div>
 </div>
 
 @if(session('success'))
@@ -145,7 +138,6 @@
             <div class="mx-auto mb-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-current/25 text-xs font-black">{{ $rl['badge'] }}</div>
             <p class="text-xs font-semibold leading-tight">{{ $rl['label'] }}</p>
             <p class="mt-1 text-[10px] opacity-80">{{ $role->permissions->count() }} izin</p>
-            <a href="{{ route('admin.roles.edit', $role) }}" class="mt-2 inline-block rounded-md bg-current/25 px-2 py-0.5 text-[10px] font-semibold hover:bg-current/40 transition">Düzenle</a>
         </div>
     @endforeach
 </div>
@@ -223,34 +215,32 @@
 
 {{-- Paginated Role List (alt kısım) --}}
 <div class="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-    <div class="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Rol Listesi & Düzenleme</div>
+    <div class="border-b border-slate-100 px-4 py-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Rol Tanımları</div>
     <table class="min-w-full divide-y divide-slate-200 text-sm">
         <thead class="bg-slate-50">
             <tr>
                 <th class="px-4 py-3 text-left font-medium text-slate-600">Rol</th>
+                <th class="px-4 py-3 text-left font-medium text-slate-600">Açıklama</th>
                 <th class="px-4 py-3 text-left font-medium text-slate-600">İzin sayısı</th>
-                <th class="px-4 py-3 text-right"></th>
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-            @foreach($roles as $roleRow)
+            @foreach($allRoles as $roleRow)
+                @php $rl = $roleLabels[$roleRow->name] ?? null; @endphp
                 <tr class="hover:bg-slate-50/80">
-                    <td class="px-4 py-3 font-medium text-slate-800">{{ $roleLabels[$roleRow->name]['label'] ?? $roleRow->name }}</td>
-                    <td class="px-4 py-3 text-slate-600">{{ $roleRow->permissions_count }}</td>
-                    <td class="px-4 py-3 text-right">
-                        <a href="{{ route('admin.roles.edit', $roleRow) }}" class="text-emerald-700 hover:underline">Düzenle</a>
-                        @if($roleRow->name !== 'super-admin')
-                            <form method="POST" action="{{ route('admin.roles.destroy', $roleRow) }}" class="inline ml-2" onsubmit="return confirm('Bu rolü silmek istediğinize emin misiniz?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="text-red-600 hover:text-red-800 hover:underline">Sil</button>
-                            </form>
-                        @endif
+                    <td class="px-4 py-3 font-medium text-slate-800">
+                        <span class="inline-flex items-center gap-2">
+                            @if($rl)
+                                <span class="inline-flex h-6 w-6 items-center justify-center rounded-full border {{ $rl['color'] }} text-[9px] font-black">{{ $rl['badge'] }}</span>
+                            @endif
+                            {{ $rl['label'] ?? $roleRow->name }}
+                        </span>
                     </td>
+                    <td class="px-4 py-3 text-slate-500 text-xs">{{ $roleRow->name }}</td>
+                    <td class="px-4 py-3 text-slate-600">{{ $roleRow->permissions_count }}</td>
                 </tr>
             @endforeach
         </tbody>
     </table>
-    <div class="border-t border-slate-100 px-4 py-3">{{ $roles->links() }}</div>
 </div>
 @endsection
