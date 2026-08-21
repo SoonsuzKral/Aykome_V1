@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'api/e-imza/tamamla',
             'api/e-imza/pdf/*',
+            'api/coordination',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
